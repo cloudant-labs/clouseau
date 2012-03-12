@@ -12,7 +12,6 @@ class Index(ctx: ServiceContext[IndexArgs]) extends Service(ctx) {
       val (owner, _) = tag
       links.remove(Link(self, owner))
       exit("closing")
-      'ok
     case ('update_document, term: (String, String), doc: Any) =>
       'ok
     case ('update_documents, term: (String, String), docs: Any) =>
