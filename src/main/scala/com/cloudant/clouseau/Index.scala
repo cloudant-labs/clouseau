@@ -13,6 +13,14 @@ class Index(ctx: ServiceContext[IndexArgs]) extends Service(ctx) {
       links.remove(Link(self, owner)) // unlink(owner) when it's fixed.
       exit("closing")
       'ok
+    case ('update_document, term: (String, String), doc: Any) =>
+      'ok
+    case ('update_documents, term: (String, String), docs: Any) =>
+      'ok
+    case ('delete_documents, term: (String, String)) =>
+      'ok
+    case ('search, query: String) =>
+      'ok
     case _ =>
       // Remove if Scalang gets supervisors.
       ('error, msg)
