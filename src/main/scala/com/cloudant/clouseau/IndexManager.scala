@@ -9,7 +9,8 @@ class IndexManager(ctx: ServiceContext[IndexManagerArgs]) extends Service(ctx) {
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
     case ('start_link, path: String, options: List[Any]) =>
       val pid = node.spawnService[Index, IndexArgs](IndexArgs(new File(path)))
-      node.link(pid, tag._1)
+      val (owner, _) = tag
+      node.link(pid, owner)
       ('ok, pid)
     case _ =>
       // Remove if Scalang gets supervisors.

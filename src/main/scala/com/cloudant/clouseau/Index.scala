@@ -9,7 +9,8 @@ class Index(ctx: ServiceContext[IndexArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
     case 'close =>
-      links.remove(Link(self, tag._1)) // unlink(tag._1) when it's fixed.
+      val (owner, _) = tag
+      links.remove(Link(self, owner)) // unlink(owner) when it's fixed.
       exit("closing")
       'ok
     case _ =>
