@@ -1,0 +1,7 @@
+* use commons-configuration so we can put config in local.ini
+* add {get_index_server, DbName, IndexName}
+* add LRU in manager, close oldest index as long as it's unused (link count of 0)
+* add {trigger_update, DbName, IndexName}
+* add {search, DbName, IndexName, Query, Options}
+* teach showroom to trigger updates
+
