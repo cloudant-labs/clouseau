@@ -16,8 +16,7 @@ class IndexServer(ctx: ServiceContext[ServerArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
     case 'close =>
-      writer.close
-      exit("closed")
+      exit('closed)
     case ('trigger_update, pid: Pid) =>
     // Pull stuff from pid of db?
     case ('update_document, term: (String, String), doc: Any) =>
@@ -40,6 +39,10 @@ class IndexServer(ctx: ServiceContext[ServerArgs]) extends Service(ctx) {
 
   override def handleInfo(msg: Any) {
     // Remove if Scalang gets supervisors.
+  }
+
+  override def trapExit(from: Pid, msg: Any) {
+    writer.close
   }
 
   private def toTerm(term: (String, String)): Term = {
