@@ -5,9 +5,11 @@ import scalang.{ Service, ServiceContext, Reference, Pid, Node, NoArgs }
 import org.apache.commons.configuration.HierarchicalINIConfiguration
 import org.apache.commons.configuration.reloading.ManagedReloadingStrategy
 import org.apache.commons.configuration.HierarchicalConfiguration
+import org.apache.log4j.Logger
 
 case class ServerArgs(config: HierarchicalConfiguration)
 object Main extends App {
+  val logger = Logger.getLogger("main")
   val fileName = if (args.length > 0) args(0) else "clouseau.ini"
   val config = new HierarchicalINIConfiguration(fileName)
   val name = config.getString("clouseau.name", "clouseau@127.0.0.1")
@@ -18,5 +20,5 @@ object Main extends App {
   val dir = config.getString("clouseau.dir", "target/indexes")
 
   node.spawnService[IndexManager, ServerArgs]('main, ServerArgs(config))
-  println("Clouseau running.")
+  logger.info("Clouseau running.")
 }
