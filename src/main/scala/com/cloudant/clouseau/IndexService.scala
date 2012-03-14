@@ -44,7 +44,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   val logger = Logger.getLogger(ctx.args.dbName + ":" + ctx.args.indexName)
   val rootDir = ctx.args.config.getString("clouseau.dir", "target/indexes")
-  val dir = new NIOFSDirectory(new File(rootDir))
+  val dir = new NIOFSDirectory(new File(new File(rootDir, ctx.args.dbName), ctx.args.indexName))
   val version = Version.LUCENE_35
   val analyzer = new StandardAnalyzer(version)
   val config = new IndexWriterConfig(version, analyzer)
