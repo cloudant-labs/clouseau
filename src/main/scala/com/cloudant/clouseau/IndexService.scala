@@ -49,4 +49,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   val analyzer = new StandardAnalyzer(version)
   val config = new IndexWriterConfig(version, analyzer)
   val writer = new IndexWriter(dir, config)
+
+  var reader = IndexReader.open(writer, true)
+  var updateSeq = reader.getCommitUserData().get("update_seq") match {
+    case null => 0
+    case seq => seq
+  }
+  logger.info("opened at update_seq: " + updateSeq)
 }
