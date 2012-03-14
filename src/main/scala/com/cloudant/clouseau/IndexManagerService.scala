@@ -1,8 +1,7 @@
 package com.cloudant.clouseau
 
+import scala.collection.mutable.LinkedHashMap
 import org.apache.log4j.Logger
-import org.cliffc.high_scale_lib.NonBlockingHashMap
-
 import scalang._
 
 class IndexManagerService(ctx: ServiceContext[ServerArgs]) extends Service(ctx) {
@@ -33,5 +32,5 @@ class IndexManagerService(ctx: ServiceContext[ServerArgs]) extends Service(ctx) 
   }
 
   val logger = Logger.getLogger("clouseau.manager")
-  val indexes = new NonBlockingHashMap[(String, String), Pid]
+  val indexes = new LinkedHashMap[(String, String), Pid]
 }
