@@ -42,15 +42,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
     writer.close
   }
 
-  private def toTerm(term: (String, String)): Term = {
-    val (field, text) = term
-    new Term(field, text)
-  }
-
-  private def toDoc(doc: Any): Document = {
-    null
-  }
-
   val logger = Logger.getLogger(ctx.args.dbName + ":" + ctx.args.indexName)
   val rootDir = ctx.args.config.getString("clouseau.dir", "target/indexes")
   val dir = new NIOFSDirectory(new File(rootDir))
