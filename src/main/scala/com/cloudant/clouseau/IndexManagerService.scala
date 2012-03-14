@@ -1,9 +1,9 @@
 package com.cloudant.clouseau
-import java.io.File
-import scalang.{ Service, ServiceContext, Reference, Pid, NoArgs }
-import org.cliffc.high_scale_lib.NonBlockingHashMap
-import org.apache.commons.configuration.HierarchicalConfiguration
+
 import org.apache.log4j.Logger
+import org.cliffc.high_scale_lib.NonBlockingHashMap
+
+import scalang._
 
 class IndexManagerService(ctx: ServiceContext[ServerArgs]) extends Service(ctx) {
 
@@ -32,6 +32,6 @@ class IndexManagerService(ctx: ServiceContext[ServerArgs]) extends Service(ctx) 
     // Remove if Scalang gets supervisors.
   }
 
-  val logger = Logger.getLogger("index_manager")
+  val logger = Logger.getLogger("clouseau.manager")
   val indexes = new NonBlockingHashMap[(String, String), Pid]
 }

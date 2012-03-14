@@ -1,16 +1,16 @@
 package com.cloudant.clouseau
 
 import java.io.File
-import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.document.Document
-import org.apache.lucene.index.IndexWriter
-import org.apache.lucene.index.IndexWriterConfig
-import org.apache.lucene.index.Term
-import org.apache.lucene.store.NIOFSDirectory
-import org.apache.lucene.util.Version
-import scalang._
+
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.apache.log4j.Logger
+import org.apache.lucene.analysis.standard.StandardAnalyzer
+import org.apache.lucene.document._
+import org.apache.lucene.index._
+import org.apache.lucene.store._
+import org.apache.lucene.util.Version
+
+import scalang._
 
 case class IndexServiceArgs(dbName: String, indexName: String, config: HierarchicalConfiguration)
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
