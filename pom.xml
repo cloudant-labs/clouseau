@@ -82,6 +82,13 @@
       <version>${scala.version}</version>
     </dependency>
 
+    <!-- Misc -->
+    <dependency>
+      <groupId>commons-configuration</groupId>
+      <artifactId>commons-configuration</artifactId>
+      <version>1.8</version>
+    </dependency>
+
     <!-- Test -->
     <dependency>
       <groupId>junit</groupId>
