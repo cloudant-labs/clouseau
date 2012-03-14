@@ -19,7 +19,7 @@ object Main extends App {
   val name = config.getString("clouseau.name", "clouseau@127.0.0.1")
   val node = config.getString("clouseau.cookie") match {
     case null => Node(name)
-    case (cookie: String) => Node(name, cookie)
+    case cookie: String => Node(name, cookie)
   }
   val dir = config.getString("clouseau.dir", "target/indexes")
 
