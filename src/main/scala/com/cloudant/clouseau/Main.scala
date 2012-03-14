@@ -19,6 +19,6 @@ object Main extends App {
   }
   val dir = config.getString("clouseau.dir", "target/indexes")
 
-  node.spawnService[IndexManager, ServerArgs]('main, ServerArgs(config))
+  node.spawnService[IndexManagerService, ServerArgs]('main, ServerArgs(config))
   logger.info("Clouseau running.")
 }

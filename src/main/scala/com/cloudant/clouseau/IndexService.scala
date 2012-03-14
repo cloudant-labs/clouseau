@@ -12,8 +12,8 @@ import scalang._
 import org.apache.commons.configuration.HierarchicalConfiguration
 import org.apache.log4j.Logger
 
-case class IndexServerArgs(dbName: String, indexName: String, config: HierarchicalConfiguration)
-class IndexServer(ctx: ServiceContext[IndexServerArgs]) extends Service(ctx) {
+case class IndexServiceArgs(dbName: String, indexName: String, config: HierarchicalConfiguration)
+class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
     case 'close =>
