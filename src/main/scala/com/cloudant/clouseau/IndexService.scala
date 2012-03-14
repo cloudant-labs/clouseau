@@ -16,12 +16,10 @@ case class IndexServiceArgs(dbName: String, indexName: String, config: Hierarchi
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
+    case ('search, query: String) =>
+      'ok
     case 'close =>
       exit('closed)
-    case ('trigger_update, pid: Pid) =>
-      // Pull stuff from pid of db?
-      'ok
-    case ('search, query: String) =>
       'ok
     case _ =>
       // Remove if Scalang gets supervisors.
