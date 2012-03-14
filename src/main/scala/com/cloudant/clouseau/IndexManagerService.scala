@@ -10,7 +10,7 @@ class IndexManagerService(ctx: ServiceContext[ServerArgs]) extends Service(ctx) 
     case ('get_index_server, dbName: String, indexName: String) =>
       val pid = indexes.get((dbName, indexName)) match {
         case None =>
-          val pid = node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(dbName, indexName, ctx.args.config))
+          val pid = node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(dbName, indexName, ctx.args.config), true)
           indexes.put((dbName, indexName), pid)
           pid
         case Some(pid: Pid) =>
