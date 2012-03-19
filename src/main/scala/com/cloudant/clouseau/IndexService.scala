@@ -27,7 +27,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   }
 
   override def handleCast(msg: Any) = msg match {
-    case ('maybe_update, seq: Number) =>
+    case ('update, seq: Long) if seq <= updateSeq =>
+      'ok
+    case ('update, seq: Number) =>
+      val db = node.createPid // TODO get real Pid ;)
+      val updaterPid = node.spawnService[IndexUpdaterService, IndexUpdaterArgs](IndexUpdaterArgs(db))
+      this.updaterPid = Some(updaterPid)
+      link(updaterPid)
       logger.info("Updating to " + seq)
       'ok
     case _ =>
@@ -53,7 +59,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   var reader = IndexReader.open(writer, true)
   var updateSeq = reader.getCommitUserData().get("update_seq") match {
     case null => 0
-    case seq => seq
+    case seq => java.lang.Long.parseLong(seq)
   }
+
+  var updaterPid: Option[Pid] = None
+
   logger.info("opened at update_seq: " + updateSeq)
 }
