@@ -8,19 +8,23 @@ import org.apache.lucene.store._
 import org.apache.lucene.search._
 import org.apache.lucene.util.Version
 import scalang._
+import scalang.node._
 import org.apache.lucene.queryParser.standard.StandardQueryParser
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
+import org.apache.lucene.document.Field.Store
+import org.apache.lucene.document.Field.Index
 
 class POCService(ctx: ServiceContext[NoArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
     case ('search, queryString: String, limit: Int) =>
-      val query = queryParser.parse("default", queryString)
+      val query = queryParser.parse(queryString, "default")
 
       // Refresh reader if needed.
       val newReader = IndexReader.openIfChanged(reader)
       if (newReader != null) {
+        println("reopened")
         reader.decRef
         reader = newReader
       }
@@ -29,27 +33,32 @@ class POCService(ctx: ServiceContext[NoArgs]) extends Service(ctx) {
       try {
         val searcher = new IndexSearcher(reader)
         val topDocs = searcher.search(query, limit)
-        val hits = for (doc <- topDocs.scoreDocs) yield (doc.doc, doc.score)
+        println(query + " " + topDocs.totalHits)
+        val hits = for (doc <- topDocs.scoreDocs) yield (doc.doc, doc.score:Double)
         List(('total, topDocs.totalHits), ('hits, hits.toList))
       } finally {
         reader.decRef
       }
     case ('update_doc, seq: Int, id: ByteBuffer, doc: Any) =>
-      println(doc)
-      writer.updateDocument(new Term("_id", decodeUtf8(id)), new Document)
+      val idString = toString(id)
+      val ldoc = new Document
+      ldoc.add(new Field("_id", idString, Store.YES, Index.ANALYZED))
+      writer.updateDocument(new Term("_id", idString), ldoc)
+      println("updated " + ldoc)
       since = seq
       'ok
     case ('delete_doc, seq: Int, id: ByteBuffer) =>
-      writer.deleteDocuments(new Term("_id", decodeUtf8(id)))
+      writer.deleteDocuments(new Term("_id", toString(id)))
       since = seq
       'ok
     case 'since =>
       ('ok, since)
     case _ =>
+      println("error " + msg)
       'error
   }
 
-  private def decodeUtf8(buf: ByteBuffer): String = {
+  private def toString(buf: ByteBuffer): String = {
     val charset = Charset.forName("UTF-8")
     val decoder = charset.newDecoder();
     decoder.decode(buf).toString
@@ -67,6 +76,6 @@ class POCService(ctx: ServiceContext[NoArgs]) extends Service(ctx) {
 }
 
 object POC extends App {
-  val node = Node("poc@127.0.0.1")
+  val node = Node("poc@127.0.0.1", "monster")
   node.spawnService[POCService, NoArgs]('poc, NoArgs)
 }
