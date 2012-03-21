@@ -1,19 +1,20 @@
 package com.cloudant.clouseau
 
+import java.nio.charset.Charset
+import java.nio.ByteBuffer
+
 import org.apache.log4j.Logger
 import org.apache.lucene.analysis.standard.StandardAnalyzer
+import org.apache.lucene.document.Field.Index
+import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
 import org.apache.lucene.index._
-import org.apache.lucene.store._
-import org.apache.lucene.search._
-import org.apache.lucene.util.Version
-import scalang._
-import scalang.node._
 import org.apache.lucene.queryParser.standard.StandardQueryParser
-import java.nio.ByteBuffer
-import java.nio.charset.Charset
-import org.apache.lucene.document.Field.Store
-import org.apache.lucene.document.Field.Index
+import org.apache.lucene.search.IndexSearcher
+import org.apache.lucene.store._
+import org.apache.lucene.util.Version
+
+import scalang._
 
 class POCService(ctx: ServiceContext[NoArgs]) extends Service(ctx) {
 
@@ -41,36 +42,55 @@ class POCService(ctx: ServiceContext[NoArgs]) extends Service(ctx) {
       }
     case ('update_doc, seq: Int, id: ByteBuffer, doc: List[Any]) =>
       val idString = toString(id)
-      println(toDoc(doc))
-      writer.updateDocument(new Term("_id", idString), toDoc(doc))
-      since = seq
+      writer.updateDocument(new Term("_id", idString), toDoc(idString, doc))
+      currentSeq = seq
       'ok
     case ('delete_doc, seq: Int, id: ByteBuffer) =>
       writer.deleteDocuments(new Term("_id", toString(id)))
-      since = seq
+      currentSeq = seq
       'ok
     case 'since =>
-      ('ok, since)
+      ('ok, currentSeq)
     case _ =>
       println("error " + msg)
       'error
   }
 
-  private def toDoc(doc: List[Any]): Document = {
+  override def handleInfo(msg: Any): Unit = msg match {
+    case 'commit if currentSeq > committedSeq =>
+      log.info("committing updates from " + committedSeq + " to " + currentSeq)
+      writer.commit
+      committedSeq = currentSeq
+    case 'commit =>
+      'ignored
+    case _ =>
+      'ignored
+  }
+
+  private def toDoc(id: String, doc: List[Any]): Document = {
     val result = new Document
-    for (field <- doc) {
-      result add (field match {
-        case (name: ByteBuffer, value: ByteBuffer) =>
-          new Field(toString(name), toString(value), Store.NO, Index.ANALYZED)
-        case (name: ByteBuffer, value: ByteBuffer, store: Symbol) =>
-          new Field(toString(name), toString(value), toStore(store), Index.ANALYZED)
-        case (name: ByteBuffer, value: ByteBuffer, store: Symbol, index: Symbol) =>
-          new Field(toString(name), toString(value), toStore(store), toIndex(index))
-        case (name: ByteBuffer, value: ByteBuffer, store: Symbol, index: Symbol, termVector: Symbol) =>
-          new Field(toString(name), toString(value), toStore(store), toIndex(index), toTermVector(termVector))
-      })
-    }
+    result.add(new Field("_id", id, Store.YES, Index.NOT_ANALYZED))
+    for (field <- doc) result add toFieldable(field)
     result
+  }
+
+  private def toFieldable(field: Any): Fieldable = field match {
+    case (name: ByteBuffer, value: Int) =>
+      new NumericField(toString(name)).setIntValue(value)
+    case (name: ByteBuffer, value: Int, store: Symbol, index: Boolean) =>
+      new NumericField(toString(name), toStore(store), index).setIntValue(value)
+    case (name: ByteBuffer, value: Double) =>
+      new NumericField(toString(name)).setDoubleValue(value)
+    case (name: ByteBuffer, value: Double, store: Symbol, index: Boolean) =>
+      new NumericField(toString(name), toStore(store), index).setDoubleValue(value)
+    case (name: ByteBuffer, value: ByteBuffer) =>
+      new Field(toString(name), toString(value), Store.NO, Index.ANALYZED)
+    case (name: ByteBuffer, value: ByteBuffer, store: Symbol) =>
+      new Field(toString(name), toString(value), toStore(store), Index.ANALYZED)
+    case (name: ByteBuffer, value: ByteBuffer, store: Symbol, index: Symbol) =>
+      new Field(toString(name), toString(value), toStore(store), toIndex(index))
+    case (name: ByteBuffer, value: ByteBuffer, store: Symbol, index: Symbol, termVector: Symbol) =>
+      new Field(toString(name), toString(value), toStore(store), toIndex(index), toTermVector(termVector))
   }
 
   private def toString(buf: ByteBuffer): String = {
@@ -99,7 +119,10 @@ class POCService(ctx: ServiceContext[NoArgs]) extends Service(ctx) {
   val config = new IndexWriterConfig(version, analyzer)
   val writer = new IndexWriter(dir, config)
   var reader = IndexReader.open(writer, true)
-  var since = 0
+  var committedSeq = 0
+  var currentSeq = 0
+
+  sendEvery(self, 'commit, 10000)
 }
 
 object POC extends App {
