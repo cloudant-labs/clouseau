@@ -25,7 +25,6 @@ class POCService(ctx: ServiceContext[NoArgs]) extends Service(ctx) {
       // Refresh reader if needed.
       val newReader = IndexReader.openIfChanged(reader)
       if (newReader != null) {
-        println("reopened")
         reader.decRef
         reader = newReader
       }
