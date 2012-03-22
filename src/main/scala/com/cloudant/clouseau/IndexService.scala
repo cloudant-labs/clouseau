@@ -36,7 +36,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       try {
         val searcher = new IndexSearcher(reader)
         val topDocs = searcher.search(query, limit)
-        println(query + " " + topDocs.totalHits)
         val hits = for (doc <- topDocs.scoreDocs) yield (doc.doc, doc.score: Double)
         List(('total, topDocs.totalHits), ('hits, hits.toList))
       } finally {
