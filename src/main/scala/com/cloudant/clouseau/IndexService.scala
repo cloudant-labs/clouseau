@@ -20,8 +20,8 @@ case class IndexServiceArgs(dbName: String, indexName: String, config: Hierarchi
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
-    case ('search, queryString: String, limit: Int) =>
-      val query = queryParser.parse(queryString, "default")
+    case ('search, queryString: ByteBuffer, limit: Int) =>
+      val query = queryParser.parse(Utils.toString(queryString), "default")
 
       // Refresh reader if needed.
       val newReader = IndexReader.openIfChanged(reader)
