@@ -124,7 +124,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   var reader = IndexReader.open(writer, true)
   var committedSeq = reader.getCommitUserData().get("update_seq") match {
     case null => 0
-    case seq => java.lang.Long.parseLong(seq)
+    case seq => Long.parseLong(seq)
   }
   var pendingSeq = committedSeq
 
