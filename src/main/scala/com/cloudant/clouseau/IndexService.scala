@@ -15,6 +15,8 @@ import java.nio.charset.Charset
 import java.nio.ByteBuffer
 import org.apache.lucene.document.Field.Index
 import org.apache.lucene.document.Field.Store
+import java.lang.Long
+import java.util.Collections
 
 case class IndexServiceArgs(dbName: String, indexName: String, config: HierarchicalConfiguration)
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
@@ -61,8 +63,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   override def handleInfo(msg: Any): Unit = msg match {
     case 'commit if pendingSeq > committedSeq =>
-      log.info("committing updates from " + committedSeq + " to " + pendingSeq)
-      writer.commit
+      logger.info("committing updates from " + committedSeq + " to " + pendingSeq)
+      writer.commit(Collections.singletonMap("update_seq", Long.toString(pendingSeq)))
       committedSeq = pendingSeq
     case 'commit =>
       'ignored
