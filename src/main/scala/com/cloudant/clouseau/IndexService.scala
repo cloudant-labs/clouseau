@@ -41,12 +41,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
         reader.decRef
       }
     case ('update_doc, seq: Int, id: ByteBuffer, doc: List[Any]) =>
-      val idString = toString(id)
+      val idString = Utils.toString(id)
       writer.updateDocument(new Term("_id", idString), toDoc(idString, doc))
       pendingSeq = seq
       'ok
     case ('delete_doc, seq: Int, id: ByteBuffer) =>
-      writer.deleteDocuments(new Term("_id", toString(id)))
+      writer.deleteDocuments(new Term("_id", Utils.toString(id)))
       pendingSeq = seq
       'ok
     case 'since =>
@@ -83,27 +83,21 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   private def toFieldable(field: Any): Fieldable = field match {
     case (name: ByteBuffer, value: Int) =>
-      new NumericField(toString(name)).setIntValue(value)
+      new NumericField(Utils.toString(name)).setIntValue(value)
     case (name: ByteBuffer, value: Int, store: Symbol, index: Boolean) =>
-      new NumericField(toString(name), toStore(store), index).setIntValue(value)
+      new NumericField(Utils.toString(name), toStore(store), index).setIntValue(value)
     case (name: ByteBuffer, value: Double) =>
-      new NumericField(toString(name)).setDoubleValue(value)
+      new NumericField(Utils.toString(name)).setDoubleValue(value)
     case (name: ByteBuffer, value: Double, store: Symbol, index: Boolean) =>
-      new NumericField(toString(name), toStore(store), index).setDoubleValue(value)
+      new NumericField(Utils.toString(name), toStore(store), index).setDoubleValue(value)
     case (name: ByteBuffer, value: ByteBuffer) =>
-      new Field(toString(name), toString(value), Store.NO, Index.ANALYZED)
+      new Field(Utils.toString(name), Utils.toString(value), Store.NO, Index.ANALYZED)
     case (name: ByteBuffer, value: ByteBuffer, store: Symbol) =>
-      new Field(toString(name), toString(value), toStore(store), Index.ANALYZED)
+      new Field(Utils.toString(name), Utils.toString(value), toStore(store), Index.ANALYZED)
     case (name: ByteBuffer, value: ByteBuffer, store: Symbol, index: Symbol) =>
-      new Field(toString(name), toString(value), toStore(store), toIndex(index))
+      new Field(Utils.toString(name), Utils.toString(value), toStore(store), toIndex(index))
     case (name: ByteBuffer, value: ByteBuffer, store: Symbol, index: Symbol, termVector: Symbol) =>
-      new Field(toString(name), toString(value), toStore(store), toIndex(index), toTermVector(termVector))
-  }
-
-  private def toString(buf: ByteBuffer): String = {
-    val charset = Charset.forName("UTF-8")
-    val decoder = charset.newDecoder();
-    decoder.decode(buf).toString
+      new Field(Utils.toString(name), Utils.toString(value), toStore(store), toIndex(index), toTermVector(termVector))
   }
 
   private def toStore(value: Symbol) = {

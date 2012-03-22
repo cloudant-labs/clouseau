@@ -10,8 +10,8 @@ class IndexManagerService(ctx: ServiceContext[ServerArgs]) extends Service(ctx) 
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
     case ('get_index_server, dbName: ByteBuffer, indexName: ByteBuffer) =>
-      val dbNameStr = toString(dbName)
-      val indexNameStr = toString(indexName)
+      val dbNameStr = Utils.toString(dbName)
+      val indexNameStr = Utils.toString(indexName)
       val pid = indexes.get((dbNameStr, indexNameStr)) match {
         case None =>
           val pid = node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(dbNameStr, indexNameStr, ctx.args.config))
@@ -32,13 +32,6 @@ class IndexManagerService(ctx: ServiceContext[ServerArgs]) extends Service(ctx) 
 
   override def handleInfo(msg: Any) {
     // Remove if Scalang gets supervisors.
-  }
-
-  // Duplicated.
-  private def toString(buf: ByteBuffer): String = {
-    val charset = Charset.forName("UTF-8")
-    val decoder = charset.newDecoder();
-    decoder.decode(buf).toString
   }
 
   val logger = Logger.getLogger("clouseau.manager")
