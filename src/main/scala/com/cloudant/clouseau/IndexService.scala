@@ -17,6 +17,7 @@ import org.apache.lucene.document.Field.Index
 import org.apache.lucene.document.Field.Store
 import java.lang.Long
 import java.util.Collections
+import scala.collection.mutable._
 
 case class IndexServiceArgs(dbName: String, indexName: String, config: HierarchicalConfiguration)
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
@@ -83,22 +84,34 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   }
 
   private def toFieldable(field: Any): Fieldable = field match {
-    case (name: ByteBuffer, value: Int) =>
-      new NumericField(Utils.toString(name)).setIntValue(value)
-    case (name: ByteBuffer, value: Int, store: Symbol, index: Boolean) =>
-      new NumericField(Utils.toString(name), toStore(store), index).setIntValue(value)
-    case (name: ByteBuffer, value: Double) =>
-      new NumericField(Utils.toString(name)).setDoubleValue(value)
-    case (name: ByteBuffer, value: Double, store: Symbol, index: Boolean) =>
-      new NumericField(Utils.toString(name), toStore(store), index).setDoubleValue(value)
-    case (name: ByteBuffer, value: ByteBuffer) =>
-      new Field(Utils.toString(name), Utils.toString(value), Store.NO, Index.ANALYZED)
-    case (name: ByteBuffer, value: ByteBuffer, store: Symbol) =>
-      new Field(Utils.toString(name), Utils.toString(value), toStore(store), Index.ANALYZED)
-    case (name: ByteBuffer, value: ByteBuffer, store: Symbol, index: Symbol) =>
-      new Field(Utils.toString(name), Utils.toString(value), toStore(store), toIndex(index))
-    case (name: ByteBuffer, value: ByteBuffer, store: Symbol, index: Symbol, termVector: Symbol) =>
-      new Field(Utils.toString(name), Utils.toString(value), toStore(store), toIndex(index), toTermVector(termVector))
+    case (name: Any, value: Int) =>
+      new NumericField(toName(name)).setIntValue(value)
+    case (name: Any, value: Int, store: Symbol, index: Boolean) =>
+      new NumericField(toName(name), toStore(store), index).setIntValue(value)
+    case (name: Any, value: Double) =>
+      new NumericField(toName(name)).setDoubleValue(value)
+    case (name: Any, value: Double, store: Symbol, index: Boolean) =>
+      new NumericField(toName(name), toStore(store), index).setDoubleValue(value)
+    case (name: Any, value: ByteBuffer) =>
+      new Field(toName(name), Utils.toString(value), Store.NO, Index.ANALYZED)
+    case (name: Any, value: ByteBuffer, store: Symbol) =>
+      new Field(toName(name), Utils.toString(value), toStore(store), Index.ANALYZED)
+    case (name: Any, value: ByteBuffer, store: Symbol, index: Symbol) =>
+      new Field(toName(name), Utils.toString(value), toStore(store), toIndex(index))
+    case (name: Any, value: ByteBuffer, store: Symbol, index: Symbol, termVector: Symbol) =>
+      new Field(toName(name), Utils.toString(value), toStore(store), toIndex(index), toTermVector(termVector))
+  }
+
+  private def toName(name: Any) = name match {
+    case name: ByteBuffer =>
+      Utils.toString(name)
+    case name: List[ByteBuffer] =>
+      val builder = new StringBuilder
+      for (part <- name) {
+        builder.append(Utils.toString(part))
+        builder.append(".")
+      }
+      builder.stripSuffix(".")
   }
 
   private def toStore(value: Symbol) = {
