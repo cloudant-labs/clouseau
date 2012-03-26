@@ -15,11 +15,11 @@ class IndexManagerService(ctx: ServiceContext[IndexManagerServiceArgs]) extends 
       val dbNameStr = Utils.toString(dbName)
       val indexNameStr = Utils.toString(indexName)
       val pid = indexes.get((dbNameStr, indexNameStr)) match {
-        case None =>
+        case Some(pid: Pid) if node.isAlive(pid) =>
+          pid
+        case _ =>
           val pid = IndexService.start(node, dbNameStr, indexNameStr, ctx.args.config)
           indexes.put((dbNameStr, indexNameStr), pid)
-          pid
-        case Some(pid: Pid) =>
           pid
       }
       ('ok, pid)
