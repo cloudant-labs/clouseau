@@ -1,0 +1,11 @@
+;; This config was generated using ensime-config-gen. Feel free to customize its contents manually.
+
+(
+
+:project-name "clouseau"
+
+:project-package "com.cloudant.clouseau"
+
+:use-maven t
+
+)
