@@ -93,6 +93,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       new NumericField(toName(name)).setDoubleValue(value)
     case (name: Any, value: Double, store: Symbol, index: Boolean) =>
       new NumericField(toName(name), toStore(store), index).setDoubleValue(value)
+    case (name: Any, value: Boolean) =>
+      new Field(toName(name), value.toString, Store.NO, Index.NOT_ANALYZED)
+    case (name: Any, value: Boolean, store: Symbol) =>
+      new Field(toName(name), value.toString, toStore(store), Index.NOT_ANALYZED)
     case (name: Any, value: ByteBuffer) =>
       new Field(toName(name), Utils.toString(value), Store.NO, Index.ANALYZED)
     case (name: Any, value: ByteBuffer, store: Symbol) =>
