@@ -7,7 +7,6 @@ import org.apache.log4j.Logger
 
 import scalang._
 
-case class ServerArgs(config: HierarchicalConfiguration)
 object Main extends App {
   val logger = Logger.getLogger("clouseau.main")
 
@@ -23,6 +22,6 @@ object Main extends App {
   }
   val dir = config.getString("clouseau.dir", "target/indexes")
 
-  node.spawnService[IndexManagerService, ServerArgs]('main, ServerArgs(config))
+  IndexManagerService.start(node, config)
   logger.info("Clouseau running as " + name)
 }

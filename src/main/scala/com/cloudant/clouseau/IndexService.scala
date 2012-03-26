@@ -1,7 +1,7 @@
 package com.cloudant.clouseau
 
 import java.io.File
-import org.apache.commons.configuration.HierarchicalConfiguration
+import org.apache.commons.configuration.Configuration
 import org.apache.log4j.Logger
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.queryParser.standard.StandardQueryParser
@@ -19,7 +19,7 @@ import java.lang.Long
 import java.util.Collections
 import scala.collection.mutable._
 
-case class IndexServiceArgs(dbName: String, indexName: String, config: HierarchicalConfiguration)
+case class IndexServiceArgs(dbName: String, indexName: String, config: Configuration)
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
@@ -143,4 +143,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   sendEvery(self, 'commit, 10000)
   logger.info("opened at update_seq: " + committedSeq)
+}
+
+object IndexService {
+  def start(node: Node, dbName: String, indexName: String, config: Configuration): Pid = {
+     node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(dbName, indexName, config))
+  }
 }
