@@ -100,8 +100,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   }
 
   override def trapExit(from: Pid, msg: Any) {
-    logger.info("Closing writer on trapExit")
     writer.close
+    exit(msg)
   }
 
   private def toDoc(id: String, doc: List[Any]): Document = {
