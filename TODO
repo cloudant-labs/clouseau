@@ -3,3 +3,5 @@
 * teach showroom to trigger updates
 * add index_cleanup
 * distributed search
+* IOQ
+* dev mode for local cluster tests
