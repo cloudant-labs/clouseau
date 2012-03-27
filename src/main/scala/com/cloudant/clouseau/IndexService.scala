@@ -16,7 +16,7 @@ import java.nio.ByteBuffer
 import org.apache.lucene.document.Field.Index
 import org.apache.lucene.document.Field.Store
 import java.lang.Long
-import java.util.Collections
+import collection.JavaConversions._
 import scala.collection.mutable._
 
 case class IndexServiceArgs(dbName: String, indexName: String, config: Configuration)
@@ -64,7 +64,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   override def handleInfo(msg: Any): Unit = msg match {
     case 'commit if pendingSeq > committedSeq =>
       logger.info("committing updates from " + committedSeq + " to " + pendingSeq)
-      writer.commit(Collections.singletonMap("update_seq", Long.toString(pendingSeq)))
+      writer.commit(Map("update_seq" -> Long.toString(pendingSeq)))
       committedSeq = pendingSeq
     case 'commit =>
       'ignored
