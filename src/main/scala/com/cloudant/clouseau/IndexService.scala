@@ -49,7 +49,22 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       try {
         val searcher = new IndexSearcher(reader)
         val topDocs = searcher.search(query, limit)
-        val hits = for (doc <- topDocs.scoreDocs) yield List(('_id, doc.doc), ('score, doc.score: Double))
+        val hits = for (scoreDoc <- topDocs.scoreDocs) yield {
+          val doc = searcher.doc(scoreDoc.doc)
+          val fields = for (field <- doc.getFields) yield {
+            field match {
+              case numericField: NumericField =>
+                (field.name, numericField.getNumericValue)
+              case _ =>
+                (field.name, field.stringValue)
+            }
+          }
+          List(
+            ('_id, doc.getFieldable("_id").stringValue),
+            ('score, scoreDoc.score),
+            ('fields, fields.toList)
+          )
+        }
         List(('total, topDocs.totalHits), ('hits, hits.toList))
       } finally {
         reader.decRef
