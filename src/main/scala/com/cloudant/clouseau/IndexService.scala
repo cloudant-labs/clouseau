@@ -23,14 +23,25 @@ case class IndexServiceArgs(dbName: String, indexName: String, config: Configura
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
-    case ('search, queryString: ByteBuffer, limit: Int) =>
+    case ('search, queryString: ByteBuffer, options: List[(Symbol, Any)]) =>
       val query = queryParser.parse(Utils.toString(queryString), "default")
 
-      // Refresh reader if needed.
-      val newReader = IndexReader.openIfChanged(reader)
-      if (newReader != null) {
-        reader.decRef
-        reader = newReader
+      val refresh: Boolean = options find {e => e._1 == 'stale} match {
+        case None => true
+        case Some(('stale, 'ok)) => false
+      }
+
+      if (refresh) {
+        val newReader = IndexReader.openIfChanged(reader)
+        if (newReader != null) {
+          reader.decRef
+          reader = newReader
+        }
+      }
+
+      val limit: Int = options find {e => e._1 == 'limit} match {
+        case None => 25
+        case Some(('limit, value: Int)) => value
       }
 
       reader.incRef
