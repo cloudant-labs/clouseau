@@ -15,6 +15,7 @@ import java.nio.charset.Charset
 import java.nio.ByteBuffer
 import org.apache.lucene.document.Field.Index
 import org.apache.lucene.document.Field.Store
+import org.apache.lucene.document.Field.TermVector
 import java.lang.Long
 import collection.JavaConversions._
 import scala.collection.mutable._
@@ -96,26 +97,14 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   }
 
   private def toFieldable(field: Any): Fieldable = field match {
-    case (name: Any, value: Int) =>
-      new NumericField(toName(name)).setIntValue(value)
-    case (name: Any, value: Int, store: Symbol, index: Boolean) =>
-      new NumericField(toName(name), toStore(store), index).setIntValue(value)
-    case (name: Any, value: Double) =>
-      new NumericField(toName(name)).setDoubleValue(value)
-    case (name: Any, value: Double, store: Symbol, index: Boolean) =>
-      new NumericField(toName(name), toStore(store), index).setDoubleValue(value)
-    case (name: Any, value: Boolean) =>
-      new Field(toName(name), value.toString, Store.NO, Index.NOT_ANALYZED)
-    case (name: Any, value: Boolean, store: Symbol) =>
-      new Field(toName(name), value.toString, toStore(store), Index.NOT_ANALYZED)
-    case (name: Any, value: ByteBuffer) =>
-      new Field(toName(name), Utils.toString(value), Store.NO, Index.ANALYZED)
-    case (name: Any, value: ByteBuffer, store: Symbol) =>
-      new Field(toName(name), Utils.toString(value), toStore(store), Index.ANALYZED)
-    case (name: Any, value: ByteBuffer, store: Symbol, index: Symbol) =>
-      new Field(toName(name), Utils.toString(value), toStore(store), toIndex(index))
-    case (name: Any, value: ByteBuffer, store: Symbol, index: Symbol, termVector: Symbol) =>
-      new Field(toName(name), Utils.toString(value), toStore(store), toIndex(index), toTermVector(termVector))
+    case (name: Any, value: Int, options: List[(Symbol, Any)]) =>
+      new NumericField(toName(name), toStore(options), true).setIntValue(value)
+    case (name: Any, value: Double, options: List[(Symbol, Any)]) =>
+      new NumericField(toName(name), toStore(options), true).setDoubleValue(value)
+    case (name: Any, value: Boolean, options: List[(Symbol, Any)]) =>
+      new Field(toName(name), value.toString, toStore(options), Index.NOT_ANALYZED)
+    case (name: Any, value: ByteBuffer, options: List[(Symbol, Any)]) =>
+      new Field(toName(name), Utils.toString(value), toStore(options), toIndex(options), toTermVector(options))
   }
 
   private def toName(name: Any) = name match {
@@ -130,16 +119,25 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       builder.stripSuffix(".")
   }
 
-  private def toStore(value: Symbol) = {
-    Field.Store.valueOf(value.name toUpperCase)
+  private def toStore(options: List[(Symbol, Any)]): Store = {
+    options find {e => e._1 == 'store} match {
+      case None => Store.NO
+      case Some(('store, value: Symbol)) => Store.valueOf(value.name toUpperCase)
+    }
   }
 
-  private def toIndex(value: Symbol) = {
-    Field.Index.valueOf(value.name toUpperCase)
+  private def toIndex(options: List[(Symbol, Any)]): Index = {
+    options find {e => e._1 == 'index} match {
+      case None => Index.ANALYZED
+      case Some(('index, value: Symbol)) => Index.valueOf(value.name toUpperCase)
+    }
   }
 
-  private def toTermVector(value: Symbol) = {
-    Field.TermVector.valueOf(value.name toUpperCase)
+  private def toTermVector(options: List[(Symbol, Any)]): TermVector = {
+    options find {e => e._1 == 'term_vector} match {
+      case None => TermVector.NO
+      case Some(('term_vector, value: Symbol)) => TermVector.valueOf(value.name toUpperCase)
+    }
   }
 
   val logger = Logger.getLogger("clouseau." + ctx.args.dbName + ":" + ctx.args.indexName)
