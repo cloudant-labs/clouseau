@@ -106,6 +106,37 @@
         <groupId>org.scala-tools</groupId>
         <artifactId>maven-scala-plugin</artifactId>
         <version>${scala.plugin.version}</version>
+        <configuration>
+          <launchers>
+            <launcher>
+              <id>clouseau1</id>
+              <mainClass>com.cloudant.clouseau.Main</mainClass>
+              <jvmArgs>
+                <jvmArg>-Dclouseau.name=clouseau1@127.0.0.1</jvmArg>
+                <jvmArg>-Dclouseau.cookie=monster</jvmArg>
+                <jvmArg>-Dclouseau.dir=target/clouseau1</jvmArg>
+              </jvmArgs>
+            </launcher>
+            <launcher>
+              <id>clouseau2</id>
+              <mainClass>com.cloudant.clouseau.Main</mainClass>
+              <jvmArgs>
+                <jvmArg>-Dclouseau.name=clouseau2@127.0.0.1</jvmArg>
+                <jvmArg>-Dclouseau.cookie=monster</jvmArg>
+                <jvmArg>-Dclouseau.dir=target/clouseau2</jvmArg>
+              </jvmArgs>
+            </launcher>
+            <launcher>
+              <id>clouseau3</id>
+              <mainClass>com.cloudant.clouseau.Main</mainClass>
+              <jvmArgs>
+                <jvmArg>-Dclouseau.name=clouseau3@127.0.0.1</jvmArg>
+                <jvmArg>-Dclouseau.cookie=monster</jvmArg>
+                <jvmArg>-Dclouseau.dir=target/clouseau3</jvmArg>
+              </jvmArgs>
+            </launcher>
+          </launchers>
+        </configuration>
         <executions>
           <execution>
             <goals>

@@ -1,8 +1,7 @@
 package com.cloudant.clouseau
 
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy
-import org.apache.commons.configuration.HierarchicalConfiguration
-import org.apache.commons.configuration.HierarchicalINIConfiguration
+import org.apache.commons.configuration._
 import org.apache.log4j.Logger
 
 import scalang._
@@ -12,8 +11,11 @@ object Main extends App {
 
   // Load and monitor configuration file.
   val fileName = if (args.length > 0) args(0) else "clouseau.ini"
-  val config = new HierarchicalINIConfiguration(fileName)
-  config.setReloadingStrategy(new FileChangedReloadingStrategy)
+  val config = new CompositeConfiguration()
+  config.addConfiguration(new SystemConfiguration())
+  val reloadableConfig = new HierarchicalINIConfiguration(fileName)
+  reloadableConfig.setReloadingStrategy(new FileChangedReloadingStrategy)
+  config.addConfiguration(reloadableConfig)
 
   val name = config.getString("clouseau.name", "clouseau@127.0.0.1")
   val node = config.getString("clouseau.cookie") match {
@@ -23,5 +25,5 @@ object Main extends App {
   val dir = config.getString("clouseau.dir", "target/indexes")
 
   IndexManagerService.start(node, config)
-  logger.info("Clouseau running as " + name)
+  logger.info("Clouseau running as " + name + ", indexes at " + dir)
 }
