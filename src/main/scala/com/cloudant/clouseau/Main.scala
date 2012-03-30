@@ -5,6 +5,7 @@ import org.apache.commons.configuration._
 import org.apache.log4j.Logger
 
 import scalang._
+import scalang.node._
 
 object Main extends App {
   val logger = Logger.getLogger("clouseau.main")
@@ -17,13 +18,15 @@ object Main extends App {
   reloadableConfig.setReloadingStrategy(new FileChangedReloadingStrategy)
   config.addConfiguration(reloadableConfig)
 
+  val caseClassFactory = new CaseClassFactory(Nil, Map("doc" -> classOf[Doc],
+                                                       "hit" -> classOf[Hit],
+                                                       "hits" -> classOf[Hits]))
+  val nodeConfig = NodeConfig(typeFactory = caseClassFactory)
+
   val name = config.getString("clouseau.name", "clouseau@127.0.0.1")
-  val node = config.getString("clouseau.cookie") match {
-    case null => Node(name)
-    case cookie: String => Node(name, cookie)
-  }
-  val dir = config.getString("clouseau.dir", "target/indexes")
+  val cookie = config.getString("clouseau.cookie", "monster")
+  val node = Node(name, cookie, nodeConfig)
 
   IndexManagerService.start(node, config)
-  logger.info("Clouseau running as " + name + ", indexes at " + dir)
+  logger.info("Clouseau running as " + name)
 }

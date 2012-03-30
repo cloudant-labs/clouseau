@@ -5,3 +5,4 @@
 * distributed search
 * IOQ
 * dev mode for local cluster tests
+* use scalang.node.CaseClassFactory and some records to formalize exchange format.

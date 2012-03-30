@@ -11,21 +11,26 @@ import org.apache.lucene.store._
 import org.apache.lucene.util.Version
 import org.apache.lucene.search.IndexSearcher
 import scalang._
+import scalang.node._
 import java.nio.charset.Charset
 import java.nio.ByteBuffer
 import org.apache.lucene.document.Field.Index
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document.Field.TermVector
-import java.lang.Long
 import collection.JavaConversions._
 import scala.collection.mutable._
+import com.cloudant.clouseau.Conversions._
+
+case class Hit(score: Float, fields: List[Any])
+case class Hits(totalHits: Int, hits: List[Hit])
+case class Doc(id: String, seq: Long, fields: List[Any])
 
 case class IndexServiceArgs(dbName: String, indexName: String, config: Configuration)
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
-    case ('search, queryString: ByteBuffer, options: List[(Symbol, Any)]) =>
-      val query = queryParser.parse(Utils.toString(queryString), "default")
+    case ('search, query: String, options: List[(Symbol, Any)]) =>
+      val parsedQuery = queryParser.parse(query, "default")
 
       val refresh: Boolean = options find {e => e._1 == 'stale} match {
         case None => true
@@ -48,7 +53,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       reader.incRef
       try {
         val searcher = new IndexSearcher(reader)
-        val topDocs = searcher.search(query, limit)
+        val topDocs = searcher.search(parsedQuery, limit)
         val hits = for (scoreDoc <- topDocs.scoreDocs) yield {
           val doc = searcher.doc(scoreDoc.doc)
           val fields = for (field <- doc.getFields) yield {
@@ -59,23 +64,18 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
                 (field.name, field.stringValue)
             }
           }
-          List(
-            ('_id, doc.getFieldable("_id").stringValue),
-            ('score, scoreDoc.score),
-            ('fields, fields.toList)
-          )
+          Hit(scoreDoc.score, fields.toList)
         }
-        List(('total, topDocs.totalHits), ('hits, hits.toList))
+        Hits(topDocs.totalHits, hits.toList)
       } finally {
         reader.decRef
       }
-    case ('update_doc, seq: Int, id: ByteBuffer, doc: List[Any]) =>
-      val idString = Utils.toString(id)
-      writer.updateDocument(new Term("_id", idString), toDoc(idString, doc))
+    case ('update_doc, seq: Int, id: String, doc: List[Any]) =>
+      writer.updateDocument(new Term("_id", id), toDoc(id, doc))
       pendingSeq = List(pendingSeq, seq).max
       'ok
     case ('delete_doc, seq: Int, id: ByteBuffer) =>
-      writer.deleteDocuments(new Term("_id", Utils.toString(id)))
+      writer.deleteDocuments(new Term("_id", id))
       pendingSeq = List(pendingSeq, seq).max
       'ok
     case 'since =>
@@ -91,7 +91,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   override def handleInfo(msg: Any): Unit = msg match {
     case 'commit if pendingSeq > committedSeq =>
       logger.info("committing updates from " + committedSeq + " to " + pendingSeq)
-      writer.commit(Map("update_seq" -> Long.toString(pendingSeq)))
+      writer.commit(Map("update_seq" -> pendingSeq.asInstanceOf[String]))
       committedSeq = pendingSeq
     case 'commit =>
       'ignored
@@ -118,17 +118,17 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       new NumericField(toName(name), toStore(options), true).setDoubleValue(value)
     case (name: Any, value: Boolean, options: List[(Symbol, Any)]) =>
       new Field(toName(name), value.toString, toStore(options), Index.NOT_ANALYZED)
-    case (name: Any, value: ByteBuffer, options: List[(Symbol, Any)]) =>
-      new Field(toName(name), Utils.toString(value), toStore(options), toIndex(options), toTermVector(options))
+    case (name: Any, value: String, options: List[(Symbol, Any)]) =>
+      new Field(toName(name), value, toStore(options), toIndex(options), toTermVector(options))
   }
 
   private def toName(name: Any) = name match {
-    case name: ByteBuffer =>
-      Utils.toString(name)
-    case name: List[ByteBuffer] =>
+    case name: String =>
+      name
+    case name: List[String] =>
       val builder = new StringBuilder
       for (part <- name) {
-        builder.append(Utils.toString(part))
+        builder.append(part)
         builder.append(".")
       }
       builder.stripSuffix(".")
@@ -164,11 +164,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   val config = new IndexWriterConfig(version, analyzer)
   val writer = new IndexWriter(dir, config)
   var reader = IndexReader.open(writer, true)
-  var committedSeq = reader.getCommitUserData().get("update_seq") match {
-    case null => 0
-    case seq => Long.parseLong(seq)
+  var committedSeq:Long = reader.getCommitUserData().get("update_seq") match {
+    case null => 0L
+    case seq => seq.asInstanceOf[Long]
   }
-  var pendingSeq = committedSeq
+  var pendingSeq: Long = committedSeq
 
   sendEvery(self, 'commit, 10000)
   logger.info("opened at update_seq: " + committedSeq)
