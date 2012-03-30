@@ -72,11 +72,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
     case ('update_doc, seq: Int, id: ByteBuffer, doc: List[Any]) =>
       val idString = Utils.toString(id)
       writer.updateDocument(new Term("_id", idString), toDoc(idString, doc))
-      pendingSeq = seq
+      pendingSeq = List(pendingSeq, seq).max
       'ok
     case ('delete_doc, seq: Int, id: ByteBuffer) =>
       writer.deleteDocuments(new Term("_id", Utils.toString(id)))
-      pendingSeq = seq
+      pendingSeq = List(pendingSeq, seq).max
       'ok
     case 'since =>
       ('ok, pendingSeq)
