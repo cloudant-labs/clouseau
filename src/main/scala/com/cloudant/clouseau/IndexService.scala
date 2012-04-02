@@ -101,6 +101,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   }
 
   override def trapExit(from: Pid, msg: Any) {
+    logger.info("closing")
     writer.close
     exit(msg)
   }
