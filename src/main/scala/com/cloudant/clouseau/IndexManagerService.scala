@@ -12,13 +12,15 @@ case class IndexManagerServiceArgs(config: Configuration)
 class IndexManagerService(ctx: ServiceContext[IndexManagerServiceArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
-    case ('get_index_server, dbName: String, indexName: String) =>
-      val pid = indexes.get((dbName, indexName)) match {
+    case ('get_index_server, dbName: ByteBuffer, indexName: ByteBuffer) =>
+      val dbName1 = Conversions.byteBufferAsString(dbName) // Eugh
+      val indexName1 = Conversions.byteBufferAsString(indexName) // Also eugh
+      val pid = indexes.get((dbName1, indexName1)) match {
         case Some(pid: Pid) if node.isAlive(pid) =>
           pid
         case _ =>
-          val pid = IndexService.start(node, dbName, indexName, ctx.args.config)
-          indexes.put((dbName, indexName), pid)
+          val pid = IndexService.start(node, dbName1, indexName1, ctx.args.config)
+          indexes.put((dbName1, indexName1), pid)
           pid
       }
       ('ok, pid)

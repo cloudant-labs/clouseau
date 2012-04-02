@@ -21,16 +21,12 @@ import collection.JavaConversions._
 import scala.collection.mutable._
 import com.cloudant.clouseau.Conversions._
 
-case class Hit(score: Float, fields: List[Any])
-case class Hits(totalHits: Int, hits: List[Hit])
-case class Doc(id: String, seq: Long, fields: List[Any])
-
 case class IndexServiceArgs(dbName: String, indexName: String, config: Configuration)
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
-    case ('search, query: String, options: List[(Symbol, Any)]) =>
-      val parsedQuery = queryParser.parse(query, "default")
+    case ('search, query: ByteBuffer, options: List[(Symbol, Any)]) =>
+      val parsedQuery = queryParser.parse(Conversions.byteBufferAsString(query), "default")
 
       val refresh: Boolean = options find {e => e._1 == 'stale} match {
         case None => true
@@ -64,22 +60,23 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
                 (field.name, field.stringValue)
             }
           }
-          Hit(scoreDoc.score, fields.toList)
+          (scoreDoc.score, fields.toList)
         }
-        Hits(topDocs.totalHits, hits.toList)
+        ('ok, (topDocs.totalHits, hits.toList))
       } finally {
         reader.decRef
       }
-    case ('_update_doc, seq: Long, _, _) if seq <= pendingSeq =>
+    case ('_update_doc, seq: Int, _, _) if seq <= pendingSeq =>
       'ok
-    case ('update_doc, seq: Long, id: String, doc: List[Any]) =>
-      writer.updateDocument(new Term("_id", id), toDoc(id, doc))
+    case ('update_doc, seq: Int, id: ByteBuffer, doc: List[Any]) =>
+      val idStr = Conversions.byteBufferAsString(id)
+      writer.updateDocument(new Term("_id", idStr), toDoc(idStr, doc))
       pendingSeq = seq
       'ok
-    case ('delete_doc, seq: Long, _) if seq <= pendingSeq =>
+    case ('delete_doc, seq: Int, _) if seq <= pendingSeq =>
       'ok
-    case ('delete_doc, seq: Long, id: ByteBuffer) =>
-      writer.deleteDocuments(new Term("_id", id))
+    case ('delete_doc, seq: Int, id: ByteBuffer) =>
+      writer.deleteDocuments(new Term("_id", byteBufferAsString(id)))
       pendingSeq = seq
       'ok
     case 'since =>
@@ -89,13 +86,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       'ok
     case _ =>
       // Remove if Scalang gets supervisors.
-      ('error, msg)
+      ('error, 'unexpected_message)
   }
 
   override def handleInfo(msg: Any): Unit = msg match {
     case 'commit if pendingSeq > committedSeq =>
       logger.info("committing updates from " + committedSeq + " to " + pendingSeq)
-      writer.commit(Map("update_seq" -> pendingSeq.asInstanceOf[String]))
+      writer.commit(Map("update_seq" -> java.lang.Integer.toString(pendingSeq)))
       committedSeq = pendingSeq
     case 'commit =>
       'ignored
@@ -122,17 +119,17 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       new NumericField(toName(name), toStore(options), true).setDoubleValue(value)
     case (name: Any, value: Boolean, options: List[(Symbol, Any)]) =>
       new Field(toName(name), value.toString, toStore(options), Index.NOT_ANALYZED)
-    case (name: Any, value: String, options: List[(Symbol, Any)]) =>
-      new Field(toName(name), value, toStore(options), toIndex(options), toTermVector(options))
+    case (name: Any, value: ByteBuffer, options: List[(Symbol, Any)]) =>
+      new Field(toName(name), Conversions.byteBufferAsString(value), toStore(options), toIndex(options), toTermVector(options))
   }
 
-  private def toName(name: Any) = name match {
-    case name: String =>
-      name
-    case name: List[String] =>
+  private def toName(name: Any): String = name match {
+    case name: ByteBuffer =>
+      Conversions.byteBufferAsString(name) // Eugh
+    case name: List[ByteBuffer] =>
       val builder = new StringBuilder
       for (part <- name) {
-        builder.append(part)
+        builder.append(Conversions.byteBufferAsString(part)) // Eugh
         builder.append(".")
       }
       builder.stripSuffix(".")
@@ -168,11 +165,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   val config = new IndexWriterConfig(version, analyzer)
   val writer = new IndexWriter(dir, config)
   var reader = IndexReader.open(writer, true)
-  var committedSeq:Long = reader.getCommitUserData().get("update_seq") match {
-    case null => 0L
-    case seq => seq.asInstanceOf[Long]
+  var committedSeq: Int = reader.getCommitUserData().get("update_seq") match {
+    case null => 0
+    case seq => java.lang.Integer.parseInt(seq)
   }
-  var pendingSeq: Long = committedSeq
+  var pendingSeq: Int = committedSeq
 
   sendEvery(self, 'commit, 10000)
   logger.info("opened at update_seq: " + committedSeq)

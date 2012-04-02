@@ -18,14 +18,9 @@ object Main extends App {
   reloadableConfig.setReloadingStrategy(new FileChangedReloadingStrategy)
   config.addConfiguration(reloadableConfig)
 
-  val caseClassFactory = new CaseClassFactory(Nil, Map("doc" -> classOf[Doc],
-                                                       "hit" -> classOf[Hit],
-                                                       "hits" -> classOf[Hits]))
-  val nodeConfig = NodeConfig(typeFactory = caseClassFactory)
-
   val name = config.getString("clouseau.name", "clouseau@127.0.0.1")
   val cookie = config.getString("clouseau.cookie", "monster")
-  val node = Node(name, cookie, nodeConfig)
+  val node = Node(name, cookie)
 
   IndexManagerService.start(node, config)
   logger.info("Clouseau running as " + name)
