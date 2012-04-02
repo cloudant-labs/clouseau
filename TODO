@@ -4,5 +4,5 @@
 * add index_cleanup
 * distributed search
 * IOQ
-* dev mode for local cluster tests
 * use scalang.node.CaseClassFactory and some records to formalize exchange format.
+* update process must complete (currently it's aborted on search result)
