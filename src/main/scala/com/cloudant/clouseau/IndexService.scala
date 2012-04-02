@@ -70,13 +70,17 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       } finally {
         reader.decRef
       }
-    case ('update_doc, seq: Int, id: String, doc: List[Any]) =>
-      writer.updateDocument(new Term("_id", id), toDoc(id, doc))
-      pendingSeq = List(pendingSeq, seq).max
+    case ('_update_doc, seq: Long, _, _) if seq <= pendingSeq =>
       'ok
-    case ('delete_doc, seq: Int, id: ByteBuffer) =>
+    case ('update_doc, seq: Long, id: String, doc: List[Any]) =>
+      writer.updateDocument(new Term("_id", id), toDoc(id, doc))
+      pendingSeq = seq
+      'ok
+    case ('delete_doc, seq: Long, _) if seq <= pendingSeq =>
+      'ok
+    case ('delete_doc, seq: Long, id: ByteBuffer) =>
       writer.deleteDocuments(new Term("_id", id))
-      pendingSeq = List(pendingSeq, seq).max
+      pendingSeq = seq
       'ok
     case 'since =>
       ('ok, pendingSeq)
