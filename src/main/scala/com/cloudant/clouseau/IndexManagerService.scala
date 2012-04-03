@@ -24,17 +24,11 @@ class IndexManagerService(ctx: ServiceContext[IndexManagerServiceArgs]) extends 
           pid
       }
       ('ok, pid)
-    case _ =>
-      // Remove if Scalang gets supervisors.
-      ('error, msg)
   }
 
-  override def handleCast(msg: Any) {
-    // Remove if Scalang gets supervisors.
-  }
-
-  override def handleInfo(msg: Any) {
-    // Remove if Scalang gets supervisors.
+  override def trapExit(from : Pid, msg : Any) {
+    exit(msg)
+    IndexManagerService.start(node, ctx.args.config)
   }
 
   val logger = Logger.getLogger("clouseau.manager")
