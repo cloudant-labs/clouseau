@@ -84,9 +84,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
     case 'close =>
       exit('closed)
       'ok
-    case _ =>
-      // Remove if Scalang gets supervisors.
-      ('error, 'unexpected_message)
   }
 
   override def handleInfo(msg: Any): Unit = msg match {
@@ -95,8 +92,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       writer.commit(Map("update_seq" -> java.lang.Integer.toString(pendingSeq)))
       committedSeq = pendingSeq
     case 'commit =>
-      'ignored
-    case _ =>
       'ignored
   }
 
