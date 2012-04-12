@@ -12,3 +12,5 @@ mvn scala:run -Dlauncher=clouseau3
 If you are using the 'dreyfus' branch of dbcore, then each erlang node
 will already be configured to talk to its clouseau peer. If not, you
 go right ahead and do that by hand.
+
+Example call: dreyfus:search(<<"db1">>, <<"text:text">>, [{limit, 5}]).
