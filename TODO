@@ -6,3 +6,4 @@
 * IOQ
 * use scalang.node.CaseClassFactory and some records to formalize exchange format.
 * update process must complete (currently it's aborted on search result)
+* IndexWriterConfig must be fully configurable without code changes.
