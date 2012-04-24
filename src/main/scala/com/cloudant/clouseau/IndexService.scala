@@ -88,9 +88,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
           val fields = for (field <- doc.getFields) yield {
             field match {
               case numericField: NumericField =>
-                (field.name, numericField.getNumericValue)
+                (field.name.getBytes("UTF-8"), numericField.getNumericValue)
               case _ =>
-                (field.name, field.stringValue)
+                (field.name.getBytes("UTF-8"), field.stringValue.getBytes("UTF-8"))
             }
           }
           (scoreDoc.score, fields.toList)
