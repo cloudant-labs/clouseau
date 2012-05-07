@@ -19,9 +19,9 @@
 
   <repositories>
     <repository>
-      <id>BoundaryPublicRepo</id>
-      <name>Boundary Public Repo</name>
-      <url>http://maven.boundary.com/artifactory/repo/</url>
+      <id>CloudantPublicRepo</id>
+      <name>Cloudant Public Repo</name>
+      <url>http://maven.cloudant.com/repo/</url>
     </repository>
     <repository>
       <id>scala-tools.org</id>
