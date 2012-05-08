@@ -1,0 +1,12 @@
+<assembly>
+  <id>distribution</id>
+  <formats>
+    <format>zip</format>
+    <format>tar.gz</format>
+  </formats>
+  <dependencySets>
+    <dependencySet>
+      <scope>runtime</scope>
+    </dependencySet>
+  </dependencySets>
+</assembly>
