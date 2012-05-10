@@ -49,7 +49,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   override def handleInfo(msg: Any): Unit = msg match {
     case 'commit if pendingSeq > committedSeq =>
       logger.info("committing updates from " + committedSeq + " to " + pendingSeq)
-      writer.commit(Map("update_seq" -> java.lang.Integer.toString(pendingSeq)))
+      writer.commit(Map("update_seq" -> java.lang.Long.toString(pendingSeq)))
       committedSeq = pendingSeq
     case 'commit =>
       'ignored
@@ -110,11 +110,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   val config = new IndexWriterConfig(version, analyzer)
   val writer = new IndexWriter(dir, config)
   var reader = IndexReader.open(writer, true)
-  var committedSeq: Int = reader.getCommitUserData().get("update_seq") match {
-    case null => 0
-    case seq => java.lang.Integer.parseInt(seq)
+  var committedSeq: Long = reader.getCommitUserData().get("update_seq") match {
+    case null => 0L
+    case seq => java.lang.Long.parseLong(seq)
   }
-  var pendingSeq: Int = committedSeq
+  var pendingSeq: Long = committedSeq
 
   sendEvery(self, 'commit, 10000)
   logger.info("opened at update_seq: " + committedSeq)
