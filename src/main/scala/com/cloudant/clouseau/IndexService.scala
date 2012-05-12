@@ -47,9 +47,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   }
 
   override def handleInfo(msg: Any) = msg match {
-    case ('update, seq: Int, id: String, body: Any) if seq <= pendingSeq =>
+    case ('update, seq: Int, id: String, body: String) if seq <= pendingSeq =>
       'ok
-    case ('update, seq: Int, id: String, body: Any) =>
+    case ('update, seq: Int, id: String, body: String) =>
       // TODO convert from body using indexDef
       val doc = new Document()
       doc.add(new Field("_id", id, Store.YES, Index.NOT_ANALYZED))
