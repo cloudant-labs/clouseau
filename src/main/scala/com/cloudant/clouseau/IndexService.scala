@@ -20,38 +20,60 @@ import org.apache.lucene.document.Field.TermVector
 import collection.JavaConversions._
 import scala.collection.mutable._
 
-case class IndexServiceArgs(dbName: String, indexName: String, config: Configuration)
+case class IndexServiceArgs(dbName: String, indexSig: String, indexDef: String, config: Configuration)
+
+case class DeferredQuery(minSeq: Int, pid: Pid, ref: Reference, query: String, limit: Int, stale: Any)
+
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
-    case ('_update_doc, seq: Int, _, _) if seq <= pendingSeq =>
-      'ok
-    case ('update_doc, seq: Int, doc: Document) =>
-      val id = doc.getField("_id").stringValue()
-      writer.updateDocument(new Term("_id", id), doc)
-      pendingSeq = seq
-      'ok
-    case ('delete_doc, seq: Int, _) if seq <= pendingSeq =>
-      'ok
-    case ('delete_doc, seq: Int, id: String) =>
-      writer.deleteDocuments(new Term("_id", id))
-      pendingSeq = seq
-      'ok
-    case ('search, query: String, options: List[(Symbol, Any)]) =>
-      search(query, options)
-    case 'since =>
-      ('ok, pendingSeq)
+    case ('search, changes: (Symbol, Symbol), minSeq: Int, query: String, limit: Int, stale: Any) if minSeq <= pendingSeq =>
+      search(query, limit, stale)
+    case ('search, changes: (Symbol, Symbol), minSeq: Int, query: String, limit: Int, stale: Any) =>
+      waiters = DeferredQuery(minSeq, tag._1, tag._2, query, limit, stale) :: waiters
+      targetSeq = minSeq
+      changesSource = changes
+      triggerUpdate
+      'noreply
     case 'close =>
       exit('closed)
       'ok
+    case _ =>
+      'ignored
   }
 
-  override def handleInfo(msg: Any): Unit = msg match {
+  override def handleCast(msg: Any) {
+    // Ignored
+  }
+
+  override def handleInfo(msg: Any) = msg match {
+    case ('update, seq: Int, id: String, body: Any) if seq <= pendingSeq =>
+      'ok
+    case ('update, seq: Int, id: String, body: Any) =>
+      // TODO convert from body using indexDef
+      val doc = new Document()
+      doc.add(new Field("_id", id, Store.YES, Index.NOT_ANALYZED))
+      writer.updateDocument(new Term("_id", id), doc)
+      pendingSeq = seq
+    case ('delete, seq: Int, _) if seq <= pendingSeq =>
+      'ok
+    case ('delete, seq: Int, id: String) =>
+      writer.deleteDocuments(new Term("_id", id))
+      pendingSeq = seq
     case 'commit if pendingSeq > committedSeq =>
       logger.info("committing updates from " + committedSeq + " to " + pendingSeq)
-      writer.commit(Map("update_seq" -> java.lang.Long.toString(pendingSeq)))
+      writer.commit(Map("update_seq" -> java.lang.Integer.toString(pendingSeq)))
       committedSeq = pendingSeq
     case 'commit =>
+      'ok
+    case 'batch_end if targetSeq > pendingSeq =>
+      triggerUpdate
+    case 'batch_end =>
+      val (ready, pending) = waiters.partition( _.minSeq <= pendingSeq)
+      ready foreach(req => req.pid ! (req.ref, search(req.query, req.limit, req.stale)))
+      waiters = pending
+      'ok
+    case _ =>
       'ignored
   }
 
@@ -61,12 +83,17 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
     exit(msg)
   }
 
-  private def search(query: String, options: List[(Symbol, Any)]) = {
+  private def triggerUpdate {
+    call(changesSource, ('get_changes, self, ctx.args.dbName.getBytes("UTF-8"), pendingSeq, 100))
+  }
+
+  private def search(query: String, limit: Int, stale: Any) = {
       val parsedQuery = queryParser.parse(query, "default")
 
-      val refresh: Boolean = options find {e => e._1 == 'stale} match {
-        case None => true
-        case Some(('stale, 'ok)) => false
+      val refresh: Boolean = stale match {
+        case 'ok => false
+        case 'update_after => false
+        case _ => true
       }
 
       if (refresh) {
@@ -77,12 +104,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
         }
       }
 
-      val limit: Int = Utils.findOrElse(options, 'limit, 25)
-
       reader.incRef
       try {
         val searcher = new IndexSearcher(reader)
         val topDocs = searcher.search(parsedQuery, limit)
+        logger.info("search (%s, limit %d, stale %s) => %d hits".format(parsedQuery, limit, stale, topDocs.totalHits))
         val hits = for (scoreDoc <- topDocs.scoreDocs) yield {
           val doc = searcher.doc(scoreDoc.doc)
           val fields = for (field <- doc.getFields) yield {
@@ -101,27 +127,36 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       }
   }
 
-  val logger = Logger.getLogger("clouseau." + ctx.args.dbName + ":" + ctx.args.indexName)
+  val name = "%s:%s".format(ctx.args.dbName, ctx.args.indexSig)
+  val logger = Logger.getLogger("clouseau." + name)
   val rootDir = ctx.args.config.getString("clouseau.dir", "target/indexes")
-  val dir = new NIOFSDirectory(new File(new File(rootDir, ctx.args.dbName), ctx.args.indexName))
+  val dir = new NIOFSDirectory(new File(new File(rootDir, ctx.args.dbName), ctx.args.indexSig))
   val version = Version.LUCENE_36
   val analyzer = new StandardAnalyzer(version)
   val queryParser = new StandardQueryParser
   val config = new IndexWriterConfig(version, analyzer)
   val writer = new IndexWriter(dir, config)
   var reader = IndexReader.open(writer, true)
-  var committedSeq: Long = reader.getCommitUserData().get("update_seq") match {
-    case null => 0L
-    case seq => java.lang.Long.parseLong(seq)
-  }
-  var pendingSeq: Long = committedSeq
+  var committedSeq: Int = IndexService.getUpdateSeq(reader)
+  var pendingSeq: Int = committedSeq
+  var targetSeq: Int = committedSeq
+  var changesSource: (Symbol, Symbol) = null
+  var waiters: List[DeferredQuery] = Nil
 
   sendEvery(self, 'commit, 10000)
   logger.info("opened at update_seq: " + committedSeq)
 }
 
 object IndexService {
-  def start(node: Node, dbName: String, indexName: String, config: Configuration): Pid = {
-     node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(dbName, indexName, config))
+
+  def getUpdateSeq(reader: IndexReader): Int = {
+    reader.getCommitUserData().get("update_seq") match {
+      case null => 0
+      case seq => java.lang.Integer.parseInt(seq)
+    }
+  }
+
+  def start(node: Node, dbName: String, indexSig: String, indexDef: String, config: Configuration): Pid = {
+     node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(dbName, indexSig, indexDef, config))
   }
 }
