@@ -22,7 +22,7 @@ import org.apache.lucene.search.Query;
  * the License.
  */
 
-public final class TypedField {
+public final class FieldWithType {
 
     private static Pattern PATTERN = Pattern.compile("^(\\w[\\w_.-]*)(<([\\w]+)>)?$");
 
@@ -30,7 +30,7 @@ public final class TypedField {
 
     private final FieldType type;
 
-    public TypedField(final String string) throws ParseException {
+    public FieldWithType(final String string) throws ParseException {
         final Matcher matcher = PATTERN.matcher(string);
 
         if (!matcher.matches()) {

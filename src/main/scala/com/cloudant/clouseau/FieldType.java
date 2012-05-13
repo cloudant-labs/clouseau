@@ -32,14 +32,9 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TermRangeQuery;
 import org.apache.lucene.util.NumericUtils;
 
-enum FieldType {
+public enum FieldType {
 
     DATE(8, SortField.LONG) {
-
-        @Override
-        public NumericField toField(final String name, final Object value, final ViewSettings settings) throws ParseException {
-            return field(name, precisionStep, settings).setLongValue(toDate(value));
-        }
 
         @Override
         public Query toRangeQuery(final String name, final String lower, final String upper, final boolean inclusive)
@@ -55,10 +50,6 @@ enum FieldType {
 
     },
     DOUBLE(8, SortField.DOUBLE) {
-        @Override
-        public NumericField toField(final String name, final Object value, final ViewSettings settings) {
-            return field(name, precisionStep, settings).setDoubleValue(toDouble(value));
-        }
 
         @Override
         public Query toRangeQuery(final String name, final String lower, final String upper, final boolean inclusive) {
@@ -79,10 +70,6 @@ enum FieldType {
 
     },
     FLOAT(4, SortField.FLOAT) {
-        @Override
-        public NumericField toField(final String name, final Object value, final ViewSettings settings) {
-            return field(name, 4, settings).setFloatValue(toFloat(value));
-        }
 
         @Override
         public Query toRangeQuery(final String name, final String lower, final String upper, final boolean inclusive) {
@@ -102,10 +89,6 @@ enum FieldType {
         }
     },
     INT(4, SortField.INT) {
-        @Override
-        public NumericField toField(final String name, final Object value, final ViewSettings settings) {
-            return field(name, 4, settings).setIntValue(toInt(value));
-        }
 
         @Override
         public Query toRangeQuery(final String name, final String lower, final String upper, final boolean inclusive) {
@@ -126,10 +109,6 @@ enum FieldType {
 
     },
     LONG(8, SortField.LONG) {
-        @Override
-        public NumericField toField(final String name, final Object value, final ViewSettings settings) {
-            return field(name, precisionStep, settings).setLongValue(toLong(value));
-        }
 
         @Override
         public Query toRangeQuery(final String name, final String lower, final String upper, final boolean inclusive) {
@@ -150,16 +129,10 @@ enum FieldType {
 
     },
     STRING(0, SortField.STRING) {
-        @Override
-        public Field toField(final String name, final Object value, final ViewSettings settings) {
-            return field(name, value, settings);
-        }
 
         @Override
         public Query toRangeQuery(final String name, final String lower, final String upper, final boolean inclusive) {
-            final TermRangeQuery result = new TermRangeQuery(name, lower, upper, inclusive, inclusive);
-            result.setRewriteMethod(MultiTermQuery.CONSTANT_SCORE_AUTO_REWRITE_DEFAULT);
-            return result;
+            return new TermRangeQuery(name, lower, upper, inclusive, inclusive);
         }
 
         @Override
@@ -167,19 +140,6 @@ enum FieldType {
             throw new UnsupportedOperationException("toTermQuery is not supported for FieldType.String.");
         }
     };
-
-    private static NumericField field(final String name, final int precisionStep, final ViewSettings settings) {
-        return boost(new NumericField(name, precisionStep, settings.getStore(), settings.getIndex().isIndexed()), settings);
-    }
-
-    private static Field field(final String name, final Object value, final ViewSettings settings) {
-        return boost(new Field(name, value.toString(), settings.getStore(), settings.getIndex(), settings.getTermVector()), settings);
-    }
-
-    private static <T extends AbstractField> T boost(final T field, final ViewSettings settings) {
-        field.setBoost(settings.getBoost());
-        return field;
-    }
 
     public static final String[] DATE_PATTERNS = new String[] { "yyyy-MM-dd'T'HH:mm:ssZ", "yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-ddZ",
             "yyyy-MM-dd", "yyyy-MM-dd'T'HH:mm:ss.SSSZ", "yyyy-MM-dd'T'HH:mm:ss.SSS"};
@@ -192,8 +152,6 @@ enum FieldType {
         this.precisionStep = precisionStep;
         this.sortField = sortField;
     }
-
-    public abstract AbstractField toField(final String name, final Object value, final ViewSettings settings) throws ParseException;
 
     public abstract Query toRangeQuery(final String name, final String lower, final String upper, final boolean inclusive)
             throws ParseException;

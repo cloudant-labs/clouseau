@@ -37,18 +37,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
     case 'close =>
       exit('closed)
       'ok
-    case _ =>
-      ('ignored, msg)
-  }
-
-  override def handleCast(msg: Any) {
-    // Ignored
   }
 
   override def handleInfo(msg: Any) = msg match {
-    case ('update, seq: Int, id: String, doc: Document) if seq <= pendingSeq =>
+    case ('update, seq: Int, doc: Document) if seq <= pendingSeq =>
       'ok
-    case ('update, seq: Int, id: String, doc: Document) =>
+    case ('update, seq: Int, doc: Document) =>
+      val id = doc.getFieldable("_id").stringValue
       writer.updateDocument(new Term("_id", id), doc)
       pendingSeq = seq
     case ('delete, seq: Int, _) if seq <= pendingSeq =>
@@ -69,8 +64,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       ready foreach(req => req.pid ! (req.ref, search(req.queryArgs)))
       waiters = pending
       'ok
-    case _ =>
-      'ignored
   }
 
   override def trapExit(from: Pid, msg: Any) {

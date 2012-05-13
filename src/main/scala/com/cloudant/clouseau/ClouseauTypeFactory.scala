@@ -2,6 +2,8 @@ package com.cloudant.clouseau
 
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
+import org.apache.lucene.document.Field._
+import org.apache.lucene.document._
 import scalang._
 
 object ClouseauTypeFactory extends TypeFactory {
@@ -33,6 +35,10 @@ object ClouseauTypeFactory extends TypeFactory {
   private def toFieldable(field: Any): Fieldable = field match {
     case (name: String, value: Int, options: List[(Symbol, Any)]) =>
       new NumericField(name, toStore(options), true).setIntValue(value)
+    case (name: String, value: Long, options: List[(Symbol, Any)]) =>
+      new NumericField(name, toStore(options), true).setLongValue(value)
+    case (name: String, value: Float, options: List[(Symbol, Any)]) =>
+      new NumericField(name, toStore(options), true).setFloatValue(value)
     case (name: String, value: Double, options: List[(Symbol, Any)]) =>
       new NumericField(name, toStore(options), true).setDoubleValue(value)
     case (name: String, value: Boolean, options: List[(Symbol, Any)]) =>

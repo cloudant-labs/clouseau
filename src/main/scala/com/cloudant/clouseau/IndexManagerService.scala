@@ -24,16 +24,6 @@ class IndexManagerService(ctx: ServiceContext[IndexManagerServiceArgs]) extends 
           pid
       }
       ('ok, pid)
-    case _ =>
-      'ignored
-  }
-
-  override def handleCast(msg: Any) {
-    // Ignored
-  }
-
-  override def handleInfo(msg: Any) {
-    // Ignored
   }
 
   // Close the least-recently accessed index if we are at max index limit.
