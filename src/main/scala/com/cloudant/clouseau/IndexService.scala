@@ -3,8 +3,7 @@ package com.cloudant.clouseau
 import java.io.File
 import org.apache.commons.configuration.Configuration
 import org.apache.log4j.Logger
-import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.queryParser.standard.StandardQueryParser
+import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.document._
 import org.apache.lucene.index._
 import org.apache.lucene.store._
@@ -39,7 +38,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       exit('closed)
       'ok
     case _ =>
-      'ignored
+      ('ignored, msg)
   }
 
   override def handleCast(msg: Any) {
@@ -91,8 +90,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       val query = Utils.findOrElse(queryArgs, 'q, "")
       val stale = Utils.findOrElse(queryArgs, 'stale, 'false)
       val limit = Utils.findOrElse(queryArgs, 'limit, 25)
-
-      val parsedQuery = queryParser.parse(query, "default")
+      val parsedQuery = queryParser.parse(query)
 
       val refresh: Boolean = stale match {
         case 'ok => false
@@ -136,8 +134,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   val rootDir = ctx.args.config.getString("clouseau.dir", "target/indexes")
   val dir = new NIOFSDirectory(new File(new File(rootDir, ctx.args.dbName), IndexService.getSignature(ctx.args.index)))
   val version = Version.LUCENE_36
-  val analyzer = new StandardAnalyzer(version)
-  val queryParser = new StandardQueryParser
+  val analyzer = IndexService.getAnalyzer(version, ctx.args.index)
+  val queryParser = new ClouseauQueryParser(version, "default", analyzer)
   val config = new IndexWriterConfig(version, analyzer)
   val writer = new IndexWriter(dir, config)
   var reader = IndexReader.open(writer, true)
@@ -166,6 +164,11 @@ object IndexService {
 
   def getDef(index: List[(Symbol, Any)]): String = {
     Utils.findOrElse[String](index, 'def, null)
+  }
+
+  def getAnalyzer(version: Version, index: List[(Symbol, Any)]): Analyzer = {
+    val name = Utils.findOrElse[String](index, 'analyzer, "standard")
+    Analyzers.getAnalyzer(version, name)
   }
 
   def start(node: Node, dbName: String, index: List[(Symbol, Any)], config: Configuration): Pid = {
