@@ -20,17 +20,17 @@ import org.apache.lucene.document.Field.TermVector
 import collection.JavaConversions._
 import scala.collection.mutable._
 
-case class IndexServiceArgs(dbName: String, indexSig: String, indexDef: String, config: Configuration)
+case class IndexServiceArgs(dbName: String, index: List[(Symbol, Any)], config: Configuration)
 
-case class DeferredQuery(minSeq: Int, pid: Pid, ref: Reference, query: String, limit: Int, stale: Any)
+case class DeferredQuery(minSeq: Int, pid: Pid, ref: Reference, queryArgs: List[(Symbol,Any)])
 
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
-    case ('search, changes: (Symbol, Symbol), minSeq: Int, query: String, limit: Int, stale: Any) if minSeq <= pendingSeq =>
-      search(query, limit, stale)
-    case ('search, changes: (Symbol, Symbol), minSeq: Int, query: String, limit: Int, stale: Any) =>
-      waiters = DeferredQuery(minSeq, tag._1, tag._2, query, limit, stale) :: waiters
+    case ('search, changes: (Symbol, Symbol), minSeq: Int, queryArgs:List[(Symbol,Any)]) if minSeq <= pendingSeq =>
+      search(queryArgs)
+    case ('search, changes: (Symbol, Symbol), minSeq: Int, queryArgs:List[(Symbol,Any)]) =>
+      waiters = DeferredQuery(minSeq, tag._1, tag._2, queryArgs) :: waiters
       targetSeq = minSeq
       changesSource = changes
       triggerUpdate
@@ -70,7 +70,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       triggerUpdate
     case 'batch_end =>
       val (ready, pending) = waiters.partition( _.minSeq <= pendingSeq)
-      ready foreach(req => req.pid ! (req.ref, search(req.query, req.limit, req.stale)))
+      ready foreach(req => req.pid ! (req.ref, search(req.queryArgs)))
       waiters = pending
       'ok
     case _ =>
@@ -87,7 +87,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
     call(changesSource, ('get_changes, self, ctx.args.dbName.getBytes("UTF-8"), pendingSeq, 100))
   }
 
-  private def search(query: String, limit: Int, stale: Any) = {
+  private def search(queryArgs: List[(Symbol,Any)]) = {
+      val query = Utils.findOrElse(queryArgs, 'q, "")
+      val stale = Utils.findOrElse(queryArgs, 'stale, 'false)
+      val limit = Utils.findOrElse(queryArgs, 'limit, 25)
+
       val parsedQuery = queryParser.parse(query, "default")
 
       val refresh: Boolean = stale match {
@@ -127,10 +131,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       }
   }
 
-  val name = "%s:%s".format(ctx.args.dbName, ctx.args.indexSig)
+  val name = "%s:%s".format(ctx.args.dbName, IndexService.getSignature(ctx.args.index))
   val logger = Logger.getLogger("clouseau." + name)
   val rootDir = ctx.args.config.getString("clouseau.dir", "target/indexes")
-  val dir = new NIOFSDirectory(new File(new File(rootDir, ctx.args.dbName), ctx.args.indexSig))
+  val dir = new NIOFSDirectory(new File(new File(rootDir, ctx.args.dbName), IndexService.getSignature(ctx.args.index)))
   val version = Version.LUCENE_36
   val analyzer = new StandardAnalyzer(version)
   val queryParser = new StandardQueryParser
@@ -156,7 +160,15 @@ object IndexService {
     }
   }
 
-  def start(node: Node, dbName: String, indexSig: String, indexDef: String, config: Configuration): Pid = {
-     node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(dbName, indexSig, indexDef, config))
+  def getSignature(index: List[(Symbol, Any)]): String = {
+    Utils.findOrElse[String](index, 'sig, null)
+  }
+
+  def getDef(index: List[(Symbol, Any)]): String = {
+    Utils.findOrElse[String](index, 'def, null)
+  }
+
+  def start(node: Node, dbName: String, index: List[(Symbol, Any)], config: Configuration): Pid = {
+     node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(dbName, index, config))
   }
 }
