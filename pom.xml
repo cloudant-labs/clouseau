@@ -84,13 +84,6 @@
       <version>${scala.version}</version>
     </dependency>
 
-    <!-- Rhino -->
-    <dependency>
-      <groupId>org.mozilla</groupId>
-      <artifactId>rhino</artifactId>
-      <version>1.7R3</version>
-    </dependency>
-
     <!-- JSON -->
     <dependency>
       <groupId>org.json</groupId>
