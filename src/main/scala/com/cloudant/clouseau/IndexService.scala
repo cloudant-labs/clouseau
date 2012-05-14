@@ -21,14 +21,14 @@ import scala.collection.mutable._
 
 case class IndexServiceArgs(dbName: String, index: List[(Symbol, Any)], config: Configuration)
 
-case class DeferredQuery(minSeq: Int, pid: Pid, ref: Reference, queryArgs: List[(Symbol,Any)])
+case class DeferredQuery(minSeq: Long, pid: Pid, ref: Reference, queryArgs: List[(Symbol,Any)])
 
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
-    case ('search, changes: (Symbol, Symbol), minSeq: Int, queryArgs:List[(Symbol,Any)]) if minSeq <= pendingSeq =>
+    case ('search, changes: (Symbol, Symbol), minSeq: Long, queryArgs:List[(Symbol,Any)]) if minSeq <= pendingSeq =>
       search(queryArgs)
-    case ('search, changes: (Symbol, Symbol), minSeq: Int, queryArgs:List[(Symbol,Any)]) =>
+    case ('search, changes: (Symbol, Symbol), minSeq: Long, queryArgs:List[(Symbol,Any)]) =>
       waiters = DeferredQuery(minSeq, tag._1, tag._2, queryArgs) :: waiters
       targetSeq = minSeq
       changesSource = changes
@@ -40,20 +40,20 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   }
 
   override def handleInfo(msg: Any) = msg match {
-    case ('update, seq: Int, doc: Document) if seq <= pendingSeq =>
+    case ('update, seq: Long, doc: Document) if seq <= pendingSeq =>
       'ok
-    case ('update, seq: Int, doc: Document) =>
+    case ('update, seq: Long, doc: Document) =>
       val id = doc.getFieldable("_id").stringValue
       writer.updateDocument(new Term("_id", id), doc)
       pendingSeq = seq
-    case ('delete, seq: Int, _) if seq <= pendingSeq =>
+    case ('delete, seq: Long, _) if seq <= pendingSeq =>
       'ok
-    case ('delete, seq: Int, id: String) =>
+    case ('delete, seq: Long, id: String) =>
       writer.deleteDocuments(new Term("_id", id))
       pendingSeq = seq
     case 'commit if pendingSeq > committedSeq =>
       logger.info("committing updates from " + committedSeq + " to " + pendingSeq)
-      writer.commit(Map("update_seq" -> java.lang.Integer.toString(pendingSeq)))
+      writer.commit(Map("update_seq" -> pendingSeq.toString))
       committedSeq = pendingSeq
     case 'commit =>
       'ok
@@ -129,9 +129,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   val config = new IndexWriterConfig(version, analyzer)
   val writer = new IndexWriter(dir, config)
   var reader = IndexReader.open(writer, true)
-  var committedSeq: Int = IndexService.getUpdateSeq(reader)
-  var pendingSeq: Int = committedSeq
-  var targetSeq: Int = committedSeq
+  var committedSeq: Long = IndexService.getUpdateSeq(reader)
+  var pendingSeq: Long = committedSeq
+  var targetSeq: Long = committedSeq
   var changesSource: (Symbol, Symbol) = null
   var waiters: List[DeferredQuery] = Nil
 
@@ -141,10 +141,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
 object IndexService {
 
-  def getUpdateSeq(reader: IndexReader): Int = {
+  def getUpdateSeq(reader: IndexReader): Long = {
     reader.getCommitUserData().get("update_seq") match {
-      case null => 0
-      case seq => java.lang.Integer.parseInt(seq)
+      case null => 0L
+      case seq => seq.toLong
     }
   }
 

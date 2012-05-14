@@ -20,6 +20,12 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(('termvector, TermVector.valueOf(reader.readAs[Symbol].name toUpperCase)))
     case ('doc, 3) =>
       Some(readDoc(reader))
+    case ('search, 4) =>
+      Some('search, reader.readTerm, long(reader.readTerm), reader.readTerm)
+    case ('update, 3) =>
+      Some(('update, long(reader.readTerm), reader.readTerm))
+    case ('delete, 3) =>
+      Some(('delete, long(reader.readTerm), reader.readTerm))
     case _ =>
       None
   }
@@ -57,6 +63,13 @@ object ClouseauTypeFactory extends TypeFactory {
 
   private def toTermVector(options: List[(Symbol, Any)]) = {
     Utils.findOrElse(options, 'termvector, TermVector.NO)
+  }
+
+  private def long(a: Any) : Long = {
+    a match {
+      case v: java.lang.Integer => v.intValue
+      case v: java.lang.Long => v.longValue
+    }
   }
 
   val utf8 = Charset.forName("UTF-8")
