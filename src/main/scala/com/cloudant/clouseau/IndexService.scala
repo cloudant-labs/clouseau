@@ -7,8 +7,10 @@ import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.document._
 import org.apache.lucene.index._
 import org.apache.lucene.store._
+import org.apache.lucene.search.Query
 import org.apache.lucene.util.Version
 import org.apache.lucene.search.IndexSearcher
+import org.apache.lucene.queryParser.ParseException
 import scalang._
 import scalang.node._
 import java.nio.charset.Charset
@@ -76,11 +78,23 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
     call(changesSource, ('get_changes, self, ctx.args.dbName.getBytes("UTF-8"), pendingSeq, 100))
   }
 
-  private def search(queryArgs: List[(Symbol,Any)]) = {
-      val query = Utils.findOrElse(queryArgs, 'q, "")
+  private def search(queryArgs: List[(Symbol,Any)]): Any = {
+    queryArgs find {e => e._1 == 'q} match {
+      case None =>
+        ('error, "no q parameter")
+      case Some((_, q: String)) =>
+        try {
+          search(queryParser.parse(q), queryArgs)
+        } catch {
+          case e: ParseException => ('error, e.getMessage)
+          case e: NumberFormatException => ('error, e.getMessage)
+        }
+    }
+  }
+
+  private def search(query: Query, queryArgs: List[(Symbol,Any)]): Any = {
       val stale = Utils.findOrElse(queryArgs, 'stale, 'false)
       val limit = Utils.findOrElse(queryArgs, 'limit, 25)
-      val parsedQuery = queryParser.parse(query)
 
       val refresh: Boolean = stale match {
         case 'ok => false
@@ -99,8 +113,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       reader.incRef
       try {
         val searcher = new IndexSearcher(reader)
-        val topDocs = searcher.search(parsedQuery, limit)
-        logger.info("search (%s, limit %d, stale %s) => %d hits".format(parsedQuery, limit, stale, topDocs.totalHits))
+        val topDocs = searcher.search(query, limit)
+        logger.info("search (%s, limit %d, stale %s) => %d hits".format(query, limit, stale, topDocs.totalHits))
         val hits = for (scoreDoc <- topDocs.scoreDocs) yield {
           val doc = searcher.doc(scoreDoc.doc)
           val fields = for (field <- doc.getFields) yield {
