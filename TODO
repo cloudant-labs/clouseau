@@ -4,3 +4,4 @@
 * add index_cleanup
 * IOQ
 * dreyfus must monitor clouseau
+* enforce maximum value of 'limit'
