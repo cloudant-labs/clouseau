@@ -1,6 +1,6 @@
 package com.cloudant.clouseau
 
-import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable.HashMap
 import org.apache.log4j.Logger
 import scalang._
 import java.nio.ByteBuffer
@@ -14,7 +14,6 @@ class IndexManagerService(ctx: ServiceContext[IndexManagerServiceArgs]) extends 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
     case ('get_index_server, dbName: String, index: List[(Symbol, Any)]) =>
       val key = (dbName, IndexService.getSignature(index))
-      maybeCloseOldest(key)
       val pid = indexes.get(key) match {
         case Some(pid: Pid) if node.isAlive(pid) =>
           pid
@@ -26,18 +25,8 @@ class IndexManagerService(ctx: ServiceContext[IndexManagerServiceArgs]) extends 
       ('ok, pid)
   }
 
-  // Close the least-recently accessed index if we are at max index limit.
-  // Only close indexes with refCount == 1 that are not 'key'.
-  private def maybeCloseOldest(key: Any) {
-    var max = ctx.args.config.getInteger("clouseau.max_indexes", 100)
-    if (indexes.size <= max) {
-      return
-    }
-    // TODO
-  }
-
   val logger = Logger.getLogger("clouseau.manager")
-  val indexes = new LinkedHashMap[(String, String), Pid]
+  val indexes = new HashMap[(String, String), Pid]
 }
 
 object IndexManagerService {
