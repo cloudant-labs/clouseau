@@ -2,8 +2,9 @@
 * add LRU in manager, close oldest index as long as it's unused (refcount of 1)
 * teach showroom to trigger updates
 * add index_cleanup
-* distributed search
 * IOQ
-* use scalang.node.CaseClassFactory and some records to formalize exchange format.
-* update process must complete (currently it's aborted on search result)
-* IndexWriterConfig must be fully configurable without code changes.
+
+* take Long values for sequence
+* close indexes on IndexService exit
+* dreyfus must monitor clouseau
+* marshall clouseau errors to client correctly
