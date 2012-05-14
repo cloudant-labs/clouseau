@@ -3,8 +3,4 @@
 * teach showroom to trigger updates
 * add index_cleanup
 * IOQ
-
-* take Long values for sequence
-* close indexes on IndexService exit
 * dreyfus must monitor clouseau
-* marshall clouseau errors to client correctly
