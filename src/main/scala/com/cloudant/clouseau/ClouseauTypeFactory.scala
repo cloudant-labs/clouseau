@@ -12,12 +12,6 @@ object ClouseauTypeFactory extends TypeFactory {
     case ('utf8, 2) =>
       val buf = reader.readAs[ByteBuffer]
       Some(utf8.decode(buf).toString)
-    case ('store, 2) =>
-      Some(('store, Store.valueOf(reader.readAs[Symbol].name toUpperCase)))
-    case ('index, 2) =>
-      Some(('index, Index.valueOf(reader.readAs[Symbol].name toUpperCase)))
-    case ('termvector, 2) =>
-      Some(('termvector, TermVector.valueOf(reader.readAs[Symbol].name toUpperCase)))
     case ('doc, 3) =>
       Some(readDoc(reader))
     case ('commit, 2) =>
@@ -35,30 +29,22 @@ object ClouseauTypeFactory extends TypeFactory {
   }
 
   private def toFieldable(field: Any): Fieldable = field match {
-    case (name: String, value: Int, options: List[(Symbol, Any)]) =>
-      new NumericField(name, toStore(options), true).setIntValue(value)
-    case (name: String, value: Long, options: List[(Symbol, Any)]) =>
-      new NumericField(name, toStore(options), true).setLongValue(value)
-    case (name: String, value: Float, options: List[(Symbol, Any)]) =>
-      new NumericField(name, toStore(options), true).setFloatValue(value)
-    case (name: String, value: Double, options: List[(Symbol, Any)]) =>
-      new NumericField(name, toStore(options), true).setDoubleValue(value)
-    case (name: String, value: Boolean, options: List[(Symbol, Any)]) =>
-      new Field(name, value.toString, toStore(options), Index.NOT_ANALYZED)
-    case (name: String, value: String, options: List[(Symbol, Any)]) =>
-      new Field(name, value, toStore(options), toIndex(options), toTermVector(options))
+    case (name: String, value: Int, store: Boolean) =>
+      new NumericField(name, if (store) Store.YES else Store.NO, true).setIntValue(value)
+    case (name: String, value: Float, store: Boolean) =>
+      new NumericField(name, if (store) Store.YES else Store.NO, true).setFloatValue(value)
+    case (name: String, value: Boolean, store: Boolean) =>
+      new Field(name, value.toString, if (store) Store.YES else Store.NO, Index.NOT_ANALYZED)
+    case (name: String, value: String, store: String, index: String) =>
+      new Field(name, value, toStore(store), toIndex(index))
   }
 
-  private def toStore(options: List[(Symbol, Any)]) = {
-    Utils.findOrElse(options, 'store, Store.NO)
+  private def toStore(store: String): Store = {
+    Store.valueOf(store toUpperCase)
   }
 
-  private def toIndex(options: List[(Symbol, Any)]) = {
-    Utils.findOrElse(options, 'index, Index.ANALYZED)
-  }
-
-  private def toTermVector(options: List[(Symbol, Any)]) = {
-    Utils.findOrElse(options, 'termvector, TermVector.NO)
+  private def toIndex(index: String): Index = {
+    Index.valueOf(index toUpperCase)
   }
 
   private def long(a: Any) : Long = {
