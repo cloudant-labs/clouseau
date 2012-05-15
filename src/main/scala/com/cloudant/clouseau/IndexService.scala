@@ -21,7 +21,7 @@ import org.apache.lucene.document.Field.TermVector
 import collection.JavaConversions._
 import scala.collection.mutable._
 
-case class IndexServiceArgs(path: File)
+case class IndexServiceArgs(rootDir: String, path: String)
 
 case class DeferredQuery(minSeq: Long, pid: Pid, ref: Reference, queryArgs: List[(Symbol,Any)])
 
@@ -104,8 +104,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
     }
   }
 
-  val logger = Logger.getLogger("clouseau." + ctx.args.path.getName)
-  val dir = new NIOFSDirectory(ctx.args.path)
+  val logger = Logger.getLogger(ctx.args.path)
+  val dir = new NIOFSDirectory(new File(ctx.args.rootDir, ctx.args.path))
   val version = Version.LUCENE_36
   val defaultAnalyzer = Analyzers.getAnalyzer(version, "standard")
   val queryParser = new ClouseauQueryParser(version, "default", defaultAnalyzer)
@@ -116,8 +116,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
 object IndexService {
 
-  def start(node: Node, path: File): Pid = {
-     node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(path))
+  def start(node: Node, rootDir: String, path: String): Pid = {
+     node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(rootDir, path))
   }
 
 }
