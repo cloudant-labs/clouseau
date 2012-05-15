@@ -69,7 +69,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   }
 
   override def exit(msg: Any) {
-    writer.close
+    writer.rollback
     logger.info("closed because of " + msg)
     super.exit(msg)
   }
