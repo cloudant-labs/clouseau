@@ -20,12 +20,8 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(('termvector, TermVector.valueOf(reader.readAs[Symbol].name toUpperCase)))
     case ('doc, 3) =>
       Some(readDoc(reader))
-    case ('search, 4) =>
-      Some('search, reader.readTerm, long(reader.readTerm), reader.readTerm)
-    case ('update, 3) =>
-      Some(('update, long(reader.readTerm), reader.readTerm))
-    case ('delete, 3) =>
-      Some(('delete, long(reader.readTerm), reader.readTerm))
+    case ('commit, 2) =>
+      Some(('commit, long(reader.readTerm)))
     case _ =>
       None
   }
