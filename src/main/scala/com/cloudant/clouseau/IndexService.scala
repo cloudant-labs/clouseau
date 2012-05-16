@@ -40,11 +40,19 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       writer.deleteDocuments(new Term("_id", id))
       'ok
     case ('commit, seq: Long) =>
-      commit(seq)
+      pendingSeq = Some(seq)
       'ok
   }
 
   override def handleInfo(msg: Any) = msg match {
+    case 'commit =>
+      pendingSeq match {
+        case None =>
+          'ok
+        case Some(seq) =>
+          commit(seq)
+          pendingSeq = None
+      }
     case 'close =>
       exit('msg)
   }
@@ -116,6 +124,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   val config = new IndexWriterConfig(version, defaultAnalyzer)
   val writer = new IndexWriter(dir, config)
   var reader = IndexReader.open(writer, true)
+  var pendingSeq: Option[Long] = None
+  sendEvery(self, 'commit, 10000)
 }
 
 object IndexService {
