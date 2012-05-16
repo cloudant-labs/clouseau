@@ -46,12 +46,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   override def handleInfo(msg: Any) = msg match {
     case 'close =>
-      exit('closed)
+      exit('msg)
   }
 
   override def exit(msg: Any) {
     writer.rollback
-    logger.info("closed because of " + msg)
+    logger.info("%s: closed with reason %s".format(ctx.args.path, msg))
     super.exit(msg)
   }
 
@@ -77,7 +77,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       try {
         val searcher = new IndexSearcher(reader)
         val topDocs = searcher.search(query, limit)
-        logger.info("query:%s, limit:%d, refresh:%s => %d hits".format(query, limit, refresh, topDocs.totalHits))
+        logger.info("%s: query:%s, limit:%d, refresh:%s => %d hits".format(ctx.args.path, query, limit, refresh, topDocs.totalHits))
         val hits = for (scoreDoc <- topDocs.scoreDocs) yield {
           val doc = searcher.doc(scoreDoc.doc)
           val fields = for (field <- doc.getFields) yield {
@@ -98,6 +98,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   private def commit(seq: Long) {
     writer.commit(Map("update_seq" -> seq.toString))
+    logger.info("%s: committed sequence %d".format(ctx.args.path, seq))
   }
 
   private def getUpdateSeq(): Long = {
@@ -107,7 +108,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
     }
   }
 
-  val logger = Logger.getLogger(ctx.args.path)
+  val logger = Logger.getLogger("clouseau.index")
   val dir = new NIOFSDirectory(new File(ctx.args.rootDir, ctx.args.path))
   val version = Version.LUCENE_36
   val defaultAnalyzer = Analyzers.getAnalyzer(version, "standard")

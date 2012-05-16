@@ -8,7 +8,7 @@ import scalang._
 import scalang.node._
 
 object Main extends App {
-  val logger = Logger.getLogger("main")
+  val logger = Logger.getLogger("clouseau.main")
 
   // Load and monitor configuration file.
   val config = new CompositeConfiguration()
