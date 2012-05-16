@@ -2,3 +2,4 @@
 * add index_cleanup
 * IOQ
 * enforce maximum value of 'limit'
+* lazy commits
