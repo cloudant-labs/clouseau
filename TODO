@@ -1,4 +1,7 @@
 * teach showroom to trigger updates
-* add index_cleanup
 * IOQ
+* index_cleanup
+* purge
+* skip
+* update_after
 * enforce maximum value of 'limit'
