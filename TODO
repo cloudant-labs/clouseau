@@ -5,3 +5,6 @@
 * skip
 * update_after
 * enforce maximum value of 'limit'
+* allow sort?
+* attachment indexing with tika
+* _info
