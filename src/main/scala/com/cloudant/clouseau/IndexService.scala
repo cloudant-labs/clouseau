@@ -32,16 +32,19 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       search(query, limit, refresh)
     case 'get_update_seq =>
       ('ok, getUpdateSeq)
-  }
-
-  override def handleInfo(msg: Any) = msg match {
     case ('update, doc: Document) =>
       val id = doc.getFieldable("_id").stringValue
       writer.updateDocument(new Term("_id", id), doc)
+      'ok
     case ('delete, id: String) =>
       writer.deleteDocuments(new Term("_id", id))
+      'ok
     case ('commit, seq: Long) =>
       commit(seq)
+      'ok
+  }
+
+  override def handleInfo(msg: Any) = msg match {
     case 'close =>
       exit('closed)
   }
