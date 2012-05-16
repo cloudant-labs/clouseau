@@ -1,7 +1,4 @@
-* programmatic index creation
-* add LRU in manager, close oldest index as long as it's unused (refcount of 1)
 * teach showroom to trigger updates
 * add index_cleanup
 * IOQ
-* dreyfus must monitor clouseau
 * enforce maximum value of 'limit'
