@@ -10,6 +10,7 @@ class IndexManagerService(ctx: ServiceContext[IndexManagerServiceArgs]) extends 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
     case ('open, path: String) =>
       val pid = IndexService.start(node, rootDir, path)
+      node.link(tag._1, pid)
       ('ok, pid)
   }
 
