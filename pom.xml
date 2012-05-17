@@ -84,13 +84,6 @@
       <version>${scala.version}</version>
     </dependency>
 
-    <!-- JSON -->
-    <dependency>
-      <groupId>org.json</groupId>
-      <artifactId>json</artifactId>
-      <version>20090211</version>
-    </dependency>
-
     <!-- Misc -->
     <dependency>
       <groupId>commons-configuration</groupId>
