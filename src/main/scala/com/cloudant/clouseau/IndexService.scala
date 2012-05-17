@@ -46,13 +46,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   override def handleInfo(msg: Any) = msg match {
     case 'commit =>
-      pendingSeq match {
-        case None =>
-          'ok
-        case Some(seq) =>
-          commit(seq)
-          pendingSeq = None
-      }
+      commit()
     case 'close =>
       exit('msg)
   }
@@ -104,9 +98,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       }
   }
 
-  private def commit(seq: Long) {
-    writer.commit(Map("update_seq" -> seq.toString))
-    logger.info("%s: committed sequence %d".format(ctx.args.path, seq))
+  private def commit() = pendingSeq match {
+    case None =>
+      'ok
+    case Some(seq) =>
+      writer.commit(Map("update_seq" -> seq.toString))
+      pendingSeq = None
+      logger.info("%s: committed sequence %d".format(ctx.args.path, seq))
   }
 
   private def getUpdateSeq(): Long = {
