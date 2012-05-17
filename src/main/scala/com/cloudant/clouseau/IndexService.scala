@@ -91,9 +91,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
           val fields = for (field <- doc.getFields) yield {
             field match {
               case numericField: NumericField =>
-                (field.name.getBytes("UTF-8"), numericField.getNumericValue)
+                (toBinary(field.name), numericField.getNumericValue)
               case _ =>
-                (field.name.getBytes("UTF-8"), field.stringValue.getBytes("UTF-8"))
+                (toBinary(field.name), toBinary(field.stringValue))
             }
           }
           (scoreDoc.score, fields.toList)
@@ -114,6 +114,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       case null => 0L
       case seq => seq.toLong
     }
+  }
+
+  private def toBinary(str: String): Array[Byte] = {
+    str.getBytes("UTF-8")
   }
 
   val logger = Logger.getLogger("clouseau.index")
