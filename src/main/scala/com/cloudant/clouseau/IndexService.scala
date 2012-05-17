@@ -98,7 +98,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
           }
           (scoreDoc.score, fields.toList)
         }
-        ('ok, (topDocs.totalHits, hits.toList))
+        ('ok, topDocs.totalHits, hits.toList)
       } finally {
         reader.decRef
       }
