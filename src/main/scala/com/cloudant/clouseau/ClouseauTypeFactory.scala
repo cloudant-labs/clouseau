@@ -2,6 +2,7 @@ package com.cloudant.clouseau
 
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
+import org.apache.log4j.Logger
 import org.apache.lucene.document.Field._
 import org.apache.lucene.document._
 import scalang._
@@ -24,23 +25,33 @@ object ClouseauTypeFactory extends TypeFactory {
     val result = new Document()
     result.add(new Field("_id", reader.readAs[String], Store.YES, Index.NOT_ANALYZED))
     val fields = reader.readAs[List[Any]]
-    for (field <- fields) result add toFieldable(field)
+    for (field <- fields) {
+      toFieldable(field) match {
+        case Some(fieldable) =>
+          result.add(fieldable)
+        case None =>
+          'ok
+      }
+    }
     result
   }
 
-  private def toFieldable(field: Any): Fieldable = field match {
+  private def toFieldable(field: Any): Option[Fieldable] = field match {
     case (name: String, value: Int, store: Boolean) =>
-      new NumericField(name, if (store) Store.YES else Store.NO, true).setLongValue(value)
+      Some(new NumericField(name, if (store) Store.YES else Store.NO, true).setLongValue(value))
     case (name: String, value: Long, store: Boolean) =>
-      new NumericField(name, if (store) Store.YES else Store.NO, true).setLongValue(value)
+      Some(new NumericField(name, if (store) Store.YES else Store.NO, true).setLongValue(value))
     case (name: String, value: Float, store: Boolean) =>
-      new NumericField(name, if (store) Store.YES else Store.NO, true).setDoubleValue(value)
+      Some(new NumericField(name, if (store) Store.YES else Store.NO, true).setDoubleValue(value))
     case (name: String, value: Double, store: Boolean) =>
-      new NumericField(name, if (store) Store.YES else Store.NO, true).setDoubleValue(value)
+      Some(new NumericField(name, if (store) Store.YES else Store.NO, true).setDoubleValue(value))
     case (name: String, value: Boolean, store: Boolean) =>
-      new Field(name, value.toString, if (store) Store.YES else Store.NO, Index.NOT_ANALYZED)
+      Some(new Field(name, value.toString, if (store) Store.YES else Store.NO, Index.NOT_ANALYZED))
     case (name: String, value: String, store: String, index: String) =>
-      new Field(name, value, toStore(store), toIndex(index))
+      Some(new Field(name, value, toStore(store), toIndex(index)))
+    case _ =>
+      logger.warn("Unrecognized field: ".format(field))
+      None
   }
 
   private def toStore(store: String): Store = {
@@ -59,4 +70,5 @@ object ClouseauTypeFactory extends TypeFactory {
   }
 
   val utf8 = Charset.forName("UTF-8")
+  val logger = Logger.getLogger("clouseau.tf")
 }
