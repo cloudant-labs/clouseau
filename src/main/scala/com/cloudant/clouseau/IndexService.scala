@@ -48,7 +48,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
     case 'commit =>
       commit()
     case 'close =>
-      exit('msg)
+      exit(msg)
   }
 
   override def exit(msg: Any) {
