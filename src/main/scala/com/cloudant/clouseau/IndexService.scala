@@ -1,6 +1,7 @@
 package com.cloudant.clouseau
 
 import java.io.File
+import java.io.IOException
 import org.apache.commons.configuration.Configuration
 import org.apache.log4j.Logger
 import org.apache.lucene.analysis.Analyzer
@@ -52,9 +53,14 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   }
 
   override def exit(msg: Any) {
-    writer.rollback
     logger.info("%s: closed with reason %s".format(ctx.args.path, msg))
-    super.exit(msg)
+    try {
+      writer.rollback
+    } catch {
+      case e: IOException => logger.warn("%s: error while closing writer".format(ctx.args.path), e)
+    } finally {
+      super.exit(msg)
+    }
   }
 
   private def search(query: String, limit: Int, refresh: Boolean): Any = {
