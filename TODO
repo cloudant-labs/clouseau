@@ -11,3 +11,4 @@
 * _info
 * security manager
 * configurable delayed commit interval
+* honor "analyzer" field
