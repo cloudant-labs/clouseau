@@ -30,9 +30,13 @@ object ClouseauTypeFactory extends TypeFactory {
 
   private def toFieldable(field: Any): Fieldable = field match {
     case (name: String, value: Int, store: Boolean) =>
-      new NumericField(name, if (store) Store.YES else Store.NO, true).setIntValue(value)
+      new NumericField(name, if (store) Store.YES else Store.NO, true).setLongValue(value)
+    case (name: String, value: Long, store: Boolean) =>
+      new NumericField(name, if (store) Store.YES else Store.NO, true).setLongValue(value)
     case (name: String, value: Float, store: Boolean) =>
-      new NumericField(name, if (store) Store.YES else Store.NO, true).setFloatValue(value)
+      new NumericField(name, if (store) Store.YES else Store.NO, true).setDoubleValue(value)
+    case (name: String, value: Double, store: Boolean) =>
+      new NumericField(name, if (store) Store.YES else Store.NO, true).setDoubleValue(value)
     case (name: String, value: Boolean, store: Boolean) =>
       new Field(name, value.toString, if (store) Store.YES else Store.NO, Index.NOT_ANALYZED)
     case (name: String, value: String, store: String, index: String) =>
