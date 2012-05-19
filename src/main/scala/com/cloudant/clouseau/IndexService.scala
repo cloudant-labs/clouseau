@@ -86,8 +86,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       reader.incRef
       try {
         val searcher = new IndexSearcher(reader)
+        val start = System.currentTimeMillis
         val topDocs = searcher.search(query, limit)
-        logger.info("search for '%s' limit=%d, refresh=%s had %d hits".format(query, limit, refresh, topDocs.totalHits))
+        val duration = System.currentTimeMillis - start
+        logger.info("search for '%s' limit=%d, refresh=%s had %d hits in %d ms".format(query, limit, refresh, topDocs.totalHits, duration))
         val hits = for (scoreDoc <- topDocs.scoreDocs) yield {
           val doc = searcher.doc(scoreDoc.doc)
           val fields = for (field <- doc.getFields) yield {
