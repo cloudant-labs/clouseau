@@ -32,7 +32,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
     case ('search, query: String, limit: Int, refresh: Boolean) =>
       search(query, limit, refresh)
     case 'get_update_seq =>
-      ('ok, getUpdateSeq)
+      ('ok, updateSeq)
     case ('update, doc: Document) =>
       val id = doc.getFieldable("_id").stringValue
       logger.debug("Updating %s".format(id))
@@ -44,6 +44,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       'ok
     case ('commit, seq: Long) =>
       writer.commit(Map("update_seq" -> seq.toString))
+      updateSeq = seq
       logger.info("Committed sequence %d".format(seq))
       'ok
   }
@@ -108,7 +109,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       }
   }
 
-  private def getUpdateSeq(): Long = {
+  private def getUpdateSeq(reader: IndexReader): Long = {
     reader.getCommitUserData().get("update_seq") match {
       case null => 0L
       case seq => seq.toLong
@@ -131,6 +132,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   val config = new IndexWriterConfig(version, defaultAnalyzer)
   val writer = new IndexWriter(dir, config)
   var reader = IndexReader.open(writer, true)
+  var updateSeq = getUpdateSeq(reader)
 }
 
 object IndexService {
