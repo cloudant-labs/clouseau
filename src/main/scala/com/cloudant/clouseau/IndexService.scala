@@ -29,20 +29,19 @@ case class DeferredQuery(minSeq: Long, pid: Pid, ref: Reference, queryArgs: List
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
-    case ('search, query: String, limit: Int, refresh: Boolean) =>
+    case SearchMsg(query: String, limit: Int, refresh: Boolean) =>
       search(query, limit, refresh)
     case 'get_update_seq =>
       ('ok, updateSeq)
-    case ('update, doc: Document) =>
-      val id = doc.getFieldable("_id").stringValue
+    case UpdateDocMsg(id: String, doc: Document) =>
       logger.debug("Updating %s".format(id))
       writer.updateDocument(new Term("_id", id), doc)
       'ok
-    case ('delete, id: String) =>
+    case DeleteDocMsg(id: String) =>
       logger.debug("Deleting %s".format(id))
       writer.deleteDocuments(new Term("_id", id))
       'ok
-    case ('commit, seq: Long) =>
+    case CommitMsg(seq: Long) =>
       writer.commit(Map("update_seq" -> seq.toString))
       updateSeq = seq
       logger.info("Committed sequence %d".format(seq))
