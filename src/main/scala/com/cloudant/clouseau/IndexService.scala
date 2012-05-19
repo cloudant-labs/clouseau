@@ -127,6 +127,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
     str.getBytes("UTF-8")
   }
 
+  override def toString(): String = {
+    ctx.args.path
+  }
+
   val logger = Logger.getLogger("clouseau.%s".format(ctx.args.path))
   val dir = new NIOFSDirectory(new File(ctx.args.rootDir, ctx.args.path))
   val version = Version.LUCENE_36
