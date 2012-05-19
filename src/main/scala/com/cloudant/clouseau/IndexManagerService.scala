@@ -4,7 +4,7 @@ import org.apache.commons.configuration.Configuration
 import org.apache.log4j.Logger
 import scalang._
 
-case class IndexManagerServiceArgs(config: Configuration)
+case class IndexManagerServiceArgs()
 class IndexManagerService(ctx: ServiceContext[IndexManagerServiceArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
@@ -18,11 +18,11 @@ class IndexManagerService(ctx: ServiceContext[IndexManagerServiceArgs]) extends 
   }
 
   val logger = Logger.getLogger("clouseau.main")
-  val rootDir = ctx.args.config.getString("clouseau.dir", "target/indexes")
+  val rootDir = Main.config.getString("clouseau.dir", "target/indexes")
 }
 
 object IndexManagerService {
-  def start(node: Node, config: Configuration): Pid = {
-    node.spawnService[IndexManagerService, IndexManagerServiceArgs]('main, IndexManagerServiceArgs(config))
+  def start(node: Node): Pid = {
+    node.spawnService[IndexManagerService, IndexManagerServiceArgs]('main, IndexManagerServiceArgs())
   }
 }

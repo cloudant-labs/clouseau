@@ -8,6 +8,7 @@ import scalang._
 import scalang.node._
 
 object Main extends App {
+
   val logger = Logger.getLogger("clouseau.main")
 
   // Load and monitor configuration file.
@@ -24,6 +25,6 @@ object Main extends App {
   val nodeconfig = NodeConfig(typeFactory=ClouseauTypeFactory)
   val node = Node(name, cookie, nodeconfig)
 
-  IndexManagerService.start(node, config)
+  IndexManagerService.start(node)
   logger.info("Clouseau running as " + name)
 }

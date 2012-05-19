@@ -136,7 +136,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   val writer = new IndexWriter(dir, config)
   var reader = IndexReader.open(writer, true)
   var pendingSeq: Option[Long] = None
-  sendEvery(self, 'commit, 10000)
+  sendEvery(self, 'commit, Main.config.getLong("clouseau.commit_interval", 10000))
 }
 
 object IndexService {
