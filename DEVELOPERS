@@ -14,3 +14,12 @@ will already be configured to talk to its clouseau peer. If not, you
 go right ahead and do that by hand.
 
 Example call: dreyfus:search(<<"db1">>, <<"text:text">>, [{limit, 5}]).
+
+Deploying to production
+-----------------------
+
+1) mvn clean package
+2) rsync -avz target/*.zip deployer.cloudant.com:/opt/repo/builds/clouseau/releases/
+
+NOTE: You might need to change the version attribute in chef to match the
+zipfile's version.
