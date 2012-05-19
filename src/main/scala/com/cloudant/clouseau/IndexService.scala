@@ -11,6 +11,7 @@ import org.apache.lucene.store._
 import org.apache.lucene.search.Query
 import org.apache.lucene.util.Version
 import org.apache.lucene.search.IndexSearcher
+import org.apache.lucene.queryParser.QueryParser
 import org.apache.lucene.queryParser.ParseException
 import scalang._
 import scalang.node._
@@ -22,7 +23,7 @@ import org.apache.lucene.document.Field.TermVector
 import collection.JavaConversions._
 import scala.collection.mutable._
 
-case class IndexServiceArgs(rootDir: String, path: String)
+case class IndexServiceArgs(name: String, queryParser: QueryParser, writer: IndexWriter)
 
 case class DeferredQuery(minSeq: Long, pid: Pid, ref: Reference, queryArgs: List[(Symbol,Any)])
 
@@ -35,14 +36,14 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       ('ok, updateSeq)
     case UpdateDocMsg(id: String, doc: Document) =>
       logger.debug("Updating %s".format(id))
-      writer.updateDocument(new Term("_id", id), doc)
+      ctx.args.writer.updateDocument(new Term("_id", id), doc)
       'ok
     case DeleteDocMsg(id: String) =>
       logger.debug("Deleting %s".format(id))
-      writer.deleteDocuments(new Term("_id", id))
+      ctx.args.writer.deleteDocuments(new Term("_id", id))
       'ok
     case CommitMsg(seq: Long) =>
-      writer.commit(Map("update_seq" -> seq.toString))
+      ctx.args.writer.commit(Map("update_seq" -> seq.toString))
       updateSeq = seq
       logger.info("Committed sequence %d".format(seq))
       'ok
@@ -56,7 +57,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   override def exit(msg: Any) {
     logger.info("Closed with reason %s".format(msg))
     try {
-      writer.rollback
+      ctx.args.writer.rollback
     } catch {
       case e: AlreadyClosedException => 'ignored
       case e: IOException => logger.warn("Error while closing writer", e)
@@ -67,7 +68,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   private def search(query: String, limit: Int, refresh: Boolean): Any = {
     try {
-      search(queryParser.parse(query), limit, refresh)
+      search(ctx.args.queryParser.parse(query), limit, refresh)
     } catch {
       case e: ParseException => ('error, e.getMessage)
       case e: NumberFormatException => ('error, e.getMessage)
@@ -120,24 +121,29 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   }
 
   override def toString(): String = {
-    ctx.args.path
+    ctx.args.name
   }
 
-  val logger = Logger.getLogger("clouseau.%s".format(ctx.args.path))
-  val dir = new NIOFSDirectory(new File(ctx.args.rootDir, ctx.args.path))
-  val version = Version.LUCENE_36
-  val defaultAnalyzer = Analyzers.getAnalyzer(version, "standard")
-  val queryParser = new ClouseauQueryParser(version, "default", defaultAnalyzer)
-  val config = new IndexWriterConfig(version, defaultAnalyzer)
-  val writer = new IndexWriter(dir, config)
-  var reader = IndexReader.open(writer, true)
+  val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
+  var reader = IndexReader.open(ctx.args.writer, true)
   var updateSeq = getUpdateSeq(reader)
 }
 
 object IndexService {
 
-  def start(node: Node, rootDir: String, path: String): Pid = {
-     node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(rootDir, path))
+  val version = Version.LUCENE_36
+
+  def start(node: Node, rootDir: String, path: String): Any = {
+    val dir = new NIOFSDirectory(new File(rootDir, path))
+    val analyzer = Analyzers.getAnalyzer(version, "standard")
+    val queryParser = new ClouseauQueryParser(version, "default", analyzer)
+    val config = new IndexWriterConfig(version, analyzer)
+    try {
+      val writer = new IndexWriter(dir, config)
+      ('ok, node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(path, queryParser, writer)))
+    } catch {
+      case e: IOException => ('error, e.getMessage)
+    }
   }
 
 }
