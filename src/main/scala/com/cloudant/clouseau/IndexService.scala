@@ -42,10 +42,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       logger.debug("Deleting %s".format(id))
       ctx.args.writer.deleteDocuments(new Term("_id", id))
       'ok
-    case CommitMsg(seq: Long) =>
-      ctx.args.writer.commit(Map("update_seq" -> seq.toString))
-      updateSeq = seq
-      logger.info("Committed sequence %d".format(seq))
+    case CommitMsg(commitSeq: Long) =>
+      ctx.args.writer.commit(Map("update_seq" -> commitSeq.toString))
+      updateSeq = commitSeq
+      logger.info("Committed sequence %d".format(commitSeq))
       'ok
   }
 
@@ -109,13 +109,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       }
   }
 
-  private def getUpdateSeq(reader: IndexReader): Long = {
-    reader.getCommitUserData().get("update_seq") match {
-      case null => 0L
-      case seq => seq.toLong
-    }
-  }
-
   private def toBinary(str: String): Array[Byte] = {
     str.getBytes("UTF-8")
   }
@@ -126,7 +119,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
   var reader = IndexReader.open(ctx.args.writer, true)
-  var updateSeq = getUpdateSeq(reader)
+  var updateSeq = reader.getCommitUserData().get("update_seq") match {
+    case null => 0L
+    case seq => seq.toLong
+  }
 }
 
 object IndexService {
