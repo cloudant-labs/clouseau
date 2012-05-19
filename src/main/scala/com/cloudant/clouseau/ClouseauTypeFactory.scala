@@ -7,7 +7,7 @@ import org.apache.lucene.document.Field._
 import org.apache.lucene.document._
 import scalang._
 
-case class OpenIndexMsg(path: String)
+case class OpenIndexMsg(path: String, analyzer: String)
 case class SearchMsg(query: String, limit: Int, refresh: Boolean)
 case class UpdateDocMsg(id: String, doc: Document)
 case class DeleteDocMsg(id: String)
@@ -16,8 +16,8 @@ case class CommitMsg(seq: Long)
 object ClouseauTypeFactory extends TypeFactory {
 
   def createType(name: Symbol, arity: Int, reader: TermReader) : Option[Any] = (name, arity) match {
-    case ('open, 2) =>
-      Some(OpenIndexMsg(reader.readAs[ByteBuffer]))
+    case ('open, 3) =>
+      Some(OpenIndexMsg(reader.readAs[ByteBuffer], reader.readAs[ByteBuffer]))
     case ('search, 4) =>
       Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean]))
     case ('update, 3) =>

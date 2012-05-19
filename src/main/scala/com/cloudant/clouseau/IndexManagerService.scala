@@ -8,9 +8,9 @@ case class IndexManagerServiceArgs()
 class IndexManagerService(ctx: ServiceContext[IndexManagerServiceArgs]) extends Service(ctx) {
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
-    case OpenIndexMsg(path: String) =>
+    case OpenIndexMsg(path: String, analyzer: String) =>
       val start = System.currentTimeMillis
-      IndexService.start(node, rootDir, path) match {
+      IndexService.start(node, rootDir, path, analyzer) match {
         case ('ok, pid: Pid) =>
           val duration = System.currentTimeMillis - start
           logger.info("%s: opened in %d ms".format(path, duration))

@@ -129,9 +129,9 @@ object IndexService {
 
   val version = Version.LUCENE_36
 
-  def start(node: Node, rootDir: String, path: String): Any = {
+  def start(node: Node, rootDir: String, path: String, analyzerName: String): Any = {
     val dir = new NIOFSDirectory(new File(rootDir, path))
-    val analyzer = Analyzers.getAnalyzer(version, "standard")
+    val analyzer = Analyzers.getAnalyzer(version, analyzerName)
     val queryParser = new ClouseauQueryParser(version, "default", analyzer)
     val config = new IndexWriterConfig(version, analyzer)
     try {
