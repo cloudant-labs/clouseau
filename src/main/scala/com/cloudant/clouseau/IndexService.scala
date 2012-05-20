@@ -145,7 +145,7 @@ object IndexService {
 
   private def newDirectory(path: File): Directory = {
     val clazzName = Main.config.getString("clouseau.dir_class",
-                                          "org.apache.lucene.store.NIOFSDirectory")
+                                          "org.apache.lucene.store.MMapDirectory")
     val clazz = Class.forName(clazzName)
     val ctor = clazz.getConstructor(classOf[File])
     ctor.newInstance(path).asInstanceOf[Directory]
