@@ -131,7 +131,7 @@ object IndexService {
   val version = Version.LUCENE_36
 
   def start(node: Node, rootDir: String, path: String, analyzerName: String): Any = {
-    val dir = new NIOFSDirectory(new File(rootDir, path))
+    val dir = newDirectory(new File(rootDir, path))
     val analyzer = Analyzers.getAnalyzer(version, analyzerName)
     val queryParser = new ClouseauQueryParser(version, "default", analyzer)
     val config = new IndexWriterConfig(version, analyzer)
@@ -141,6 +141,14 @@ object IndexService {
     } catch {
       case e: IOException => ('error, e.getMessage)
     }
+  }
+
+  private def newDirectory(path: File): Directory = {
+    val clazzName = Main.config.getString("clouseau.dir_class",
+                                          "org.apache.lucene.store.NIOFSDirectory")
+    val clazz = Class.forName(clazzName)
+    val ctor = clazz.getConstructor(classOf[File])
+    ctor.newInstance(path).asInstanceOf[Directory]
   }
 
 }
