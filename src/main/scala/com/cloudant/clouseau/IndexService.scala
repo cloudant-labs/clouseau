@@ -46,6 +46,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       ctx.args.writer.commit(Map("update_seq" -> commitSeq.toString))
       updateSeq = commitSeq
       logger.info("Committed sequence %d".format(commitSeq))
+      forceRefresh = true
       'ok
   }
 
@@ -76,11 +77,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   }
 
   private def search(query: Query, limit: Int, refresh: Boolean): Any = {
-      if (refresh) {
+      if (forceRefresh || refresh) {
         val newReader = IndexReader.openIfChanged(reader)
         if (newReader != null) {
           reader.decRef
           reader = newReader
+          forceRefresh = false
         }
       }
 
@@ -124,6 +126,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
     case null => 0L
     case seq => seq.toLong
   }
+  var forceRefresh = false
   logger.info("Opened at update_seq %d".format(updateSeq))
 }
 
