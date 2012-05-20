@@ -5,13 +5,13 @@ import org.apache.log4j.Logger
 import scalang._
 
 case class IndexManagerServiceArgs()
-class IndexManagerService(ctx: ServiceContext[IndexManagerServiceArgs]) extends Service(ctx) {
+class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends Service(ctx) {
 
-  override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
-    case OpenIndexMsg(path: String, analyzer: String) =>
+  override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
+    case OpenIndexMsg(path : String, analyzer : String) =>
       val start = System.currentTimeMillis
       IndexService.start(node, rootDir, path, analyzer) match {
-        case ('ok, pid: Pid) =>
+        case ('ok, pid : Pid) =>
           val duration = System.currentTimeMillis - start
           logger.info("%s: opened in %d ms".format(path, duration))
           node.link(tag._1, pid)
@@ -26,7 +26,7 @@ class IndexManagerService(ctx: ServiceContext[IndexManagerServiceArgs]) extends 
 }
 
 object IndexManagerService {
-  def start(node: Node): Pid = {
+  def start(node : Node) : Pid = {
     node.spawnService[IndexManagerService, IndexManagerServiceArgs]('main, IndexManagerServiceArgs())
   }
 }

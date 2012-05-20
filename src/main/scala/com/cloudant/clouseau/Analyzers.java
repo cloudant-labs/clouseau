@@ -137,7 +137,8 @@ public enum Analyzers {
         }
 
         @Override
-        public TokenStream tokenStream(final String fieldName, final Reader reader) {
+        public TokenStream tokenStream(final String fieldName,
+                final Reader reader) {
             return new PorterStemFilter(new LowerCaseTokenizer(version, reader));
         }
     }
@@ -149,6 +150,7 @@ public enum Analyzers {
         return Analyzers.valueOf(name).newAnalyzer(version, args);
     }
 
-    public abstract Analyzer newAnalyzer(final Version version, final String args);
+    public abstract Analyzer newAnalyzer(final Version version,
+            final String args);
 
 }

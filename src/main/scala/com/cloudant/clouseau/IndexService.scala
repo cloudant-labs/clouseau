@@ -23,26 +23,26 @@ import org.apache.lucene.document.Field.TermVector
 import collection.JavaConversions._
 import scala.collection.mutable._
 
-case class IndexServiceArgs(name: String, queryParser: QueryParser, writer: IndexWriter)
+case class IndexServiceArgs(name : String, queryParser : QueryParser, writer : IndexWriter)
 
-case class DeferredQuery(minSeq: Long, pid: Pid, ref: Reference, queryArgs: List[(Symbol,Any)])
+case class DeferredQuery(minSeq : Long, pid : Pid, ref : Reference, queryArgs : List[(Symbol, Any)])
 
-class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
+class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
-  override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
-    case SearchMsg(query: String, limit: Int, refresh: Boolean) =>
+  override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
+    case SearchMsg(query : String, limit : Int, refresh : Boolean) =>
       search(query, limit, refresh)
     case 'get_update_seq =>
       ('ok, updateSeq)
-    case UpdateDocMsg(id: String, doc: Document) =>
+    case UpdateDocMsg(id : String, doc : Document) =>
       logger.debug("Updating %s".format(id))
       ctx.args.writer.updateDocument(new Term("_id", id), doc)
       'ok
-    case DeleteDocMsg(id: String) =>
+    case DeleteDocMsg(id : String) =>
       logger.debug("Deleting %s".format(id))
       ctx.args.writer.deleteDocuments(new Term("_id", id))
       'ok
-    case CommitMsg(commitSeq: Long) =>
+    case CommitMsg(commitSeq : Long) =>
       ctx.args.writer.commit(Map("update_seq" -> commitSeq.toString))
       updateSeq = commitSeq
       logger.info("Committed sequence %d".format(commitSeq))
@@ -50,73 +50,73 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
       'ok
   }
 
-  override def handleInfo(msg: Any) = msg match {
+  override def handleInfo(msg : Any) = msg match {
     case 'close =>
       exit(msg)
   }
 
-  override def exit(msg: Any) {
+  override def exit(msg : Any) {
     logger.info("Closed with reason %s".format(msg))
     try {
       ctx.args.writer.rollback
     } catch {
-      case e: AlreadyClosedException => 'ignored
-      case e: IOException => logger.warn("Error while closing writer", e)
+      case e : AlreadyClosedException => 'ignored
+      case e : IOException            => logger.warn("Error while closing writer", e)
     } finally {
       super.exit(msg)
     }
   }
 
-  private def search(query: String, limit: Int, refresh: Boolean): Any = {
+  private def search(query : String, limit : Int, refresh : Boolean) : Any = {
     try {
       search(ctx.args.queryParser.parse(query), limit, refresh)
     } catch {
-      case e: ParseException => ('error, e.getMessage)
-      case e: NumberFormatException => ('error, e.getMessage)
+      case e : ParseException        => ('error, e.getMessage)
+      case e : NumberFormatException => ('error, e.getMessage)
     }
   }
 
-  private def search(query: Query, limit: Int, refresh: Boolean): Any = {
-      if (forceRefresh || refresh) {
-        val newReader = IndexReader.openIfChanged(reader)
-        if (newReader != null) {
-          reader.decRef
-          reader = newReader
-          forceRefresh = false
-        }
-      }
-
-      reader.incRef
-      try {
-        val searcher = new IndexSearcher(reader)
-        val start = System.currentTimeMillis
-        val topDocs = searcher.search(query, limit)
-        val duration = System.currentTimeMillis - start
-        logger.info("search for '%s' limit=%d, refresh=%s had %d hits in %d ms".format(query, limit, refresh, topDocs.totalHits, duration))
-        val hits = for (scoreDoc <- topDocs.scoreDocs) yield {
-          val doc = searcher.doc(scoreDoc.doc)
-          val fields = for (field <- doc.getFields) yield {
-            field match {
-              case numericField: NumericField =>
-                (toBinary(field.name), numericField.getNumericValue)
-              case _ =>
-                (toBinary(field.name), toBinary(field.stringValue))
-            }
-          }
-          val id = toBinary(doc.getFieldable("_id").stringValue)
-          (List(scoreDoc.score, id), scoreDoc.score, fields.toList)
-        }
-        ('ok, topDocs.totalHits, hits.toList)
-      } finally {
+  private def search(query : Query, limit : Int, refresh : Boolean) : Any = {
+    if (forceRefresh || refresh) {
+      val newReader = IndexReader.openIfChanged(reader)
+      if (newReader != null) {
         reader.decRef
+        reader = newReader
+        forceRefresh = false
       }
+    }
+
+    reader.incRef
+    try {
+      val searcher = new IndexSearcher(reader)
+      val start = System.currentTimeMillis
+      val topDocs = searcher.search(query, limit)
+      val duration = System.currentTimeMillis - start
+      logger.info("search for '%s' limit=%d, refresh=%s had %d hits in %d ms".format(query, limit, refresh, topDocs.totalHits, duration))
+      val hits = for (scoreDoc <- topDocs.scoreDocs) yield {
+        val doc = searcher.doc(scoreDoc.doc)
+        val fields = for (field <- doc.getFields) yield {
+          field match {
+            case numericField : NumericField =>
+              (toBinary(field.name), numericField.getNumericValue)
+            case _ =>
+              (toBinary(field.name), toBinary(field.stringValue))
+          }
+        }
+        val id = toBinary(doc.getFieldable("_id").stringValue)
+        (List(scoreDoc.score, id), scoreDoc.score, fields.toList)
+      }
+      ('ok, topDocs.totalHits, hits.toList)
+    } finally {
+      reader.decRef
+    }
   }
 
-  private def toBinary(str: String): Array[Byte] = {
+  private def toBinary(str : String) : Array[Byte] = {
     str.getBytes("UTF-8")
   }
 
-  override def toString(): String = {
+  override def toString() : String = {
     ctx.args.name
   }
 
@@ -124,7 +124,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
   var reader = IndexReader.open(ctx.args.writer, true)
   var updateSeq = reader.getIndexCommit().getUserData().get("update_seq") match {
     case null => 0L
-    case seq => seq.toLong
+    case seq  => seq.toLong
   }
   var forceRefresh = false
   logger.info("Opened at update_seq %d".format(updateSeq))
@@ -134,7 +134,7 @@ object IndexService {
 
   val version = Version.LUCENE_36
 
-  def start(node: Node, rootDir: String, path: String, analyzerName: String): Any = {
+  def start(node : Node, rootDir : String, path : String, analyzerName : String) : Any = {
     val dir = newDirectory(new File(rootDir, path))
     val analyzer = Analyzers.getAnalyzer(version, analyzerName)
     val queryParser = new ClouseauQueryParser(version, "default", analyzer)
@@ -143,13 +143,13 @@ object IndexService {
       val writer = new IndexWriter(dir, config)
       ('ok, node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(path, queryParser, writer)))
     } catch {
-      case e: IOException => ('error, e.getMessage)
+      case e : IOException => ('error, e.getMessage)
     }
   }
 
-  private def newDirectory(path: File): Directory = {
+  private def newDirectory(path : File) : Directory = {
     val clazzName = Main.config.getString("clouseau.dir_class",
-                                          "org.apache.lucene.store.NIOFSDirectory")
+      "org.apache.lucene.store.NIOFSDirectory")
     val clazz = Class.forName(clazzName)
     val ctor = clazz.getConstructor(classOf[File])
     ctor.newInstance(path).asInstanceOf[Directory]
