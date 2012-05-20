@@ -122,7 +122,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
 
   val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
   var reader = IndexReader.open(ctx.args.writer, true)
-  var updateSeq = reader.getCommitUserData().get("update_seq") match {
+  var updateSeq = reader.getIndexCommit().getUserData().get("update_seq") match {
     case null => 0L
     case seq => seq.toLong
   }
