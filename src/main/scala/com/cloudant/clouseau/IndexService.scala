@@ -123,6 +123,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) {
     case null => 0L
     case seq => seq.toLong
   }
+  logger.info("Opened at update_seq %d".format(updateSeq))
 }
 
 object IndexService {
