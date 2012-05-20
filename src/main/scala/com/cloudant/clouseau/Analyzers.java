@@ -17,7 +17,6 @@ package com.cloudant.clouseau;
  */
 
 import java.io.Reader;
-import java.util.Iterator;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.KeywordAnalyzer;
