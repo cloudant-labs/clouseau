@@ -21,6 +21,12 @@ class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends
       }
   }
 
+  override def exit(msg : Any) {
+    logger.warn("Exiting with reason %s".format(msg))
+    super.exit(msg)
+    IndexManagerService.start(node)
+  }
+
   val logger = Logger.getLogger("clouseau.main")
   val rootDir = Main.config.getString("clouseau.dir", "target/indexes")
 }
