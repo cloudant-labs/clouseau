@@ -92,16 +92,17 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       logger.info("search for '%s' limit=%d, refresh=%s had %d hits in %d ms".format(query, limit, refresh, topDocs.totalHits, duration))
       val hits = for (scoreDoc <- topDocs.scoreDocs) yield {
         val doc = searcher.doc(scoreDoc.doc)
-        val fields = for (field <- doc.getFields) yield {
-          field match {
+        val fields = doc.getFields.foldLeft(List[Any]())((acc,field) =>
+          if (field.name.startsWith("_"))
+            acc
+          else field match {
             case numericField : NumericField =>
-              (toBinary(field.name), numericField.getNumericValue)
+              (toBinary(field.name), numericField.getNumericValue) :: acc
             case _ =>
-              (toBinary(field.name), toBinary(field.stringValue))
-          }
-        }
+              (toBinary(field.name), toBinary(field.stringValue)) :: acc
+          })
         val id = toBinary(doc.getFieldable("_id").stringValue)
-        (List(scoreDoc.score, id), scoreDoc.score, fields.toList)
+        (List(scoreDoc.score, id), id, scoreDoc.score, fields.toList)
       }
       ('ok, topDocs.totalHits, hits.toList)
     } finally {
