@@ -124,10 +124,9 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     var sizes = reader.directory.listAll map {reader.directory.fileLength(_)}
     var diskSize = sizes.sum
     new Tuple1(List(
-      ("current", reader.isCurrent),
-      ("disk_size", diskSize),
-      ("doc_count", reader.numDocs),
-      ("doc_del_count", reader.numDeletedDocs)
+      ('disk_size, diskSize),
+      ('doc_count, reader.numDocs),
+      ('doc_del_count, reader.numDeletedDocs)
     ))
   }
 
