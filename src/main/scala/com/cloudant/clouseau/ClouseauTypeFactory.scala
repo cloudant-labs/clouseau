@@ -12,7 +12,6 @@ case class SearchMsg(query : String, limit : Int, refresh : Boolean)
 case class UpdateDocMsg(id : String, doc : Document)
 case class DeleteDocMsg(id : String)
 case class CommitMsg(seq : Long)
-case class InfoMsg(latest : Boolean)
 
 object ClouseauTypeFactory extends TypeFactory {
 
@@ -29,8 +28,6 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(DeleteDocMsg(reader.readAs[ByteBuffer]))
     case ('commit, 2) =>
       Some(CommitMsg(toLong(reader.readTerm)))
-    case ('info, 2) =>
-      Some(InfoMsg(reader.readAs[Boolean]))
     case _ =>
       None
   }
