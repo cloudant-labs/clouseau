@@ -102,7 +102,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
               (toBinary(field.name), toBinary(field.stringValue)) :: acc
           })
         val id = toBinary(doc.getFieldable("_id").stringValue)
-        (List(scoreDoc.score, id), id, scoreDoc.score, fields.toList)
+        (List(scoreDoc.score, scoreDoc.doc), id, scoreDoc.score, fields.toList)
       }
       ('ok, topDocs.totalHits, hits.toList)
     } finally {
