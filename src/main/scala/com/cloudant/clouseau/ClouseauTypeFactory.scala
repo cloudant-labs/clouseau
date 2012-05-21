@@ -55,7 +55,7 @@ object ClouseauTypeFactory extends TypeFactory {
     case (name : ByteBuffer, value : Any, store : ByteBuffer, index : ByteBuffer, termvector : ByteBuffer) =>
       toDouble(value) match {
         case Some(doubleValue) =>
-          Some(new NumericField(name, toStore(store), true).setDoubleValue(doubleValue))
+          Some(new NumericField(name, 8, toStore(store), true).setDoubleValue(doubleValue))
         case None =>
           logger.warn("Unrecognized value: %s".format(value))
           None
