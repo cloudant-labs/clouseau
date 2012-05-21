@@ -48,6 +48,8 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       logger.info("Committed sequence %d".format(commitSeq))
       forceRefresh = true
       'ok
+    case InfoMsg(latest : Boolean) =>
+      ('ok, getInfo(latest))
   }
 
   override def handleInfo(msg : Any) = msg match {
@@ -78,12 +80,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
 
   private def search(query : Query, limit : Int, refresh : Boolean) : Any = {
     if (forceRefresh || refresh) {
-      val newReader = IndexReader.openIfChanged(reader)
-      if (newReader != null) {
-        reader.decRef
-        reader = newReader
-        forceRefresh = false
-      }
+      reopenIfChanged
     }
 
     reader.incRef
@@ -110,6 +107,28 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     } finally {
       reader.decRef
     }
+  }
+
+  private def reopenIfChanged() {
+      val newReader = IndexReader.openIfChanged(reader)
+      if (newReader != null) {
+        reader.decRef
+        reader = newReader
+        forceRefresh = false
+      }
+  }
+
+  private def getInfo(latest : Boolean) : Any = {
+    if (latest)
+      reopenIfChanged
+    var sizes = reader.directory.listAll map {reader.directory.fileLength(_)}
+    var diskSize = sizes.sum
+    new Tuple1(List(
+      ("current", reader.isCurrent),
+      ("disk_size", diskSize),
+      ("doc_count", reader.numDocs),
+      ("doc_del_count", reader.numDeletedDocs)
+    ))
   }
 
   private def toBinary(str : String) : Array[Byte] = {
