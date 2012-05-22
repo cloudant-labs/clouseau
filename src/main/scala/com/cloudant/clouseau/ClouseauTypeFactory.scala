@@ -6,6 +6,7 @@ import org.apache.log4j.Logger
 import org.apache.lucene.document.Field._
 import org.apache.lucene.document._
 import scalang._
+import scala.collection.immutable.Map
 
 case class OpenIndexMsg(path : String, analyzer : String)
 case class SearchMsg(query : String, limit : Int, refresh : Boolean)
@@ -48,18 +49,35 @@ object ClouseauTypeFactory extends TypeFactory {
   }
 
   private def toFieldable(field : Any) : Option[Fieldable] = field match {
-    case (name : ByteBuffer, value : ByteBuffer, store : ByteBuffer, index : ByteBuffer, termvector : ByteBuffer) =>
-      Some(new Field(name, value, toStore(store), toIndex(index), toTermVector(termvector)))
-    case (name : String, value : Boolean, store : ByteBuffer, index : ByteBuffer, termvector : ByteBuffer) =>
-      Some(new Field(name, value.toString, toStore(store), Index.NOT_ANALYZED, toTermVector(termvector)))
-    case (name : ByteBuffer, value : Any, store : ByteBuffer, index : ByteBuffer, termvector : ByteBuffer) =>
+    case (name : ByteBuffer, value : ByteBuffer, options : List[(ByteBuffer, Any)]) =>
+      val map = toMap(options)
+      Some(new Field(name, value, toStore(map), toIndex(map), toTermVector(map)))
+    case (name : ByteBuffer, value : Boolean, options : List[(ByteBuffer, Any)]) =>
+      val map = toMap(options)
+      Some(new Field(name, value.toString, toStore(map), Index.NOT_ANALYZED, toTermVector(map)))
+    case (name : ByteBuffer, value : Any, options : List[(ByteBuffer, Any)]) =>
+      val map = toMap(options)
       toDouble(value) match {
         case Some(doubleValue) =>
-          Some(new NumericField(name, 8, toStore(store), true).setDoubleValue(doubleValue))
+          Some(new NumericField(name, 8, toStore(map), true).setDoubleValue(doubleValue))
         case None =>
           logger.warn("Unrecognized value: %s".format(value))
           None
       }
+  }
+
+  def toMap(options : List[(ByteBuffer, Any)]) : Map[String, Any] = {
+    val b = Map.newBuilder[String, Any]
+    for (option <- options)
+      option match {
+        case (name : ByteBuffer, value : ByteBuffer) =>
+          b += new Tuple2(name, byteBufferToString(value))
+        case (name : ByteBuffer, value : Any) =>
+          b += new Tuple2(name, value)
+        case _ =>
+            'ok
+      }
+    b.result
   }
 
   def toDouble(a : Any) : Option[Double] = a match {
@@ -75,19 +93,22 @@ object ClouseauTypeFactory extends TypeFactory {
     case v : java.lang.Long    => v.longValue
   }
 
-  def toStore(store : String) : Store = {
+  def toStore(options : Map[String, Any]) : Store = {
+    val store = options.getOrElse("store", "no").asInstanceOf[String]
     Store.valueOf(store toUpperCase)
   }
 
-  def toIndex(index : String) : Index = {
+  def toIndex(options : Map[String, Any]) : Index = {
+    val index = options.getOrElse("index", "analyzed").asInstanceOf[String]
     Index.valueOf(index toUpperCase)
   }
 
-  def toTermVector(tv : String) : TermVector = {
-    TermVector.valueOf(tv toUpperCase)
+  def toTermVector(options : Map[String, Any]) : TermVector = {
+    val termVector = options.getOrElse("termvector", "no").asInstanceOf[String]
+    TermVector.valueOf(termVector toUpperCase)
   }
 
-  implicit def toString(buf : ByteBuffer) : String = {
+  implicit def byteBufferToString(buf : ByteBuffer) : String = {
     utf8.decode(buf).toString
   }
 
