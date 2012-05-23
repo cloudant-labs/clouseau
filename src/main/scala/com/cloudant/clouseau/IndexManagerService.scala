@@ -14,7 +14,6 @@ class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends
         case ('ok, pid : Pid) =>
           val duration = System.currentTimeMillis - start
           logger.info("%s: opened in %d ms".format(path, duration))
-          node.link(tag._1, pid)
           ('ok, pid)
         case error =>
           error
