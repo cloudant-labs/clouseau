@@ -1,16 +1,10 @@
 * teach showroom to trigger updates
-* IOQ (fairness)
 * IOQ (billing)
 * index_cleanup
 * purge
 * skip
 * update_after
-* enforce maximum value of 'limit'
 * allow sort?
 * attachment indexing with tika
-* _info
 * security manager
 * configurable delayed commit interval
-* honor "analyzer" field
-* Always use Double for numbers
-* Detect range type, don't use name<type>
