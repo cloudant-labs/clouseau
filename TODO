@@ -1,3 +1,5 @@
+* runtime control of IndexWriterConfig
+* particularly maxFieldLength
 * teach showroom to trigger updates
 * IOQ (billing)
 * index_cleanup
