@@ -27,7 +27,6 @@ class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends
       delete(dir)
       'ok
     case CleanupDbMsg(dbName : String, activeSigs : List[String]) =>
-      logger.info("Removing indexes for %s not in %s".format(dbName, activeSigs))
       var filter = new FilenameFilter() {
         def accept(dir : File, name : String) : Boolean = {
           name.startsWith(dbName + ".")
@@ -35,9 +34,11 @@ class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends
       }
       for (shard <- new File(rootDir, "shards").listFiles) {
         for (dir <- shard.listFiles(filter)) {
-          if (!activeSigs.contains(dir.getName)) {
-            logger.info("Removing unreachable index %s".format(dir))
-            delete(dir)
+          for (sigDir <- dir.listFiles) {
+            if (!activeSigs.contains(sigDir.getName)) {
+              logger.info("Removing unreachable index %s".format(sigDir))
+              delete(dir)
+            }
           }
         }
       }
