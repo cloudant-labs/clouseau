@@ -1,5 +1,7 @@
 package com.cloudant.clouseau
 
+import java.io.File
+import java.io.FilenameFilter
 import org.apache.commons.configuration.Configuration
 import org.apache.log4j.Logger
 import scalang._
@@ -19,12 +21,41 @@ class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends
         case error =>
           error
       }
+    case CleanupPathMsg(path : String) =>
+      var dir = new File(rootDir, path)
+      logger.info("Removing %s".format(dir))
+      delete(dir)
+      'ok
+    case CleanupDbMsg(dbName : String, activeSigs : List[String]) =>
+      logger.info("Removing indexes for %s not in %s".format(dbName, activeSigs))
+      var filter = new FilenameFilter() {
+        def accept(dir : File, name : String) : Boolean = {
+          name.startsWith(dbName + ".")
+        }
+      }
+      for (shard <- new File(rootDir, "shards").listFiles) {
+        for (dir <- shard.listFiles(filter)) {
+          if (!activeSigs.contains(dir.getName)) {
+            logger.info("Removing unreachable index %s".format(dir))
+            delete(dir)
+          }
+        }
+      }
+      'ok
   }
 
   override def exit(msg : Any) {
     logger.warn("Exiting with reason %s".format(msg))
     super.exit(msg)
     IndexManagerService.start(node)
+  }
+
+  private def delete(fileOrDir : File) {
+    if (fileOrDir.isDirectory)
+      for (file <- fileOrDir.listFiles)
+        delete(file)
+    if (fileOrDir.isFile)
+      fileOrDir.delete
   }
 
   val logger = Logger.getLogger("clouseau.main")

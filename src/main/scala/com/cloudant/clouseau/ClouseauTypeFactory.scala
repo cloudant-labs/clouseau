@@ -9,6 +9,8 @@ import scalang._
 import scala.collection.immutable.Map
 
 case class OpenIndexMsg(peer : Pid, path : String, analyzer : String)
+case class CleanupPathMsg(path : String)
+case class CleanupDbMsg(dbName : String, activeSigs : List[String])
 case class SearchMsg(query : String, limit : Int, refresh : Boolean)
 case class UpdateDocMsg(id : String, doc : Document)
 case class DeleteDocMsg(id : String)
@@ -19,6 +21,10 @@ object ClouseauTypeFactory extends TypeFactory {
   def createType(name : Symbol, arity : Int, reader : TermReader) : Option[Any] = (name, arity) match {
     case ('open, 4) =>
       Some(OpenIndexMsg(reader.readAs[Pid], reader.readAs[ByteBuffer], reader.readAs[ByteBuffer]))
+    case ('cleanup, 2) =>
+      Some(CleanupPathMsg(reader.readAs[ByteBuffer]))
+    case ('cleanup, 3) =>
+      Some(CleanupDbMsg(reader.readAs[ByteBuffer], reader.readAs[List[ByteBuffer]]))
     case ('search, 4) =>
       Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean]))
     case ('update, 3) =>
@@ -110,6 +116,10 @@ object ClouseauTypeFactory extends TypeFactory {
 
   implicit def byteBufferToString(buf : ByteBuffer) : String = {
     utf8.decode(buf).toString
+  }
+
+  implicit def byteBufferListToStringList(list : List[ByteBuffer]) : List[String] = {
+    for (buf <- list) yield { byteBufferToString(buf) }
   }
 
   val utf8 = Charset.forName("UTF-8")
