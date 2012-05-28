@@ -73,8 +73,12 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     try {
       search(ctx.args.queryParser.parse(query), limit, refresh)
     } catch {
-      case e : ParseException        => ('error, e.getMessage)
-      case e : NumberFormatException => ('error, e.getMessage)
+      case e : ParseException        =>
+        logger.warn("Cannot parse %s".format(query))
+        ('error, ('bad_request, "cannot parse query"))
+      case e : NumberFormatException =>
+        logger.warn("Cannot parse %s".format(query))
+        ('error, ('bad_request, "cannot parse query"))
     }
   }
 
