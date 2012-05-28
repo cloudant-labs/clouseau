@@ -38,6 +38,7 @@ class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends
             if (!activeSigs.contains(sigDir.getName)) {
               logger.info("Removing unreachable index %s".format(sigDir))
               delete(dir)
+              sigDir.delete
             }
           }
         }
