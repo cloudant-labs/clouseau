@@ -29,6 +29,7 @@ import org.apache.lucene.analysis.br.BrazilianAnalyzer;
 import org.apache.lucene.analysis.cjk.CJKAnalyzer;
 import org.apache.lucene.analysis.cz.CzechAnalyzer;
 import org.apache.lucene.analysis.de.GermanAnalyzer;
+import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.analysis.fr.FrenchAnalyzer;
 import org.apache.lucene.analysis.nl.DutchAnalyzer;
 import org.apache.lucene.analysis.ru.RussianAnalyzer;
@@ -72,7 +73,7 @@ public enum Analyzers {
     ENGLISH {
         @Override
         public Analyzer newAnalyzer(final Version version, final String args) {
-            return new StandardAnalyzer(version);
+            return new EnglishAnalyzer(version);
         }
     },
     FRENCH {
