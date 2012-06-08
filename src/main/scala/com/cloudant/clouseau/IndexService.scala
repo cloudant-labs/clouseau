@@ -158,13 +158,14 @@ object IndexService {
 
   def start(node : Node, rootDir : String, path : String, analyzerName : String) : Any = {
     val dir = newDirectory(new File(rootDir, path))
-    val analyzer = Analyzers.getAnalyzer(version, analyzerName)
-    val queryParser = new ClouseauQueryParser(version, "default", analyzer)
-    val config = new IndexWriterConfig(version, analyzer)
     try {
+      val analyzer = Analyzers.getAnalyzer(version, analyzerName)
+      val queryParser = new ClouseauQueryParser(version, "default", analyzer)
+      val config = new IndexWriterConfig(version, analyzer)
       val writer = new IndexWriter(dir, config)
       ('ok, node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(path, queryParser, writer)))
     } catch {
+      case e : IllegalArgumentException => ('error, e.getMessage)
       case e : IOException => ('error, e.getMessage)
     }
   }

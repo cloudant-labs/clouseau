@@ -148,7 +148,11 @@ public enum Analyzers {
         final String[] parts = str.split(":", 2);
         final String name = parts[0].toUpperCase();
         final String args = parts.length == 2 ? parts[1] : null;
-        return Analyzers.valueOf(name).newAnalyzer(version, args);
+        try {
+            return Analyzers.valueOf(name).newAnalyzer(version, args);
+        } catch (final IllegalArgumentException e) {
+            throw new IllegalArgumentException("No known analyzer called '" + str + "'");
+        }
     }
 
     public abstract Analyzer newAnalyzer(final Version version,
