@@ -1,12 +1,18 @@
+Features
+
 * runtime control of IndexWriterConfig
 * particularly maxFieldLength
 * teach showroom to trigger updates
-* IOQ (billing)
-* index_cleanup
 * purge
 * skip
 * update_after
 * allow sort?
 * attachment indexing with tika
-* security manager
 * configurable delayed commit interval
+
+Code Cleanliness
+
+* eliminate ClouseauTypeFactory
+* eliminate typing as much as possible
+* ditch Maven for Buildr
+* get Java under src/main/java
