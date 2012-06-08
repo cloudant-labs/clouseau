@@ -52,7 +52,17 @@
     </dependency>
     <dependency>
       <groupId>org.apache.lucene</groupId>
-      <artifactId>lucene-queryparser</artifactId>
+      <artifactId>lucene-stempel</artifactId>
+      <version>${lucene-version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-smartcn</artifactId>
+      <version>${lucene-version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-kuromoji</artifactId>
       <version>${lucene-version}</version>
     </dependency>
 
