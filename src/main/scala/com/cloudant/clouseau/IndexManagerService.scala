@@ -2,6 +2,7 @@ package com.cloudant.clouseau
 
 import java.io.File
 import java.io.FilenameFilter
+import java.util.regex.Pattern
 import org.apache.commons.configuration.Configuration
 import org.apache.log4j.Logger
 import scalang._
@@ -24,25 +25,12 @@ class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends
     case CleanupPathMsg(path : String) =>
       var dir = new File(rootDir, path)
       logger.info("Removing %s".format(dir))
-      delete(dir)
+      recursivelyDelete(dir)
       'ok
     case CleanupDbMsg(dbName : String, activeSigs : List[String]) =>
-      var filter = new FilenameFilter() {
-        def accept(dir : File, name : String) : Boolean = {
-          name.startsWith(dbName + ".")
-        }
-      }
-      for (shard <- new File(rootDir, "shards").listFiles) {
-        for (dir <- shard.listFiles(filter)) {
-          for (sigDir <- dir.listFiles) {
-            if (!activeSigs.contains(sigDir.getName)) {
-              logger.info("Removing unreachable index %s".format(sigDir))
-              delete(dir)
-              sigDir.delete
-            }
-          }
-        }
-      }
+      logger.info("Cleaning up " + dbName)
+      val pattern = Pattern.compile("shards/[0-9a-f]+-[0-9a-f]+/" + dbName + "\\.[0-9]+/([0-9a-f]+)$")
+      cleanup(rootDir, pattern, activeSigs)
       'ok
   }
 
@@ -52,16 +40,31 @@ class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends
     IndexManagerService.start(node)
   }
 
-  private def delete(fileOrDir : File) {
+  private def recursivelyDelete(fileOrDir : File) {
     if (fileOrDir.isDirectory)
       for (file <- fileOrDir.listFiles)
-        delete(file)
+        recursivelyDelete(file)
     if (fileOrDir.isFile)
       fileOrDir.delete
   }
 
+  private def cleanup(fileOrDir : File, includePattern : Pattern, activeSigs : List[String]) {
+    if (!fileOrDir.isDirectory) {
+      return
+    }
+    for (file <- fileOrDir.listFiles) {
+      cleanup(file, includePattern, activeSigs)
+    }
+    val m = includePattern.matcher(fileOrDir.getAbsolutePath)
+    if (m.find && !activeSigs.contains(m.group(1))) {
+      logger.info("Removing unreachable index " + fileOrDir)
+      recursivelyDelete(fileOrDir)
+      fileOrDir.delete
+    }
+  }
+
   val logger = Logger.getLogger("clouseau.main")
-  val rootDir = Main.config.getString("clouseau.dir", "target/indexes")
+  val rootDir = new File(Main.config.getString("clouseau.dir", "target/indexes"))
 }
 
 object IndexManagerService {

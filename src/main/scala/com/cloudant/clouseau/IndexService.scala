@@ -156,7 +156,7 @@ object IndexService {
 
   val version = Version.LUCENE_36
 
-  def start(node : Node, rootDir : String, path : String, analyzerName : String) : Any = {
+  def start(node : Node, rootDir : File, path : String, analyzerName : String) : Any = {
     val dir = newDirectory(new File(rootDir, path))
     try {
       val analyzer = Analyzers.getAnalyzer(version, analyzerName)
