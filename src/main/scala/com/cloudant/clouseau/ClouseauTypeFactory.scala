@@ -115,7 +115,7 @@ object ClouseauTypeFactory extends TypeFactory {
   }
 
   implicit def byteBufferToString(buf : ByteBuffer) : String = {
-    utf8.decode(buf).toString
+    utf8.decode(buf.duplicate).toString
   }
 
   implicit def byteBufferListToStringList(list : List[ByteBuffer]) : List[String] = {
