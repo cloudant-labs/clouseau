@@ -1,14 +1,15 @@
 package com.cloudant.clouseau
 
+import com.cloudant.clouseau.Utils._
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
 import org.apache.log4j.Logger
 import org.apache.lucene.document.Field._
 import org.apache.lucene.document._
-import scalang._
 import scala.collection.immutable.Map
+import scalang._
 
-case class OpenIndexMsg(peer : Pid, path : String, analyzer : String)
+case class OpenIndexMsg(peer : Pid, path : String, options : Any)
 case class CleanupPathMsg(path : String)
 case class CleanupDbMsg(dbName : String, activeSigs : List[String])
 case class SearchMsg(query : String, limit : Int, refresh : Boolean)
@@ -20,7 +21,7 @@ object ClouseauTypeFactory extends TypeFactory {
 
   def createType(name : Symbol, arity : Int, reader : TermReader) : Option[Any] = (name, arity) match {
     case ('open, 4) =>
-      Some(OpenIndexMsg(reader.readAs[Pid], reader.readAs[ByteBuffer], reader.readAs[ByteBuffer]))
+      Some(OpenIndexMsg(reader.readAs[Pid], reader.readAs[ByteBuffer], reader.readTerm))
     case ('cleanup, 2) =>
       Some(CleanupPathMsg(reader.readAs[ByteBuffer]))
     case ('cleanup, 3) =>
@@ -72,20 +73,6 @@ object ClouseauTypeFactory extends TypeFactory {
       }
   }
 
-  def toMap(options : List[(ByteBuffer, Any)]) : Map[String, Any] = {
-    val b = Map.newBuilder[String, Any]
-    for (option <- options)
-      option match {
-        case (name : ByteBuffer, value : ByteBuffer) =>
-          b += new Tuple2(name, byteBufferToString(value))
-        case (name : ByteBuffer, value : Any) =>
-          b += new Tuple2(name, value)
-        case _ =>
-            'ok
-      }
-    b.result
-  }
-
   def toDouble(a : Any) : Option[Double] = a match {
     case v : java.lang.Double  => Some(v)
     case v : java.lang.Float   => Some(v.doubleValue)
@@ -114,14 +101,5 @@ object ClouseauTypeFactory extends TypeFactory {
     TermVector.valueOf(termVector toUpperCase)
   }
 
-  implicit def byteBufferToString(buf : ByteBuffer) : String = {
-    utf8.decode(buf.duplicate).toString
-  }
-
-  implicit def byteBufferListToStringList(list : List[ByteBuffer]) : List[String] = {
-    for (buf <- list) yield { byteBufferToString(buf) }
-  }
-
-  val utf8 = Charset.forName("UTF-8")
   val logger = Logger.getLogger("clouseau.tf")
 }
