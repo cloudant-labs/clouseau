@@ -21,7 +21,7 @@ import org.apache.lucene.document.Field.Index
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document.Field.TermVector
 import collection.JavaConversions._
-import scala.collection.mutable._
+import com.cloudant.clouseau.Utils._
 
 case class IndexServiceArgs(name : String, queryParser : QueryParser, writer : IndexWriter)
 
@@ -156,18 +156,31 @@ object IndexService {
 
   val version = Version.LUCENE_36
 
-  def start(node : Node, rootDir : File, path : String, analyzerName : String) : Any = {
+  def start(node : Node, rootDir : File, path : String, options : Any) : Any = {
     val dir = newDirectory(new File(rootDir, path))
     try {
-      val analyzer = Analyzers.getAnalyzer(version, analyzerName)
-      val queryParser = new ClouseauQueryParser(version, "default", analyzer)
-      val config = new IndexWriterConfig(version, analyzer)
-      val writer = new IndexWriter(dir, config)
-      ('ok, node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(path, queryParser, writer)))
+      createAnalyzer(options) match {
+        case Some(analyzer) =>
+          val queryParser = new ClouseauQueryParser(version, "default", analyzer)
+          val config = new IndexWriterConfig(version, analyzer)
+          val writer = new IndexWriter(dir, config)
+          ('ok, node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(path, queryParser, writer)))
+        case None =>
+          ('error, 'no_such_analyzer)
+      }
     } catch {
       case e : IllegalArgumentException => ('error, e.getMessage)
       case e : IOException => ('error, e.getMessage)
     }
+  }
+
+  def createAnalyzer(options : Any) : Option[Analyzer] = {
+    SupportedAnalyzers.createAnalyzer(options match {
+      case name : ByteBuffer =>
+        Map("name" -> byteBufferToString(name))
+      case options : List[(ByteBuffer, Any)] =>
+        toMap(options)
+    })
   }
 
   private def newDirectory(path : File) : Directory = {

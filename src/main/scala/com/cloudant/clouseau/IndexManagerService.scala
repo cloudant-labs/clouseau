@@ -11,9 +11,9 @@ case class IndexManagerServiceArgs()
 class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends Service(ctx) {
 
   override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
-    case OpenIndexMsg(peer: Pid, path : String, analyzer : String) =>
+    case OpenIndexMsg(peer: Pid, path : String, options : Any) =>
       val start = System.currentTimeMillis
-      IndexService.start(node, rootDir, path, analyzer) match {
+      IndexService.start(node, rootDir, path, options) match {
         case ('ok, pid : Pid) =>
           node.link(peer, pid)
           val duration = System.currentTimeMillis - start
