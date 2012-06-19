@@ -22,12 +22,13 @@ import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document.Field.TermVector
 import collection.JavaConversions._
 import com.cloudant.clouseau.Utils._
+import com.yammer.metrics.scala._
 
 case class IndexServiceArgs(name : String, queryParser : QueryParser, writer : IndexWriter)
 
 case class DeferredQuery(minSeq : Long, pid : Pid, ref : Reference, queryArgs : List[(Symbol, Any)])
 
-class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) {
+class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
 
   override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
     case SearchMsg(query : String, limit : Int, refresh : Boolean) =>
@@ -90,10 +91,10 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     reader.incRef
     try {
       val searcher = new IndexSearcher(reader)
-      val start = System.currentTimeMillis
-      val topDocs = searcher.search(query, limit)
-      val duration = System.currentTimeMillis - start
-      logger.info("search for '%s' limit=%d, refresh=%s had %d hits in %d ms".format(query, limit, refresh, topDocs.totalHits, duration))
+      val topDocs = searches.time {
+        searcher.search(query, limit)
+      }
+      logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".format(query, limit, refresh, topDocs.totalHits))
       val hits = for (scoreDoc <- topDocs.scoreDocs) yield {
         val doc = searcher.doc(scoreDoc.doc)
         val fields = doc.getFields.foldLeft(List[Any]())((acc,field) =>
@@ -149,6 +150,10 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     case seq  => seq.toLong
   }
   var forceRefresh = false
+
+  // metrics
+  val searches = metrics.timer("searches", instrumentedName)
+
   logger.info("Opened at update_seq %d".format(updateSeq))
 }
 
