@@ -47,7 +47,7 @@ class ClouseauQueryParser(version : Version, defaultField : String, analyzer : A
 
     override def getRangeQuery(field : String, lower : String, upper : String, inclusive : Boolean) : Query = {
       if (isNumber(lower) && isNumber(upper)) {
-        NumericRangeQuery.newDoubleRange(field, 8, lower.toDouble, upper.toDouble, inclusive, inclusive);
+        return NumericRangeQuery.newDoubleRange(field, 8, lower.toDouble, upper.toDouble, inclusive, inclusive);
       }
       super.getRangeQuery(field, lower, upper, inclusive);
     }
