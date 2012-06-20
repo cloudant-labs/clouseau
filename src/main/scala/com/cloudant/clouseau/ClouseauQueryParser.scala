@@ -54,7 +54,7 @@ class ClouseauQueryParser(version : Version, defaultField : String, analyzer : A
 
     override def getFieldQuery(field : String, queryText : String, quoted : Boolean) : Query = {
       if (isNumber(queryText)) {
-        new TermQuery(new Term(field, NumericUtils.doubleToPrefixCoded(queryText.toDouble)))
+        return new TermQuery(new Term(field, NumericUtils.doubleToPrefixCoded(queryText.toDouble)))
       }
       super.getFieldQuery(field, queryText, quoted);
     }
