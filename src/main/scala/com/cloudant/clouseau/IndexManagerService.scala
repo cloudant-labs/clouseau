@@ -6,21 +6,21 @@ import java.util.regex.Pattern
 import org.apache.commons.configuration.Configuration
 import org.apache.log4j.Logger
 import scalang._
+import com.yammer.metrics.scala._
 
 case class IndexManagerServiceArgs()
-class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends Service(ctx) {
+class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends Service(ctx) with Instrumented {
 
   override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
     case OpenIndexMsg(peer: Pid, path : String, options : Any) =>
-      val start = System.currentTimeMillis
-      IndexService.start(node, rootDir, path, options) match {
-        case ('ok, pid : Pid) =>
-          node.link(peer, pid)
-          val duration = System.currentTimeMillis - start
-          logger.info("%s: opened in %d ms".format(path, duration))
-          ('ok, pid)
-        case error =>
-          error
+      openTimer.time {
+        IndexService.start(node, rootDir, path, options) match {
+          case ('ok, pid : Pid) =>
+            node.link(peer, pid)
+            ('ok, pid)
+          case error =>
+            error
+        }
       }
     case CleanupPathMsg(path : String) =>
       var dir = new File(rootDir, path)
@@ -65,6 +65,7 @@ class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends
 
   val logger = Logger.getLogger("clouseau.main")
   val rootDir = new File(Main.config.getString("clouseau.dir", "target/indexes"))
+  val openTimer = metrics.timer("opens", instrumentedName)
 }
 
 object IndexManagerService {
