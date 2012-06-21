@@ -91,7 +91,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     reader.incRef
     try {
       val searcher = new IndexSearcher(reader)
-      val topDocs = searches.time {
+      val topDocs = searchTimer.time {
         searcher.search(query, limit)
       }
       logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".format(query, limit, refresh, topDocs.totalHits))
@@ -152,7 +152,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   var forceRefresh = false
 
   // metrics
-  val searches = metrics.timer("searches", instrumentedName)
+  val searchTimer = metrics.timer("searches", instrumentedName)
 
   logger.info("Opened at update_seq %d".format(updateSeq))
 }
