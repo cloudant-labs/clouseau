@@ -108,6 +108,12 @@
       <version>4.10</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.scala-tools.testing</groupId>
+      <artifactId>specs_${scala.version}</artifactId>
+      <version>1.6.9</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -191,9 +197,11 @@
           <!-- If you have classpath issue like NoDefClassError,... -->
           <!-- useManifestOnlyJar>false</useManifestOnlyJar -->
           <includes>
-            <include>**/*Test.*</include>
-            <include>**/*Suite.*</include>
+            <include>**/*Spec.java</include>
           </includes>
+          <excludes>
+            <exclude>**/*Test.java</exclude>
+          </excludes>
         </configuration>
       </plugin>
       <plugin>
