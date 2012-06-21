@@ -15,4 +15,3 @@ Code Cleanliness
 * eliminate ClouseauTypeFactory
 * eliminate typing as much as possible
 * ditch Maven for Buildr
-* get Java under src/main/java
