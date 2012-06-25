@@ -30,6 +30,18 @@ case class DeferredQuery(minSeq : Long, pid : Pid, ref : Reference, queryArgs : 
 
 class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
 
+  val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
+  var reader = IndexReader.open(ctx.args.writer, true)
+  var updateSeq = reader.getIndexCommit().getUserData().get("update_seq") match {
+    case null => 0L
+    case seq  => seq.toLong
+  }
+  var forceRefresh = false
+
+  val searchTimer = metrics.timer("searches", instrumentedName)
+
+  logger.info("Opened at update_seq %d".format(updateSeq))
+
   override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
     case SearchMsg(query : String, limit : Int, refresh : Boolean) =>
       search(query, limit, refresh)
@@ -143,18 +155,6 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     ctx.args.name
   }
 
-  val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
-  var reader = IndexReader.open(ctx.args.writer, true)
-  var updateSeq = reader.getIndexCommit().getUserData().get("update_seq") match {
-    case null => 0L
-    case seq  => seq.toLong
-  }
-  var forceRefresh = false
-
-  // metrics
-  val searchTimer = metrics.timer("searches", instrumentedName)
-
-  logger.info("Opened at update_seq %d".format(updateSeq))
 }
 
 object IndexService {

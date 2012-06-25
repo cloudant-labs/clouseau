@@ -19,6 +19,8 @@ case class CommitMsg(seq : Long)
 
 object ClouseauTypeFactory extends TypeFactory {
 
+  val logger = Logger.getLogger("clouseau.tf")
+
   def createType(name : Symbol, arity : Int, reader : TermReader) : Option[Any] = (name, arity) match {
     case ('open, 4) =>
       Some(OpenIndexMsg(reader.readAs[Pid], reader.readAs[ByteBuffer], reader.readTerm))
@@ -101,5 +103,4 @@ object ClouseauTypeFactory extends TypeFactory {
     TermVector.valueOf(termVector toUpperCase)
   }
 
-  val logger = Logger.getLogger("clouseau.tf")
 }

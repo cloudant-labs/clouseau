@@ -47,16 +47,18 @@ class ClouseauQueryParser(version : Version, defaultField : String, analyzer : A
 
     override def getRangeQuery(field : String, lower : String, upper : String, inclusive : Boolean) : Query = {
       if (isNumber(lower) && isNumber(upper)) {
-        return NumericRangeQuery.newDoubleRange(field, 8, lower.toDouble, upper.toDouble, inclusive, inclusive);
+        NumericRangeQuery.newDoubleRange(field, 8, lower.toDouble, upper.toDouble, inclusive, inclusive);
+      } else {
+        super.getRangeQuery(field, lower, upper, inclusive);
       }
-      super.getRangeQuery(field, lower, upper, inclusive);
     }
 
     override def getFieldQuery(field : String, queryText : String, quoted : Boolean) : Query = {
       if (isNumber(queryText)) {
-        return new TermQuery(new Term(field, NumericUtils.doubleToPrefixCoded(queryText.toDouble)))
+        new TermQuery(new Term(field, NumericUtils.doubleToPrefixCoded(queryText.toDouble)))
+      } else {
+        super.getFieldQuery(field, queryText, quoted);
       }
-      super.getFieldQuery(field, queryText, quoted);
     }
 
     private def isNumber(str : String) : Boolean = {

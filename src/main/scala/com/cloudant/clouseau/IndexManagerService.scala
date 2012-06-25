@@ -9,7 +9,12 @@ import scalang._
 import com.yammer.metrics.scala._
 
 case class IndexManagerServiceArgs()
+
 class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends Service(ctx) with Instrumented {
+
+  val logger = Logger.getLogger("clouseau.main")
+  val rootDir = new File(Main.config.getString("clouseau.dir", "target/indexes"))
+  val openTimer = metrics.timer("opens", instrumentedName)
 
   override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
     case OpenIndexMsg(peer: Pid, path : String, options : Any) =>
@@ -63,9 +68,6 @@ class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends
     }
   }
 
-  val logger = Logger.getLogger("clouseau.main")
-  val rootDir = new File(Main.config.getString("clouseau.dir", "target/indexes"))
-  val openTimer = metrics.timer("opens", instrumentedName)
 }
 
 object IndexManagerService {

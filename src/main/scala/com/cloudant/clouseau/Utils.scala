@@ -5,6 +5,8 @@ import java.nio.charset.Charset
 
 object Utils {
 
+  val utf8 = Charset.forName("UTF-8")
+
   def toMap(options : List[(ByteBuffer, Any)]) : Map[String, Any] = {
     val b = Map.newBuilder[String, Any]
     for (option <- options)
@@ -36,5 +38,4 @@ object Utils {
     }
   }
 
-  val utf8 = Charset.forName("UTF-8")
 }
