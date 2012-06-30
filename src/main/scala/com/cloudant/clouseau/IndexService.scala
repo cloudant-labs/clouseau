@@ -28,6 +28,10 @@ case class IndexServiceArgs(name : String, queryParser : QueryParser, writer : I
 
 case class DeferredQuery(minSeq : Long, pid : Pid, ref : Reference, queryArgs : List[(Symbol, Any)])
 
+// These must match the records in dreyfus.
+case class TopDocs(updateSeq : Long, totalHits : Long, hits : List[Hit])
+case class Hit(score : Double, doc : Long, fields : List[Any])
+
 class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
 
   val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
@@ -110,18 +114,15 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       val hits = for (scoreDoc <- topDocs.scoreDocs) yield {
         val doc = searcher.doc(scoreDoc.doc)
         val fields = doc.getFields.foldLeft(List[Any]())((acc,field) =>
-          if (field.name.startsWith("_"))
-            acc
-          else field match {
+          field match {
             case numericField : NumericField =>
               (toBinary(field.name), numericField.getNumericValue) :: acc
             case _ =>
               (toBinary(field.name), toBinary(field.stringValue)) :: acc
           })
-        val id = toBinary(doc.getFieldable("_id").stringValue)
-        (List(scoreDoc.score, scoreDoc.doc), id, scoreDoc.score, fields.toList)
+        Hit(scoreDoc.score, scoreDoc.doc, fields.toList)
       }
-      ('ok, topDocs.totalHits, hits.toList)
+      ('ok, TopDocs(updateSeq, topDocs.totalHits, hits.toList))
     } finally {
       reader.decRef
     }
