@@ -6,13 +6,14 @@ import java.nio.charset.Charset
 import org.apache.log4j.Logger
 import org.apache.lucene.document.Field._
 import org.apache.lucene.document._
+import org.apache.lucene.search._
 import scala.collection.immutable.Map
 import scalang._
 
 case class OpenIndexMsg(peer : Pid, path : String, options : Any)
 case class CleanupPathMsg(path : String)
 case class CleanupDbMsg(dbName : String, activeSigs : List[String])
-case class SearchMsg(query : String, limit : Int, refresh : Boolean)
+case class SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc])
 case class UpdateDocMsg(id : String, doc : Document)
 case class DeleteDocMsg(id : String)
 case class CommitMsg(seq : Long)
@@ -28,8 +29,10 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(CleanupPathMsg(reader.readAs[ByteBuffer]))
     case ('cleanup, 3) =>
       Some(CleanupDbMsg(reader.readAs[ByteBuffer], reader.readAs[List[ByteBuffer]]))
-    case ('search, 4) =>
-      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean]))
+    case ('search, 4) => // temporary upgrade clause
+      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], None))
+    case ('search, 5) =>
+      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader)))
     case ('update, 3) =>
       val doc = readDoc(reader)
       val id = doc.getFieldable("_id").stringValue
@@ -40,6 +43,15 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(CommitMsg(toLong(reader.readTerm)))
     case _ =>
       None
+  }
+
+  protected def readScoreDoc(reader : TermReader) : Option[ScoreDoc] = {
+    reader.readTerm match {
+      case 'nil =>
+        None
+      case (score : Any, doc : Any) =>
+        Some(new ScoreDoc(toInteger(doc), toFloat(score)))
+    }
   }
 
   protected def readDoc(reader : TermReader) : Document = {
@@ -75,6 +87,15 @@ object ClouseauTypeFactory extends TypeFactory {
       }
   }
 
+  // These to* methods are stupid.
+
+  def toFloat(a : Any) : Float = a match {
+    case v : java.lang.Double  => v.floatValue
+    case v : java.lang.Float   => v
+    case v : java.lang.Integer => v.floatValue
+    case v : java.lang.Long    => v.floatValue
+  }
+
   def toDouble(a : Any) : Option[Double] = a match {
     case v : java.lang.Double  => Some(v)
     case v : java.lang.Float   => Some(v.doubleValue)
@@ -85,7 +106,12 @@ object ClouseauTypeFactory extends TypeFactory {
 
   def toLong(a : Any) : Long = a match {
     case v : java.lang.Integer => v.longValue
-    case v : java.lang.Long    => v.longValue
+    case v : java.lang.Long    => v
+  }
+
+  def toInteger(a : Any) : Integer = a match {
+    case v : java.lang.Integer => v
+    case v : java.lang.Long    => v.intValue
   }
 
   def toStore(options : Map[String, Any]) : Store = {

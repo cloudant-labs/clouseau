@@ -8,7 +8,7 @@ import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.document._
 import org.apache.lucene.index._
 import org.apache.lucene.store._
-import org.apache.lucene.search.Query
+import org.apache.lucene.search._
 import org.apache.lucene.util.Version
 import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.queryParser.QueryParser
@@ -47,8 +47,8 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   logger.info("Opened at update_seq %d".format(updateSeq))
 
   override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
-    case SearchMsg(query : String, limit : Int, refresh : Boolean) =>
-      search(query, limit, refresh)
+    case SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc]) =>
+      search(query, limit, refresh, after)
     case 'get_update_seq =>
       ('ok, updateSeq)
     case UpdateDocMsg(id : String, doc : Document) =>
@@ -86,9 +86,9 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     }
   }
 
-  private def search(query : String, limit : Int, refresh : Boolean) : Any = {
+  private def search(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc]) : Any = {
     try {
-      search(ctx.args.queryParser.parse(query), limit, refresh)
+      search(ctx.args.queryParser.parse(query), limit, refresh, after)
     } catch {
       case e : ParseException        =>
         logger.warn("Cannot parse %s".format(query))
@@ -99,7 +99,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     }
   }
 
-  private def search(query : Query, limit : Int, refresh : Boolean) : Any = {
+  private def search(query : Query, limit : Int, refresh : Boolean, after : Option[ScoreDoc]) : Any = {
     if (forceRefresh || refresh) {
       reopenIfChanged
     }
@@ -108,7 +108,12 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     try {
       val searcher = new IndexSearcher(reader)
       val topDocs = searchTimer.time {
-        searcher.search(query, limit)
+        after match {
+          case None =>
+            searcher.search(query, limit)
+          case Some(scoreDoc) =>
+            searcher.searchAfter(scoreDoc, query, limit)
+        }
       }
       logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".format(query, limit, refresh, topDocs.totalHits))
       val hits = for (scoreDoc <- topDocs.scoreDocs) yield {
