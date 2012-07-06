@@ -108,6 +108,9 @@ class SupportedAnalyzersSpec extends SpecificationWithJUnit {
     "finnish" in {
       createAnalyzer("finnish") must haveClass[Some[FinnishAnalyzer]]
     }
+    "french" in {
+      createAnalyzer("french") must haveClass[Some[FrenchAnalyzer]]
+    }
     "irish" in {
       createAnalyzer("irish") must haveClass[Some[IrishAnalyzer]]
     }

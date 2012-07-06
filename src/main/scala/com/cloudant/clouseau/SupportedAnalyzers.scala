@@ -180,6 +180,13 @@ object SupportedAnalyzers {
         case _ =>
           Some(new FinnishAnalyzer(version))
       }
+    case "french" =>
+      options.get("stopwords") match {
+        case Some(stopwords : List[ByteBuffer]) =>
+          Some(new FrenchAnalyzer(version, stopwords))
+        case _ =>
+          Some(new FrenchAnalyzer(version))
+      }
     case "irish" =>
       options.get("stopwords") match {
         case Some(stopwords : List[ByteBuffer]) =>
