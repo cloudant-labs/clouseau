@@ -215,6 +215,13 @@ object SupportedAnalyzers {
         case _ =>
           Some(new HungarianAnalyzer(version))
       }
+    case "armenian" =>
+      options.get("stopwords") match {
+        case Some(stopwords : List[ByteBuffer]) =>
+          Some(new ArmenianAnalyzer(version, stopwords))
+        case _ =>
+          Some(new ArmenianAnalyzer(version))
+      }
     case "indonesian" =>
       options.get("stopwords") match {
         case Some(stopwords : List[ByteBuffer]) =>
