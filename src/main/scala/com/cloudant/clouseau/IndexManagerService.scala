@@ -17,7 +17,7 @@ class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends
   val openTimer = metrics.timer("opens", instrumentedName)
 
   override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
-    case OpenIndexMsg(peer: Pid, path : String, options : Any) =>
+    case OpenIndexMsg(peer : Pid, path : String, options : Any) =>
       openTimer.time {
         IndexService.start(node, rootDir, path, options) match {
           case ('ok, pid : Pid) =>
