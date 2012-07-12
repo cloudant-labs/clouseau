@@ -72,6 +72,8 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   override def handleInfo(msg : Any) = msg match {
     case 'close =>
       exit(msg)
+    case ('close, reason) =>
+      exit(reason)
   }
 
   override def exit(msg : Any) {
