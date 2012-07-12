@@ -23,8 +23,6 @@ class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends
           case ('ok, pid : Pid) =>
             node.link(peer, pid)
             ('ok, pid)
-          case error =>
-            error
         }
       }
     case CleanupPathMsg(path : String) =>
