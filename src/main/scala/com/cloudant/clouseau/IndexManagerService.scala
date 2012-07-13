@@ -21,10 +21,11 @@ class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends
     class InnerLRU(initialCapacity : Int, loadFactor: Float) extends LinkedHashMap[String, Pid](initialCapacity, loadFactor, true) {
 
       override def removeEldestEntry(eldest : Entry[String, Pid]) : Boolean = {
-        if (size() > Main.config.getInt("clouseau.max_indexes_open", 100)) {
+        val result = size() > Main.config.getInt("clouseau.max_indexes_open", 100)
+        if (result) {
           eldest.getValue ! ('close, 'lru)
         }
-        false
+        result
       }
     }
 
