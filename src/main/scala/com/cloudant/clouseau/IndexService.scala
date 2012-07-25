@@ -42,7 +42,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   }
   var forceRefresh = false
 
-  val searchTimer = metrics.timer("searches", instrumentedName)
+  val searchTimer = metrics.timer("searches")
 
   logger.info("Opened at update_seq %d".format(updateSeq))
 

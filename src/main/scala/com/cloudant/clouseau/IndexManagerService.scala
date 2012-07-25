@@ -51,7 +51,7 @@ class IndexManagerService(ctx : ServiceContext[IndexManagerServiceArgs]) extends
 
   val logger = Logger.getLogger("clouseau.main")
   val rootDir = new File(Main.config.getString("clouseau.dir", "target/indexes"))
-  val openTimer = metrics.timer("opens", instrumentedName)
+  val openTimer = metrics.timer("opens")
   val lru = new LRU()
 
   override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {

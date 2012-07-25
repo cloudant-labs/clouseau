@@ -84,7 +84,7 @@
     <dependency>
       <groupId>com.boundary</groupId>
       <artifactId>scalang-scala_2.9.1</artifactId>
-      <version>0.16.0-cloudant</version>
+      <version>0.17</version>
     </dependency>
 
     <!-- Scala -->
