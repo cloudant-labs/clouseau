@@ -2,10 +2,9 @@ package com.cloudant.clouseau
 
 import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.queryParser.QueryParser
+import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search._
 import org.apache.lucene.util.NumericUtils
-import org.apache.lucene.util.Version._
 import org.specs._
 import java.lang.{Double => JDouble}
 
@@ -15,8 +14,8 @@ class ClouseauQueryParserSpec extends SpecificationWithJUnit {
     var parser : QueryParser = null
 
     doBefore {
-      analyzer = new StandardAnalyzer(LUCENE_36)
-      parser = new ClouseauQueryParser(LUCENE_36, "default", analyzer)
+      analyzer = new StandardAnalyzer(IndexService.version)
+      parser = new ClouseauQueryParser(IndexService.version, "default", analyzer)
     }
 
     "support term queries" in {
@@ -42,7 +41,7 @@ class ClouseauQueryParserSpec extends SpecificationWithJUnit {
     "support numeric term queries (integer)" in {
       val query = parser.parse("foo:12")
       query must haveClass[TermQuery]
-      query.asInstanceOf[TermQuery].getTerm().text() must be equalTo(NumericUtils.doubleToPrefixCoded(12.0))
+      query.asInstanceOf[TermQuery].getTerm() must be equalTo(Utils.doubleToTerm("foo", 12.0))
     }
 
     "quoted string is not a number" in {

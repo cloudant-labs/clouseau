@@ -5,13 +5,11 @@ package com.cloudant.clouseau
 import java.util.regex.Pattern
 
 import org.apache.lucene.analysis.Analyzer
-import org.apache.lucene.index.Term
-import org.apache.lucene.queryParser.ParseException
-import org.apache.lucene.queryParser.QueryParser
+import org.apache.lucene.queryparser.classic.ParseException
+import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search.NumericRangeQuery
 import org.apache.lucene.search.Query
 import org.apache.lucene.search.TermQuery
-import org.apache.lucene.util.NumericUtils
 import org.apache.lucene.util.Version
 
 class ClouseauQueryParser(version : Version, defaultField : String, analyzer : Analyzer)
@@ -45,17 +43,17 @@ class ClouseauQueryParser(version : Version, defaultField : String, analyzer : A
             + ")"
             + ")[pP][+-]?" + Digits + "))" + "[fFdD]?))" + "[\\x00-\\x20]*")
 
-    override def getRangeQuery(field : String, lower : String, upper : String, inclusive : Boolean) : Query = {
+    override def getRangeQuery(field : String, lower : String, upper : String, startInclusive : Boolean, endInclusive : Boolean) : Query = {
       if (isNumber(lower) && isNumber(upper)) {
-        NumericRangeQuery.newDoubleRange(field, 8, lower.toDouble, upper.toDouble, inclusive, inclusive);
+        NumericRangeQuery.newDoubleRange(field, 8, lower.toDouble, upper.toDouble, startInclusive, endInclusive);
       } else {
-        super.getRangeQuery(field, lower, upper, inclusive);
+        super.getRangeQuery(field, lower, upper, startInclusive, endInclusive);
       }
     }
 
     override def getFieldQuery(field : String, queryText : String, quoted : Boolean) : Query = {
       if (!quoted && isNumber(queryText)) {
-        new TermQuery(new Term(field, NumericUtils.doubleToPrefixCoded(queryText.toDouble)))
+        new TermQuery(Utils.doubleToTerm(field, queryText.toDouble))
       } else {
         super.getFieldQuery(field, queryText, quoted);
       }

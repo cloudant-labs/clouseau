@@ -11,8 +11,8 @@ import org.apache.lucene.store._
 import org.apache.lucene.search._
 import org.apache.lucene.util.Version
 import org.apache.lucene.search.IndexSearcher
-import org.apache.lucene.queryParser.QueryParser
-import org.apache.lucene.queryParser.ParseException
+import org.apache.lucene.queryparser.classic.QueryParser
+import org.apache.lucene.queryparser.classic.ParseException
 import scalang._
 import scalang.node._
 import java.nio.charset.Charset
@@ -129,11 +129,11 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     val hits = for (scoreDoc <- topDocs.scoreDocs) yield {
       val doc = searcher.doc(scoreDoc.doc)
       val fields = doc.getFields.foldLeft(Map[String,Any]())((acc,field) => {
-        val value = field match {
-          case numericField : NumericField =>
-            numericField.getNumericValue
-          case _ =>
+        val value = field.numericValue match {
+          case null =>
             toBinary(field.stringValue)
+          case num =>
+            num
         }
         acc.get(field.name) match {
           case None =>
@@ -160,7 +160,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   }
 
   private def reopenIfChanged() {
-      val newReader = IndexReader.openIfChanged(reader)
+      val newReader = DirectoryReader.openIfChanged(reader)
       if (newReader != null) {
         reader.decRef
         reader = newReader
@@ -191,7 +191,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
 
 object IndexService {
 
-  val version = Version.LUCENE_36
+  val version = Version.LUCENE_40
 
   def start(node : Node, rootDir : File, path : String, options : Any) : Any = {
     val dir = newDirectory(new File(rootDir, path))

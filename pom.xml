@@ -9,7 +9,7 @@
 
   <properties>
     <encoding>UTF-8</encoding>
-    <lucene-version>3.6.1</lucene-version>
+    <lucene-version>4.0.0</lucene-version>
     <maven.compiler.source>1.6</maven.compiler.source>
     <maven.compiler.target>1.6</maven.compiler.target>
     <scala.version>2.9.1</scala.version>
@@ -47,22 +47,27 @@
     </dependency>
     <dependency>
       <groupId>org.apache.lucene</groupId>
-      <artifactId>lucene-analyzers</artifactId>
+      <artifactId>lucene-queryparser</artifactId>
       <version>${lucene-version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.lucene</groupId>
-      <artifactId>lucene-stempel</artifactId>
+      <artifactId>lucene-analyzers-common</artifactId>
       <version>${lucene-version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.lucene</groupId>
-      <artifactId>lucene-smartcn</artifactId>
+      <artifactId>lucene-analyzers-stempel</artifactId>
       <version>${lucene-version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.lucene</groupId>
-      <artifactId>lucene-kuromoji</artifactId>
+      <artifactId>lucene-analyzers-smartcn</artifactId>
+      <version>${lucene-version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-analyzers-kuromoji</artifactId>
       <version>${lucene-version}</version>
     </dependency>
 

@@ -37,7 +37,7 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader), readSort(reader)))
     case ('update, 3) =>
       val doc = readDoc(reader)
-      val id = doc.getFieldable("_id").stringValue
+      val id = doc.getField("_id").stringValue
       Some(UpdateDocMsg(id, doc))
     case ('delete, 2) =>
       Some(DeleteDocMsg(reader.readAs[ByteBuffer]))
@@ -58,9 +58,9 @@ object ClouseauTypeFactory extends TypeFactory {
 
   protected def toSortField(field : String) : SortField = {
     if (field.startsWith("-"))
-      new SortField(field.drop(1), SortField.DOUBLE, true)
+      new SortField(field.drop(1), SortField.Type.DOUBLE, true)
     else
-      new SortField(field, SortField.DOUBLE)
+      new SortField(field, SortField.Type.DOUBLE)
   }
 
   protected def readScoreDoc(reader : TermReader) : Option[ScoreDoc] = reader.readTerm match {
@@ -75,9 +75,9 @@ object ClouseauTypeFactory extends TypeFactory {
     result.add(new Field("_id", reader.readAs[ByteBuffer], Store.YES, Index.NOT_ANALYZED))
     val fields = reader.readAs[List[Any]]
     for (field <- fields) {
-      toFieldable(field) match {
-        case Some(fieldable) =>
-          result.add(fieldable)
+      toField(field) match {
+        case Some(field) =>
+          result.add(field)
         case None =>
           'ok
       }
@@ -85,7 +85,7 @@ object ClouseauTypeFactory extends TypeFactory {
     result
   }
 
-  private def toFieldable(field : Any) : Option[Fieldable] = field match {
+  private def toField(field : Any) : Option[Field] = field match {
     case (name : ByteBuffer, value : ByteBuffer, options : List[(ByteBuffer, Any)]) =>
       val map = toMap(options)
       val field = new Field(name, value, toStore(map), toIndex(map), toTermVector(map))
@@ -103,7 +103,7 @@ object ClouseauTypeFactory extends TypeFactory {
       val map = toMap(options)
       toDouble(value) match {
         case Some(doubleValue) =>
-          Some(new NumericField(name, 8, toStore(map), true).setDoubleValue(doubleValue))
+          Some(new DoubleField(name, doubleValue, toStore(map)))
         case None =>
           logger.warn("Unrecognized value: %s".format(value))
           None
