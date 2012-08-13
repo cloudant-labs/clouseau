@@ -17,6 +17,7 @@ import scalang._
 import scalang.node._
 import java.nio.charset.Charset
 import java.nio.ByteBuffer
+import java.util.concurrent.TimeUnit._
 import org.apache.lucene.document.Field.Index
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document.Field.TermVector
@@ -42,7 +43,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   }
   var forceRefresh = false
 
-  val searchTimer = metrics.timer("searches")
+  var searchHisto = metrics.histogram("searches", biased=true)
 
   logger.info("Opened at update_seq %d".format(updateSeq))
 
@@ -109,7 +110,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     reader.incRef
     try {
       val searcher = new IndexSearcher(reader)
-      val topDocs = searchTimer.time {
+      val topDocs = time {
         after match {
           case None =>
             searcher.search(query, limit)
@@ -157,6 +158,16 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
 
   private def toBinary(str : String) : Array[Byte] = {
     str.getBytes("UTF-8")
+  }
+
+  private def time[A](f: => A): A = {
+    val start = System.nanoTime
+    try {
+      f
+    } finally {
+      val durationMillis = NANOSECONDS.toMillis(System.nanoTime - start)
+      searchHisto += durationMillis
+    }
   }
 
   override def toString() : String = {
