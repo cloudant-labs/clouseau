@@ -4,6 +4,7 @@ import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.queryParser.QueryParser
 import org.apache.lucene.search._
+import org.apache.lucene.util.NumericUtils
 import org.apache.lucene.util.Version._
 import org.specs._
 import java.lang.{Double => JDouble}
@@ -36,6 +37,18 @@ class ClouseauQueryParserSpec extends SpecificationWithJUnit {
 
     "support numeric range queries (float)" in {
       parser.parse("foo:[1.0 TO 2.0]") must haveClass[NumericRangeQuery[JDouble]]
+    }
+
+    "support numeric term queries (integer)" in {
+      val query = parser.parse("foo:12")
+      query must haveClass[TermQuery]
+      query.asInstanceOf[TermQuery].getTerm().text() must be equalTo(NumericUtils.doubleToPrefixCoded(12.0))
+    }
+
+    "quoted string is not a number" in {
+      val query = parser.parse("foo:\"12\"")
+      query must haveClass[TermQuery]
+      query.asInstanceOf[TermQuery].getTerm().text() must be equalTo("12")
     }
 
   }
