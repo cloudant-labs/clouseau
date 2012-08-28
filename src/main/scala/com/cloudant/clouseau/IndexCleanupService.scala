@@ -9,7 +9,7 @@ import scalang._
 
 class IndexCleanupService(ctx : ServiceContext[NoArgs]) extends Service(ctx) with Instrumented {
 
-  val logger = Logger.getLogger("clouseau.main")
+  val logger = Logger.getLogger("clouseau.cleanup")
   val rootDir = new File(Main.config.getString("clouseau.dir", "target/indexes"))
 
   override def handleCast(msg : Any) = msg match {
