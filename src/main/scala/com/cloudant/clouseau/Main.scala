@@ -26,5 +26,6 @@ object Main extends App {
   val node = Node(name, cookie, nodeconfig)
 
   IndexManagerService.start(node)
+  IndexCleanupService.start(node)
   logger.info("Clouseau running as " + name)
 }
