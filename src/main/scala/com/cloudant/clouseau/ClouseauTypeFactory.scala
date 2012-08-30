@@ -101,7 +101,8 @@ object ClouseauTypeFactory extends TypeFactory {
     case v : java.lang.Float   => Some(v.doubleValue)
     case v : java.lang.Integer => Some(v.doubleValue)
     case v : java.lang.Long    => Some(v.doubleValue)
-    case _                     => None
+    case v : scala.math.BigInt => Some(v.doubleValue)
+    case _ => None
   }
 
   def toLong(a : Any) : Long = a match {
