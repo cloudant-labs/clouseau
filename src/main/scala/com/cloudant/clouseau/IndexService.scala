@@ -120,14 +120,27 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".format(query, limit, refresh, topDocs.totalHits))
       val hits = for (scoreDoc <- topDocs.scoreDocs) yield {
         val doc = searcher.doc(scoreDoc.doc)
-        val fields = doc.getFields.foldLeft(List[Any]())((acc,field) =>
-          field match {
+        val fields = doc.getFields.foldLeft(Map[String,Any]())((acc,field) => {
+          val value = field match {
             case numericField : NumericField =>
-              (toBinary(field.name), numericField.getNumericValue) :: acc
+              numericField.getNumericValue
             case _ =>
-              (toBinary(field.name), toBinary(field.stringValue)) :: acc
-          })
-        Hit(scoreDoc.score, scoreDoc.doc, fields.toList)
+              toBinary(field.stringValue)
+          }
+          acc.get(field.name) match {
+            case None =>
+              acc + (field.name -> value)
+            case Some(list : List[Any]) =>
+              acc + (field.name -> (value :: list))
+            case Some(existingValue : Any) =>
+              acc + (field.name -> List(value, existingValue))
+          }
+        })
+        Hit(scoreDoc.score, scoreDoc.doc,
+            fields.map {
+              case(k,v:List[Any]) => (toBinary(k), v.reverse)
+              case(k,v) => (toBinary(k), v)
+            }.toList)
       }
       ('ok, TopDocs(updateSeq, topDocs.totalHits, hits.toList))
     } finally {
