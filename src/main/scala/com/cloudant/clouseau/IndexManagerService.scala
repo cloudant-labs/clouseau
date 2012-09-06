@@ -3,10 +3,12 @@ package com.cloudant.clouseau
 import java.io.File
 import java.util.HashMap
 import java.util.LinkedHashMap
-import java.util.Map
+import java.util.{Map => JMap}
 import java.util.Map.Entry
 import org.apache.log4j.Logger
 import scalang._
+import scalang.node.Mailbox
+import scala.collection.mutable._
 import com.yammer.metrics.scala._
 
 class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) with Instrumented {
@@ -24,8 +26,8 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
       }
     }
 
-    val pathToPid : Map[String, Pid] = new InnerLRU(initialCapacity, loadFactor)
-    val pidToPath : Map[Pid, String] = new HashMap(initialCapacity, loadFactor)
+    val pathToPid : JMap[String, Pid] = new InnerLRU(initialCapacity, loadFactor)
+    val pidToPath : JMap[Pid, String] = new HashMap(initialCapacity, loadFactor)
 
     def get(path : String) : Pid = {
       pathToPid.get(path)
@@ -48,24 +50,32 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
   val rootDir = new File(Main.config.getString("clouseau.dir", "target/indexes"))
   val openTimer = metrics.timer("opens")
   val lru = new LRU()
+  val waiters = Map[String, List[(Pid, Reference)]]()
 
   override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
     case OpenIndexMsg(peer : Pid, path : String, options : Any) =>
-      openTimer.time {
-        lru.get(path) match {
-          case null =>
-            IndexService.start(node, rootDir, path, options) match {
-              case ('ok, pid : Pid) =>
-                lru.put(path, pid)
-                monitor(pid)
-                node.link(peer, pid)
-                ('ok, pid)
-              case error =>
-                error
+      lru.get(path) match {
+        case null =>
+          waiters.get(path) match {
+            case None =>
+              waiters.put(path, List(tag))
+            case Some(list) =>
+              waiters.put(path, (tag :: list))
+          }
+          val manager = self
+          node.spawn((_) => {
+            openTimer.time {
+              IndexService.start(node, rootDir, path, options) match {
+                case ('ok, pid : Pid) =>
+                  manager ! ('open_ok, path, peer, pid)
+                case error =>
+                  manager ! ('open_error, path, error)
+              }
             }
-          case pid =>
-            ('ok, pid)
-        }
+          })
+          'noreply
+        case pid =>
+          ('ok, pid)
       }
     case msg : CleanupPathMsg => // deprecated
       cast('cleanup, msg)
@@ -73,6 +83,18 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
     case msg : CleanupDbMsg => // deprecated
       cast('cleanup, msg)
       'ok
+  }
+
+  override def handleInfo(msg : Any) = msg match {
+    case ('open_ok, path : String, peer : Pid, pid : Pid) =>
+      lru.put(path, pid)
+      monitor(pid)
+      node.link(peer, pid)
+      replyAll(path, ('ok, pid))
+      'noreply
+    case ('open_error, path : String, error : Any) =>
+      replyAll(path, error)
+      'noreply
   }
 
   override def exit(msg : Any) {
@@ -86,6 +108,17 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
       lru.remove(pid)
     case _ =>
       'ignored
+  }
+
+  private def replyAll(path : String, msg : Any) {
+    waiters.remove(path) match {
+      case Some(list) =>
+        for ((pid,ref) <- list) {
+          pid ! (ref, msg)
+        }
+      case None =>
+        'ok
+    }
   }
 
 }
