@@ -67,12 +67,13 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
             ('ok, pid)
         }
       }
-    case ('get, path : String) =>
+    case ('delete, path : String) =>
       lru.get(path) match {
         case null =>
           ('error, 'not_found)
         case pid : Pid =>
-          ('ok, pid)
+          pid ! 'delete
+          'ok
       }
     case msg : CleanupPathMsg => // deprecated
       cast('cleanup, msg)
