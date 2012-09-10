@@ -15,7 +15,7 @@ class IndexCleanupService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
   override def handleCast(msg : Any) = msg match {
       case CleanupPathMsg(path : String) =>
       var dir = new File(rootDir, path)
-      logger.info("Removing %s".format(dir))
+      logger.info("Removing %s".format(path))
       recursivelyDelete(dir)
     case CleanupDbMsg(dbName : String, activeSigs : List[String]) =>
       logger.info("Cleaning up " + dbName)
@@ -38,9 +38,14 @@ class IndexCleanupService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
     }
     val m = includePattern.matcher(fileOrDir.getAbsolutePath)
     if (m.find && !activeSigs.contains(m.group(1))) {
-      logger.info("Removing unreachable index " + fileOrDir)
-      recursivelyDelete(fileOrDir)
-      fileOrDir.delete
+      logger.info("Removing unreachable index " + m.group)
+      call('main, ('delete, m.group)) match {
+        case 'ok =>
+          'ok
+        case ('error, 'not_found) =>
+          recursivelyDelete(fileOrDir)
+          fileOrDir.delete
+      }
     }
   }
 

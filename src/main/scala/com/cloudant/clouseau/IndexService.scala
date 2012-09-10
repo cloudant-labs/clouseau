@@ -74,6 +74,13 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       exit(msg)
     case ('close, reason) =>
       exit(reason)
+    case 'delete =>
+      val dir = ctx.args.writer.getDirectory
+      ctx.args.writer.close
+      for (name <- dir.listAll) {
+        dir.deleteFile(name)
+      }
+      exit('deleted)
   }
 
   override def exit(msg : Any) {
