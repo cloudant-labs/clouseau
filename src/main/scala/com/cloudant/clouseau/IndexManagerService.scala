@@ -7,7 +7,6 @@ import java.util.{Map => JMap}
 import java.util.Map.Entry
 import org.apache.log4j.Logger
 import scalang._
-import scalang.node.Mailbox
 import scala.collection.mutable._
 import com.yammer.metrics.scala._
 
