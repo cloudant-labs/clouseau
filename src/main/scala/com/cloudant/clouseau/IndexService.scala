@@ -26,8 +26,6 @@ import com.yammer.metrics.scala._
 
 case class IndexServiceArgs(name : String, queryParser : QueryParser, writer : IndexWriter)
 
-case class DeferredQuery(minSeq : Long, pid : Pid, ref : Reference, queryArgs : List[(Symbol, Any)])
-
 // These must match the records in dreyfus.
 case class TopDocs(updateSeq : Long, totalHits : Long, hits : List[Hit])
 case class Hit(score : Double, doc : Long, fields : List[Any])
