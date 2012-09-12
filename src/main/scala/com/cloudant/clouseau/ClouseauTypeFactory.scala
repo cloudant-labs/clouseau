@@ -49,7 +49,7 @@ object ClouseauTypeFactory extends TypeFactory {
 
   protected def readSort(reader : TermReader) : Option[Sort] = reader.readTerm match {
     case 'relevance =>
-      Some(Sort.RELEVANCE)
+      None
     case field : ByteBuffer =>
       Some(new Sort(toSortField(field)))
     case fields : List[ByteBuffer] =>
