@@ -30,7 +30,7 @@ case class DeferredQuery(minSeq : Long, pid : Pid, ref : Reference, queryArgs : 
 
 // These must match the records in dreyfus.
 case class TopDocs(updateSeq : Long, totalHits : Long, hits : List[Hit])
-case class Hit(score : Double, doc : Long, fields : List[Any])
+case class Hit(order : List[Any], fields : List[Any])
 
 class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
 
@@ -47,8 +47,8 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   logger.info("Opened at update_seq %d".format(updateSeq))
 
   override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
-    case SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc]) =>
-      search(query, limit, refresh, after)
+    case SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Sort]) =>
+      search(query, limit, refresh, after, sort)
     case 'get_update_seq =>
       ('ok, updateSeq)
     case UpdateDocMsg(id : String, doc : Document) =>
@@ -95,9 +95,9 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     }
   }
 
-  private def search(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc]) : Any = {
+  private def search(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Sort]) : Any = {
     try {
-      search(ctx.args.queryParser.parse(query), limit, refresh, after)
+      search(ctx.args.queryParser.parse(query), limit, refresh, after, sort)
     } catch {
       case e : ParseException        =>
         logger.warn("Cannot parse %s".format(query))
@@ -108,7 +108,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     }
   }
 
-  private def search(query : Query, limit : Int, refresh : Boolean, after : Option[ScoreDoc]) : Any = {
+  private def search(query : Query, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Sort]) : Any = {
     if (forceRefresh || refresh) {
       reopenIfChanged
     }
@@ -117,7 +117,12 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     val topDocs = searchTimer.time {
       after match {
         case None =>
-          searcher.search(query, limit)
+          sort match {
+            case None =>
+              searcher.search(query, limit)
+            case Some(sort) =>
+              searcher.search(query, limit, sort)
+          }
         case Some(scoreDoc) =>
           searcher.searchAfter(scoreDoc, query, limit)
       }
@@ -141,7 +146,13 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
             acc + (field.name -> List(value, existingValue))
         }
       })
-      Hit(scoreDoc.score, scoreDoc.doc,
+      val order = scoreDoc match {
+        case fieldDoc : FieldDoc =>
+          fieldDoc.fields.toList :+ scoreDoc.doc
+        case _ =>
+          List(scoreDoc.score, scoreDoc.doc)
+      }
+      Hit(order,
           fields.map {
             case(k,v:List[Any]) => (toBinary(k), v.reverse)
               case(k,v) => (toBinary(k), v)
