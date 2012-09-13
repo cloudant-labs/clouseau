@@ -57,9 +57,7 @@ object ClouseauTypeFactory extends TypeFactory {
   }
 
   protected def toSortField(field : String) : SortField = {
-    if (field.startsWith("+"))
-      new SortField(field.drop(1), SortField.DOUBLE)
-    else if (field.startsWith("-"))
+    if (field.startsWith("-"))
       new SortField(field.drop(1), SortField.DOUBLE, true)
     else
       new SortField(field, SortField.DOUBLE)
