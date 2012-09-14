@@ -13,7 +13,7 @@ import scalang._
 case class OpenIndexMsg(peer : Pid, path : String, options : Any)
 case class CleanupPathMsg(path : String)
 case class CleanupDbMsg(dbName : String, activeSigs : List[String])
-case class SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc])
+case class SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Sort])
 case class UpdateDocMsg(id : String, doc : Document)
 case class DeleteDocMsg(id : String)
 case class CommitMsg(seq : Long)
@@ -30,9 +30,11 @@ object ClouseauTypeFactory extends TypeFactory {
     case ('cleanup, 3) =>
       Some(CleanupDbMsg(reader.readAs[ByteBuffer], reader.readAs[List[ByteBuffer]]))
     case ('search, 4) => // temporary upgrade clause
-      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], None))
-    case ('search, 5) =>
-      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader)))
+      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], None, None))
+    case ('search, 5) => // temporary upgrade clause
+      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader), None))
+    case ('search, 6) => // temporary upgrade clause
+      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader), readSort(reader)))
     case ('update, 3) =>
       val doc = readDoc(reader)
       val id = doc.getFieldable("_id").stringValue
@@ -45,13 +47,27 @@ object ClouseauTypeFactory extends TypeFactory {
       None
   }
 
-  protected def readScoreDoc(reader : TermReader) : Option[ScoreDoc] = {
-    reader.readTerm match {
-      case 'nil =>
-        None
-      case (score : Any, doc : Any) =>
-        Some(new ScoreDoc(toInteger(doc), toFloat(score)))
-    }
+  protected def readSort(reader : TermReader) : Option[Sort] = reader.readTerm match {
+    case 'relevance =>
+      None
+    case field : ByteBuffer =>
+      Some(new Sort(toSortField(field)))
+    case fields : List[ByteBuffer] =>
+      Some(new Sort(fields.map(toSortField(_)).toArray : _*))
+  }
+
+  protected def toSortField(field : String) : SortField = {
+    if (field.startsWith("-"))
+      new SortField(field.drop(1), SortField.DOUBLE, true)
+    else
+      new SortField(field, SortField.DOUBLE)
+  }
+
+  protected def readScoreDoc(reader : TermReader) : Option[ScoreDoc] = reader.readTerm match {
+    case 'nil =>
+      None
+    case (score : Any, doc : Any) =>
+      Some(new ScoreDoc(toInteger(doc), toFloat(score)))
   }
 
   protected def readDoc(reader : TermReader) : Document = {
