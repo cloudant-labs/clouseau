@@ -148,7 +148,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
         case fieldDoc : FieldDoc =>
           fieldDoc.fields.toList :+ scoreDoc.doc
         case _ =>
-          List(scoreDoc.score, scoreDoc.doc)
+          List[Any](scoreDoc.score, scoreDoc.doc)
       }
       Hit(order,
           fields.map {
