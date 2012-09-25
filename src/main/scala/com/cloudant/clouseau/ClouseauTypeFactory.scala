@@ -88,7 +88,14 @@ object ClouseauTypeFactory extends TypeFactory {
   private def toFieldable(field : Any) : Option[Fieldable] = field match {
     case (name : ByteBuffer, value : ByteBuffer, options : List[(ByteBuffer, Any)]) =>
       val map = toMap(options)
-      Some(new Field(name, value, toStore(map), toIndex(map), toTermVector(map)))
+      val field = new Field(name, value, toStore(map), toIndex(map), toTermVector(map))
+      map.get("boost") match {
+        case Some(boost : Number) =>
+          field.setBoost(toFloat(boost))
+        case None =>
+          'ok
+      }
+      Some(field)
     case (name : ByteBuffer, value : Boolean, options : List[(ByteBuffer, Any)]) =>
       val map = toMap(options)
       Some(new Field(name, value.toString, toStore(map), Index.NOT_ANALYZED, toTermVector(map)))
