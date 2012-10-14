@@ -113,16 +113,15 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
 
     val searcher = new IndexSearcher(reader)
     val topDocs = searchTimer.time {
-      after match {
-        case None =>
-          sort match {
-            case None =>
-              searcher.search(query, limit)
-            case Some(sort) =>
-              searcher.search(query, limit, sort)
-          }
-        case Some(scoreDoc) =>
+      (after, sort) match {
+        case (None, None) =>
+          searcher.search(query, limit)
+        case (Some(scoreDoc), None) =>
           searcher.searchAfter(scoreDoc, query, limit)
+        case (None, Some(sort)) =>
+          searcher.search(query, limit, sort)
+        case (Some(fieldDoc), Some(sort)) =>
+          searcher.searchAfter(fieldDoc, query, limit, sort)
       }
     }
     logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".format(query, limit, refresh, topDocs.totalHits))
