@@ -29,11 +29,7 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(CleanupPathMsg(reader.readAs[ByteBuffer]))
     case ('cleanup, 3) =>
       Some(CleanupDbMsg(reader.readAs[ByteBuffer], reader.readAs[List[ByteBuffer]]))
-    case ('search, 4) => // temporary upgrade clause
-      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], None, None))
-    case ('search, 5) => // temporary upgrade clause
-      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader), None))
-    case ('search, 6) => // temporary upgrade clause
+    case ('search, 6) =>
       Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader), readSort(reader)))
     case ('update, 3) =>
       val doc = readDoc(reader)
