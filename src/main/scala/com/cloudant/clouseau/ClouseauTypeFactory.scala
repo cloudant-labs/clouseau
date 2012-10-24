@@ -84,17 +84,21 @@ object ClouseauTypeFactory extends TypeFactory {
   private def toFieldable(field : Any) : Option[Fieldable] = field match {
     case (name : ByteBuffer, value : ByteBuffer, options : List[(ByteBuffer, Any)]) =>
       val map = toMap(options)
-      val field = new Field(name, value, toStore(map), toIndex(map), toTermVector(map))
-      map.get("boost") match {
-        case Some(boost : Number) =>
-          field.setBoost(toFloat(boost))
+      constructField(name, value, toStore(map), toIndex(map), toTermVector(map)) match {
+        case Some(field) =>
+          map.get("boost") match {
+            case Some(boost : Number) =>
+              field.setBoost(toFloat(boost))
+            case None =>
+              'ok
+          }
+          Some(field)
         case None =>
-          'ok
+          None
       }
-      Some(field)
     case (name : ByteBuffer, value : Boolean, options : List[(ByteBuffer, Any)]) =>
       val map = toMap(options)
-      Some(new Field(name, value.toString, toStore(map), Index.NOT_ANALYZED, toTermVector(map)))
+      constructField(name, value.toString, toStore(map), Index.NOT_ANALYZED, toTermVector(map))
     case (name : ByteBuffer, value : Any, options : List[(ByteBuffer, Any)]) =>
       val map = toMap(options)
       toDouble(value) match {
@@ -104,6 +108,19 @@ object ClouseauTypeFactory extends TypeFactory {
           logger.warn("Unrecognized value: %s".format(value))
           None
       }
+  }
+
+  private def constructField(name : String, value : String, store : Store, index : Index, tv : TermVector) : Option[Field] = {
+    try {
+      Some(new Field(name, value, store, index, tv))
+    } catch {
+      case e : IllegalArgumentException =>
+        logger.error("Failed to construct field '%s' with reason '%s'".format(name, e.getMessage))
+        None
+      case e : NullPointerException =>
+        logger.error("Failed to construct field '%s' with reason '%s'".format(name, e.getMessage))
+        None
+    }
   }
 
   // These to* methods are stupid.
