@@ -1,8 +1,8 @@
 package com.cloudant.clouseau
 
-import org.apache.lucene.analysis.KeywordAnalyzer
-import org.apache.lucene.analysis.SimpleAnalyzer
-import org.apache.lucene.analysis.WhitespaceAnalyzer
+import org.apache.lucene.analysis.core.KeywordAnalyzer
+import org.apache.lucene.analysis.core.SimpleAnalyzer
+import org.apache.lucene.analysis.core.WhitespaceAnalyzer
 import org.apache.lucene.analysis.ar.ArabicAnalyzer
 import org.apache.lucene.analysis.bg.BulgarianAnalyzer
 import org.apache.lucene.analysis.br.BrazilianAnalyzer

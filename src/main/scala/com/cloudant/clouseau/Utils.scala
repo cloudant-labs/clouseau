@@ -3,6 +3,10 @@ package com.cloudant.clouseau
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
 
+import org.apache.lucene.index.Term
+import org.apache.lucene.util.BytesRef
+import org.apache.lucene.util.NumericUtils
+
 object Utils {
 
   val utf8 = Charset.forName("UTF-8")
@@ -36,6 +40,13 @@ object Utils {
       case None                  => default
       case Some((_, result : A)) => result
     }
+  }
+
+  def doubleToTerm(field : String, value : Double) : Term = {
+    val bytesRef = new BytesRef
+    val asLong = NumericUtils.doubleToSortableLong(value)
+    NumericUtils.longToPrefixCoded(asLong, 0, bytesRef)
+    new Term(field, bytesRef)
   }
 
 }
