@@ -89,7 +89,7 @@
     <dependency>
       <groupId>com.boundary</groupId>
       <artifactId>scalang-scala_2.9.1</artifactId>
-      <version>0.19</version>
+      <version>0.22</version>
     </dependency>
 
     <!-- Scala -->
