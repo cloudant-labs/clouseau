@@ -104,12 +104,6 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
       'noreply
   }
 
-  override def exit(msg : Any) {
-    logger.warn("Exiting with reason %s".format(msg))
-    super.exit(msg)
-    IndexManagerService.start(node)
-  }
-
   override def trapMonitorExit(monitored : Any, ref : Reference, reason : Any) = monitored match {
     case pid : Pid =>
       lru.remove(pid)
@@ -128,10 +122,4 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
     }
   }
 
-}
-
-object IndexManagerService {
-  def start(node : Node) : Pid = {
-    node.spawnService[IndexManagerService, NoArgs]('main, NoArgs)
-  }
 }

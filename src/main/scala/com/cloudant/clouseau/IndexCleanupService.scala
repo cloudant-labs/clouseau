@@ -23,12 +23,6 @@ class IndexCleanupService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
       cleanup(rootDir, pattern, activeSigs)
   }
 
-  override def exit(msg : Any) {
-    logger.warn("Exiting with reason %s".format(msg))
-    super.exit(msg)
-    IndexCleanupService.start(node)
-  }
-
   private def cleanup(fileOrDir : File, includePattern : Pattern, activeSigs : List[String]) {
     if (!fileOrDir.isDirectory) {
       return
@@ -55,14 +49,6 @@ class IndexCleanupService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
         recursivelyDelete(file)
     if (fileOrDir.isFile)
       fileOrDir.delete
-  }
-
-}
-
-object IndexCleanupService {
-
-  def start(node : Node) : Pid = {
-    node.spawnService[IndexCleanupService, NoArgs]('cleanup, NoArgs)
   }
 
 }

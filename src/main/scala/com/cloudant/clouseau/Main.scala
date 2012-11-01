@@ -25,7 +25,6 @@ object Main extends App {
   val nodeconfig = NodeConfig(typeFactory = ClouseauTypeFactory)
   val node = Node(name, cookie, nodeconfig)
 
-  IndexManagerService.start(node)
-  IndexCleanupService.start(node)
+  ClouseauSupervisor.start(node)
   logger.info("Clouseau running as " + name)
 }
