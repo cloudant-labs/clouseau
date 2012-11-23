@@ -81,6 +81,18 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       exit('deleted)
   }
 
+  override def exit(msg : Any) {
+    logger.info("Closed with reason %s".format(msg))
+    try {
+      ctx.args.writer.rollback
+    } catch {
+      case e : AlreadyClosedException => 'ignored
+      case e : IOException            => logger.warn("Error while closing writer", e)
+    } finally {
+      super.exit(msg)
+    }
+  }
+
   private def search(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Sort]) : Any = {
     try {
       search(ctx.args.queryParser.parse(query), limit, refresh, after, sort)
