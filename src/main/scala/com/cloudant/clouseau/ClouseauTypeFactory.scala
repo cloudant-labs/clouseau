@@ -13,7 +13,7 @@ import scalang._
 case class OpenIndexMsg(peer : Pid, path : String, options : Any)
 case class CleanupPathMsg(path : String)
 case class CleanupDbMsg(dbName : String, activeSigs : List[String])
-case class SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Sort])
+case class SearchMsg(query: String, options: Map[Symbol, Any])
 case class UpdateDocMsg(id : String, doc : Document)
 case class DeleteDocMsg(id : String)
 case class CommitMsg(seq : Long)
@@ -29,8 +29,13 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(CleanupPathMsg(reader.readAs[ByteBuffer]))
     case ('cleanup, 3) =>
       Some(CleanupDbMsg(reader.readAs[ByteBuffer], reader.readAs[List[ByteBuffer]]))
-    case ('search, 6) =>
-      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader), readSort(reader)))
+    // legacy call when we update dreyfus
+    case ('search, 6) => {
+      Some(SearchMsg(reader.readAs[ByteBuffer], recordToOptionsMap(reader)))
+    }
+    case ('search, 3) => {
+      Some(SearchMsg(reader.readAs[ByteBuffer], listToOptionsMap(reader)))
+    }
     case ('update, 3) =>
       val doc = readDoc(reader)
       val id = doc.getField("_id").stringValue
@@ -41,6 +46,24 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(CommitMsg(toLong(reader.readTerm)))
     case _ =>
       None
+  }
+
+  protected def listToOptionsMap(reader : TermReader) : Map[Symbol, Any] = {
+    reader.readAs[List[(Symbol,Any)]].toMap
+  }
+
+  protected def recordToOptionsMap(reader : TermReader) : Map[Symbol, Any] = {
+    List('limit -> reader.readAs[Int],
+         'refresh -> reader.readAs[Boolean]) ++
+         extractOrEmpty('after, readScoreDoc(reader)) ++
+         extractOrEmpty('sort, readSort(reader)) toMap
+  }
+
+  protected def extractOrEmpty[A,B](key : A, maybeValue : Option[B]) : List[(A, B)] = {
+    maybeValue match {
+      case Some(value) => List(key -> value)
+      case None => List()
+    }
   }
 
   protected def readSort(reader : TermReader) : Option[Sort] = reader.readTerm match {
