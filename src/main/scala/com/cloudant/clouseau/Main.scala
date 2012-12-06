@@ -11,6 +11,15 @@ object Main extends App {
 
   val logger = Logger.getLogger("clouseau.main")
 
+  Thread.setDefaultUncaughtExceptionHandler(
+    new Thread.UncaughtExceptionHandler {
+      def uncaughtException(t : Thread, e : Throwable) {
+        logger.fatal("Uncaught exception, exiting", e)
+        System.exit(1)
+      }
+    }
+  )
+
   // Load and monitor configuration file.
   val config = new CompositeConfiguration()
   config.addConfiguration(new SystemConfiguration())
