@@ -84,6 +84,11 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   override def exit(msg : Any) {
     logger.info("Closed with reason %s".format(msg))
     try {
+      reader.close
+    } catch {
+      case e : IOException => logger.warn("Error while closing reader", e)
+    }
+    try {
       ctx.args.writer.rollback
     } catch {
       case e : AlreadyClosedException => 'ignored
