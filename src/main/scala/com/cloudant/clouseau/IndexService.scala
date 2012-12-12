@@ -169,7 +169,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   private def reopenIfChanged() {
       val newReader = DirectoryReader.openIfChanged(reader)
       if (newReader != null) {
-        reader.decRef
+        reader.close
         reader = newReader
         forceRefresh = false
       }
