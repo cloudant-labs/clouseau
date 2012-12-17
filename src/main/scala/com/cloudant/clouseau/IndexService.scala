@@ -13,6 +13,7 @@ import org.apache.lucene.document._
 import org.apache.lucene.index._
 import org.apache.lucene.store._
 import org.apache.lucene.search._
+import org.apache.lucene.util.BytesRef
 import org.apache.lucene.util.Version
 import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.queryparser.classic.QueryParser
@@ -27,6 +28,7 @@ import org.apache.lucene.document.Field.TermVector
 import collection.JavaConversions._
 import com.cloudant.clouseau.Utils._
 import com.yammer.metrics.scala._
+import scala.util.matching.Regex
 
 case class IndexServiceArgs(name : String, queryParser : QueryParser, writer : IndexWriter)
 
@@ -37,6 +39,7 @@ case class Hit(order : List[Any], fields : List[Any])
 class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
 
   val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
+  val sortFieldRE = """([-+])?(\w+)(?:<(\w+)>)?""".r
   var reader = IndexReader.open(ctx.args.writer, true)
   var updateSeq = reader.getIndexCommit().getUserData().get("update_seq") match {
     case null => 0L
@@ -107,16 +110,14 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       val limit  = options.getOrElse('limit, 25).asInstanceOf[Int]
       val refresh = options.getOrElse('refresh, false).asInstanceOf[Boolean]
       val after = options.get('after).asInstanceOf[Option[ScoreDoc]]
-      val sort = options.get('sort).asInstanceOf[Option[Sort]]
+      val sort = options.get('sort).asInstanceOf[Option[String]]
 
-      search(ctx.args.queryParser.parse(query), limit, refresh, after, sort)
+      search(ctx.args.queryParser.parse(query), limit, refresh, after, toSort(sort))
     } catch {
-      case e : ParseException        =>
-        logger.warn("Cannot parse %s".format(query))
-        ('error, ('bad_request, "cannot parse query"))
       case e : NumberFormatException =>
-        logger.warn("Cannot parse %s".format(query))
-        ('error, ('bad_request, "cannot parse query"))
+        ('error, ('bad_request, "cannot sort string field as numeric field"))
+      case e : ParseException =>
+        ('error, ('bad_request, e.getMessage))
       case e =>
         logger.warn("Unexpected error while querying %s".format(query), e)
         ('error, ('error, e.getMessage))
@@ -162,7 +163,14 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       })
       val order = scoreDoc match {
         case fieldDoc : FieldDoc =>
-          fieldDoc.fields.toList :+ scoreDoc.doc
+          fieldDoc.fields.map {
+            case(v : BytesRef) =>
+              ByteBuffer.wrap(v.bytes, v.offset, v.length)
+            case(null) =>
+              throw new ParseException("Cannot sort on analyzed field")
+            case(v) =>
+              v
+          }.toList :+ scoreDoc.doc
         case _ =>
           List[Any](scoreDoc.score, scoreDoc.doc)
       }
@@ -197,6 +205,32 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
 
   private def toBinary(str : String) : Array[Byte] = {
     str.getBytes("UTF-8")
+  }
+
+  private def toSort(v: Option[Any]): Option[Sort] = v match {
+    case None =>
+      None
+    case Some(field: ByteBuffer) =>
+      Some(new Sort(toSortField(field)))
+    case Some(fields: List[ByteBuffer]) =>
+      Some(new Sort(fields.map(toSortField(_)).toArray: _*))
+  }
+
+  private def toSortField(field: String): SortField = sortFieldRE.findFirstMatchIn(field) match {
+    case Some(sortFieldRE(fieldOrder, fieldName, fieldType)) =>
+      new SortField(fieldName,
+        fieldType match {
+          case "string" =>
+            SortField.Type.STRING
+          case "number" =>
+            SortField.Type.DOUBLE
+          case null =>
+            SortField.Type.DOUBLE
+          case _ =>
+            throw new ParseException("Unrecognized type: " + fieldType)
+        }, fieldOrder == "-")
+    case None =>
+      throw new ParseException("Unrecognized sort parameter: " + field)
   }
 
   override def toString() : String = {
