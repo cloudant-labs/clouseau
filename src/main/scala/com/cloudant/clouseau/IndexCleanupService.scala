@@ -1,3 +1,7 @@
+/*
+ * Copyright 2012 Cloudant. All rights reserved.
+ */
+
 package com.cloudant.clouseau
 
 import com.yammer.metrics.scala._

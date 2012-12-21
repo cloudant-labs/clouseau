@@ -1,3 +1,7 @@
+<!--
+  ~ Copyright 2012 Cloudant. All rights reserved.
+  -->
+
 <assembly>
   <id>distribution</id>
   <formats>
