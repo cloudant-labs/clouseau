@@ -186,8 +186,8 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
 
   private def getInfo() : List[Any] = {
     reopenIfChanged
-    var sizes = reader.directory.listAll map {reader.directory.fileLength(_)}
-    var diskSize = sizes.sum
+    val sizes = reader.directory.listAll map {reader.directory.fileLength(_)}
+    val diskSize = sizes.sum
     List(
       ('disk_size, diskSize),
       ('doc_count, reader.numDocs),
