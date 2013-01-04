@@ -18,7 +18,7 @@ object Main extends App {
   Thread.setDefaultUncaughtExceptionHandler(
     new Thread.UncaughtExceptionHandler {
       def uncaughtException(t : Thread, e : Throwable) {
-        logger.fatal("Uncaught exception, exiting", e)
+        logger.fatal("Uncaught exception: " + e.getMessage)
         System.exit(1)
       }
     }
