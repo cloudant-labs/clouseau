@@ -70,20 +70,11 @@ object ClouseauTypeFactory extends TypeFactory {
     }
   }
 
-  protected def readSort(reader : TermReader) : Option[Sort] = reader.readTerm match {
+  protected def readSort(reader : TermReader) : Option[Any] = reader.readTerm match {
     case 'relevance =>
       None
-    case field : ByteBuffer =>
-      Some(new Sort(toSortField(field)))
-    case fields : List[ByteBuffer] =>
-      Some(new Sort(fields.map(toSortField(_)).toArray : _*))
-  }
-
-  protected def toSortField(field : String) : SortField = {
-    if (field.startsWith("-"))
-      new SortField(field.drop(1), SortField.Type.DOUBLE, true)
-    else
-      new SortField(field, SortField.Type.DOUBLE)
+    case sort =>
+      Some(sort)
   }
 
   protected def readScoreDoc(reader : TermReader) : Option[ScoreDoc] = reader.readTerm match {
