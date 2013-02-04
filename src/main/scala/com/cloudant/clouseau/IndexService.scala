@@ -52,8 +52,8 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   logger.info("Opened at update_seq %d".format(updateSeq))
 
   override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
-    case SearchMsg(query : String, options: Map[Symbol, Any]) =>
-      search(query, options)
+    case SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Any]) =>
+      search(query, limit, refresh, after, sort)
     case 'get_update_seq =>
       ('ok, updateSeq)
     case UpdateDocMsg(id : String, doc : Document) =>
@@ -105,13 +105,8 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     }
   }
 
-  private def search(query : String, options : Map[Symbol, Any]) : Any = {
+  private def search(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Any]) : Any = {
     try {
-      val limit  = options.getOrElse('limit, 25).asInstanceOf[Int]
-      val refresh = options.getOrElse('refresh, false).asInstanceOf[Boolean]
-      val after = options.get('after).asInstanceOf[Option[ScoreDoc]]
-      val sort = options.get('sort).asInstanceOf[Option[String]]
-
       search(ctx.args.queryParser.parse(query), limit, refresh, after, toSort(sort))
     } catch {
       case e : NumberFormatException =>
