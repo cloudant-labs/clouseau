@@ -17,7 +17,9 @@ import scalang._
 case class OpenIndexMsg(peer : Pid, path : String, options : Any)
 case class CleanupPathMsg(path : String)
 case class CleanupDbMsg(dbName : String, activeSigs : List[String])
-case class SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Any])
+case class SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Any],
+                     grouping : Option[Grouping])
+case class Grouping(field : String, limit : Int, sort : Option[Any])
 case class UpdateDocMsg(id : String, doc : Document)
 case class DeleteDocMsg(id : String)
 case class CommitMsg(seq : Long)
@@ -33,8 +35,12 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(CleanupPathMsg(reader.readAs[ByteBuffer]))
     case ('cleanup, 3) =>
       Some(CleanupDbMsg(reader.readAs[ByteBuffer], reader.readAs[List[ByteBuffer]]))
-    case ('search, 6) =>
-      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader), readSort(reader)))
+    case ('search, 6) => // upgrade clause
+      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader),
+        readSort(reader), None))
+    case ('search, 7) =>
+      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader),
+        readSort(reader), Some(readGrouping(reader))))
     case ('update, 3) =>
       val doc = readDoc(reader)
       val id = doc.getField("_id").stringValue
@@ -45,6 +51,13 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(CommitMsg(toLong(reader.readTerm)))
     case _ =>
       None
+  }
+
+  protected def readGrouping(reader : TermReader) : Grouping = reader.readTerm match {
+    case ('grouping, by : ByteBuffer, limit : Int, 'relevance) =>
+      Grouping(by, limit, None)
+    case ('grouping, by : ByteBuffer, limit : Int, sort : Any) =>
+      Grouping(by, limit, Some(sort))
   }
 
   protected def readSort(reader : TermReader) : Option[Any] = reader.readTerm match {
