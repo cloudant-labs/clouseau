@@ -6,7 +6,6 @@ package com.cloudant.clouseau
 
 import java.io.File
 import java.io.IOException
-import org.apache.commons.configuration.Configuration
 import org.apache.log4j.Logger
 import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.document._
@@ -19,16 +18,10 @@ import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.queryparser.classic.ParseException
 import scalang._
-import scalang.node._
-import java.nio.charset.Charset
 import java.nio.ByteBuffer
-import org.apache.lucene.document.Field.Index
-import org.apache.lucene.document.Field.Store
-import org.apache.lucene.document.Field.TermVector
 import collection.JavaConversions._
 import com.cloudant.clouseau.Utils._
 import com.yammer.metrics.scala._
-import scala.util.matching.Regex
 
 case class IndexServiceArgs(name : String, queryParser : QueryParser, writer : IndexWriter)
 
