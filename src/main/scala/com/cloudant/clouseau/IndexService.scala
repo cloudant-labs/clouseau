@@ -69,7 +69,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       forceRefresh = true
       'ok
     case 'info =>
-      ('ok, getInfo)
+      ('ok, getInfo())
   }
 
   override def handleInfo(msg : Any) = msg match {
@@ -79,7 +79,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       exit(reason)
     case 'delete =>
       val dir = ctx.args.writer.getDirectory
-      ctx.args.writer.close
+      ctx.args.writer.close()
       for (name <- dir.listAll) {
         dir.deleteFile(name)
       }
@@ -89,12 +89,12 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   override def exit(msg : Any) {
     logger.info("Closed with reason %s".format(msg))
     try {
-      reader.close
+      reader.close()
     } catch {
       case e : IOException => logger.warn("Error while closing reader", e)
     }
     try {
-      ctx.args.writer.rollback
+      ctx.args.writer.rollback()
     } catch {
       case e : AlreadyClosedException => 'ignored
       case e : IOException            => logger.warn("Error while closing writer", e)
@@ -119,7 +119,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
 
   private def search(query : Query, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Sort]) : Any = {
     if (forceRefresh || refresh) {
-      reopenIfChanged
+      reopenIfChanged()
     }
 
     val searcher = new IndexSearcher(reader)
@@ -157,7 +157,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   private def groupSearch(query: Query, limit: Int, refresh: Boolean, after: Option[ScoreDoc], sort: Option[Sort],
                           grouping: Grouping): Any = {
     if (forceRefresh || refresh) {
-      reopenIfChanged
+      reopenIfChanged()
     }
 
     val searcher = new IndexSearcher(reader)
@@ -192,14 +192,14 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   private def reopenIfChanged() {
       val newReader = DirectoryReader.openIfChanged(reader)
       if (newReader != null) {
-        reader.close
+        reader.close()
         reader = newReader
         forceRefresh = false
       }
   }
 
   private def getInfo() : List[Any] = {
-    reopenIfChanged
+    reopenIfChanged()
     val sizes = reader.directory.listAll map {reader.directory.fileLength(_)}
     val diskSize = sizes.sum
     List(
@@ -277,7 +277,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       throw new ParseException("Unrecognized sort parameter: " + field)
   }
 
-  override def toString() : String = {
+  override def toString : String = {
     ctx.args.name
   }
 

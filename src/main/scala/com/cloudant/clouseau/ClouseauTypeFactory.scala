@@ -6,7 +6,6 @@ package com.cloudant.clouseau
 
 import com.cloudant.clouseau.Utils._
 import java.nio.ByteBuffer
-import java.nio.charset.Charset
 import org.apache.log4j.Logger
 import org.apache.lucene.document.Field._
 import org.apache.lucene.document._
@@ -40,7 +39,7 @@ object ClouseauTypeFactory extends TypeFactory {
         readSort(reader), None))
     case ('search, 7) =>
       Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader),
-        readSort(reader), Some(readGrouping(reader))))
+        readSort(reader), readGrouping(reader)))
     case ('update, 3) =>
       val doc = readDoc(reader)
       val id = doc.getField("_id").stringValue
@@ -53,11 +52,13 @@ object ClouseauTypeFactory extends TypeFactory {
       None
   }
 
-  protected def readGrouping(reader : TermReader) : Grouping = reader.readTerm match {
+  protected def readGrouping(reader : TermReader) : Option[Grouping] = reader.readTerm match {
+    case 'nil =>
+      None
     case ('grouping, by : ByteBuffer, limit : Int, 'relevance) =>
-      Grouping(by, limit, None)
+      Some(Grouping(by, limit, None))
     case ('grouping, by : ByteBuffer, limit : Int, sort : Any) =>
-      Grouping(by, limit, Some(sort))
+      Some(Grouping(by, limit, Some(sort)))
   }
 
   protected def readSort(reader : TermReader) : Option[Any] = reader.readTerm match {
@@ -73,7 +74,7 @@ object ClouseauTypeFactory extends TypeFactory {
     case (score : Any, doc : Any) =>
       Some(new ScoreDoc(toInteger(doc), toFloat(score)))
     case list : List[Object] =>
-      val doc = list last
+      val doc = list.last
       val fields = list dropRight(1)
       Some(new FieldDoc(toInteger(doc), Float.NaN, fields.toArray))
   }
@@ -149,7 +150,7 @@ object ClouseauTypeFactory extends TypeFactory {
     case v : java.lang.Float   => Some(v.doubleValue)
     case v : java.lang.Integer => Some(v.doubleValue)
     case v : java.lang.Long    => Some(v.doubleValue)
-    case v : scala.math.BigInt => Some(v.doubleValue)
+    case v : scala.math.BigInt => Some(v.doubleValue())
     case _ => None
   }
 
