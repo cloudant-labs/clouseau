@@ -6,35 +6,31 @@ package com.cloudant.clouseau
 
 import java.io.File
 import java.io.IOException
-import org.apache.commons.configuration.Configuration
 import org.apache.log4j.Logger
 import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.document._
 import org.apache.lucene.index._
 import org.apache.lucene.store._
 import org.apache.lucene.search._
+import grouping.{TopGroups, GroupingSearch}
 import org.apache.lucene.util.BytesRef
 import org.apache.lucene.util.Version
 import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.queryparser.classic.ParseException
 import scalang._
-import scalang.node._
-import java.nio.charset.Charset
 import java.nio.ByteBuffer
-import org.apache.lucene.document.Field.Index
-import org.apache.lucene.document.Field.Store
-import org.apache.lucene.document.Field.TermVector
 import collection.JavaConversions._
 import com.cloudant.clouseau.Utils._
 import com.yammer.metrics.scala._
-import scala.util.matching.Regex
 
 case class IndexServiceArgs(name : String, queryParser : QueryParser, writer : IndexWriter)
 
 // These must match the records in dreyfus.
 case class TopDocs(updateSeq : Long, totalHits : Long, hits : List[Hit])
 case class Hit(order : List[Any], fields : List[Any])
+case class SearchTopGroups(totalGroupCount : Int, totalHitCount : Long, totalGroupedHitCount : Long, groups : List[SearchGroup])
+case class SearchGroup(by : Any, order : List[Any], totalHits : Long, hits : List[Hit])
 
 class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
 
@@ -52,8 +48,10 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   logger.info("Opened at update_seq %d".format(updateSeq))
 
   override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
-    case SearchMsg(query : String, options: Map[Symbol, Any]) =>
-      search(query, options)
+    case SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Any], None) =>
+      search(query, limit, refresh, after, sort)
+    case SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Any], Some(grouping)) =>
+      groupSearch(query, limit, refresh, after, sort, grouping)
     case 'get_update_seq =>
       ('ok, updateSeq)
     case UpdateDocMsg(id : String, doc : Document) =>
@@ -71,7 +69,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       forceRefresh = true
       'ok
     case 'info =>
-      ('ok, getInfo)
+      ('ok, getInfo())
   }
 
   override def handleInfo(msg : Any) = msg match {
@@ -81,7 +79,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       exit(reason)
     case 'delete =>
       val dir = ctx.args.writer.getDirectory
-      ctx.args.writer.close
+      ctx.args.writer.close()
       for (name <- dir.listAll) {
         dir.deleteFile(name)
       }
@@ -91,12 +89,12 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   override def exit(msg : Any) {
     logger.info("Closed with reason %s".format(msg))
     try {
-      reader.close
+      reader.close()
     } catch {
       case e : IOException => logger.warn("Error while closing reader", e)
     }
     try {
-      ctx.args.writer.rollback
+      ctx.args.writer.rollback()
     } catch {
       case e : AlreadyClosedException => 'ignored
       case e : IOException            => logger.warn("Error while closing writer", e)
@@ -105,13 +103,8 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     }
   }
 
-  private def search(query : String, options : Map[Symbol, Any]) : Any = {
+  private def search(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Any]) : Any = {
     try {
-      val limit  = options.getOrElse('limit, 25).asInstanceOf[Int]
-      val refresh = options.getOrElse('refresh, false).asInstanceOf[Boolean]
-      val after = options.get('after).asInstanceOf[Option[ScoreDoc]]
-      val sort = options.get('sort).asInstanceOf[Option[String]]
-
       search(ctx.args.queryParser.parse(query), limit, refresh, after, toSort(sort))
     } catch {
       case e : NumberFormatException =>
@@ -126,7 +119,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
 
   private def search(query : Query, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Sort]) : Any = {
     if (forceRefresh || refresh) {
-      reopenIfChanged
+      reopenIfChanged()
     }
 
     val searcher = new IndexSearcher(reader)
@@ -143,57 +136,70 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       }
     }
     logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".format(query, limit, refresh, topDocs.totalHits))
-    val hits = for (scoreDoc <- topDocs.scoreDocs) yield {
-      val doc = searcher.doc(scoreDoc.doc)
-      val fields = doc.getFields.foldLeft(Map[String,Any]())((acc,field) => {
-        val value = field.numericValue match {
-          case null =>
-            toBinary(field.stringValue)
-          case num =>
-            num
-        }
-        acc.get(field.name) match {
-          case None =>
-            acc + (field.name -> value)
-          case Some(list : List[Any]) =>
-            acc + (field.name -> (value :: list))
-          case Some(existingValue : Any) =>
-            acc + (field.name -> List(value, existingValue))
-        }
-      })
-      val order = scoreDoc match {
-        case fieldDoc : FieldDoc =>
-          fieldDoc.fields.map {
-            case(v : BytesRef) =>
-              ByteBuffer.wrap(v.bytes, v.offset, v.length)
-            case(null) =>
-              throw new ParseException("Cannot sort on analyzed field")
-            case(v) =>
-              v
-          }.toList :+ scoreDoc.doc
-        case _ =>
-          List[Any](scoreDoc.score, scoreDoc.doc)
-      }
-      Hit(order,
-          fields.map {
-            case(k,v:List[Any]) => (toBinary(k), v.reverse)
-              case(k,v) => (toBinary(k), v)
-          }.toList)
+    val hits = topDocs.scoreDocs.map({ docToHit(searcher, _)}).toList
+    ('ok, TopDocs(updateSeq, topDocs.totalHits, hits))
+  }
+
+  private def groupSearch(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Any], grouping : Grouping) : Any = {
+    try {
+      groupSearch(ctx.args.queryParser.parse(query), limit, refresh, after, toSort(sort), grouping)
+    } catch {
+      case e : NumberFormatException =>
+        ('error, ('bad_request, "cannot sort string field as numeric field"))
+      case e : ParseException =>
+        ('error, ('bad_request, e.getMessage))
+      case e =>
+        logger.warn("Unexpected error while querying %s".format(query), e)
+        ('error, ('error, e.getMessage))
     }
-    ('ok, TopDocs(updateSeq, topDocs.totalHits, hits.toList))
+  }
+
+  private def groupSearch(query: Query, limit: Int, refresh: Boolean, after: Option[ScoreDoc], sort: Option[Sort],
+                          grouping: Grouping): Any = {
+    if (forceRefresh || refresh) {
+      reopenIfChanged()
+    }
+
+    val searcher = new IndexSearcher(reader)
+    val groupingSearch = new GroupingSearch(grouping.field)
+    groupingSearch.setFillSortFields(true)
+    groupingSearch.setGroupDocsLimit(limit)
+    toSort(sort) match {
+      case None => 'ok
+      case Some(s) => groupingSearch.setGroupSort(s)
+    }
+    val topGroups: TopGroups[BytesRef] = searchTimer.time {
+      groupingSearch.search(searcher, query, 0, grouping.limit)
+    }
+    val groups = topGroups.groups.map {
+      g => SearchGroup(
+        g.groupValue match {
+          case (v: BytesRef) =>
+            ByteBuffer.wrap(v.bytes, v.offset, v.length)
+          case (null) =>
+            'null
+        },
+        g.groupSortValues.toList,
+        g.totalHits,
+        g.scoreDocs.map( { docToHit(searcher, _) }).toList
+      )
+    }
+
+    ('ok, SearchTopGroups(0, topGroups.totalHitCount, topGroups.totalGroupedHitCount,
+      groups.toList))
   }
 
   private def reopenIfChanged() {
       val newReader = DirectoryReader.openIfChanged(reader)
       if (newReader != null) {
-        reader.close
+        reader.close()
         reader = newReader
         forceRefresh = false
       }
   }
 
   private def getInfo() : List[Any] = {
-    reopenIfChanged
+    reopenIfChanged()
     val sizes = reader.directory.listAll map {reader.directory.fileLength(_)}
     val diskSize = sizes.sum
     List(
@@ -216,6 +222,44 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       Some(new Sort(fields.map(toSortField(_)).toArray: _*))
   }
 
+  private def docToHit(searcher : IndexSearcher, scoreDoc : ScoreDoc) : Hit = {
+    val doc = searcher.doc(scoreDoc.doc)
+    val fields = doc.getFields.foldLeft(Map[String,Any]())((acc,field) => {
+      val value = field.numericValue match {
+        case null =>
+          toBinary(field.stringValue)
+        case num =>
+          num
+      }
+      acc.get(field.name) match {
+        case None =>
+          acc + (field.name -> value)
+        case Some(list : List[Any]) =>
+          acc + (field.name -> (value :: list))
+        case Some(existingValue : Any) =>
+          acc + (field.name -> List(value, existingValue))
+      }
+    })
+    val order = scoreDoc match {
+      case fieldDoc : FieldDoc =>
+        fieldDoc.fields.map {
+          case(v : BytesRef) =>
+            ByteBuffer.wrap(v.bytes, v.offset, v.length)
+          case(null) =>
+            throw new ParseException("Cannot sort on analyzed field")
+          case(v) =>
+            v
+        }.toList :+ scoreDoc.doc
+      case _ =>
+        List[Any](scoreDoc.score, scoreDoc.doc)
+    }
+    Hit(order,
+      fields.map {
+        case(k,v:List[Any]) => (toBinary(k), v.reverse)
+        case(k,v) => (toBinary(k), v)
+      }.toList)
+  }
+
   private def toSortField(field: String): SortField = sortFieldRE.findFirstMatchIn(field) match {
     case Some(sortFieldRE(fieldOrder, fieldName, fieldType)) =>
       new SortField(fieldName,
@@ -233,7 +277,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       throw new ParseException("Unrecognized sort parameter: " + field)
   }
 
-  override def toString() : String = {
+  override def toString : String = {
     ctx.args.name
   }
 

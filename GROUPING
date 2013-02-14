@@ -1,0 +1,9 @@
+First version is a bit of a hack and uses a single phase. This makes
+it impossible to get useful things like the total count of groups,
+since there's no way to detect overlap.
+
+An improved version will use the two phase approach. First phase uses
+the first phase collector which will tell us the scores of every group
+that has *a* match. We dedupe this, sort it, take the top N, and then
+we run the second phase asking for the top M docs from each of the top
+N groups.
