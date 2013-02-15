@@ -154,7 +154,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     }
   }
 
-  private def groupSearch(query: Query, limit: Int, refresh: Boolean, after: Option[ScoreDoc], sort: Option[Sort],
+  private def groupSearch(query: Query, limit: Int, refresh: Boolean, after: Option[ScoreDoc], docSort: Option[Sort],
                           grouping: Grouping): Any = {
     if (forceRefresh || refresh) {
       reopenIfChanged()
@@ -164,7 +164,11 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     val groupingSearch = new GroupingSearch(grouping.field)
     groupingSearch.setFillSortFields(true)
     groupingSearch.setGroupDocsLimit(limit)
-    toSort(sort) match {
+    docSort match {
+      case None => 'ok
+      case Some(s) => groupingSearch.setSortWithinGroup(s)
+    }
+    toSort(grouping.sort) match {
       case None => 'ok
       case Some(s) => groupingSearch.setGroupSort(s)
     }
