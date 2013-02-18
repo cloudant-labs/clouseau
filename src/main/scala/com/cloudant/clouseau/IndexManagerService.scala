@@ -88,12 +88,6 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
           pid ! 'delete
           'ok
       }
-    case msg : CleanupPathMsg => // deprecated
-      cast('cleanup, msg)
-      'ok
-    case msg : CleanupDbMsg => // deprecated
-      cast('cleanup, msg)
-      'ok
   }
 
   override def handleInfo(msg : Any) = msg match {
