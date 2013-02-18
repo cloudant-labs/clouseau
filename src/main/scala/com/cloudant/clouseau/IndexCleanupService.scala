@@ -18,7 +18,7 @@ class IndexCleanupService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
 
   override def handleCast(msg : Any) = msg match {
       case CleanupPathMsg(path : String) =>
-      var dir = new File(rootDir, path)
+      val dir = new File(rootDir, path)
       logger.info("Removing %s".format(path))
       recursivelyDelete(dir)
     case CleanupDbMsg(dbName : String, activeSigs : List[String]) =>
