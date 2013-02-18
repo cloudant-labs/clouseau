@@ -25,7 +25,7 @@ class ClouseauSupervisor(ctx : ServiceContext[NoArgs]) extends Service(ctx) {
   }
 
   private def spawnAndMonitorService[T <: Service[A], A <: Product](regName : Symbol, args : A)(implicit mf : Manifest[T]) : Pid = {
-    val pid = node.spawnService[T,A](regName, args, false)(mf)
+    val pid = node.spawnService[T,A](regName, args, reentrant = false)(mf)
     monitor(pid)
     pid
   }
