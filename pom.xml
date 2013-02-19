@@ -98,7 +98,12 @@
     <dependency>
       <groupId>com.boundary</groupId>
       <artifactId>scalang-scala_2.9.1</artifactId>
-      <version>0.22-cloudant2</version>
+      <version>0.25-cloudant1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+      <version>1.5.6</version>
     </dependency>
 
     <!-- Scala -->
