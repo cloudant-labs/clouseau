@@ -40,6 +40,7 @@ import org.apache.lucene.analysis.ro.RomanianAnalyzer
 import org.apache.lucene.analysis.ru.RussianAnalyzer
 import org.apache.lucene.analysis.standard.ClassicAnalyzer
 import org.apache.lucene.analysis.standard.StandardAnalyzer
+import org.apache.lucene.analysis.standard.UAX29URLEmailAnalyzer
 import org.apache.lucene.analysis.sv.SwedishAnalyzer
 import org.apache.lucene.analysis.th.ThaiAnalyzer
 import org.apache.lucene.analysis.tr.TurkishAnalyzer
@@ -66,6 +67,9 @@ class SupportedAnalyzersSpec extends SpecificationWithJUnit {
     }
     "whitespace" in {
       createAnalyzer("whitespace") must haveClass[Some[WhitespaceAnalyzer]]
+    }
+    "email" in {
+      createAnalyzer("email") must haveClass[Some[UAX29URLEmailAnalyzer]]
     }
     "arabic" in {
       createAnalyzer("arabic") must haveClass[Some[ArabicAnalyzer]]

@@ -51,6 +51,7 @@ import org.apache.lucene.analysis.ro.RomanianAnalyzer
 import org.apache.lucene.analysis.ru.RussianAnalyzer
 import org.apache.lucene.analysis.standard.ClassicAnalyzer
 import org.apache.lucene.analysis.standard.StandardAnalyzer
+import org.apache.lucene.analysis.standard.UAX29URLEmailAnalyzer
 import org.apache.lucene.analysis.sv.SwedishAnalyzer
 import org.apache.lucene.analysis.th.ThaiAnalyzer
 import org.apache.lucene.analysis.tr.TurkishAnalyzer
@@ -308,6 +309,13 @@ object SupportedAnalyzers {
           Some(new StandardAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new StandardAnalyzer(IndexService.version))
+      }
+    case "email" =>
+      options.get("stopwords") match {
+        case Some(stopwords : List[ByteBuffer]) =>
+          Some(new UAX29URLEmailAnalyzer(IndexService.version, stopwords))
+        case _ =>
+          Some(new UAX29URLEmailAnalyzer(IndexService.version))
       }
     case "swedish" =>
       options.get("stopwords") match {
