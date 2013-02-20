@@ -50,6 +50,7 @@ import org.apache.lucene.analysis.standard.UAX29URLEmailAnalyzer
 import org.apache.lucene.analysis.sv.SwedishAnalyzer
 import org.apache.lucene.analysis.th.ThaiAnalyzer
 import org.apache.lucene.analysis.tr.TurkishAnalyzer
+import com.cloudant.clouseau.Utils._
 
 // Extras
 import org.apache.lucene.analysis.ja.JapaneseTokenizer
@@ -58,10 +59,14 @@ object SupportedAnalyzers {
 
   val logger = Logger.getLogger("clouseau.analyzers")
 
-  def createAnalyzer(options : Map[String, Any]) : Option[Analyzer] = {
-    options.get("name") match {
+  def createAnalyzer(options : Any) : Option[Analyzer] = options match {
+    case name : ByteBuffer =>
+      createAnalyzer(name, Map())
+    case options : List[(ByteBuffer, Any)] =>
+      val map = toMap(options)
+      map.get("name") match {
       case Some(name : String) =>
-        createAnalyzer(name, options)
+        createAnalyzer(name, map)
       case None =>
         None
     }

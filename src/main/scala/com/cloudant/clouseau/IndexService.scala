@@ -244,12 +244,12 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
 
   private def convertOrder(order: Array[AnyRef]) : List[Any] = {
     order.map {
-      case(null) =>
-        throw new ParseException("Cannot sort on analyzed field")
-      case(v) =>
-        v
+          case(null) =>
+            throw new ParseException("Cannot sort on analyzed field")
+          case(v) =>
+            v
     }.toList
-  }
+    }
 
   private def toSortField(field: String): SortField = sortFieldRE.findFirstMatchIn(field) match {
     case Some(sortFieldRE(fieldOrder, fieldName, fieldType)) =>
@@ -281,7 +281,7 @@ object IndexService {
   def start(node : Node, rootDir : File, path : String, options : Any) : Any = {
     val dir = newDirectory(new File(rootDir, path))
     try {
-      createAnalyzer(options) match {
+      SupportedAnalyzers.createAnalyzer(options) match {
         case Some(analyzer) =>
           val queryParser = new ClouseauQueryParser(version, "default", analyzer)
           val config = new IndexWriterConfig(version, analyzer)
@@ -294,15 +294,6 @@ object IndexService {
       case e : IllegalArgumentException => ('error, e.getMessage)
       case e : IOException => ('error, e.getMessage)
     }
-  }
-
-  def createAnalyzer(options : Any) : Option[Analyzer] = {
-    SupportedAnalyzers.createAnalyzer(options match {
-      case name : String =>
-        Map("name" -> name)
-      case options : List[(String, Any)] =>
-        options.toMap
-    })
   }
 
   private def newDirectory(path : File) : Directory = {
