@@ -183,7 +183,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
           case (null) =>
             'null
         },
-        g.groupSortValues.toList,
+        convertOrder(g.groupSortValues),
         g.totalHits,
         g.scoreDocs.map( { docToHit(searcher, _) }).toList
       )
@@ -246,14 +246,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     })
     val order = scoreDoc match {
       case fieldDoc : FieldDoc =>
-        fieldDoc.fields.map {
-          case(v : BytesRef) =>
-            ByteBuffer.wrap(v.bytes, v.offset, v.length)
-          case(null) =>
-            throw new ParseException("Cannot sort on analyzed field")
-          case(v) =>
-            v
-        }.toList :+ scoreDoc.doc
+        convertOrder(fieldDoc.fields) :+ scoreDoc.doc
       case _ =>
         List[Any](scoreDoc.score, scoreDoc.doc)
     }
@@ -262,6 +255,17 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
         case(k,v:List[Any]) => (toBinary(k), v.reverse)
         case(k,v) => (toBinary(k), v)
       }.toList)
+  }
+
+  private def convertOrder(order: Array[AnyRef]) : List[Any] = {
+    order.map {
+      case(v : BytesRef) =>
+        ByteBuffer.wrap(v.bytes, v.offset, v.length)
+      case(null) =>
+        throw new ParseException("Cannot sort on analyzed field")
+      case(v) =>
+        v
+    }.toList
   }
 
   private def toSortField(field: String): SortField = sortFieldRE.findFirstMatchIn(field) match {
