@@ -19,9 +19,7 @@ import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.queryparser.classic.ParseException
 import scalang._
-import java.nio.ByteBuffer
 import collection.JavaConversions._
-import com.cloudant.clouseau.Utils._
 import com.yammer.metrics.scala._
 
 case class IndexServiceArgs(name : String, queryParser : QueryParser, writer : IndexWriter)
@@ -177,12 +175,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     }
     val groups = topGroups.groups.map {
       g => SearchGroup(
-        g.groupValue match {
-          case (v: BytesRef) =>
-            ByteBuffer.wrap(v.bytes, v.offset, v.length)
-          case (null) =>
-            'null
-        },
+        g.groupValue,
         convertOrder(g.groupSortValues),
         g.totalHits,
         g.scoreDocs.map( { docToHit(searcher, _) }).toList
@@ -213,16 +206,12 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     )
   }
 
-  private def toBinary(str : String) : Array[Byte] = {
-    str.getBytes("UTF-8")
-  }
-
   private def toSort(v: Option[Any]): Option[Sort] = v match {
     case None =>
       None
-    case Some(field: ByteBuffer) =>
+    case Some(field: String) =>
       Some(new Sort(toSortField(field)))
-    case Some(fields: List[ByteBuffer]) =>
+    case Some(fields: List[String]) =>
       Some(new Sort(fields.map(toSortField(_)).toArray: _*))
   }
 
@@ -231,7 +220,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     val fields = doc.getFields.foldLeft(Map[String,Any]())((acc,field) => {
       val value = field.numericValue match {
         case null =>
-          toBinary(field.stringValue)
+          field.stringValue
         case num =>
           num
       }
@@ -250,17 +239,11 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       case _ =>
         List[Any](scoreDoc.score, scoreDoc.doc)
     }
-    Hit(order,
-      fields.map {
-        case(k,v:List[Any]) => (toBinary(k), v.reverse)
-        case(k,v) => (toBinary(k), v)
-      }.toList)
+    Hit(order, fields.toList)
   }
 
   private def convertOrder(order: Array[AnyRef]) : List[Any] = {
     order.map {
-      case(v : BytesRef) =>
-        ByteBuffer.wrap(v.bytes, v.offset, v.length)
       case(null) =>
         throw new ParseException("Cannot sort on analyzed field")
       case(v) =>
@@ -315,10 +298,10 @@ object IndexService {
 
   def createAnalyzer(options : Any) : Option[Analyzer] = {
     SupportedAnalyzers.createAnalyzer(options match {
-      case name : ByteBuffer =>
-        Map("name" -> byteBufferToString(name))
-      case options : List[(ByteBuffer, Any)] =>
-        toMap(options)
+      case name : String =>
+        Map("name" -> name)
+      case options : List[(String, Any)] =>
+        options.toMap
     })
   }
 

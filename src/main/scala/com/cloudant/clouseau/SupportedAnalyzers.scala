@@ -4,15 +4,10 @@
 
 package com.cloudant.clouseau
 
-import java.nio.ByteBuffer
-import java.nio.charset.Charset
-import java.util.HashSet
 import java.util.{Set => JSet}
 import org.apache.log4j.Logger
 import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.analysis.util.CharArraySet
-import org.apache.lucene.analysis.util.StopwordAnalyzerBase
-import org.apache.lucene.util.Version
 import scala.collection.JavaConversions._
 
 import org.apache.lucene.analysis.core.KeywordAnalyzer
@@ -81,259 +76,259 @@ object SupportedAnalyzers {
       Some(new WhitespaceAnalyzer(IndexService.version))
     case "arabic" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new ArabicAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new ArabicAnalyzer(IndexService.version))
       }
     case "bulgarian" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new BulgarianAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new BulgarianAnalyzer(IndexService.version))
       }
     case "brazilian" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new BrazilianAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new BrazilianAnalyzer(IndexService.version))
       }
     case "catalan" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new CatalanAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new CatalanAnalyzer(IndexService.version))
       }
     case "cjk" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new CJKAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new CJKAnalyzer(IndexService.version))
       }
     case "chinese" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new SmartChineseAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new SmartChineseAnalyzer(IndexService.version))
       }
     case "czech" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new CzechAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new CzechAnalyzer(IndexService.version))
       }
     case "danish" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new DanishAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new DanishAnalyzer(IndexService.version))
       }
     case "german" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new GermanAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new GermanAnalyzer(IndexService.version))
       }
     case "greek" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new GreekAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new GreekAnalyzer(IndexService.version))
       }
     case "english" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new EnglishAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new EnglishAnalyzer(IndexService.version))
       }
     case "spanish" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new SpanishAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new SpanishAnalyzer(IndexService.version))
       }
     case "basque" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new BasqueAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new BasqueAnalyzer(IndexService.version))
       }
     case "persian" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new PersianAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new PersianAnalyzer(IndexService.version))
       }
     case "finnish" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new FinnishAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new FinnishAnalyzer(IndexService.version))
       }
     case "french" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new FrenchAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new FrenchAnalyzer(IndexService.version))
       }
     case "irish" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new IrishAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new IrishAnalyzer(IndexService.version))
       }
     case "galician" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new GalicianAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new GalicianAnalyzer(IndexService.version))
       }
     case "hindi" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new HindiAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new HindiAnalyzer(IndexService.version))
       }
     case "hungarian" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new HungarianAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new HungarianAnalyzer(IndexService.version))
       }
     case "armenian" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new ArmenianAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new ArmenianAnalyzer(IndexService.version))
       }
     case "indonesian" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new IndonesianAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new IndonesianAnalyzer(IndexService.version))
       }
     case "italian" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new ItalianAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new ItalianAnalyzer(IndexService.version))
       }
     case "japanese" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new JapaneseAnalyzer(IndexService.version, null, JapaneseTokenizer.DEFAULT_MODE, stopwords, JapaneseAnalyzer.getDefaultStopTags))
         case _ =>
           Some(new JapaneseAnalyzer(IndexService.version))
       }
     case "latvian" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new LatvianAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new LatvianAnalyzer(IndexService.version))
       }
     case "dutch" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new DutchAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new DutchAnalyzer(IndexService.version))
       }
     case "norwegian" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new NorwegianAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new NorwegianAnalyzer(IndexService.version))
       }
     case "polish" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new PolishAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new PolishAnalyzer(IndexService.version))
       }
     case "portuguese" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new PortugueseAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new PortugueseAnalyzer(IndexService.version))
       }
     case "romanian" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new RomanianAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new RomanianAnalyzer(IndexService.version))
       }
     case "russian" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new RussianAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new RussianAnalyzer(IndexService.version))
       }
     case "classic" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new ClassicAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new ClassicAnalyzer(IndexService.version))
       }
     case "standard" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new StandardAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new StandardAnalyzer(IndexService.version))
       }
     case "email" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new UAX29URLEmailAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new UAX29URLEmailAnalyzer(IndexService.version))
       }
     case "swedish" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new SwedishAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new SwedishAnalyzer(IndexService.version))
       }
     case "thai" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new ThaiAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new ThaiAnalyzer(IndexService.version))
       }
     case "turkish" =>
       options.get("stopwords") match {
-        case Some(stopwords : List[ByteBuffer]) =>
+        case Some(stopwords : List[String]) =>
           Some(new TurkishAnalyzer(IndexService.version, stopwords))
         case _ =>
           Some(new TurkishAnalyzer(IndexService.version))
@@ -342,11 +337,11 @@ object SupportedAnalyzers {
       None
   }
 
-  implicit def listToJavaSet(list : List[ByteBuffer]) : JSet[ByteBuffer] = {
+  implicit def listToJavaSet(list : List[String]) : JSet[String] = {
     Set() ++ list
   }
 
-  implicit def listToCharArraySet(list : List[ByteBuffer]) : CharArraySet = {
+  implicit def listToCharArraySet(list : List[String]) : CharArraySet = {
     CharArraySet.unmodifiableSet(CharArraySet.copy(IndexService.version, Set() ++ list))
   }
 

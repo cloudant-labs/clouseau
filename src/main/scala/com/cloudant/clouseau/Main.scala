@@ -35,7 +35,10 @@ object Main extends App {
 
   val name = config.getString("clouseau.name", "clouseau@127.0.0.1")
   val cookie = config.getString("clouseau.cookie", "monster")
-  val nodeconfig = NodeConfig(typeFactory = ClouseauTypeFactory)
+  val nodeconfig = NodeConfig(
+    typeFactory = ClouseauTypeFactory,
+    typeEncoder = ClouseauTypeEncoder,
+    typeDecoder = ClouseauTypeDecoder)
   val node = Node(name, cookie, nodeconfig)
 
   ClouseauSupervisor.start(node)
