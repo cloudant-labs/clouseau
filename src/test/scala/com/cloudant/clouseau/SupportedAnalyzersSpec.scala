@@ -41,20 +41,18 @@ import org.apache.lucene.analysis.ru.RussianAnalyzer
 import org.apache.lucene.analysis.standard.ClassicAnalyzer
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.analysis.standard.UAX29URLEmailAnalyzer
+import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper
 import org.apache.lucene.analysis.sv.SwedishAnalyzer
 import org.apache.lucene.analysis.th.ThaiAnalyzer
 import org.apache.lucene.analysis.tr.TurkishAnalyzer
 
 import org.apache.lucene.analysis.Analyzer
-import org.apache.lucene.util.Version._
 import org.specs._
+import scala.collection.JavaConversions._
+      import SupportedAnalyzers._
 
 class SupportedAnalyzersSpec extends SpecificationWithJUnit {
   "SupportedAnalyzers" should {
-
-    def createAnalyzer(name : String) : Option[Analyzer] = {
-      SupportedAnalyzers.createAnalyzer(Map("name" -> name))
-    }
 
     "ignore unsupported analyzers" in {
       createAnalyzer("foo") must beNone
@@ -70,6 +68,22 @@ class SupportedAnalyzersSpec extends SpecificationWithJUnit {
     }
     "email" in {
       createAnalyzer("email") must haveClass[Some[UAX29URLEmailAnalyzer]]
+    }
+    "perfield" in {
+      // basic
+      createAnalyzer("perfield") must haveClass[Some[PerFieldAnalyzerWrapper]]
+
+      // override default
+      createAnalyzer(Map("name" -> "perfield", "default" -> "english")).toString must
+        include("default=org.apache.lucene.analysis.en.EnglishAnalyzer")
+
+      // override field
+      createAnalyzer(Map("name" -> "perfield", "fields" -> List("foo" -> "english"))).toString must
+        include("foo=org.apache.lucene.analysis.en.EnglishAnalyzer")
+
+      // unrecognized per-field becomes default
+      createAnalyzer(Map("name" -> "perfield", "default" -> "english", "fields" -> List("foo" -> "foo"))).toString must
+        include("foo=org.apache.lucene.analysis.en.EnglishAnalyzer")
     }
     "arabic" in {
       createAnalyzer("arabic") must haveClass[Some[ArabicAnalyzer]]
