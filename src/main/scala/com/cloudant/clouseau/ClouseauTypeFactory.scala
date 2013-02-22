@@ -4,14 +4,14 @@
 
 package com.cloudant.clouseau
 
-import com.cloudant.clouseau.Utils._
-import java.nio.ByteBuffer
 import org.apache.log4j.Logger
 import org.apache.lucene.document.Field._
 import org.apache.lucene.document._
 import org.apache.lucene.search._
 import scala.collection.immutable.Map
 import scalang._
+import org.jboss.netty.buffer.ChannelBuffer
+import org.apache.lucene.util.BytesRef
 
 case class OpenIndexMsg(peer : Pid, path : String, options : Any)
 case class CleanupPathMsg(path : String)
@@ -29,23 +29,23 @@ object ClouseauTypeFactory extends TypeFactory {
 
   def createType(name : Symbol, arity : Int, reader : TermReader) : Option[Any] = (name, arity) match {
     case ('open, 4) =>
-      Some(OpenIndexMsg(reader.readAs[Pid], reader.readAs[ByteBuffer], reader.readTerm))
+      Some(OpenIndexMsg(reader.readAs[Pid], reader.readAs[String], reader.readTerm))
     case ('cleanup, 2) =>
-      Some(CleanupPathMsg(reader.readAs[ByteBuffer]))
+      Some(CleanupPathMsg(reader.readAs[String]))
     case ('cleanup, 3) =>
-      Some(CleanupDbMsg(reader.readAs[ByteBuffer], reader.readAs[List[ByteBuffer]]))
+      Some(CleanupDbMsg(reader.readAs[String], reader.readAs[List[String]]))
     case ('search, 6) => // upgrade clause
-      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader),
+      Some(SearchMsg(reader.readAs[String], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader),
         readSort(reader), None))
     case ('search, 7) =>
-      Some(SearchMsg(reader.readAs[ByteBuffer], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader),
+      Some(SearchMsg(reader.readAs[String], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader),
         readSort(reader), readGrouping(reader)))
     case ('update, 3) =>
       val doc = readDoc(reader)
       val id = doc.getField("_id").stringValue
       Some(UpdateDocMsg(id, doc))
     case ('delete, 2) =>
-      Some(DeleteDocMsg(reader.readAs[ByteBuffer]))
+      Some(DeleteDocMsg(reader.readAs[String]))
     case ('commit, 2) =>
       Some(CommitMsg(toLong(reader.readTerm)))
     case _ =>
@@ -55,9 +55,9 @@ object ClouseauTypeFactory extends TypeFactory {
   protected def readGrouping(reader : TermReader) : Option[Grouping] = reader.readTerm match {
     case 'nil =>
       None
-    case ('grouping, by : ByteBuffer, limit : Int, 'relevance) =>
+    case ('grouping, by : String, limit : Int, 'relevance) =>
       Some(Grouping(by, limit, None))
-    case ('grouping, by : ByteBuffer, limit : Int, sort : Any) =>
+    case ('grouping, by : String, limit : Int, sort : Any) =>
       Some(Grouping(by, limit, Some(sort)))
   }
 
@@ -81,7 +81,7 @@ object ClouseauTypeFactory extends TypeFactory {
 
   protected def readDoc(reader : TermReader) : Document = {
     val result = new Document()
-    result.add(new Field("_id", reader.readAs[ByteBuffer], Store.YES, Index.NOT_ANALYZED))
+    result.add(new Field("_id", reader.readAs[String], Store.YES, Index.NOT_ANALYZED))
     val fields = reader.readAs[List[Any]]
     for (field <- fields) {
       toField(field) match {
@@ -95,8 +95,8 @@ object ClouseauTypeFactory extends TypeFactory {
   }
 
   private def toField(field : Any) : Option[Field] = field match {
-    case (name : ByteBuffer, value : ByteBuffer, options : List[(ByteBuffer, Any)]) =>
-      val map = toMap(options)
+    case (name : String, value : String, options : List[(String, Any)]) =>
+      val map = options.toMap
       constructField(name, value, toStore(map), toIndex(map), toTermVector(map)) match {
         case Some(field) =>
           map.get("boost") match {
@@ -109,11 +109,11 @@ object ClouseauTypeFactory extends TypeFactory {
         case None =>
           None
       }
-    case (name : ByteBuffer, value : Boolean, options : List[(ByteBuffer, Any)]) =>
-      val map = toMap(options)
+    case (name : String, value : Boolean, options : List[(String, Any)]) =>
+      val map = options.toMap
       constructField(name, value.toString, toStore(map), Index.NOT_ANALYZED, toTermVector(map))
-    case (name : ByteBuffer, value : Any, options : List[(ByteBuffer, Any)]) =>
-      val map = toMap(options)
+    case (name : String, value : Any, options : List[(String, Any)]) =>
+      val map = options.toMap
       toDouble(value) match {
         case Some(doubleValue) =>
           Some(new DoubleField(name, doubleValue, toStore(map)))
@@ -177,6 +177,59 @@ object ClouseauTypeFactory extends TypeFactory {
   def toTermVector(options : Map[String, Any]) : TermVector = {
     val termVector = options.getOrElse("termvector", "no").asInstanceOf[String]
     TermVector.valueOf(termVector toUpperCase)
+  }
+
+}
+
+object ClouseauTypeEncoder extends TypeEncoder {
+
+  def unapply(obj: Any): Option[Any] = obj match {
+    case bytesRef : BytesRef =>
+      Some(bytesRef)
+    case string : String =>
+      Some(string)
+    case null =>
+      Some(null)
+    case _ =>
+      None
+  }
+
+  def encode(obj: Any, buffer: ChannelBuffer) = obj match {
+    case bytesRef: BytesRef =>
+      buffer.writeByte(109)
+      buffer.writeInt(bytesRef.length)
+      buffer.writeBytes(bytesRef.bytes, bytesRef.offset, bytesRef.length)
+    case string: String =>
+      val bytes = string.getBytes("UTF-8")
+      buffer.writeByte(109)
+      buffer.writeInt(bytes.length)
+      buffer.writeBytes(bytes)
+    case null =>
+      buffer.writeByte(115)
+      buffer.writeByte(4)
+      buffer.writeByte(110)
+      buffer.writeByte(117)
+      buffer.writeByte(108)
+      buffer.writeByte(108)
+  }
+
+}
+
+object ClouseauTypeDecoder extends TypeDecoder {
+
+  def unapply(typeOrdinal: Int): Option[Int] = typeOrdinal match {
+    case 109 =>
+      Some(typeOrdinal)
+    case _ =>
+      None
+  }
+
+  def decode(typeOrdinal : Int, buffer: ChannelBuffer) : Any = typeOrdinal match {
+    case 109 =>
+      val length = buffer.readInt
+      val bytes = new Array[Byte](length)
+      buffer.readBytes(bytes)
+      new String(bytes, "UTF-8")
   }
 
 }
