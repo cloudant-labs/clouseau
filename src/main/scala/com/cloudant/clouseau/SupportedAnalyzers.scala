@@ -47,10 +47,10 @@ import org.apache.lucene.analysis.ru.RussianAnalyzer
 import org.apache.lucene.analysis.standard.ClassicAnalyzer
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.analysis.standard.UAX29URLEmailAnalyzer
+import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper
 import org.apache.lucene.analysis.sv.SwedishAnalyzer
 import org.apache.lucene.analysis.th.ThaiAnalyzer
 import org.apache.lucene.analysis.tr.TurkishAnalyzer
-import com.cloudant.clouseau.Utils._
 
 // Extras
 import org.apache.lucene.analysis.ja.JapaneseTokenizer
@@ -60,16 +60,19 @@ object SupportedAnalyzers {
   val logger = Logger.getLogger("clouseau.analyzers")
 
   def createAnalyzer(options : Any) : Option[Analyzer] = options match {
-    case name : ByteBuffer =>
-      createAnalyzer(name, Map())
-    case options : List[(ByteBuffer, Any)] =>
-      val map = toMap(options)
+    case name : String =>
+      createAnalyzer(Map("name" -> name))
+    case list : List[(String, Any)] =>
+      createAnalyzer(list.toMap)
+    case map : Map[String, Any] =>
       map.get("name") match {
       case Some(name : String) =>
         createAnalyzer(name, map)
       case None =>
         None
-    }
+      }
+    case _ =>
+      None
   }
 
   def createAnalyzer(name : String, options : Map[String, Any]) : Option[Analyzer] = name match {
@@ -317,6 +320,31 @@ object SupportedAnalyzers {
         case _ =>
           Some(new UAX29URLEmailAnalyzer(IndexService.version))
       }
+    case "perfield" =>
+      val fallbackAnalyzer = new StandardAnalyzer(IndexService.version)
+      val defaultAnalyzer : Analyzer = options.get("default") match {
+        case Some(defaultOptions) =>
+          createAnalyzer(defaultOptions) match {
+            case Some(defaultAnalyzer1) =>
+              defaultAnalyzer1
+            case None =>
+              fallbackAnalyzer
+          }
+        case None =>
+          fallbackAnalyzer
+      }
+      val fieldMap : Map[String, Analyzer] = options.get("fields") match {
+        case Some(fields : List[(String, Any)]) =>
+          fields map {kv => createAnalyzer(kv._2) match {
+            case Some(fieldAnalyzer) =>
+              (kv._1, fieldAnalyzer)
+            case None =>
+              (kv._1, defaultAnalyzer)
+          }} toMap
+        case _ =>
+          Map.empty
+      }
+      Some(new PerFieldAnalyzerWrapper(defaultAnalyzer, fieldMap))
     case "swedish" =>
       options.get("stopwords") match {
         case Some(stopwords : List[String]) =>
