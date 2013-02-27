@@ -25,4 +25,8 @@ object Utils {
     new Term(field, bytesRef)
   }
 
+  implicit def stringToBytesRef(string: String): BytesRef = {
+    new BytesRef(string)
+  }
+
 }
