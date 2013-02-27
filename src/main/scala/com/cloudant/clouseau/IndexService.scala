@@ -66,7 +66,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       forceRefresh = true
       'ok
     case 'info =>
-      ('ok, getInfo())
+      ('ok, getInfo)
   }
 
   override def handleInfo(msg : Any) = msg match {
@@ -194,7 +194,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       }
   }
 
-  private def getInfo() : List[Any] = {
+  private def getInfo : List[Any] = {
     reopenIfChanged()
     val sizes = reader.directory.listAll map {reader.directory.fileLength(_)}
     val diskSize = sizes.sum
