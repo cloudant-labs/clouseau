@@ -7,7 +7,6 @@ package com.cloudant.clouseau
 import java.io.File
 import java.io.IOException
 import org.apache.log4j.Logger
-import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.document._
 import org.apache.lucene.index._
 import org.apache.lucene.store._
