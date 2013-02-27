@@ -16,9 +16,15 @@ import org.apache.lucene.util.BytesRef
 case class OpenIndexMsg(peer : Pid, path : String, options : Any)
 case class CleanupPathMsg(path : String)
 case class CleanupDbMsg(dbName : String, activeSigs : List[String])
-case class SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Any],
-                     grouping : Option[Grouping])
-case class Grouping(field : String, limit : Int, sort : Option[Any])
+
+case class SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Any)
+
+case class Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
+                     groupLimit: Int)
+
+case class Group2Msg(query: String, field: String, refresh: Boolean, groups: Any, groupSort: Any,
+                     docSort: Any, docLimit: Int)
+
 case class UpdateDocMsg(id : String, doc : Document)
 case class DeleteDocMsg(id : String)
 case class CommitMsg(seq : Long)
@@ -34,12 +40,15 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(CleanupPathMsg(reader.readAs[String]))
     case ('cleanup, 3) =>
       Some(CleanupDbMsg(reader.readAs[String], reader.readAs[List[String]]))
-    case ('search, 6) => // upgrade clause
+    case ('search, 6) =>
       Some(SearchMsg(reader.readAs[String], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader),
-        readSort(reader), None))
-    case ('search, 7) =>
-      Some(SearchMsg(reader.readAs[String], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader),
-        readSort(reader), readGrouping(reader)))
+        reader.readTerm))
+    case ('group1, 7) =>
+      Some(Group1Msg(reader.readAs[String], reader.readAs[String], reader.readAs[Boolean], reader.readTerm,
+        reader.readAs[Int], reader.readAs[Int]))
+    case ('group2, 8) =>
+      Some(Group2Msg(reader.readAs[String], reader.readAs[String], reader.readAs[Boolean],
+        reader.readTerm, reader.readTerm, reader.readTerm, reader.readAs[Int]))
     case ('update, 3) =>
       val doc = readDoc(reader)
       val id = doc.getField("_id").stringValue
@@ -50,22 +59,6 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(CommitMsg(toLong(reader.readTerm)))
     case _ =>
       None
-  }
-
-  protected def readGrouping(reader : TermReader) : Option[Grouping] = reader.readTerm match {
-    case 'nil =>
-      None
-    case ('grouping, by : String, limit : Int, 'relevance) =>
-      Some(Grouping(by, limit, None))
-    case ('grouping, by : String, limit : Int, sort : Any) =>
-      Some(Grouping(by, limit, Some(sort)))
-  }
-
-  protected def readSort(reader : TermReader) : Option[Any] = reader.readTerm match {
-    case 'relevance =>
-      None
-    case sort =>
-      Some(sort)
   }
 
   protected def readScoreDoc(reader : TermReader) : Option[ScoreDoc] = reader.readTerm match {
