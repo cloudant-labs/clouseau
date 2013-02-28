@@ -85,7 +85,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   }
 
   override def exit(msg : Any) {
-    logger.info("Closed with reason %s".format(msg))
+    logger.info("Closed with reason: %.1000s".format(msg))
     try {
       reader.close()
     } catch {
