@@ -7,12 +7,12 @@ package com.cloudant.clouseau
 import java.io.File
 import java.io.IOException
 import org.apache.log4j.Logger
-import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.document._
 import org.apache.lucene.index._
 import org.apache.lucene.store._
 import org.apache.lucene.search._
-import grouping.{TopGroups, GroupingSearch}
+import grouping.SearchGroup
+import grouping.term.{TermSecondPassGroupingCollector, TermFirstPassGroupingCollector}
 import org.apache.lucene.util.BytesRef
 import org.apache.lucene.util.Version
 import org.apache.lucene.search.IndexSearcher
@@ -21,14 +21,13 @@ import org.apache.lucene.queryparser.classic.ParseException
 import scalang._
 import collection.JavaConversions._
 import com.yammer.metrics.scala._
+import com.cloudant.clouseau.Utils._
 
 case class IndexServiceArgs(name : String, queryParser : QueryParser, writer : IndexWriter)
 
 // These must match the records in dreyfus.
 case class TopDocs(updateSeq : Long, totalHits : Long, hits : List[Hit])
 case class Hit(order : List[Any], fields : List[Any])
-case class SearchTopGroups(totalGroupCount : Int, totalHitCount : Long, totalGroupedHitCount : Long, groups : List[SearchGroup])
-case class SearchGroup(by : Any, order : List[Any], totalHits : Long, hits : List[Hit])
 
 class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
 
@@ -46,10 +45,14 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   logger.info("Opened at update_seq %d".format(updateSeq))
 
   override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
-    case SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Any], None) =>
+    case SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Any) =>
       search(query, limit, refresh, after, sort)
-    case SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Any], Some(grouping)) =>
-      groupSearch(query, limit, refresh, after, sort, grouping)
+    case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
+    groupLimit: Int) =>
+      group1(query, field, refresh, groupSort, groupOffset, groupLimit)
+    case Group2Msg(query: String, field: String, refresh: Boolean, groups: List[Any], groupSort: Any,
+    docSort: Any, docLimit: Int) =>
+      group2(query, field, refresh, groups, groupSort, docSort, docLimit)
     case 'get_update_seq =>
       ('ok, updateSeq)
     case UpdateDocMsg(id : String, doc : Document) =>
@@ -67,7 +70,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       forceRefresh = true
       'ok
     case 'info =>
-      ('ok, getInfo())
+      ('ok, getInfo)
   }
 
   override def handleInfo(msg : Any) = msg match {
@@ -101,89 +104,118 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     }
   }
 
-  private def search(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Any]) : Any = {
-    try {
-      search(ctx.args.queryParser.parse(query), limit, refresh, after, toSort(sort))
-    } catch {
-      case e : NumberFormatException =>
-        ('error, ('bad_request, "cannot sort string field as numeric field"))
-      case e : ParseException =>
-        ('error, ('bad_request, e.getMessage))
-      case e =>
-        logger.warn("Unexpected error while querying %s".format(query), e)
-        ('error, ('error, e.getMessage))
-    }
-  }
-
-  private def search(query : Query, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Sort]) : Any = {
-    if (forceRefresh || refresh) {
-      reopenIfChanged()
-    }
-
-    val searcher = new IndexSearcher(reader)
-    val topDocs = searchTimer.time {
-      (after, sort) match {
-        case (None, None) =>
-          searcher.search(query, limit)
-        case (Some(scoreDoc), None) =>
-          searcher.searchAfter(scoreDoc, query, limit)
-        case (None, Some(sort)) =>
-          searcher.search(query, limit, sort)
-        case (Some(fieldDoc), Some(sort)) =>
-          searcher.searchAfter(fieldDoc, query, limit, sort)
+  private def search(queryString: String, limit: Int, refresh: Boolean, after: Option[ScoreDoc], sort: Any)
+  : Any = parseQuery(queryString) match {
+    case query: Query =>
+      val searcher = getSearcher(refresh)
+      val topDocs = searchTimer.time {
+        (after, parseSort(sort)) match {
+          case (None, Sort.RELEVANCE) =>
+            searcher.search(query, limit)
+          case (Some(scoreDoc), Sort.RELEVANCE) =>
+            searcher.searchAfter(scoreDoc, query, limit)
+          case (None, sort1) =>
+            searcher.search(query, limit, sort1)
+          case (Some(fieldDoc), sort1) =>
+            searcher.searchAfter(fieldDoc, query, limit, sort1)
+        }
       }
-    }
-    logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".format(query, limit, refresh, topDocs.totalHits))
-    val hits = topDocs.scoreDocs.map({ docToHit(searcher, _)}).toList
-    ('ok, TopDocs(updateSeq, topDocs.totalHits, hits))
+      logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".format(query, limit, refresh, topDocs.totalHits))
+      val hits = topDocs.scoreDocs.map({
+        docToHit(searcher, _)
+      }).toList
+      ('ok, TopDocs(updateSeq, topDocs.totalHits, hits))
+    case error =>
+      error
   }
 
-  private def groupSearch(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Option[Any], grouping : Grouping) : Any = {
-    try {
-      groupSearch(ctx.args.queryParser.parse(query), limit, refresh, after, toSort(sort), grouping)
-    } catch {
-      case e : NumberFormatException =>
-        ('error, ('bad_request, "cannot sort string field as numeric field"))
-      case e : ParseException =>
-        ('error, ('bad_request, e.getMessage))
-      case e =>
-        logger.warn("Unexpected error while querying %s".format(query), e)
-        ('error, ('error, e.getMessage))
-    }
+  private def group1(queryString: String, field: String, refresh: Boolean, groupSort: Any,
+                     groupOffset: Int, groupLimit: Int): Any = parseQuery(queryString) match {
+    case query: Query =>
+      val searcher = getSearcher(refresh)
+      val collector = new TermFirstPassGroupingCollector(field, parseSort(groupSort), groupLimit)
+      searchTimer.time {
+        safeSearch {
+          searcher.search(query, collector)
+          collector.getTopGroups(groupOffset, true) match {
+            case null =>
+              ('ok, List())
+            case topGroups =>
+              ('ok, topGroups map {
+                g => (g.groupValue, convertOrder(g.sortValues))
+              })
+          }
+        }
+      }
+    case error =>
+      error
   }
 
-  private def groupSearch(query: Query, limit: Int, refresh: Boolean, after: Option[ScoreDoc], docSort: Option[Sort],
-                          grouping: Grouping): Any = {
+  private def group2(queryString: String, field: String, refresh: Boolean, groups: List[Any],
+                     groupSort: Any, docSort: Any, docLimit: Int): Any = parseQuery(queryString) match {
+    case query: Query =>
+      val searcher = getSearcher(refresh)
+      val groups1 = groups.map {
+        g => makeSearchGroup(g)
+      }
+      val collector = new TermSecondPassGroupingCollector(field, groups1, parseSort(groupSort), parseSort(docSort),
+        docLimit, true, false, true)
+      searchTimer.time {
+        safeSearch {
+          searcher.search(query, collector)
+          collector.getTopGroups(0) match {
+            case null =>
+              ('ok, 0, 0, List())
+            case topGroups =>
+              ('ok, topGroups.totalHitCount, topGroups.totalGroupedHitCount,
+                topGroups.groups.map {
+                  g => (
+                    g.groupValue,
+                    g.totalHits,
+                    g.scoreDocs.map({
+                      docToHit(searcher, _)
+                    }).toList
+                    )
+                }.toList)
+          }
+        }
+      }
+    case error =>
+      error
+  }
+
+  private def makeSearchGroup(group: Any): SearchGroup[BytesRef] = group match {
+    case ('null, order: List[AnyRef]) =>
+      val result: SearchGroup[BytesRef] = new SearchGroup
+      result.sortValues = order.toArray
+      result
+    case (name: String, order: List[AnyRef]) =>
+      val result: SearchGroup[BytesRef] = new SearchGroup
+      result.groupValue = name
+      result.sortValues = order.toArray
+      result
+  }
+
+  private def parseQuery(query : String): Any = {
+    safeSearch { ctx.args.queryParser.parse(query) }
+  }
+
+  private def safeSearch[A](fun: => A): Any = try {
+    fun
+  } catch {
+    case e: NumberFormatException =>
+      ('error, ('bad_request, "cannot sort string field as numeric field"))
+    case e: ParseException =>
+      ('error, ('bad_request, e.getMessage))
+    case e =>
+      ('error, e.getMessage)
+  }
+
+  private def getSearcher(refresh: Boolean): IndexSearcher = {
     if (forceRefresh || refresh) {
       reopenIfChanged()
     }
-
-    val searcher = new IndexSearcher(reader)
-    val groupingSearch = new GroupingSearch(grouping.field)
-    groupingSearch.setFillSortFields(true)
-    groupingSearch.setGroupDocsLimit(limit)
-    docSort match {
-      case None => 'ok
-      case Some(s) => groupingSearch.setSortWithinGroup(s)
-    }
-    toSort(grouping.sort) match {
-      case None => 'ok
-      case Some(s) => groupingSearch.setGroupSort(s)
-    }
-    val topGroups: TopGroups[BytesRef] = searchTimer.time {
-      groupingSearch.search(searcher, query, 0, grouping.limit)
-    }
-    val groups = topGroups.groups.map {
-      g => SearchGroup(
-        g.groupValue,
-        convertOrder(g.groupSortValues),
-        g.totalHits,
-        g.scoreDocs.map( { docToHit(searcher, _) }).toList
-      )
-    }
-
-    ('ok, SearchTopGroups(0, topGroups.totalHitCount, topGroups.totalGroupedHitCount,
-      groups.toList))
+    new IndexSearcher(reader)
   }
 
   private def reopenIfChanged() {
@@ -195,7 +227,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       }
   }
 
-  private def getInfo() : List[Any] = {
+  private def getInfo : List[Any] = {
     reopenIfChanged()
     val sizes = reader.directory.listAll map {reader.directory.fileLength(_)}
     val diskSize = sizes.sum
@@ -206,13 +238,13 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     )
   }
 
-  private def toSort(v: Option[Any]): Option[Sort] = v match {
-    case None =>
-      None
-    case Some(field: String) =>
-      Some(new Sort(toSortField(field)))
-    case Some(fields: List[String]) =>
-      Some(new Sort(fields.map(toSortField(_)).toArray: _*))
+  private def parseSort(v: Any): Sort = v match {
+    case 'relevance =>
+      Sort.RELEVANCE
+    case field: String =>
+      new Sort(toSortField(field))
+    case fields: List[String] =>
+      new Sort(fields.map(toSortField(_)).toArray: _*)
   }
 
   private def docToHit(searcher : IndexSearcher, scoreDoc : ScoreDoc) : Hit = {
