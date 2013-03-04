@@ -69,7 +69,12 @@ object ClouseauTypeFactory extends TypeFactory {
     case list : List[Object] =>
       val doc = list.last
       val fields = list dropRight(1)
-      Some(new FieldDoc(toInteger(doc), Float.NaN, fields.toArray))
+      Some(new FieldDoc(toInteger(doc), Float.NaN, fields map {
+        case str: String =>
+          Utils.stringToBytesRef(str)
+        case field =>
+           field
+      } toArray))
   }
 
   protected def readDoc(reader : TermReader) : Document = {
