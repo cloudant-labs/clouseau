@@ -278,6 +278,13 @@
         </configuration>
       </plugin>
     </plugins>
+    <extensions>
+      <extension>
+        <groupId>org.apache.maven.wagon</groupId>
+        <artifactId>wagon-ssh-external</artifactId>
+        <version>2.4</version>
+      </extension>
+    </extensions>
   </build>
 
   <reporting>
@@ -289,5 +296,22 @@
       </plugin>
     </plugins>
   </reporting>
+
+  <distributionManagement>
+    <repository>
+      <id>maven.cloudant.com</id>
+      <name>maven.cloudant.com-releases</name>
+      <url>scpexe://maven.cloudant.com/var/www/domains/cloudant.com/maven/htdocs/repo/</url>
+    </repository>
+    <snapshotRepository>
+      <id>maven.cloudant.com</id>
+      <name>maven.cloudant.com-snapshots</name>
+      <url>scpexe://maven.cloudant.com/var/www/domains/cloudant.com/maven/htdocs/repo/</url>
+    </snapshotRepository>
+  </distributionManagement>
+
+  <scm>
+    <connection>scm:git:https://github.com/cloudant/clouseau.git</connection>
+  </scm>
 
 </project>
