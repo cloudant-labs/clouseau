@@ -61,21 +61,21 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
         case null =>
           waiters.get(path) match {
             case None =>
+              val manager = self
+              node.spawn((_) => {
+                openTimer.time {
+                  IndexService.start(node, rootDir, path, options) match {
+                    case ('ok, pid : Pid) =>
+                      manager ! ('open_ok, path, peer, pid)
+                    case error =>
+                      manager ! ('open_error, path, error)
+                  }
+                }
+              })
               waiters.put(path, List(tag))
             case Some(list) =>
               waiters.put(path, (tag :: list))
           }
-          val manager = self
-          node.spawn((_) => {
-            openTimer.time {
-              IndexService.start(node, rootDir, path, options) match {
-                case ('ok, pid : Pid) =>
-                  manager ! ('open_ok, path, peer, pid)
-                case error =>
-                  manager ! ('open_error, path, error)
-              }
-            }
-          })
           'noreply
         case pid =>
           ('ok, pid)
