@@ -107,24 +107,26 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   private def search(queryString: String, limit: Int, refresh: Boolean, after: Option[ScoreDoc], sort: Any)
   : Any = parseQuery(queryString) match {
     case query: Query =>
-      val searcher = getSearcher(refresh)
-      val topDocs = searchTimer.time {
-        (after, parseSort(sort)) match {
-          case (None, Sort.RELEVANCE) =>
-            searcher.search(query, limit)
-          case (Some(scoreDoc), Sort.RELEVANCE) =>
-            searcher.searchAfter(scoreDoc, query, limit)
-          case (None, sort1) =>
-            searcher.search(query, limit, sort1)
-          case (Some(fieldDoc), sort1) =>
-            searcher.searchAfter(fieldDoc, query, limit, sort1)
+      safeSearch {
+        val searcher = getSearcher(refresh)
+        val topDocs = searchTimer.time {
+          (after, parseSort(sort)) match {
+            case (None, Sort.RELEVANCE) =>
+              searcher.search(query, limit)
+            case (Some(scoreDoc), Sort.RELEVANCE) =>
+              searcher.searchAfter(scoreDoc, query, limit)
+            case (None, sort1) =>
+              searcher.search(query, limit, sort1)
+            case (Some(fieldDoc), sort1) =>
+              searcher.searchAfter(fieldDoc, query, limit, sort1)
+          }
         }
+        logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".format(query, limit, refresh, topDocs.totalHits))
+        val hits = topDocs.scoreDocs.map({
+          docToHit(searcher, _)
+        }).toList
+        ('ok, TopDocs(updateSeq, topDocs.totalHits, hits))
       }
-      logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".format(query, limit, refresh, topDocs.totalHits))
-      val hits = topDocs.scoreDocs.map({
-        docToHit(searcher, _)
-      }).toList
-      ('ok, TopDocs(updateSeq, topDocs.totalHits, hits))
     case error =>
       error
   }
@@ -133,9 +135,9 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
                      groupOffset: Int, groupLimit: Int): Any = parseQuery(queryString) match {
     case query: Query =>
       val searcher = getSearcher(refresh)
-      val collector = new TermFirstPassGroupingCollector(field, parseSort(groupSort), groupLimit)
-      searchTimer.time {
-        safeSearch {
+      safeSearch {
+        val collector = new TermFirstPassGroupingCollector(field, parseSort(groupSort), groupLimit)
+        searchTimer.time {
           searcher.search(query, collector)
           collector.getTopGroups(groupOffset, true) match {
             case null =>
@@ -158,10 +160,10 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       val groups1 = groups.map {
         g => makeSearchGroup(g)
       }
-      val collector = new TermSecondPassGroupingCollector(field, groups1, parseSort(groupSort), parseSort(docSort),
-        docLimit, true, false, true)
-      searchTimer.time {
-        safeSearch {
+      safeSearch {
+        val collector = new TermSecondPassGroupingCollector(field, groups1, parseSort(groupSort), parseSort(docSort),
+          docLimit, true, false, true)
+        searchTimer.time {
           searcher.search(query, collector)
           collector.getTopGroups(0) match {
             case null =>
