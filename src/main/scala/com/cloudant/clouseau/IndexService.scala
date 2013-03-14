@@ -32,7 +32,7 @@ case class Hit(order : List[Any], fields : List[Any])
 class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
 
   val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
-  val sortFieldRE = """([-+])?(\w+)(?:<(\w+)>)?""".r
+  val sortFieldRE = """^([-+])?(\w+)(?:<(\w+)>)?$""".r
   var reader = IndexReader.open(ctx.args.writer, true)
   var updateSeq = reader.getIndexCommit().getUserData().get("update_seq") match {
     case null => 0L
