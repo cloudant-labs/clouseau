@@ -12,6 +12,7 @@ class ClouseauSupervisor(ctx : ServiceContext[NoArgs]) extends Service(ctx) {
   val logger = Logger.getLogger("clouseau.supervisor")
   var manager = spawnAndMonitorService[IndexManagerService, NoArgs]('main, NoArgs)
   var cleanup = spawnAndMonitorService[IndexCleanupService, NoArgs]('cleanup, NoArgs)
+  var analyzer = spawnAndMonitorService[AnalyzerService, NoArgs]('analyzer, NoArgs)
 
   override def trapMonitorExit(monitored : Any, ref : Reference, reason : Any) {
     if (monitored == manager) {
@@ -21,6 +22,10 @@ class ClouseauSupervisor(ctx : ServiceContext[NoArgs]) extends Service(ctx) {
     if (monitored == cleanup) {
       logger.warn("cleanup crashed")
       cleanup = spawnAndMonitorService[IndexCleanupService, NoArgs]('cleanup, NoArgs)
+    }
+    if (monitored == analyzer) {
+      logger.warn("analyzer crashed")
+      cleanup = spawnAndMonitorService[AnalyzerService, NoArgs]('analyzer, NoArgs)
     }
   }
 
