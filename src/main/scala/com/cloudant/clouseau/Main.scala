@@ -41,6 +41,10 @@ object Main extends App {
     typeDecoder = ClouseauTypeDecoder)
   val node = Node(name, cookie, nodeconfig)
 
+  scala.sys.addShutdownHook {
+    node.call('main, 'close)
+  }
+
   ClouseauSupervisor.start(node)
   logger.info("Clouseau running as " + name)
 }

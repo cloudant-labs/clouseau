@@ -66,6 +66,7 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
   val lru = new LRU()
   val waiters = Map[String, List[(Pid, Reference)]]()
   var closing = false
+  var closingTag: (Pid, Reference) = null
 
   override def handleCall(tag : (Pid, Reference), msg : Any) : Any = closing match {
     case true =>
@@ -108,11 +109,12 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
           'ok
       }
     case 'close =>
+      closingTag = tag
       logger.info("Closing down.")
       closing = true
       lru.close()
       self ! 'maybe_exit
-      'ok
+      'noreply
   }
 
   override def handleInfo(msg : Any) = msg match {
@@ -151,6 +153,7 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
   private def maybeExit : Unit = {
     if (closing && lru.isEmpty) {
       logger.info("Closing on request")
+      closingTag._1 ! (closingTag._2, 'ok)
       System.exit(0)
     }
   }
