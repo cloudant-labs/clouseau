@@ -9,10 +9,11 @@ import java.util.HashMap
 import java.util.LinkedHashMap
 import java.util.{Map => JMap}
 import java.util.Map.Entry
+import scala.collection.mutable.Map
 import org.apache.log4j.Logger
 import scalang._
-import scala.collection.mutable._
 import com.yammer.metrics.scala._
+import scala.collection.JavaConversions._
 
 class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) with Instrumented {
 
@@ -47,6 +48,16 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
       pathToPid.remove(path)
     }
 
+    def isEmpty : Boolean = {
+      pidToPath.isEmpty
+    }
+
+    def close() : Unit = {
+      pidToPath foreach {
+        kv => kv._1 ! ('close, 'closing)
+      }
+    }
+
   }
 
   val logger = Logger.getLogger("clouseau.main")
@@ -54,8 +65,17 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
   val openTimer = metrics.timer("opens")
   val lru = new LRU()
   val waiters = Map[String, List[(Pid, Reference)]]()
+  var closing = false
+  var closingTag: (Pid, Reference) = null
 
-  override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
+  override def handleCall(tag : (Pid, Reference), msg : Any) : Any = closing match {
+    case true =>
+      ('error, 'closing)
+    case false =>
+      handleCall1(tag, msg)
+  }
+
+  private def handleCall1(tag : (Pid, Reference), msg : Any) : Any = msg match {
     case OpenIndexMsg(peer : Pid, path : String, options : Any) =>
       lru.get(path) match {
         case null =>
@@ -88,6 +108,13 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
           pid ! 'delete
           'ok
       }
+    case 'close =>
+      closingTag = tag
+      logger.info("Closing down.")
+      closing = true
+      lru.close()
+      self ! 'maybe_exit
+      'noreply
   }
 
   override def handleInfo(msg : Any) = msg match {
@@ -100,11 +127,14 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
     case ('open_error, path : String, error : Any) =>
       replyAll(path, error)
       'noreply
+    case 'maybe_exit =>
+      maybeExit
   }
 
   override def trapMonitorExit(monitored : Any, ref : Reference, reason : Any) = monitored match {
     case pid : Pid =>
       lru.remove(pid)
+      maybeExit
     case _ =>
       'ignored
   }
@@ -117,6 +147,14 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
         }
       case None =>
         'ok
+    }
+  }
+
+  private def maybeExit : Unit = {
+    if (closing && lru.isEmpty) {
+      logger.info("Closing on request")
+      closingTag._1 ! (closingTag._2, 'ok)
+      System.exit(0)
     }
   }
 
