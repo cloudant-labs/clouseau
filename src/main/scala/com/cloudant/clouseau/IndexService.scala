@@ -64,7 +64,8 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       ctx.args.writer.deleteDocuments(new Term("_id", id))
       'ok
     case CommitMsg(commitSeq : Long) =>
-      ctx.args.writer.commit(Map("update_seq" -> commitSeq.toString))
+      ctx.args.writer.setCommitData(Map("update_seq" -> commitSeq.toString))
+      ctx.args.writer.commit()
       updateSeq = commitSeq
       logger.info("Committed sequence %d".format(commitSeq))
       forceRefresh = true
