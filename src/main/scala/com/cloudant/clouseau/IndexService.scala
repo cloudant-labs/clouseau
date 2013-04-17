@@ -270,9 +270,9 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     })
     val order = scoreDoc match {
       case fieldDoc : FieldDoc =>
-        convertOrder(fieldDoc.fields)
+        convertOrder(fieldDoc.fields) :+ scoreDoc.doc
       case _ =>
-        List[Any](scoreDoc.score)
+        List[Any](scoreDoc.score, scoreDoc.doc)
     }
     Hit(order, fields.toList)
   }
