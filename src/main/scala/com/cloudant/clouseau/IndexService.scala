@@ -145,7 +145,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
               ('ok, List())
             case topGroups =>
               ('ok, topGroups map {
-                g => (g.groupValue, convertOrder(g.sortValues) :+ g.groupValue)
+                g => (g.groupValue, convertOrder(g.sortValues))
               })
           }
         }
