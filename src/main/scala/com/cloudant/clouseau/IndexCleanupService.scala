@@ -6,15 +6,14 @@ package com.cloudant.clouseau
 
 import com.yammer.metrics.scala._
 import java.io.File
-import java.io.FilenameFilter
 import java.util.regex.Pattern
 import org.apache.log4j.Logger
 import scalang._
 
-class IndexCleanupService(ctx : ServiceContext[NoArgs]) extends Service(ctx) with Instrumented {
+class IndexCleanupService(ctx : ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
 
   val logger = Logger.getLogger("clouseau.cleanup")
-  val rootDir = new File(Main.config.getString("clouseau.dir", "target/indexes"))
+  val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
 
   override def handleCast(msg : Any) = msg match {
       case CleanupPathMsg(path : String) =>

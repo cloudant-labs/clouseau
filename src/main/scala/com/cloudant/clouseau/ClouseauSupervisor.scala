@@ -6,26 +6,29 @@ package com.cloudant.clouseau
 
 import org.apache.log4j.Logger
 import scalang._
+import org.apache.commons.configuration.Configuration
 
-class ClouseauSupervisor(ctx : ServiceContext[NoArgs]) extends Service(ctx) {
+case class ConfigurationArgs(config : Configuration)
+
+class ClouseauSupervisor(ctx : ServiceContext[ConfigurationArgs]) extends Service(ctx) {
 
   val logger = Logger.getLogger("clouseau.supervisor")
-  var manager = spawnAndMonitorService[IndexManagerService, NoArgs]('main, NoArgs)
-  var cleanup = spawnAndMonitorService[IndexCleanupService, NoArgs]('cleanup, NoArgs)
-  var analyzer = spawnAndMonitorService[AnalyzerService, NoArgs]('analyzer, NoArgs)
+  var manager = spawnAndMonitorService[IndexManagerService, ConfigurationArgs]('main, ctx.args)
+  var cleanup = spawnAndMonitorService[IndexCleanupService, ConfigurationArgs]('cleanup, ctx.args)
+  var analyzer = spawnAndMonitorService[AnalyzerService, ConfigurationArgs]('analyzer, ctx.args)
 
   override def trapMonitorExit(monitored : Any, ref : Reference, reason : Any) {
     if (monitored == manager) {
       logger.warn("manager crashed")
-      manager = spawnAndMonitorService[IndexManagerService, NoArgs]('main, NoArgs)
+      manager = spawnAndMonitorService[IndexManagerService, ConfigurationArgs]('main, ctx.args)
     }
     if (monitored == cleanup) {
       logger.warn("cleanup crashed")
-      cleanup = spawnAndMonitorService[IndexCleanupService, NoArgs]('cleanup, NoArgs)
+      cleanup = spawnAndMonitorService[IndexCleanupService, ConfigurationArgs]('cleanup, ctx.args)
     }
     if (monitored == analyzer) {
       logger.warn("analyzer crashed")
-      cleanup = spawnAndMonitorService[AnalyzerService, NoArgs]('analyzer, NoArgs)
+      cleanup = spawnAndMonitorService[AnalyzerService, ConfigurationArgs]('analyzer, ctx.args)
     }
   }
 
@@ -39,8 +42,8 @@ class ClouseauSupervisor(ctx : ServiceContext[NoArgs]) extends Service(ctx) {
 
 object ClouseauSupervisor {
 
-  def start(node : Node) : Pid = {
-    node.spawnService[ClouseauSupervisor, NoArgs]('sup, NoArgs)
+  def start(node : Node, config : Configuration) : Pid = {
+    node.spawnService[ClouseauSupervisor, ConfigurationArgs]('sup, ConfigurationArgs(config))
   }
 
 }

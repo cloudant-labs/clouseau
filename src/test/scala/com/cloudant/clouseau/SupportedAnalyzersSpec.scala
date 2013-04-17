@@ -46,10 +46,8 @@ import org.apache.lucene.analysis.sv.SwedishAnalyzer
 import org.apache.lucene.analysis.th.ThaiAnalyzer
 import org.apache.lucene.analysis.tr.TurkishAnalyzer
 
-import org.apache.lucene.analysis.Analyzer
-import org.specs._
-import scala.collection.JavaConversions._
-      import SupportedAnalyzers._
+import SupportedAnalyzers._
+import org.specs2.mutable.SpecificationWithJUnit
 
 class SupportedAnalyzersSpec extends SpecificationWithJUnit {
   "SupportedAnalyzers" should {
@@ -75,15 +73,15 @@ class SupportedAnalyzersSpec extends SpecificationWithJUnit {
 
       // override default
       createAnalyzer(Map("name" -> "perfield", "default" -> "english")).toString must
-        include("default=org.apache.lucene.analysis.en.EnglishAnalyzer")
+        contain("default=org.apache.lucene.analysis.en.EnglishAnalyzer")
 
       // override field
       createAnalyzer(Map("name" -> "perfield", "fields" -> List("foo" -> "english"))).toString must
-        include("foo=org.apache.lucene.analysis.en.EnglishAnalyzer")
+        contain("foo=org.apache.lucene.analysis.en.EnglishAnalyzer")
 
       // unrecognized per-field becomes default
       createAnalyzer(Map("name" -> "perfield", "default" -> "english", "fields" -> List("foo" -> "foo"))).toString must
-        include("foo=org.apache.lucene.analysis.en.EnglishAnalyzer")
+        contain("foo=org.apache.lucene.analysis.en.EnglishAnalyzer")
     }
     "arabic" in {
       createAnalyzer("arabic") must haveClass[Some[ArabicAnalyzer]]
