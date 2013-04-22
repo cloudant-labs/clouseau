@@ -3,8 +3,9 @@ package com.cloudant.clouseau
 import org.apache.commons.configuration.BaseConfiguration
 import scalang.Pid
 import org.apache.lucene.document.{Document, StringField, Field}
-import org.apache.lucene.search.ScoreDoc
+import org.apache.lucene.search.{FieldDoc, ScoreDoc}
 import org.specs2.mutable.SpecificationWithJUnit
+import org.apache.lucene.util.BytesRef
 
 class IndexServiceSpec extends SpecificationWithJUnit {
   sequential
@@ -66,6 +67,15 @@ class IndexServiceSpec extends SpecificationWithJUnit {
 
       node.call(service, SearchMsg("*:*", 1, refresh = true, Some(new ScoreDoc(0, 1.0f)), 'relevance)) must beLike {
         case ('ok, TopDocs(0, 2, List(Hit(List(1.0, 1), List((_id, bar)))))) => ok
+      }
+
+      node.call(service, SearchMsg("*:*", 1, refresh = true, None, "_id<string>")) must beLike {
+        case ('ok, TopDocs(0, 2, List(Hit(List(_, 1), List((_id, bar)))))) => ok
+      }
+
+      node.call(service, SearchMsg("*:*", 1, refresh = true, Some(new FieldDoc(1, 1.0f, Array(new BytesRef("bar")))),
+        "_id<string>")) must beLike {
+        case ('ok, TopDocs(0, 2, List(Hit(List(_, 0), List((_id, foo)))))) => ok
       }
     }
 
