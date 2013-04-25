@@ -10,28 +10,33 @@ import org.apache.log4j.Logger
 import org.apache.lucene.analysis.tokenattributes._
 import scala.collection.immutable.List
 import scalang._
+import org.apache.lucene.analysis.Analyzer
 
-class AnalyzerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) with Instrumented {
+class AnalyzerService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
 
   val logger = Logger.getLogger("clouseau.analyzer")
 
-  override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
-    case ('analyze, analyzerConfig : Any, text : String) =>
+  override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
+    case ('analyze, analyzerConfig: Any, text: String) =>
       SupportedAnalyzers.createAnalyzer(analyzerConfig) match {
         case Some(analyzer) =>
-          var result : List[String] = List()
-          val tokenStream = analyzer.tokenStream("default", new StringReader(text))
-          tokenStream.reset
-          while (tokenStream.incrementToken) {
-            val term = tokenStream.getAttribute(classOf[CharTermAttribute])
-            result = term.toString +: result
-          }
-          tokenStream.end
-          tokenStream.close
-          ('ok, result.reverse)
+          ('ok, tokenize(text, analyzer))
         case None =>
           ('error, 'no_such_analyzer)
       }
+  }
+
+  def tokenize(text: String, analyzer: Analyzer): List[String] = {
+    var result: List[String] = List()
+    val tokenStream = analyzer.tokenStream("default", new StringReader(text))
+    tokenStream.reset()
+    while (tokenStream.incrementToken) {
+      val term = tokenStream.getAttribute(classOf[CharTermAttribute])
+      result = term.toString +: result
+    }
+    tokenStream.end()
+    tokenStream.close()
+    result.reverse
   }
 
 }

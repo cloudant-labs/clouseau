@@ -128,9 +128,9 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.scala-tools.testing</groupId>
-      <artifactId>specs_${scala.version}</artifactId>
-      <version>1.6.9</version>
+      <groupId>org.specs2</groupId>
+      <artifactId>specs2_${scala.version}</artifactId>
+      <version>1.12.4</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -277,6 +277,16 @@
                     </archive>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-site-plugin</artifactId>
+        <version>3.2</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>2.9</version>
+      </plugin>
     </plugins>
     <extensions>
       <extension>
@@ -290,9 +300,31 @@
   <reporting>
     <plugins>
       <plugin>
-        <groupId>org.scala-tools</groupId>
-        <artifactId>maven-scala-plugin</artifactId>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+        <version>2.6</version>
+        <configuration>
+          <dependencyDetailsEnabled>false</dependencyDetailsEnabled>
+          <dependencyLocationsEnabled>false</dependencyLocationsEnabled>
+        </configuration>
+        <reportSets>
+          <reportSet>
+            <reports>
+              <report>dependencies</report>
+              <report>scm</report>
+            </reports>
+          </reportSet>
+        </reportSets>
+      </plugin>
+      <plugin>
+        <groupId>net.alchim31.maven</groupId>
+        <artifactId>scala-maven-plugin</artifactId>
         <version>${scala.plugin.version}</version>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>cobertura-maven-plugin</artifactId>
+        <version>2.5.2</version>
       </plugin>
     </plugins>
   </reporting>
@@ -308,6 +340,10 @@
       <name>maven.cloudant.com-snapshots</name>
       <url>scpexe://maven.cloudant.com/var/www/domains/cloudant.com/maven/htdocs/repo/</url>
     </snapshotRepository>
+    <site>
+      <id>website</id>
+      <url>scpexe://maven.cloudant.com/var/www/domains/cloudant.com/maven/htdocs/site/</url>
+    </site>
   </distributionManagement>
 
   <scm>

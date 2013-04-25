@@ -9,7 +9,6 @@ import org.apache.commons.configuration._
 import org.apache.log4j.Logger
 
 import scalang._
-import scalang.node._
 
 object Main extends App {
 
@@ -45,6 +44,6 @@ object Main extends App {
     node.call('main, 'close)
   }
 
-  ClouseauSupervisor.start(node)
+  ClouseauSupervisor.start(node, config)
   logger.info("Clouseau running as " + name)
 }

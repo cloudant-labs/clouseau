@@ -15,14 +15,14 @@ import scalang._
 import com.yammer.metrics.scala._
 import scala.collection.JavaConversions._
 
-class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) with Instrumented {
+class IndexManagerService(ctx : ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
 
   class LRU(initialCapacity : Int = 100, loadFactor : Float = 0.75f) {
 
     class InnerLRU(initialCapacity : Int, loadFactor: Float) extends LinkedHashMap[String, Pid](initialCapacity, loadFactor, true) {
 
       override def removeEldestEntry(eldest : Entry[String, Pid]) : Boolean = {
-        val result = size() > Main.config.getInt("clouseau.max_indexes_open", 100)
+        val result = size() > ctx.args.config.getInt("clouseau.max_indexes_open", 100)
         if (result) {
           eldest.getValue ! ('close, 'lru)
         }
@@ -52,7 +52,7 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
       pidToPath.isEmpty
     }
 
-    def close() : Unit = {
+    def close() {
       pidToPath foreach {
         kv => kv._1 ! ('close, 'closing)
       }
@@ -61,7 +61,7 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
   }
 
   val logger = Logger.getLogger("clouseau.main")
-  val rootDir = new File(Main.config.getString("clouseau.dir", "target/indexes"))
+  val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
   val openTimer = metrics.timer("opens")
   val lru = new LRU()
   val waiters = Map[String, List[(Pid, Reference)]]()
@@ -84,7 +84,7 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
               val manager = self
               node.spawn((_) => {
                 openTimer.time {
-                  IndexService.start(node, rootDir, path, options) match {
+                  IndexService.start(node, ctx.args.config, path, options) match {
                     case ('ok, pid : Pid) =>
                       manager ! ('open_ok, path, peer, pid)
                     case error =>
@@ -108,6 +108,9 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
           pid ! 'delete
           'ok
       }
+    case 'close_lru =>
+      lru.close()
+      'ok
     case 'close =>
       closingTag = tag
       logger.info("Closing down.")
@@ -128,13 +131,13 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
       replyAll(path, error)
       'noreply
     case 'maybe_exit =>
-      maybeExit
+      maybeExit()
   }
 
   override def trapMonitorExit(monitored : Any, ref : Reference, reason : Any) = monitored match {
     case pid : Pid =>
       lru.remove(pid)
-      maybeExit
+      maybeExit()
     case _ =>
       'ignored
   }
@@ -150,7 +153,7 @@ class IndexManagerService(ctx : ServiceContext[NoArgs]) extends Service(ctx) wit
     }
   }
 
-  private def maybeExit : Unit = {
+  private def maybeExit() {
     if (closing && lru.isEmpty) {
       logger.info("Closing on request")
       closingTag._1 ! (closingTag._2, 'ok)

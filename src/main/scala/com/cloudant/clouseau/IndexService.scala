@@ -22,8 +22,9 @@ import scalang._
 import collection.JavaConversions._
 import com.yammer.metrics.scala._
 import com.cloudant.clouseau.Utils._
+import org.apache.commons.configuration.Configuration
 
-case class IndexServiceArgs(name : String, queryParser : QueryParser, writer : IndexWriter)
+case class IndexServiceArgs(config: Configuration, name : String, queryParser : QueryParser, writer : IndexWriter)
 
 // These must match the records in dreyfus.
 case class TopDocs(updateSeq : Long, totalHits : Long, hits : List[Hit])
@@ -33,7 +34,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
 
   val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
   val sortFieldRE = """^([-+])?([\.\w]+)(?:<(\w+)>)?$""".r
-  var reader = IndexReader.open(ctx.args.writer, true)
+  var reader = DirectoryReader.open(ctx.args.writer, true)
   var updateSeq = reader.getIndexCommit().getUserData().get("update_seq") match {
     case null => 0L
     case seq  => seq.toLong
@@ -313,15 +314,16 @@ object IndexService {
 
   val version = Version.LUCENE_40
 
-  def start(node : Node, rootDir : File, path : String, options : Any) : Any = {
-    val dir = newDirectory(new File(rootDir, path))
+  def start(node : Node, config : Configuration, path : String, options : Any) : Any = {
+    val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
+    val dir = newDirectory(config, new File(rootDir, path))
     try {
       SupportedAnalyzers.createAnalyzer(options) match {
         case Some(analyzer) =>
           val queryParser = new ClouseauQueryParser(version, "default", analyzer)
-          val config = new IndexWriterConfig(version, analyzer)
-          val writer = new IndexWriter(dir, config)
-          ('ok, node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(path, queryParser, writer)))
+          val writerConfig = new IndexWriterConfig(version, analyzer)
+          val writer = new IndexWriter(dir, writerConfig)
+          ('ok, node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(config, path, queryParser, writer)))
         case None =>
           ('error, 'no_such_analyzer)
       }
@@ -331,8 +333,8 @@ object IndexService {
     }
   }
 
-  private def newDirectory(path : File) : Directory = {
-    val clazzName = Main.config.getString("clouseau.dir_class",
+  private def newDirectory(config : Configuration, path : File) : Directory = {
+    val clazzName = config.getString("clouseau.dir_class",
       "org.apache.lucene.store.NIOFSDirectory")
     val clazz = Class.forName(clazzName)
     val ctor = clazz.getConstructor(classOf[File])
