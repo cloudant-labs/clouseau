@@ -281,7 +281,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   private def convertOrder(order: Array[AnyRef]) : List[Any] = {
     order.map {
           case(null) =>
-            throw new ParseException("Cannot sort on analyzed field")
+            'null
           case(v) =>
             v
     }.toList

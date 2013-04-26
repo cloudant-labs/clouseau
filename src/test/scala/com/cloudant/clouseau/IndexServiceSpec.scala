@@ -50,6 +50,17 @@ class IndexServiceSpec extends SpecificationWithJUnit {
         Hit(_, List(("_id", "bar")))
         ))) => ok
       })
+
+      // Can sort even if doc is missing that field
+      (node.call(service, SearchMsg("*:*", 2, refresh = true, None, "foo<string>"))
+        must beLike {
+        case ('ok, TopDocs(_, 2,
+        List(
+        Hit(_, List(("_id", "foo"))),
+        Hit(_, List(("_id", "bar")))
+        ))) => ok
+      })
+
     }
 
     "support bookmarks" in new index_service {
