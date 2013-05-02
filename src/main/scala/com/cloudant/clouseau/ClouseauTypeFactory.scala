@@ -163,13 +163,21 @@ object ClouseauTypeFactory extends TypeFactory {
   }
 
   def toStore(options : Map[String, Any]) : Store = {
-    val store = options.getOrElse("store", "no").asInstanceOf[String]
-    Store.valueOf(store toUpperCase)
+    options.getOrElse("store", "no") match {
+      case true  => Store.YES
+      case false => Store.NO
+      case str : String =>
+        Store.valueOf(str toUpperCase)
+    }
   }
 
   def toIndex(options : Map[String, Any]) : Index = {
-    val index = options.getOrElse("index", "analyzed").asInstanceOf[String]
-    Index.valueOf(index toUpperCase)
+    options.getOrElse("index","analyzed") match {
+      case true  => Index.ANALYZED
+      case false => Index.NO
+      case str : String =>
+        Index.valueOf(str toUpperCase)
+    }
   }
 
   def toTermVector(options : Map[String, Any]) : TermVector = {
