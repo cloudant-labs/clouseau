@@ -41,6 +41,12 @@ class ClouseauQueryParserSpec extends SpecificationWithJUnit {
       query.asInstanceOf[TermQuery].getTerm() must be equalTo(Utils.doubleToTerm("foo", 12.0))
     }
 
+    "support negative numeric term queries (integer)" in new parser {
+      val query = parser.parse("foo:\\-12")
+      query must haveClass[TermQuery]
+      query.asInstanceOf[TermQuery].getTerm() must be equalTo(Utils.doubleToTerm("foo", -12.0))
+    }
+
     "quoted string is not a number" in new parser {
       val query = parser.parse("foo:\"12\"")
       query must haveClass[TermQuery]
