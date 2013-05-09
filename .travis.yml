@@ -7,6 +7,7 @@ jdk:
 
 env:
   global:
+    # see http://about.travis-ci.org/blog/2012-12-18-travis-artifacts/
     - "ARTIFACTS_AWS_REGION=us-east-1"
     - "ARTIFACTS_S3_BUCKET=cloudant-artifacts"
     - secure: "scW9PpEI1nAR6AqsEUqkcLijpe1DWMYFG0+yZNCAHGZI8CvViJGC5YrTsYLW\nOSFXHgbsLf6o9jtV/xu1YQCvQ6XcM93niQ509jHKGtPrx9lKz2tS2ufu3yeA\nvOad1rODzMyykM07ePdFgjskzqY1vex68y8LC4a2wfXKxlZLri4="
@@ -16,4 +17,6 @@ before_script:
   - "gem install travis-artifacts"
 
 after_success:
-  - "test ${TRAVIS_JDK_VERSION} = openjdk6 && travis-artifacts upload --path target/clouseau*zip --target-path clouseau/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}"
+  - "set > target/travis-build-parameters.txt"
+  # Only save one of the 3 builds to S3, arbitrarily pick openjdk6
+  - "test ${TRAVIS_JDK_VERSION} = openjdk6 && cd target && travis-artifacts upload --path clouseau*zip --path travis-build-parameters.txt --target-path clouseau/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}"
