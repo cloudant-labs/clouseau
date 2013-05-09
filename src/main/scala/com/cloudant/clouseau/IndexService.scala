@@ -312,7 +312,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
 
 object IndexService {
 
-  val version = Version.LUCENE_40
+  val version = Version.LUCENE_43
 
   def start(node : Node, config : Configuration, path : String, options : Any) : Any = {
     val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
