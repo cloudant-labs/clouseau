@@ -1,5 +1,19 @@
 language: java
+
 jdk:
   - openjdk7
   - openjdk6
   - oraclejdk7
+
+env:
+  global:
+    - "ARTIFACTS_AWS_REGION=us-east-1"
+    - "ARTIFACTS_S3_BUCKET=cloudant-artifacts"
+    - secure: "scW9PpEI1nAR6AqsEUqkcLijpe1DWMYFG0+yZNCAHGZI8CvViJGC5YrTsYLW\nOSFXHgbsLf6o9jtV/xu1YQCvQ6XcM93niQ509jHKGtPrx9lKz2tS2ufu3yeA\nvOad1rODzMyykM07ePdFgjskzqY1vex68y8LC4a2wfXKxlZLri4="
+    - secure: "lCYGDz13fhVteIUou9sdmN5eBjXZvETpWl6uJ+jtlmG7nleKWedDp74gdLhN\nH5NJwMYVZiSvXHU8Bt6wO8HtsvSU7tz91841X/yDsfOuJh/Cn+zZTJOd8TwH\nSN0+W9pqSJG+iLK+2dv8fEoximFZEktIMhHqPfv3KWnzd3THi/M="
+
+before_script:
+  - "gem install travis-artifacts"
+
+after_success:
+  - "test ${TRAVIS_JDK_VERSION} = openjdk6 && travis-artifacts upload --path target/clouseau*zip --target-path clouseau/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}"
