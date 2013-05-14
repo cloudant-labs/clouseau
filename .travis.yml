@@ -19,4 +19,4 @@ before_script:
 after_success:
   - "set > target/travis-build-parameters.txt"
   # Only save one of the 3 builds to S3, arbitrarily pick openjdk6
-  - "test ${TRAVIS_JDK_VERSION} = openjdk6 && cd target && travis-artifacts upload --path clouseau*zip --path travis-build-parameters.txt --target-path clouseau/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}"
+  - "test ${TRAVIS_JDK_VERSION} = openjdk6 && cd target && travis-artifacts upload --path clouseau*zip --path travis-build-parameters.txt --target-path clouseau/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}" --private
