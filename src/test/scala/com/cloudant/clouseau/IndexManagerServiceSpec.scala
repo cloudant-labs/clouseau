@@ -31,7 +31,7 @@ trait manager_service extends RunningNode {
   val mbox = node.spawnMbox
 
    override def after {
-     node.call(service, 'close_lru)
+     node.call(service, 'close_indexes)
      super.after
   }
 
