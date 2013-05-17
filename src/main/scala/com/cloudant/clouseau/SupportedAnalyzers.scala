@@ -59,6 +59,18 @@ object SupportedAnalyzers {
 
   val logger = Logger.getLogger("clouseau.analyzers")
 
+  def createAnalyzer(options : Any) : Option[Analyzer] = {
+    createAnalyzerInt(options) match {
+      case Some(perfield: PerFieldAnalyzerWrapper) =>
+        Some(perfield)
+      case Some(analyzer: Analyzer) =>
+        Some(new PerFieldAnalyzerWrapper(analyzer,
+          Map("_id" -> new KeywordAnalyzer())))
+      case None =>
+        None
+    }
+  }
+
   def createAnalyzerInt(options : Any) : Option[Analyzer] = options match {
     case name : String =>
       createAnalyzerInt(Map("name" -> name))
@@ -333,7 +345,7 @@ object SupportedAnalyzers {
         case None =>
           fallbackAnalyzer
       }
-      val fieldMap : Map[String, Analyzer] = options.get("fields") match {
+      var fieldMap : Map[String, Analyzer] = options.get("fields") match {
         case Some(fields : List[(String, Any)]) =>
           fields map {kv => createAnalyzerInt(kv._2) match {
             case Some(fieldAnalyzer) =>
@@ -344,6 +356,7 @@ object SupportedAnalyzers {
         case _ =>
           Map.empty
       }
+      fieldMap += ("_id" -> new KeywordAnalyzer())
       Some(new PerFieldAnalyzerWrapper(defaultAnalyzer, fieldMap))
     case "swedish" =>
       options.get("stopwords") match {
