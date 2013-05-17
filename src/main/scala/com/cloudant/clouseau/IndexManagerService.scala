@@ -5,39 +5,47 @@
 package com.cloudant.clouseau
 
 import java.io.File
+import java.util.HashMap
+import java.util.LinkedHashMap
+import java.util.{Map => JMap}
+import java.util.Map.Entry
 import scala.collection.mutable.Map
 import org.apache.log4j.Logger
 import scalang._
 import com.yammer.metrics.scala._
+import scala.collection.JavaConversions._
 
 class IndexManagerService(ctx : ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
 
-  class Indexes() {
+  class LRU(initialCapacity : Int = 100, loadFactor : Float = 0.75f) {
 
-    val pathToPid = Map[String, Pid]()
-    val pidToPath = Map[Pid, String]()
+    class InnerLRU(initialCapacity : Int, loadFactor: Float) extends LinkedHashMap[String, Pid](initialCapacity, loadFactor, true) {
 
-    def get(path : String) : Option[Pid] = {
+      override def removeEldestEntry(eldest : Entry[String, Pid]) : Boolean = {
+        val result = size() > ctx.args.config.getInt("clouseau.max_indexes_open", 100)
+        if (result) {
+          eldest.getValue ! ('close, 'lru)
+        }
+        result
+      }
+    }
+
+    val pathToPid : JMap[String, Pid] = new InnerLRU(initialCapacity, loadFactor)
+    val pidToPath : JMap[Pid, String] = new HashMap(initialCapacity, loadFactor)
+
+    def get(path : String) : Pid = {
       pathToPid.get(path)
     }
 
     def put(path: String, pid : Pid) {
-      pathToPid.put(path, pid) match {
-        case Some(prev) =>
-          pidToPath.remove(prev)
-        case None =>
-          'ok
-      }
+      val prev = pathToPid.put(path, pid)
+      pidToPath.remove(prev)
       pidToPath.put(pid, path)
     }
 
     def remove(pid : Pid) {
-      pidToPath.remove(pid) match {
-        case Some(path) =>
-          pathToPid.remove(path)
-        case None =>
-          'ok
-      }
+      val path = pidToPath.remove(pid)
+      pathToPid.remove(path)
     }
 
     def isEmpty : Boolean = {
@@ -50,17 +58,12 @@ class IndexManagerService(ctx : ServiceContext[ConfigurationArgs]) extends Servi
       }
     }
 
-    def size: Int = {
-      pathToPid.size
-    }
-
   }
 
   val logger = Logger.getLogger("clouseau.main")
   val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
   val openTimer = metrics.timer("opens")
-  val indexes = new Indexes()
-  val openGauge = metrics.gauge("open_count") { indexes.size }
+  val lru = new LRU()
   val waiters = Map[String, List[(Pid, Reference)]]()
   var closing = false
   var closingTag: (Pid, Reference) = null
@@ -74,8 +77,8 @@ class IndexManagerService(ctx : ServiceContext[ConfigurationArgs]) extends Servi
 
   private def handleCall1(tag : (Pid, Reference), msg : Any) : Any = msg match {
     case OpenIndexMsg(peer : Pid, path : String, options : Any) =>
-      indexes.get(path) match {
-        case None =>
+      lru.get(path) match {
+        case null =>
           waiters.get(path) match {
             case None =>
               val manager = self
@@ -94,32 +97,32 @@ class IndexManagerService(ctx : ServiceContext[ConfigurationArgs]) extends Servi
               waiters.put(path, (tag :: list))
           }
           'noreply
-        case Some(pid) =>
+        case pid =>
           ('ok, pid)
       }
     case ('delete, path : String) =>
-      indexes.get(path) match {
-        case None =>
+      lru.get(path) match {
+        case null =>
           ('error, 'not_found)
-        case Some(pid) =>
+        case pid : Pid =>
           pid ! 'delete
           'ok
       }
-    case 'close_indexes =>
-      indexes.close()
+    case 'close_lru =>
+      lru.close()
       'ok
     case 'close =>
       closingTag = tag
       logger.info("Closing down.")
       closing = true
-      indexes.close()
+      lru.close()
       self ! 'maybe_exit
       'noreply
   }
 
   override def handleInfo(msg : Any) = msg match {
     case ('open_ok, path : String, peer : Pid, pid : Pid) =>
-      indexes.put(path, pid)
+      lru.put(path, pid)
       monitor(pid)
       node.link(peer, pid)
       replyAll(path, ('ok, pid))
@@ -133,7 +136,7 @@ class IndexManagerService(ctx : ServiceContext[ConfigurationArgs]) extends Servi
 
   override def trapMonitorExit(monitored : Any, ref : Reference, reason : Any) = monitored match {
     case pid : Pid =>
-      indexes.remove(pid)
+      lru.remove(pid)
       maybeExit()
     case _ =>
       'ignored
@@ -151,7 +154,7 @@ class IndexManagerService(ctx : ServiceContext[ConfigurationArgs]) extends Servi
   }
 
   private def maybeExit() {
-    if (closing && indexes.isEmpty) {
+    if (closing && lru.isEmpty) {
       logger.info("Closing on request")
       closingTag._1 ! (closingTag._2, 'ok)
       System.exit(0)
