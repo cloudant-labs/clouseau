@@ -39,13 +39,21 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     case null => 0L
     case seq  => seq.toLong
   }
+  var idle = false
   var forceRefresh = false
 
   val searchTimer = metrics.timer("searches")
 
+  sendEvery(self, 'close_if_idle,
+    ctx.args.config.getInt("clouseau.idle_interval", 60000))
   logger.info("Opened at update_seq %d".format(updateSeq))
 
-  override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
+  override def handleCall(tag : (Pid, Reference), msg : Any) : Any = {
+    idle = false
+    internalHandleCall(tag, msg)
+  }
+
+  def internalHandleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
     case SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Any) =>
       search(query, limit, refresh, after, sort)
     case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
@@ -80,6 +88,11 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       exit(msg)
     case ('close, reason) =>
       exit(reason)
+    case 'close_if_idle =>
+      if (idle) {
+        exit('idle)
+      }
+      idle = true
     case 'delete =>
       val dir = ctx.args.writer.getDirectory
       ctx.args.writer.close()
