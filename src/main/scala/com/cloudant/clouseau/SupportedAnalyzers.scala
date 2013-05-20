@@ -59,15 +59,27 @@ object SupportedAnalyzers {
 
   val logger = Logger.getLogger("clouseau.analyzers")
 
-  def createAnalyzer(options : Any) : Option[Analyzer] = options match {
+  def createAnalyzer(options : Any) : Option[Analyzer] = {
+    createAnalyzerInt(options) match {
+      case Some(perfield: PerFieldAnalyzerWrapper) =>
+        Some(perfield)
+      case Some(analyzer: Analyzer) =>
+        Some(new PerFieldAnalyzerWrapper(analyzer,
+          Map("_id" -> new KeywordAnalyzer())))
+      case None =>
+        None
+    }
+  }
+
+  def createAnalyzerInt(options : Any) : Option[Analyzer] = options match {
     case name : String =>
-      createAnalyzer(Map("name" -> name))
+      createAnalyzerInt(Map("name" -> name))
     case list : List[(String, Any)] =>
-      createAnalyzer(list.toMap)
+      createAnalyzerInt(list.toMap)
     case map : Map[String, Any] =>
       map.get("name") match {
       case Some(name : String) =>
-        createAnalyzer(name, map)
+        createAnalyzerInt(name, map)
       case None =>
         None
       }
@@ -75,7 +87,7 @@ object SupportedAnalyzers {
       None
   }
 
-  def createAnalyzer(name : String, options : Map[String, Any]) : Option[Analyzer] = name match {
+  def createAnalyzerInt(name : String, options : Map[String, Any]) : Option[Analyzer] = name match {
     case "keyword" =>
       Some(new KeywordAnalyzer())
     case "simple" =>
@@ -324,7 +336,7 @@ object SupportedAnalyzers {
       val fallbackAnalyzer = new StandardAnalyzer(IndexService.version)
       val defaultAnalyzer : Analyzer = options.get("default") match {
         case Some(defaultOptions) =>
-          createAnalyzer(defaultOptions) match {
+          createAnalyzerInt(defaultOptions) match {
             case Some(defaultAnalyzer1) =>
               defaultAnalyzer1
             case None =>
@@ -333,9 +345,9 @@ object SupportedAnalyzers {
         case None =>
           fallbackAnalyzer
       }
-      val fieldMap : Map[String, Analyzer] = options.get("fields") match {
+      var fieldMap : Map[String, Analyzer] = options.get("fields") match {
         case Some(fields : List[(String, Any)]) =>
-          fields map {kv => createAnalyzer(kv._2) match {
+          fields map {kv => createAnalyzerInt(kv._2) match {
             case Some(fieldAnalyzer) =>
               (kv._1, fieldAnalyzer)
             case None =>
@@ -344,6 +356,7 @@ object SupportedAnalyzers {
         case _ =>
           Map.empty
       }
+      fieldMap += ("_id" -> new KeywordAnalyzer())
       Some(new PerFieldAnalyzerWrapper(defaultAnalyzer, fieldMap))
     case "swedish" =>
       options.get("stopwords") match {
