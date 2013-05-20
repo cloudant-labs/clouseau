@@ -32,6 +32,16 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       })
     }
 
+    "be able to search uppercase _id with perfield" in new index_service_perfield {
+      val doc = new Document()
+      doc.add(new StringField("_id", "FOO", Field.Store.YES))
+      node.call(service, UpdateDocMsg("FOO", doc)) must be equalTo 'ok
+      (node.call(service, SearchMsg("_id:FOO", 1, refresh = true, None, 'relevance))
+        must beLike {
+        case ('ok, TopDocs(_, 1, _)) => ok
+      })
+    }
+
     "perform sorting" in new index_service {
       val doc1 = new Document()
       doc1.add(new StringField("_id", "foo", Field.Store.YES))
@@ -107,11 +117,23 @@ class IndexServiceSpec extends SpecificationWithJUnit {
 trait index_service extends RunningNode {
   val config = new BaseConfiguration()
   val args = new ConfigurationArgs(config)
-  val (_, service: Pid) = IndexService.start(node, config, "bar", "standard")
+  var (_, service: Pid) = IndexService.start(node, config, "bar", options())
+
+  def options(): Any = {
+    "standard"
+  }
 
   override def after {
     node.send(service, 'delete)
     super.after
+  }
+
+}
+
+trait index_service_perfield extends index_service {
+
+  override def options(): Any = {
+    Map("name" -> "perfield", "default" -> "english")
   }
 
 }
