@@ -65,17 +65,8 @@ class IndexManagerService(ctx : ServiceContext[ConfigurationArgs]) extends Servi
   val openTimer = metrics.timer("opens")
   val lru = new LRU()
   val waiters = Map[String, List[(Pid, Reference)]]()
-  var closing = false
-  var closingTag: (Pid, Reference) = null
 
-  override def handleCall(tag : (Pid, Reference), msg : Any) : Any = closing match {
-    case true =>
-      ('error, 'closing)
-    case false =>
-      handleCall1(tag, msg)
-  }
-
-  private def handleCall1(tag : (Pid, Reference), msg : Any) : Any = msg match {
+  override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
     case OpenIndexMsg(peer : Pid, path : String, options : Any) =>
       lru.get(path) match {
         case null =>
@@ -111,13 +102,6 @@ class IndexManagerService(ctx : ServiceContext[ConfigurationArgs]) extends Servi
     case 'close_lru =>
       lru.close()
       'ok
-    case 'close =>
-      closingTag = tag
-      logger.info("Closing down.")
-      closing = true
-      lru.close()
-      self ! 'maybe_exit
-      'noreply
   }
 
   override def handleInfo(msg : Any) = msg match {
@@ -130,14 +114,11 @@ class IndexManagerService(ctx : ServiceContext[ConfigurationArgs]) extends Servi
     case ('open_error, path : String, error : Any) =>
       replyAll(path, error)
       'noreply
-    case 'maybe_exit =>
-      maybeExit()
   }
 
   override def trapMonitorExit(monitored : Any, ref : Reference, reason : Any) = monitored match {
     case pid : Pid =>
       lru.remove(pid)
-      maybeExit()
     case _ =>
       'ignored
   }
@@ -150,14 +131,6 @@ class IndexManagerService(ctx : ServiceContext[ConfigurationArgs]) extends Servi
         }
       case None =>
         'ok
-    }
-  }
-
-  private def maybeExit() {
-    if (closing && lru.isEmpty) {
-      logger.info("Closing on request")
-      closingTag._1 ! (closingTag._2, 'ok)
-      System.exit(0)
     }
   }
 
