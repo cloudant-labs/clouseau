@@ -47,7 +47,6 @@ import org.apache.lucene.analysis.ru.RussianAnalyzer
 import org.apache.lucene.analysis.standard.ClassicAnalyzer
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.analysis.standard.UAX29URLEmailAnalyzer
-import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper
 import org.apache.lucene.analysis.sv.SwedishAnalyzer
 import org.apache.lucene.analysis.th.ThaiAnalyzer
 import org.apache.lucene.analysis.tr.TurkishAnalyzer
@@ -61,10 +60,10 @@ object SupportedAnalyzers {
 
   def createAnalyzer(options : Any) : Option[Analyzer] = {
     createAnalyzerInt(options) match {
-      case Some(perfield: PerFieldAnalyzerWrapper) =>
+      case Some(perfield: PerFieldAnalyzer) =>
         Some(perfield)
       case Some(analyzer: Analyzer) =>
-        Some(new PerFieldAnalyzerWrapper(analyzer,
+        Some(new PerFieldAnalyzer(analyzer,
           Map("_id" -> new KeywordAnalyzer())))
       case None =>
         None
@@ -357,7 +356,7 @@ object SupportedAnalyzers {
           Map.empty
       }
       fieldMap += ("_id" -> new KeywordAnalyzer())
-      Some(new PerFieldAnalyzerWrapper(defaultAnalyzer, fieldMap))
+      Some(new PerFieldAnalyzer(defaultAnalyzer, fieldMap))
     case "swedish" =>
       options.get("stopwords") match {
         case Some(stopwords : List[String]) =>
