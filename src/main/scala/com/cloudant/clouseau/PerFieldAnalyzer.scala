@@ -22,7 +22,7 @@ class PerFieldAnalyzer(defaultAnalyzer: Analyzer,
     components
   }
 
-  override def toString() = {
+  override def toString = {
     "PerFieldAnalyzer(" + map + ", default=" + defaultAnalyzer + ")"
   }
 
