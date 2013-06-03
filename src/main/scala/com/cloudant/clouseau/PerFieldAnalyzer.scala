@@ -17,8 +17,7 @@ class PerFieldAnalyzer(defaultAnalyzer: Analyzer,
   }
 
   override def wrapComponents(fieldName: String,
-                              components: TokenStreamComponents):
-  TokenStreamComponents = {
+                              components: TokenStreamComponents): TokenStreamComponents = {
     components
   }
 

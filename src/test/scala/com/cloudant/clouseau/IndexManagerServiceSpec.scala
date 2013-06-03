@@ -10,7 +10,7 @@ class IndexManagerServiceSpec extends SpecificationWithJUnit {
   "the index manager" should {
 
     "open an index when asked" in new manager_service {
-      node.call(service, OpenIndexMsg(mbox.self, "foo", "standard")) must beLike {case ('ok, pid: Pid) => ok }
+      node.call(service, OpenIndexMsg(mbox.self, "foo", "standard")) must beLike { case ('ok, pid: Pid) => ok }
     }
 
     "return the same index if it's already open" in new manager_service {
@@ -30,9 +30,9 @@ trait manager_service extends RunningNode {
   val service = node.spawnService[IndexManagerService, ConfigurationArgs](args)
   val mbox = node.spawnMbox
 
-   override def after {
-     node.call(service, 'close_lru)
-     super.after
+  override def after {
+    node.call(service, 'close_lru)
+    super.after
   }
 
 }

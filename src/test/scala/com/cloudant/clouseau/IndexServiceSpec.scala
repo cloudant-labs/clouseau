@@ -1,9 +1,9 @@
 package com.cloudant.clouseau
 
 import org.apache.commons.configuration.BaseConfiguration
-import scalang.{Node, Pid}
-import org.apache.lucene.document.{Document, StringField, Field}
-import org.apache.lucene.search.{FieldDoc, ScoreDoc}
+import scalang.{ Node, Pid }
+import org.apache.lucene.document.{ Document, StringField, Field }
+import org.apache.lucene.search.{ FieldDoc, ScoreDoc }
 import org.specs2.mutable.SpecificationWithJUnit
 import org.apache.lucene.util.BytesRef
 
@@ -56,32 +56,32 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       // First one way.
       (node.call(service, SearchMsg("*:*", 2, refresh = true, None, "_id<string>"))
         must beLike {
-        case ('ok, TopDocs(_, 2,
-        List(
-        Hit(_, List(("_id", "bar"))),
-        Hit(_, List(("_id", "foo")))
-        ))) => ok
-      })
+          case ('ok, TopDocs(_, 2,
+            List(
+              Hit(_, List(("_id", "bar"))),
+              Hit(_, List(("_id", "foo")))
+              ))) => ok
+        })
 
       // Then t'other.
       (node.call(service, SearchMsg("*:*", 2, refresh = true, None, "-_id<string>"))
         must beLike {
-        case ('ok, TopDocs(_, 2,
-        List(
-        Hit(_, List(("_id", "foo"))),
-        Hit(_, List(("_id", "bar")))
-        ))) => ok
-      })
+          case ('ok, TopDocs(_, 2,
+            List(
+              Hit(_, List(("_id", "foo"))),
+              Hit(_, List(("_id", "bar")))
+              ))) => ok
+        })
 
       // Can sort even if doc is missing that field
       (node.call(service, SearchMsg("*:*", 2, refresh = true, None, "foo<string>"))
         must beLike {
-        case ('ok, TopDocs(_, 2,
-        List(
-        Hit(_, List(("_id", "foo"))),
-        Hit(_, List(("_id", "bar")))
-        ))) => ok
-      })
+          case ('ok, TopDocs(_, 2,
+            List(
+              Hit(_, List(("_id", "foo"))),
+              Hit(_, List(("_id", "bar")))
+              ))) => ok
+        })
 
     }
 
@@ -121,8 +121,8 @@ class IndexServiceSpec extends SpecificationWithJUnit {
     node.call(service, UpdateDocMsg(value, doc)) must be equalTo 'ok
     (node.call(service, SearchMsg("_id:" + query, 1, refresh = true, None, 'relevance))
       must beLike {
-      case ('ok, TopDocs(_, 1, _)) => ok
-    })
+        case ('ok, TopDocs(_, 1, _)) => ok
+      })
   }
 
 }

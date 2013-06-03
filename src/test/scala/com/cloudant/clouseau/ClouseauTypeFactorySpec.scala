@@ -3,7 +3,6 @@ package com.cloudant.clouseau
 import org.specs2.mutable.SpecificationWithJUnit
 import org.apache.lucene.document.Field._
 
-
 class ClouseauTypeFactorySpec extends SpecificationWithJUnit {
 
   "the type factory" should {
@@ -54,6 +53,5 @@ class ClouseauTypeFactorySpec extends SpecificationWithJUnit {
     }
 
   }
-
 
 }

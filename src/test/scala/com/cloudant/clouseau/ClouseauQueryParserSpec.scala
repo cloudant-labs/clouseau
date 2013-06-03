@@ -9,7 +9,7 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search._
 import org.specs2.mutable.SpecificationWithJUnit
-import java.lang.{Double => JDouble}
+import java.lang.{ Double => JDouble }
 import org.specs2.specification.Scope
 
 class ClouseauQueryParserSpec extends SpecificationWithJUnit {
@@ -38,19 +38,19 @@ class ClouseauQueryParserSpec extends SpecificationWithJUnit {
     "support numeric term queries (integer)" in new parser {
       val query = parser.parse("foo:12")
       query must haveClass[TermQuery]
-      query.asInstanceOf[TermQuery].getTerm() must be equalTo(Utils.doubleToTerm("foo", 12.0))
+      query.asInstanceOf[TermQuery].getTerm() must be equalTo (Utils.doubleToTerm("foo", 12.0))
     }
 
     "support negative numeric term queries (integer)" in new parser {
       val query = parser.parse("foo:\\-12")
       query must haveClass[TermQuery]
-      query.asInstanceOf[TermQuery].getTerm() must be equalTo(Utils.doubleToTerm("foo", -12.0))
+      query.asInstanceOf[TermQuery].getTerm() must be equalTo (Utils.doubleToTerm("foo", -12.0))
     }
 
     "quoted string is not a number" in new parser {
       val query = parser.parse("foo:\"12\"")
       query must haveClass[TermQuery]
-      query.asInstanceOf[TermQuery].getTerm().text() must be equalTo("12")
+      query.asInstanceOf[TermQuery].getTerm().text() must be equalTo ("12")
     }
 
   }

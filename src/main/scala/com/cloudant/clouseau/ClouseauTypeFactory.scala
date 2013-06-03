@@ -13,11 +13,11 @@ import scalang._
 import org.jboss.netty.buffer.ChannelBuffer
 import org.apache.lucene.util.BytesRef
 
-case class OpenIndexMsg(peer : Pid, path : String, options : Any)
-case class CleanupPathMsg(path : String)
-case class CleanupDbMsg(dbName : String, activeSigs : List[String])
+case class OpenIndexMsg(peer: Pid, path: String, options: Any)
+case class CleanupPathMsg(path: String)
+case class CleanupDbMsg(dbName: String, activeSigs: List[String])
 
-case class SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Any)
+case class SearchMsg(query: String, limit: Int, refresh: Boolean, after: Option[ScoreDoc], sort: Any)
 
 case class Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
                      groupLimit: Int)
@@ -25,15 +25,15 @@ case class Group1Msg(query: String, field: String, refresh: Boolean, groupSort: 
 case class Group2Msg(query: String, field: String, refresh: Boolean, groups: Any, groupSort: Any,
                      docSort: Any, docLimit: Int)
 
-case class UpdateDocMsg(id : String, doc : Document)
-case class DeleteDocMsg(id : String)
-case class CommitMsg(seq : Long)
+case class UpdateDocMsg(id: String, doc: Document)
+case class DeleteDocMsg(id: String)
+case class CommitMsg(seq: Long)
 
 object ClouseauTypeFactory extends TypeFactory {
 
   val logger = Logger.getLogger("clouseau.tf")
 
-  def createType(name : Symbol, arity : Int, reader : TermReader) : Option[Any] = (name, arity) match {
+  def createType(name: Symbol, arity: Int, reader: TermReader): Option[Any] = (name, arity) match {
     case ('open, 4) =>
       Some(OpenIndexMsg(reader.readAs[Pid], reader.readAs[String], reader.readTerm))
     case ('cleanup, 2) =>
@@ -61,23 +61,23 @@ object ClouseauTypeFactory extends TypeFactory {
       None
   }
 
-  protected def readScoreDoc(reader : TermReader) : Option[ScoreDoc] = reader.readTerm match {
+  protected def readScoreDoc(reader: TermReader): Option[ScoreDoc] = reader.readTerm match {
     case 'nil =>
       None
-    case (score : Any, doc : Any) =>
+    case (score: Any, doc: Any) =>
       Some(new ScoreDoc(toInteger(doc), toFloat(score)))
-    case list : List[Object] =>
+    case list: List[Object] =>
       val doc = list.last
-      val fields = list dropRight(1)
+      val fields = list dropRight (1)
       Some(new FieldDoc(toInteger(doc), Float.NaN, fields map {
         case str: String =>
           Utils.stringToBytesRef(str)
         case field =>
-           field
+          field
       } toArray))
   }
 
-  protected def readDoc(reader : TermReader) : Document = {
+  protected def readDoc(reader: TermReader): Document = {
     val result = new Document()
     result.add(new Field("_id", reader.readAs[String], Store.YES, Index.NOT_ANALYZED))
     val fields = reader.readAs[List[Any]]
@@ -92,13 +92,13 @@ object ClouseauTypeFactory extends TypeFactory {
     result
   }
 
-  private def toField(field : Any) : Option[Field] = field match {
-    case (name : String, value : String, options : List[(String, Any)]) =>
+  private def toField(field: Any): Option[Field] = field match {
+    case (name: String, value: String, options: List[(String, Any)]) =>
       val map = options.toMap
       constructField(name, value, toStore(map), toIndex(map), toTermVector(map)) match {
         case Some(field) =>
           map.get("boost") match {
-            case Some(boost : Number) =>
+            case Some(boost: Number) =>
               field.setBoost(toFloat(boost))
             case None =>
               'ok
@@ -107,10 +107,10 @@ object ClouseauTypeFactory extends TypeFactory {
         case None =>
           None
       }
-    case (name : String, value : Boolean, options : List[(String, Any)]) =>
+    case (name: String, value: Boolean, options: List[(String, Any)]) =>
       val map = options.toMap
       constructField(name, value.toString, toStore(map), Index.NOT_ANALYZED, toTermVector(map))
-    case (name : String, value : Any, options : List[(String, Any)]) =>
+    case (name: String, value: Any, options: List[(String, Any)]) =>
       val map = options.toMap
       toDouble(value) match {
         case Some(doubleValue) =>
@@ -121,14 +121,14 @@ object ClouseauTypeFactory extends TypeFactory {
       }
   }
 
-  private def constructField(name : String, value : String, store : Store, index : Index, tv : TermVector) : Option[Field] = {
+  private def constructField(name: String, value: String, store: Store, index: Index, tv: TermVector): Option[Field] = {
     try {
       Some(new Field(name, value, store, index, tv))
     } catch {
-      case e : IllegalArgumentException =>
+      case e: IllegalArgumentException =>
         logger.error("Failed to construct field '%s' with reason '%s'".format(name, e.getMessage))
         None
-      case e : NullPointerException =>
+      case e: NullPointerException =>
         logger.error("Failed to construct field '%s' with reason '%s'".format(name, e.getMessage))
         None
     }
@@ -136,51 +136,51 @@ object ClouseauTypeFactory extends TypeFactory {
 
   // These to* methods are stupid.
 
-  def toFloat(a : Any) : Float = a match {
-    case v : java.lang.Double  => v.floatValue
-    case v : java.lang.Float   => v
-    case v : java.lang.Integer => v.floatValue
-    case v : java.lang.Long    => v.floatValue
+  def toFloat(a: Any): Float = a match {
+    case v: java.lang.Double => v.floatValue
+    case v: java.lang.Float => v
+    case v: java.lang.Integer => v.floatValue
+    case v: java.lang.Long => v.floatValue
   }
 
-  def toDouble(a : Any) : Option[Double] = a match {
-    case v : java.lang.Double  => Some(v)
-    case v : java.lang.Float   => Some(v.doubleValue)
-    case v : java.lang.Integer => Some(v.doubleValue)
-    case v : java.lang.Long    => Some(v.doubleValue)
-    case v : scala.math.BigInt => Some(v.doubleValue())
+  def toDouble(a: Any): Option[Double] = a match {
+    case v: java.lang.Double => Some(v)
+    case v: java.lang.Float => Some(v.doubleValue)
+    case v: java.lang.Integer => Some(v.doubleValue)
+    case v: java.lang.Long => Some(v.doubleValue)
+    case v: scala.math.BigInt => Some(v.doubleValue())
     case _ => None
   }
 
-  def toLong(a : Any) : Long = a match {
-    case v : java.lang.Integer => v.longValue
-    case v : java.lang.Long    => v
+  def toLong(a: Any): Long = a match {
+    case v: java.lang.Integer => v.longValue
+    case v: java.lang.Long => v
   }
 
-  def toInteger(a : Any) : Integer = a match {
-    case v : java.lang.Integer => v
-    case v : java.lang.Long    => v.intValue
+  def toInteger(a: Any): Integer = a match {
+    case v: java.lang.Integer => v
+    case v: java.lang.Long => v.intValue
   }
 
-  def toStore(options : Map[String, Any]) : Store = {
+  def toStore(options: Map[String, Any]): Store = {
     options.getOrElse("store", "no") match {
-      case true  => Store.YES
+      case true => Store.YES
       case false => Store.NO
-      case str : String =>
+      case str: String =>
         Store.valueOf(str toUpperCase)
     }
   }
 
-  def toIndex(options : Map[String, Any]) : Index = {
-    options.getOrElse("index","analyzed") match {
-      case true  => Index.ANALYZED
+  def toIndex(options: Map[String, Any]): Index = {
+    options.getOrElse("index", "analyzed") match {
+      case true => Index.ANALYZED
       case false => Index.NO
-      case str : String =>
+      case str: String =>
         Index.valueOf(str toUpperCase)
     }
   }
 
-  def toTermVector(options : Map[String, Any]) : TermVector = {
+  def toTermVector(options: Map[String, Any]): TermVector = {
     val termVector = options.getOrElse("termvector", "no").asInstanceOf[String]
     TermVector.valueOf(termVector toUpperCase)
   }
@@ -190,9 +190,9 @@ object ClouseauTypeFactory extends TypeFactory {
 object ClouseauTypeEncoder extends TypeEncoder {
 
   def unapply(obj: Any): Option[Any] = obj match {
-    case bytesRef : BytesRef =>
+    case bytesRef: BytesRef =>
       Some(bytesRef)
-    case string : String =>
+    case string: String =>
       Some(string)
     case null =>
       Some(null)
@@ -230,7 +230,7 @@ object ClouseauTypeDecoder extends TypeDecoder {
       None
   }
 
-  def decode(typeOrdinal : Int, buffer: ChannelBuffer) : Any = typeOrdinal match {
+  def decode(typeOrdinal: Int, buffer: ChannelBuffer): Any = typeOrdinal match {
     case 109 =>
       val length = buffer.readInt
       val bytes = new Array[Byte](length)

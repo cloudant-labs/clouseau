@@ -10,5 +10,5 @@ class FakeServiceContext[A <: Product](serviceArgs: A) extends ServiceContext[A]
   val fiber = null
   val replyRegistry = null
   val args = serviceArgs
-  var adapter : ProcessAdapter = null
+  var adapter: ProcessAdapter = null
 }

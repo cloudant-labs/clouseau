@@ -12,7 +12,7 @@ import org.apache.lucene.index._
 import org.apache.lucene.store._
 import org.apache.lucene.search._
 import grouping.SearchGroup
-import grouping.term.{TermSecondPassGroupingCollector, TermFirstPassGroupingCollector}
+import grouping.term.{ TermSecondPassGroupingCollector, TermFirstPassGroupingCollector }
 import org.apache.lucene.util.BytesRef
 import org.apache.lucene.util.Version
 import org.apache.lucene.search.IndexSearcher
@@ -24,20 +24,20 @@ import com.yammer.metrics.scala._
 import com.cloudant.clouseau.Utils._
 import org.apache.commons.configuration.Configuration
 
-case class IndexServiceArgs(config: Configuration, name : String, queryParser : QueryParser, writer : IndexWriter)
+case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
 
 // These must match the records in dreyfus.
-case class TopDocs(updateSeq : Long, totalHits : Long, hits : List[Hit])
-case class Hit(order : List[Any], fields : List[Any])
+case class TopDocs(updateSeq: Long, totalHits: Long, hits: List[Hit])
+case class Hit(order: List[Any], fields: List[Any])
 
-class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
+class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
 
   val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
   val sortFieldRE = """^([-+])?([\.\w]+)(?:<(\w+)>)?$""".r
   var reader = DirectoryReader.open(ctx.args.writer, true)
   var updateSeq = reader.getIndexCommit().getUserData().get("update_seq") match {
     case null => 0L
-    case seq  => seq.toLong
+    case seq => seq.toLong
   }
   var forceRefresh = false
 
@@ -45,26 +45,26 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
 
   logger.info("Opened at update_seq %d".format(updateSeq))
 
-  override def handleCall(tag : (Pid, Reference), msg : Any) : Any = msg match {
-    case SearchMsg(query : String, limit : Int, refresh : Boolean, after : Option[ScoreDoc], sort : Any) =>
+  override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
+    case SearchMsg(query: String, limit: Int, refresh: Boolean, after: Option[ScoreDoc], sort: Any) =>
       search(query, limit, refresh, after, sort)
     case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
-    groupLimit: Int) =>
+      groupLimit: Int) =>
       group1(query, field, refresh, groupSort, groupOffset, groupLimit)
     case Group2Msg(query: String, field: String, refresh: Boolean, groups: List[Any], groupSort: Any,
-    docSort: Any, docLimit: Int) =>
+      docSort: Any, docLimit: Int) =>
       group2(query, field, refresh, groups, groupSort, docSort, docLimit)
     case 'get_update_seq =>
       ('ok, updateSeq)
-    case UpdateDocMsg(id : String, doc : Document) =>
+    case UpdateDocMsg(id: String, doc: Document) =>
       logger.debug("Updating %s".format(id))
       ctx.args.writer.updateDocument(new Term("_id", id), doc)
       'ok
-    case DeleteDocMsg(id : String) =>
+    case DeleteDocMsg(id: String) =>
       logger.debug("Deleting %s".format(id))
       ctx.args.writer.deleteDocuments(new Term("_id", id))
       'ok
-    case CommitMsg(commitSeq : Long) =>
+    case CommitMsg(commitSeq: Long) =>
       ctx.args.writer.setCommitData(Map("update_seq" -> commitSeq.toString))
       ctx.args.writer.commit()
       updateSeq = commitSeq
@@ -75,7 +75,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       ('ok, getInfo)
   }
 
-  override def handleInfo(msg : Any) = msg match {
+  override def handleInfo(msg: Any) = msg match {
     case 'close =>
       exit(msg)
     case ('close, reason) =>
@@ -89,25 +89,24 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       exit('deleted)
   }
 
-  override def exit(msg : Any) {
+  override def exit(msg: Any) {
     logger.info("Closed with reason: %.1000s".format(msg))
     try {
       reader.close()
     } catch {
-      case e : IOException => logger.warn("Error while closing reader", e)
+      case e: IOException => logger.warn("Error while closing reader", e)
     }
     try {
       ctx.args.writer.rollback()
     } catch {
-      case e : AlreadyClosedException => 'ignored
-      case e : IOException            => logger.warn("Error while closing writer", e)
+      case e: AlreadyClosedException => 'ignored
+      case e: IOException => logger.warn("Error while closing writer", e)
     } finally {
       super.exit(msg)
     }
   }
 
-  private def search(queryString: String, limit: Int, refresh: Boolean, after: Option[ScoreDoc], sort: Any)
-  : Any = parseQuery(queryString) match {
+  private def search(queryString: String, limit: Int, refresh: Boolean, after: Option[ScoreDoc], sort: Any): Any = parseQuery(queryString) match {
     case query: Query =>
       safeSearch {
         val searcher = getSearcher(refresh)
@@ -173,12 +172,13 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
             case topGroups =>
               ('ok, topGroups.totalHitCount, topGroups.totalGroupedHitCount,
                 topGroups.groups.map {
-                  g => (
-                    g.groupValue,
-                    g.totalHits,
-                    g.scoreDocs.map({
-                      docToHit(searcher, _)
-                    }).toList
+                  g =>
+                    (
+                      g.groupValue,
+                      g.totalHits,
+                      g.scoreDocs.map({
+                        docToHit(searcher, _)
+                      }).toList
                     )
                 }.toList)
           }
@@ -200,7 +200,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       result
   }
 
-  private def parseQuery(query : String): Any = {
+  private def parseQuery(query: String): Any = {
     safeSearch { ctx.args.queryParser.parse(query) }
   }
 
@@ -223,17 +223,17 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
   }
 
   private def reopenIfChanged() {
-      val newReader = DirectoryReader.openIfChanged(reader)
-      if (newReader != null) {
-        reader.close()
-        reader = newReader
-        forceRefresh = false
-      }
+    val newReader = DirectoryReader.openIfChanged(reader)
+    if (newReader != null) {
+      reader.close()
+      reader = newReader
+      forceRefresh = false
+    }
   }
 
-  private def getInfo : List[Any] = {
+  private def getInfo: List[Any] = {
     reopenIfChanged()
-    val sizes = reader.directory.listAll map {reader.directory.fileLength(_)}
+    val sizes = reader.directory.listAll map { reader.directory.fileLength(_) }
     val diskSize = sizes.sum
     List(
       ('disk_size, diskSize),
@@ -251,9 +251,9 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       new Sort(fields.map(toSortField(_)).toArray: _*)
   }
 
-  private def docToHit(searcher : IndexSearcher, scoreDoc : ScoreDoc) : Hit = {
+  private def docToHit(searcher: IndexSearcher, scoreDoc: ScoreDoc): Hit = {
     val doc = searcher.doc(scoreDoc.doc)
-    val fields = doc.getFields.foldLeft(Map[String,Any]())((acc,field) => {
+    val fields = doc.getFields.foldLeft(Map[String, Any]())((acc, field) => {
       val value = field.numericValue match {
         case null =>
           field.stringValue
@@ -263,14 +263,14 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       acc.get(field.name) match {
         case None =>
           acc + (field.name -> value)
-        case Some(list : List[Any]) =>
+        case Some(list: List[Any]) =>
           acc + (field.name -> (value :: list))
-        case Some(existingValue : Any) =>
+        case Some(existingValue: Any) =>
           acc + (field.name -> List(value, existingValue))
       }
     })
     val order = scoreDoc match {
-      case fieldDoc : FieldDoc =>
+      case fieldDoc: FieldDoc =>
         convertOrder(fieldDoc.fields) :+ scoreDoc.doc
       case _ =>
         List[Any](scoreDoc.score, scoreDoc.doc)
@@ -278,14 +278,14 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
     Hit(order, fields.toList)
   }
 
-  private def convertOrder(order: Array[AnyRef]) : List[Any] = {
+  private def convertOrder(order: Array[AnyRef]): List[Any] = {
     order.map {
-          case(null) =>
-            'null
-          case(v) =>
-            v
+      case (null) =>
+        'null
+      case (v) =>
+        v
     }.toList
-    }
+  }
 
   private def toSortField(field: String): SortField = sortFieldRE.findFirstMatchIn(field) match {
     case Some(sortFieldRE(fieldOrder, fieldName, fieldType)) =>
@@ -304,7 +304,7 @@ class IndexService(ctx : ServiceContext[IndexServiceArgs]) extends Service(ctx) 
       throw new ParseException("Unrecognized sort parameter: " + field)
   }
 
-  override def toString : String = {
+  override def toString: String = {
     ctx.args.name
   }
 
@@ -314,7 +314,7 @@ object IndexService {
 
   val version = Version.LUCENE_43
 
-  def start(node : Node, config : Configuration, path : String, options : Any) : Any = {
+  def start(node: Node, config: Configuration, path: String, options: Any): Any = {
     val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
     val dir = newDirectory(config, new File(rootDir, path))
     try {
@@ -328,12 +328,12 @@ object IndexService {
           ('error, 'no_such_analyzer)
       }
     } catch {
-      case e : IllegalArgumentException => ('error, e.getMessage)
-      case e : IOException => ('error, e.getMessage)
+      case e: IllegalArgumentException => ('error, e.getMessage)
+      case e: IOException => ('error, e.getMessage)
     }
   }
 
-  private def newDirectory(config : Configuration, path : File) : Directory = {
+  private def newDirectory(config: Configuration, path: File): Directory = {
     val clazzName = config.getString("clouseau.dir_class",
       "org.apache.lucene.store.NIOFSDirectory")
     val clazz = Class.forName(clazzName)

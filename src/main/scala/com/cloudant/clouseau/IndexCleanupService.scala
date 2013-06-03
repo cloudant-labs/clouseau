@@ -10,23 +10,23 @@ import java.util.regex.Pattern
 import org.apache.log4j.Logger
 import scalang._
 
-class IndexCleanupService(ctx : ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
+class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
 
   val logger = Logger.getLogger("clouseau.cleanup")
   val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
 
-  override def handleCast(msg : Any) = msg match {
-      case CleanupPathMsg(path : String) =>
+  override def handleCast(msg: Any) = msg match {
+    case CleanupPathMsg(path: String) =>
       val dir = new File(rootDir, path)
       logger.info("Removing %s".format(path))
       recursivelyDelete(dir)
-    case CleanupDbMsg(dbName : String, activeSigs : List[String]) =>
+    case CleanupDbMsg(dbName: String, activeSigs: List[String]) =>
       logger.info("Cleaning up " + dbName)
       val pattern = Pattern.compile("shards/[0-9a-f]+-[0-9a-f]+/" + dbName + "\\.[0-9]+/([0-9a-f]+)$")
       cleanup(rootDir, pattern, activeSigs)
   }
 
-  private def cleanup(fileOrDir : File, includePattern : Pattern, activeSigs : List[String]) {
+  private def cleanup(fileOrDir: File, includePattern: Pattern, activeSigs: List[String]) {
     if (!fileOrDir.isDirectory) {
       return
     }
@@ -46,7 +46,7 @@ class IndexCleanupService(ctx : ServiceContext[ConfigurationArgs]) extends Servi
     }
   }
 
-  private def recursivelyDelete(fileOrDir : File) {
+  private def recursivelyDelete(fileOrDir: File) {
     if (fileOrDir.isDirectory)
       for (file <- fileOrDir.listFiles)
         recursivelyDelete(file)

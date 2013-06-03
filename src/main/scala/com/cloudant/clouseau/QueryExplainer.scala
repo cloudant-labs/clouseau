@@ -16,7 +16,7 @@
 
 package com.cloudant.clouseau
 
-import java.lang.{StringBuilder, String}
+import java.lang.{ StringBuilder, String }
 import org.apache.lucene.search._
 
 object QueryExplainer {

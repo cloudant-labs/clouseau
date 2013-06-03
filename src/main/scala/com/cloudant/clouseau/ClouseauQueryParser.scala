@@ -17,7 +17,7 @@ import org.apache.lucene.analysis.core.KeywordAnalyzer
 class ClouseauQueryParser(version: Version,
                           defaultField: String,
                           analyzer: Analyzer)
-  extends QueryParser(version, defaultField, analyzer) {
+    extends QueryParser(version, defaultField, analyzer) {
 
   // regexp from java.lang.Double
   val Digits = "(\\p{Digit}+)"

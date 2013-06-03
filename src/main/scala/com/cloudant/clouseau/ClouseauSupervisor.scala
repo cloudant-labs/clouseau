@@ -8,16 +8,16 @@ import org.apache.log4j.Logger
 import scalang._
 import org.apache.commons.configuration.Configuration
 
-case class ConfigurationArgs(config : Configuration)
+case class ConfigurationArgs(config: Configuration)
 
-class ClouseauSupervisor(ctx : ServiceContext[ConfigurationArgs]) extends Service(ctx) {
+class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) {
 
   val logger = Logger.getLogger("clouseau.supervisor")
   var manager = spawnAndMonitorService[IndexManagerService, ConfigurationArgs]('main, ctx.args)
   var cleanup = spawnAndMonitorService[IndexCleanupService, ConfigurationArgs]('cleanup, ctx.args)
   var analyzer = spawnAndMonitorService[AnalyzerService, ConfigurationArgs]('analyzer, ctx.args)
 
-  override def trapMonitorExit(monitored : Any, ref : Reference, reason : Any) {
+  override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any) {
     if (monitored == manager) {
       logger.warn("manager crashed")
       manager = spawnAndMonitorService[IndexManagerService, ConfigurationArgs]('main, ctx.args)
@@ -32,8 +32,8 @@ class ClouseauSupervisor(ctx : ServiceContext[ConfigurationArgs]) extends Servic
     }
   }
 
-  private def spawnAndMonitorService[T <: Service[A], A <: Product](regName : Symbol, args : A)(implicit mf : Manifest[T]) : Pid = {
-    val pid = node.spawnService[T,A](regName, args, reentrant = false)(mf)
+  private def spawnAndMonitorService[T <: Service[A], A <: Product](regName: Symbol, args: A)(implicit mf: Manifest[T]): Pid = {
+    val pid = node.spawnService[T, A](regName, args, reentrant = false)(mf)
     monitor(pid)
     pid
   }
@@ -42,7 +42,7 @@ class ClouseauSupervisor(ctx : ServiceContext[ConfigurationArgs]) extends Servic
 
 object ClouseauSupervisor {
 
-  def start(node : Node, config : Configuration) : Pid = {
+  def start(node: Node, config: Configuration): Pid = {
     node.spawnService[ClouseauSupervisor, ConfigurationArgs]('sup, ConfigurationArgs(config))
   }
 
