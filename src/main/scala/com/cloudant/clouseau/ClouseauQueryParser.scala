@@ -13,6 +13,7 @@ import org.apache.lucene.search.NumericRangeQuery
 import org.apache.lucene.search.Query
 import org.apache.lucene.search.TermQuery
 import org.apache.lucene.util.Version
+import org.apache.lucene.analysis.core.KeywordAnalyzer
 
 class ClouseauQueryParser(version : Version, defaultField : String, analyzer : Analyzer)
   extends QueryParser(version, defaultField, analyzer) {
@@ -49,6 +50,7 @@ class ClouseauQueryParser(version : Version, defaultField : String, analyzer : A
       if (isNumber(lower) && isNumber(upper)) {
         NumericRangeQuery.newDoubleRange(field, 8, lower.toDouble, upper.toDouble, startInclusive, endInclusive)
       } else {
+        setLowercaseExpandedTerms(field)
         super.getRangeQuery(field, lower, upper, startInclusive, endInclusive)
       }
     }
@@ -61,8 +63,42 @@ class ClouseauQueryParser(version : Version, defaultField : String, analyzer : A
       }
     }
 
+    override def getFuzzyQuery(field: String, termStr: String,
+                               minSimilarity: Float): Query = {
+      setLowercaseExpandedTerms(field)
+      super.getFuzzyQuery(field, termStr, minSimilarity)
+    }
+
+    override def getPrefixQuery(field: String, termStr: String): Query = {
+      setLowercaseExpandedTerms(field)
+      super.getPrefixQuery(field, termStr)
+    }
+
+    override def getRegexpQuery(field: String, termStr: String): Query = {
+      setLowercaseExpandedTerms(field)
+      super.getRegexpQuery(field, termStr)
+    }
+
+    override def getWildcardQuery(field: String, termStr: String): Query = {
+      setLowercaseExpandedTerms(field)
+      super.getWildcardQuery(field, termStr)
+    }
+
     private def isNumber(str : String) : Boolean = {
       Pattern.matches(fpRegex, str)
+    }
+
+    private def setLowercaseExpandedTerms(field : String) {
+      getAnalyzer match {
+        case a: PerFieldAnalyzer =>
+          setLowercaseExpandedTerms(a.getWrappedAnalyzer(field))
+        case _: Analyzer =>
+          setLowercaseExpandedTerms(analyzer)
+      }
+    }
+
+    private def setLowercaseExpandedTerms(analyzer: Analyzer) {
+      setLowercaseExpandedTerms(!analyzer.isInstanceOf[KeywordAnalyzer])
     }
 
 }

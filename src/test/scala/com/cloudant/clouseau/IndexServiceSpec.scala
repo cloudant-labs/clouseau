@@ -1,7 +1,7 @@
 package com.cloudant.clouseau
 
 import org.apache.commons.configuration.BaseConfiguration
-import scalang.Pid
+import scalang.{Node, Pid}
 import org.apache.lucene.document.{Document, StringField, Field}
 import org.apache.lucene.search.{FieldDoc, ScoreDoc}
 import org.specs2.mutable.SpecificationWithJUnit
@@ -13,33 +13,35 @@ class IndexServiceSpec extends SpecificationWithJUnit {
   "an index" should {
 
     "perform basic queries" in new index_service {
-      val doc = new Document()
-      doc.add(new StringField("_id", "foo", Field.Store.YES))
-      node.call(service, UpdateDocMsg("foo", doc)) must be equalTo 'ok
-      (node.call(service, SearchMsg("_id:foo", 1, refresh = true, None, 'relevance))
-        must beLike {
-        case ('ok, TopDocs(_, 1, _)) => ok
-      })
+      isSearchable(node, service, "foo", "foo")
     }
 
     "be able to search uppercase _id" in new index_service {
-      val doc = new Document()
-      doc.add(new StringField("_id", "FOO", Field.Store.YES))
-      node.call(service, UpdateDocMsg("FOO", doc)) must be equalTo 'ok
-      (node.call(service, SearchMsg("_id:FOO", 1, refresh = true, None, 'relevance))
-        must beLike {
-        case ('ok, TopDocs(_, 1, _)) => ok
-      })
+      isSearchable(node, service, "FOO", "FOO")
+    }
+
+    "be able to search uppercase _id with prefix" in new index_service {
+      isSearchable(node, service, "FOO", "FO*")
+    }
+
+    "be able to search uppercase _id with wildcards" in new index_service {
+      isSearchable(node, service, "FOO", "F?O*")
+    }
+
+    "be able to search uppercase _id with range" in new index_service {
+      isSearchable(node, service, "FOO", "[FOO TO FOO]")
+    }
+
+    "be able to search uppercase _id with regexp" in new index_service {
+      isSearchable(node, service, "FOO", "/FOO/")
+    }
+
+    "be able to search uppercase _id with fuzzy" in new index_service {
+      isSearchable(node, service, "FOO", "FO~")
     }
 
     "be able to search uppercase _id with perfield" in new index_service_perfield {
-      val doc = new Document()
-      doc.add(new StringField("_id", "FOO", Field.Store.YES))
-      node.call(service, UpdateDocMsg("FOO", doc)) must be equalTo 'ok
-      (node.call(service, SearchMsg("_id:FOO", 1, refresh = true, None, 'relevance))
-        must beLike {
-        case ('ok, TopDocs(_, 1, _)) => ok
-      })
+      isSearchable(node, service, "FOO", "FOO")
     }
 
     "perform sorting" in new index_service {
@@ -110,6 +112,17 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       }
     }
 
+  }
+
+  private def isSearchable(node: Node, service: Pid,
+                           value: String, query: String) {
+    val doc = new Document()
+    doc.add(new StringField("_id", value, Field.Store.YES))
+    node.call(service, UpdateDocMsg(value, doc)) must be equalTo 'ok
+    (node.call(service, SearchMsg("_id:" + query, 1, refresh = true, None, 'relevance))
+      must beLike {
+      case ('ok, TopDocs(_, 1, _)) => ok
+    })
   }
 
 }
