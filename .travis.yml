@@ -1,9 +1,6 @@
 language: java
 
-jdk:
-  - openjdk7
-  - openjdk6
-  - oraclejdk7
+jdk: oraclejdk7
 
 env:
   global:
@@ -12,11 +9,19 @@ env:
     - "ARTIFACTS_S3_BUCKET=cloudant-artifacts"
     - secure: "scW9PpEI1nAR6AqsEUqkcLijpe1DWMYFG0+yZNCAHGZI8CvViJGC5YrTsYLW\nOSFXHgbsLf6o9jtV/xu1YQCvQ6XcM93niQ509jHKGtPrx9lKz2tS2ufu3yeA\nvOad1rODzMyykM07ePdFgjskzqY1vex68y8LC4a2wfXKxlZLri4="
     - secure: "lCYGDz13fhVteIUou9sdmN5eBjXZvETpWl6uJ+jtlmG7nleKWedDp74gdLhN\nH5NJwMYVZiSvXHU8Bt6wO8HtsvSU7tz91841X/yDsfOuJh/Cn+zZTJOd8TwH\nSN0+W9pqSJG+iLK+2dv8fEoximFZEktIMhHqPfv3KWnzd3THi/M="
+    - secure: "H3GjNJzwNHOp1e6/aJmZEa7vOyNIdj1gF9UdJSOaxkIlRXtTsShgI7JG5xwJ\nw4okZom/m0PcYL7+xN5dLuABsVWWWy0yg9/zgIYtUbD48MiE4XbNKU+39tHu\nbgdF+ANZUDTtlrTxCHq3QjrmCTQODhlBMMJ4xBTWJHr0BhmwSPQ="
 
 before_script:
-  - "gem install travis-artifacts"
+  - "travis_retry gem install travis-artifacts"
+  - "travis_retry curl -O https://s3.amazonaws.com/cloudant-artifacts/claw.py"
 
 after_success:
-  - "set > target/travis-build-parameters.txt"
-  # Only save one of the 3 builds to S3, arbitrarily pick openjdk6
-  - "test ${TRAVIS_JDK_VERSION} = openjdk6 && cd target && travis-artifacts upload --path clouseau*zip --path travis-build-parameters.txt --target-path clouseau/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER} --private"
+  - "cd target && python ../claw.py clouseau*zip"
+
+notifications:
+  email: false
+  irc:
+    channels:
+      - "irc.freenode.org#cloudant-dev"
+    template:
+      - "%{repository}#%{build_number} (%{branch} - %{commit} : %{author}): %{message} Details: %{build_url}"
