@@ -102,6 +102,8 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     case 'close_lru =>
       lru.close()
       'ok
+    case 'version =>
+      ('ok, getClass.getPackage.getImplementationVersion)
   }
 
   override def handleInfo(msg: Any) = msg match {
