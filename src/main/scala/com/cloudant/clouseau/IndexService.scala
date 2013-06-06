@@ -39,9 +39,16 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     case null => 0L
     case seq => seq.toLong
   }
+  var pendingSeq = updateSeq
+  var committing = false
   var forceRefresh = false
 
   val searchTimer = metrics.timer("searches")
+  val commitTimer = metrics.timer("commits")
+
+  // Start committer heartbeat
+  val commitInterval = ctx.args.config.getInt("commit_interval_secs", 300)
+  sendEvery(self, 'maybe_commit, commitInterval * 1000)
 
   logger.info("Opened at update_seq %d".format(updateSeq))
 
@@ -64,12 +71,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       logger.debug("Deleting %s".format(id))
       ctx.args.writer.deleteDocuments(new Term("_id", id))
       'ok
-    case CommitMsg(commitSeq: Long) =>
-      ctx.args.writer.setCommitData(Map("update_seq" -> commitSeq.toString))
-      ctx.args.writer.commit()
-      updateSeq = commitSeq
-      logger.info("Committed sequence %d".format(commitSeq))
-      forceRefresh = true
+    case CommitMsg(commitSeq: Long) => // deprecated
+      pendingSeq = commitSeq
+      logger.debug("Pending sequence is now %d".format(commitSeq))
+      'ok
+    case ('set_update_seq, newSeq: Long) =>
+      pendingSeq = newSeq
+      logger.debug("Pending sequence is now %d".format(newSeq))
       'ok
     case 'info =>
       ('ok, getInfo)
@@ -87,6 +95,15 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         dir.deleteFile(name)
       }
       exit('deleted)
+    case 'maybe_commit =>
+      commit(pendingSeq)
+    case ('committed, newSeq: Long) =>
+      updateSeq = newSeq
+      forceRefresh = true
+      committing = false
+      logger.info("Committed sequence %d".format(newSeq))
+    case 'commit_failed =>
+      committing = false
   }
 
   override def exit(msg: Any) {
@@ -103,6 +120,26 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       case e: IOException => logger.warn("Error while closing writer", e)
     } finally {
       super.exit(msg)
+    }
+  }
+
+  private def commit(newSeq: Long) {
+    if (!committing && newSeq > updateSeq) {
+      committing = true
+      val index = self
+      node.spawn((_) => {
+        ctx.args.writer.setCommitData(Map("update_seq" -> newSeq.toString))
+        try {
+          commitTimer.time {
+            ctx.args.writer.commit()
+          }
+          index ! ('committed, newSeq)
+        } catch {
+          case e: IOException =>
+            logger.error("Failed to commit changes", e)
+            index ! 'commit_failed
+        }
+      })
     }
   }
 
