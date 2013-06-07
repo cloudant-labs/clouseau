@@ -31,7 +31,9 @@ object QueryExplainer {
     for (clause <- query.getClauses) {
       builder.append(clause.getOccur)
       explain(builder, clause.getQuery)
+      builder.append(" ")
     }
+    builder.setLength(builder.length - 1)
   }
 
   private def planFuzzyQuery(builder: StringBuilder, query: FuzzyQuery) {
