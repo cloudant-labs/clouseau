@@ -24,7 +24,7 @@ object QueryExplainer {
   def explain(query: Query): String = {
     val builder: StringBuilder = new StringBuilder(300)
     explain(builder, query)
-    return builder.toString
+    builder.toString
   }
 
   private def planBooleanQuery(builder: StringBuilder, query: BooleanQuery) {
