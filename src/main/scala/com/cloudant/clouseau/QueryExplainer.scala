@@ -61,9 +61,9 @@ object QueryExplainer {
   }
 
   private def planTermRangeQuery(builder: StringBuilder, query: TermRangeQuery) {
-    builder.append(query.getLowerTerm)
+    builder.append(query.getLowerTerm.utf8ToString)
     builder.append(" TO ")
-    builder.append(query.getUpperTerm)
+    builder.append(query.getUpperTerm.utf8ToString)
   }
 
   private def planWildcardQuery(builder: StringBuilder, query: WildcardQuery) {
