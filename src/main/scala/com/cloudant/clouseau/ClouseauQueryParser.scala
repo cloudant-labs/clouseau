@@ -23,7 +23,7 @@ class ClouseauQueryParser(version: Version,
   val Digits = "(\\p{Digit}+)"
   val HexDigits = "(\\p{XDigit}+)"
   val Exp = "[eE][+-]?" + Digits
-  val fpRegex = ("[\\x00-\\x20]*" + "[+-]?(" + "NaN|"
+  val fpRegexStr = ("[\\x00-\\x20]*" + "[+-]?(" + "NaN|"
     + "Infinity|" + "((("
     + Digits
     + "(\\.)?("
@@ -46,6 +46,7 @@ class ClouseauQueryParser(version: Version,
     + HexDigits
     + ")"
     + ")[pP][+-]?" + Digits + "))" + "[fFdD]?))" + "[\\x00-\\x20]*")
+  val fpRegex = Pattern.compile(fpRegexStr)
 
   override def getRangeQuery(field: String,
                              lower: String,
@@ -93,7 +94,7 @@ class ClouseauQueryParser(version: Version,
   }
 
   private def isNumber(str: String): Boolean = {
-    Pattern.matches(fpRegex, str)
+    fpRegex.matcher(str).matches()
   }
 
   private def setLowercaseExpandedTerms(field: String) {
