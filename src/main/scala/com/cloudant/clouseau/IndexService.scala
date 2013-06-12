@@ -75,7 +75,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       pendingSeq = commitSeq
       logger.debug("Pending sequence is now %d".format(commitSeq))
       'ok
-    case ('set_update_seq, newSeq: Long) =>
+    case SetUpdateSeqMsg(newSeq: Long) =>
       pendingSeq = newSeq
       logger.debug("Pending sequence is now %d".format(newSeq))
       'ok

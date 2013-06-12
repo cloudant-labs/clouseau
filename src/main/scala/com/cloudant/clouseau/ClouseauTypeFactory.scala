@@ -28,6 +28,7 @@ case class Group2Msg(query: String, field: String, refresh: Boolean, groups: Any
 case class UpdateDocMsg(id: String, doc: Document)
 case class DeleteDocMsg(id: String)
 case class CommitMsg(seq: Long)
+case class SetUpdateSeqMsg(seq: Long)
 
 object ClouseauTypeFactory extends TypeFactory {
 
@@ -57,6 +58,8 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(DeleteDocMsg(reader.readAs[String]))
     case ('commit, 2) =>
       Some(CommitMsg(toLong(reader.readTerm)))
+    case ('set_update_seq, 2) =>
+      Some(SetUpdateSeqMsg(toLong(reader.readTerm)))
     case _ =>
       None
   }
