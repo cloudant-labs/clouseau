@@ -10,13 +10,6 @@ import org.apache.lucene.util.NumericUtils
 
 object Utils {
 
-  def findOrElse[A](options: List[(Symbol, Any)], key: Symbol, default: A): A = {
-    options find { e => e._1 == key } match {
-      case None => default
-      case Some((_, result: A)) => result
-    }
-  }
-
   def doubleToTerm(field: String, value: Double): Term = {
     val bytesRef = new BytesRef
     val asLong = NumericUtils.doubleToSortableLong(value)
