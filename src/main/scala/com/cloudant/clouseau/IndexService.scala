@@ -35,7 +35,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
   val sortFieldRE = """^([-+])?([\.\w]+)(?:<(\w+)>)?$""".r
   var reader = DirectoryReader.open(ctx.args.writer, true)
-  var updateSeq = reader.getIndexCommit().getUserData().get("update_seq") match {
+  var updateSeq = reader.getIndexCommit.getUserData.get("update_seq") match {
     case null => 0L
     case seq => seq.toLong
   }
@@ -270,7 +270,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
   private def getInfo: List[Any] = {
     reopenIfChanged()
-    val sizes = reader.directory.listAll map { reader.directory.fileLength(_) }
+    val sizes = reader.directory.listAll map { reader.directory.fileLength }
     val diskSize = sizes.sum
     List(
       ('disk_size, diskSize),
@@ -285,7 +285,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     case field: String =>
       new Sort(toSortField(field))
     case fields: List[String] =>
-      new Sort(fields.map(toSortField(_)).toArray: _*)
+      new Sort(fields.map(toSortField).toArray: _*)
   }
 
   private def docToHit(searcher: IndexSearcher, scoreDoc: ScoreDoc): Hit = {

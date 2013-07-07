@@ -85,7 +85,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
               })
               waiters.put(path, List(tag))
             case Some(list) =>
-              waiters.put(path, (tag :: list))
+              waiters.put(path, tag :: list)
           }
           'noreply
         case pid =>
