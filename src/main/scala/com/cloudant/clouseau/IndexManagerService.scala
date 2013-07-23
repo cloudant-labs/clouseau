@@ -30,11 +30,18 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       }
     }
 
+    val lruMisses = metrics.counter("lru.misses")
+    val lruEvictions = metrics.counter("lru.evictions")
+
     val pathToPid: JMap[String, Pid] = new InnerLRU(initialCapacity, loadFactor)
     val pidToPath: JMap[Pid, String] = new HashMap(initialCapacity, loadFactor)
 
     def get(path: String): Pid = {
-      pathToPid.get(path)
+      val pid: Pid = pathToPid.get(path)
+      if (!Option(pid).isDefined) {
+        lruMisses += 1
+      }
+      pid
     }
 
     def put(path: String, pid: Pid) {
@@ -46,6 +53,9 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     def remove(pid: Pid) {
       val path = pidToPath.remove(pid)
       pathToPid.remove(path)
+      if (Option(path).isDefined) {
+        lruEvictions += 1
+      }
     }
 
     def isEmpty: Boolean = {
