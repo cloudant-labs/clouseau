@@ -110,6 +110,11 @@ class IndexServiceSpec extends SpecificationWithJUnit {
         "_id<string>")) must beLike {
         case ('ok, TopDocs(0, 2, List(Hit(List(_, 0), List((_id, foo)))))) => ok
       }
+
+      node.call(service, SearchMsg("*:*", 1, refresh = true, Some(new FieldDoc(0, 1.0f, Array(null))),
+        "nonexistent<string>")) must beLike {
+        case ('ok, TopDocs(0, 2, List(Hit(List('null, 1), List((_id, bar)))))) => ok
+      }
     }
 
   }
