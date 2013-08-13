@@ -5,7 +5,6 @@
 package com.cloudant.clouseau
 
 import com.yammer.metrics.scala._
-import java.io.StringReader
 import org.apache.log4j.Logger
 import org.apache.lucene.analysis.tokenattributes._
 import scala.collection.immutable.List
@@ -28,7 +27,7 @@ class AnalyzerService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ct
 
   def tokenize(text: String, analyzer: Analyzer): List[String] = {
     var result: List[String] = List()
-    val tokenStream = analyzer.tokenStream("default", new StringReader(text))
+    val tokenStream = analyzer.tokenStream("default", text)
     tokenStream.reset()
     while (tokenStream.incrementToken) {
       val term = tokenStream.getAttribute(classOf[CharTermAttribute])
