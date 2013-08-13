@@ -73,6 +73,8 @@ object ClouseauTypeFactory extends TypeFactory {
       val doc = list.last
       val fields = list dropRight (1)
       Some(new FieldDoc(toInteger(doc), Float.NaN, fields map {
+        case 'null =>
+          null
         case str: String =>
           Utils.stringToBytesRef(str)
         case field =>
