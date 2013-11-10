@@ -1,9 +1,14 @@
-
 # Lucene Indexes
 
 What does a cloudant developer need to know about how Lucene creates indexes?
 
-## General Lucene Indexing Notes
+## General Lucene Notes
+
+### Overview
+
+* http://www.ibm.com/developerworks/java/library/j-solr-lucene/index.html
+
+### Indexing
 
 A few general purpose links:
 * http://blog.mikemccandless.com/2011/02/visualizing-lucenes-segment-merges.html
