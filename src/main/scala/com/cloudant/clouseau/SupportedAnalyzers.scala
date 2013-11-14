@@ -74,7 +74,11 @@ object SupportedAnalyzers {
     case name: String =>
       createAnalyzerInt(Map("name" -> name))
     case list: List[(String, Any)] =>
-      createAnalyzerInt(list.toMap)
+      try {
+        createAnalyzerInt(list.toMap)
+      } catch {
+        case e : ClassCastException => None
+      }
     case map: Map[String, Any] =>
       map.get("name") match {
         case Some(name: String) =>

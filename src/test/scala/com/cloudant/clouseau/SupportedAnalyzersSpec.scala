@@ -54,6 +54,9 @@ class SupportedAnalyzersSpec extends SpecificationWithJUnit {
     "ignore unsupported analyzers" in {
       createAnalyzer("foo") must beNone
     }
+    "List of non-tuples yields no analyzer" in {
+      createAnalyzer(List("foo")) must beNone
+    }
     "keyword" in {
       createAnalyzer("keyword") must haveClass[Some[KeywordAnalyzer]]
     }
