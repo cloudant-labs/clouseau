@@ -1,11 +1,13 @@
 package com.cloudant.clouseau
 
 import org.apache.commons.configuration.BaseConfiguration
-import scalang.{ Node, Pid }
-import org.apache.lucene.document.{ Document, StringField, Field }
+import scalang.Node
+import org.apache.lucene.document._
 import org.apache.lucene.search.{ FieldDoc, ScoreDoc }
 import org.specs2.mutable.SpecificationWithJUnit
 import org.apache.lucene.util.BytesRef
+import scalang.Pid
+import scala.Some
 
 class IndexServiceSpec extends SpecificationWithJUnit {
   sequential
@@ -54,33 +56,36 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       node.call(service, UpdateDocMsg("bar", doc2)) must be equalTo 'ok
 
       // First one way.
-      (node.call(service, SearchMsg("*:*", 2, refresh = true, None, "_id<string>"))
+      (node.call(service, SearchRequest(options =
+        Map('sort -> "_id<string>")))
         must beLike {
-          case ('ok, TopDocs(_, 2,
-            List(
+          case ('ok, List(_, ('total_hits, 2),
+            ('hits, List(
               Hit(_, List(("_id", "bar"))),
               Hit(_, List(("_id", "foo")))
-              ))) => ok
+              )))) => ok
         })
 
       // Then t'other.
-      (node.call(service, SearchMsg("*:*", 2, refresh = true, None, "-_id<string>"))
+      (node.call(service, SearchRequest(options =
+        Map('sort -> "-_id<string>")))
         must beLike {
-          case ('ok, TopDocs(_, 2,
-            List(
+          case ('ok, List(_, ('total_hits, 2),
+            ('hits, List(
               Hit(_, List(("_id", "foo"))),
               Hit(_, List(("_id", "bar")))
-              ))) => ok
+              )))) => ok
         })
 
       // Can sort even if doc is missing that field
-      (node.call(service, SearchMsg("*:*", 2, refresh = true, None, "foo<string>"))
+      (node.call(service, SearchRequest(options =
+        Map('sort -> "foo<string>")))
         must beLike {
-          case ('ok, TopDocs(_, 2,
-            List(
+          case ('ok, List(_, ('total_hits, 2),
+            ('hits, List(
               Hit(_, List(("_id", "foo"))),
               Hit(_, List(("_id", "bar")))
-              ))) => ok
+              )))) => ok
         })
 
     }
@@ -94,26 +99,36 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       node.call(service, UpdateDocMsg("foo", doc1)) must be equalTo 'ok
       node.call(service, UpdateDocMsg("bar", doc2)) must be equalTo 'ok
 
-      node.call(service, SearchMsg("*:*", 1, refresh = true, None, 'relevance)) must beLike {
-        case ('ok, TopDocs(0, 2, List(Hit(List(1.0, 0), List((_id, foo)))))) => ok
+      node.call(service, SearchRequest(options =
+        Map('limit -> 1))) must beLike {
+        case ('ok, List(_, ('total_hits, 2),
+          ('hits, List(Hit(List(1.0, 0), List(("_id", "foo"))))))) => ok
       }
 
-      node.call(service, SearchMsg("*:*", 1, refresh = true, Some(new ScoreDoc(0, 1.0f)), 'relevance)) must beLike {
-        case ('ok, TopDocs(0, 2, List(Hit(List(1.0, 1), List((_id, bar)))))) => ok
+      node.call(service, SearchRequest(options =
+        Map('limit -> 1, 'after -> (1.0, 0)))) must beLike {
+        case ('ok, List(_, ('total_hits, 2),
+          ('hits, List(Hit(List(1.0, 1), List(("_id", "bar"))))))) => ok
       }
 
-      node.call(service, SearchMsg("*:*", 1, refresh = true, None, "_id<string>")) must beLike {
-        case ('ok, TopDocs(0, 2, List(Hit(List(_, 1), List((_id, bar)))))) => ok
+      node.call(service, SearchRequest(options =
+        Map('limit -> 1, 'sort -> "_id<string>"))) must beLike {
+        case ('ok, List(_, ('total_hits, 2),
+          ('hits, List(Hit(List(_, 1), List(("_id", "bar"))))))) => ok
       }
 
-      node.call(service, SearchMsg("*:*", 1, refresh = true, Some(new FieldDoc(1, 1.0f, Array(new BytesRef("bar")))),
-        "_id<string>")) must beLike {
-        case ('ok, TopDocs(0, 2, List(Hit(List(_, 0), List((_id, foo)))))) => ok
+      node.call(service, SearchRequest(options =
+        Map('limit -> 1, 'after -> List(new BytesRef("bar"), 1),
+          'sort -> "_id<string>"))) must beLike {
+        case ('ok, List(_, ('total_hits, 2),
+          ('hits, List(Hit(List(_, 0), List(("_id", "foo"))))))) => ok
       }
 
-      node.call(service, SearchMsg("*:*", 1, refresh = true, Some(new FieldDoc(0, 1.0f, Array(null))),
-        "nonexistent<string>")) must beLike {
-        case ('ok, TopDocs(0, 2, List(Hit(List('null, 1), List((_id, bar)))))) => ok
+      node.call(service, SearchRequest(options =
+        Map('limit -> 1, 'after -> List(null, 0),
+          'sort -> "nonexistent<string>"))) must beLike {
+        case ('ok, List(_, ('total_hits, 2),
+          ('hits, List(Hit(List('null, 1), List(("_id", "bar"))))))) => ok
       }
     }
 
@@ -123,10 +138,13 @@ class IndexServiceSpec extends SpecificationWithJUnit {
                            value: String, query: String) {
     val doc = new Document()
     doc.add(new StringField("_id", value, Field.Store.YES))
+    doc.add(new NumericDocValuesField("timestamp", System.currentTimeMillis()))
+
     node.call(service, UpdateDocMsg(value, doc)) must be equalTo 'ok
-    (node.call(service, SearchMsg("_id:" + query, 1, refresh = true, None, 'relevance))
+    val req = SearchRequest(options = Map('query -> "_id:%s".format(query)))
+    (node.call(service, req)
       must beLike {
-        case ('ok, TopDocs(_, 1, _)) => ok
+        case ('ok, (List(_, ('total_hits, 1), _))) => ok
       })
   }
 

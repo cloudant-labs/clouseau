@@ -4,9 +4,7 @@
 
 package com.cloudant.clouseau
 
-import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search._
 import org.specs2.mutable.SpecificationWithJUnit
 import java.lang.{ Double => JDouble }

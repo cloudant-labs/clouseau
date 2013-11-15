@@ -23,6 +23,21 @@ import collection.JavaConversions._
 import com.yammer.metrics.scala._
 import com.cloudant.clouseau.Utils._
 import org.apache.commons.configuration.Configuration
+import org.apache.lucene.facet.sortedset.{
+  SortedSetDocValuesReaderState,
+  SortedSetDocValuesAccumulator
+}
+import org.apache.lucene.facet.range.{
+  DoubleRange,
+  RangeAccumulator,
+  RangeFacetRequest
+}
+import org.apache.lucene.facet.search._
+import org.apache.lucene.facet.taxonomy.CategoryPath
+import org.apache.lucene.facet.params.FacetSearchParams
+import scala.Some
+import scalang.Pid
+import scalang.Reference
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
 
@@ -147,6 +162,19 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     val sort = parseSort(request.options.getOrElse('sort, 'relevance))
     val after = toScoreDoc(request.options.getOrElse('after, 'nil))
     val limit = request.options.getOrElse('limit, 25).asInstanceOf[Int]
+    val counts = request.options.getOrElse('counts, 'nil) match {
+      case 'nil =>
+        None
+      case value =>
+        Some(value)
+    }
+    val ranges = request.options.getOrElse('ranges, 'nil) match {
+      case 'nil =>
+        None
+      case value =>
+        Some(value)
+    }
+    val legacy = request.options.getOrElse('legacy, false).asInstanceOf[Boolean]
 
     parseQuery(queryString) match {
       case query: Query =>
@@ -168,7 +196,51 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
                 false, docsScoredInOrder)
           }
 
-          val collector = MultiCollector.wrap(topDocsCollector)
+          val countsCollector = counts match {
+            case None =>
+              null
+            case Some(counts: List[String]) =>
+              val state = new SortedSetDocValuesReaderState(reader)
+              val countFacetRequests = for (count <- counts) yield {
+                new CountFacetRequest(new CategoryPath(count), Int.MaxValue)
+              }
+              val facetSearchParams = new FacetSearchParams(countFacetRequests)
+              val acc = try {
+                new SortedSetDocValuesAccumulator(state, facetSearchParams)
+              } catch {
+                case e: IllegalArgumentException =>
+                  throw new ParseException(e.getMessage)
+              }
+              FacetsCollector.create(acc)
+          }
+
+          val rangesCollector = ranges match {
+            case None =>
+              null
+            case Some(rangeList: List[_]) =>
+              val rangeFacetRequests = for ((name: String, ranges: List[_]) <- rangeList) yield {
+                new RangeFacetRequest(name, ranges.map({
+                  case (label: String, rangeQuery: String) =>
+                    ctx.args.queryParser.parse(rangeQuery) match {
+                      case q: NumericRangeQuery[_] =>
+                        new DoubleRange(
+                          label,
+                          ClouseauTypeFactory.toDouble(q.getMin).get,
+                          q.includesMin,
+                          ClouseauTypeFactory.toDouble(q.getMax).get,
+                          q.includesMax)
+                      case _ =>
+                        throw new ParseException(rangeQuery +
+                          " was not a well-formed range specification")
+                    }
+                }))
+              }
+              val acc = new RangeAccumulator(rangeFacetRequests)
+              FacetsCollector.create(acc)
+          }
+
+          val collector = MultiCollector.wrap(
+            topDocsCollector, countsCollector, rangesCollector)
 
           searchTimer.time {
             searcher.search(query, collector)
@@ -180,7 +252,15 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
             docToHit(searcher, _)
           }).toList
 
-          ('ok, TopDocs(updateSeq, topDocsCollector.getTotalHits, hits))
+          if (legacy) {
+            ('ok, TopDocs(updateSeq, topDocsCollector.getTotalHits, hits))
+          } else {
+            ('ok, List(
+              ('update_seq, updateSeq),
+              ('total_hits, topDocsCollector.getTotalHits),
+              ('hits, hits)
+            ) ++ convertFacets('counts, countsCollector)
+              ++ convertFacets('ranges, rangesCollector))
           }
         }
       case error =>
@@ -265,6 +345,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   } catch {
     case e: NumberFormatException =>
       ('error, ('bad_request, "cannot sort string field as numeric field"))
+    case e: ClassCastException =>
+      ('error, ('bad_request, "Malformed query syntax"))
     case e: ParseException =>
       ('error, ('bad_request, e.getMessage))
     case e =>
@@ -375,6 +457,22 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         }, fieldOrder == "-")
     case None =>
       throw new ParseException("Unrecognized sort parameter: " + field)
+  }
+
+  private def convertFacets(name: Symbol, c: FacetsCollector): List[_] = c match {
+    case null =>
+      Nil
+    case _ =>
+      List((name, c.getFacetResults.map { f => convertFacet(f) }.toList))
+  }
+
+  private def convertFacet(facet: FacetResult): Any = {
+    convertFacetNode(facet.getFacetResultNode)
+  }
+
+  private def convertFacetNode(node: FacetResultNode): Any = {
+    val children = node.subResults.map { n => convertFacetNode(n) }.toList
+    (node.label.components.toList, node.value, children)
   }
 
   private def toScoreDoc(any: Any): Option[ScoreDoc] = any match {

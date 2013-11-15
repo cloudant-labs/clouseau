@@ -9,9 +9,12 @@ import org.apache.lucene.document.Field._
 import org.apache.lucene.document._
 import org.apache.lucene.search._
 import scala.collection.immutable.Map
+import scala.collection.JavaConversions._
 import scalang._
 import org.jboss.netty.buffer.ChannelBuffer
 import org.apache.lucene.util.BytesRef
+import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetFields
+import org.apache.lucene.facet.taxonomy.CategoryPath
 
 case class SearchRequest(options: Map[Symbol, Any])
 
@@ -74,20 +77,14 @@ object ClouseauTypeFactory extends TypeFactory {
 
   protected def readDoc(reader: TermReader): Document = {
     val result = new Document()
-    result.add(new Field("_id", reader.readAs[String], Store.YES, Index.NOT_ANALYZED))
-    val fields = reader.readAs[List[Any]]
-    for (field <- fields) {
-      toField(field) match {
-        case Some(field) =>
-          result.add(field)
-        case None =>
-          'ok
-      }
+    result.add(new StringField("_id", reader.readAs[String], Store.YES))
+    for (field <- reader.readAs[List[Any]]) {
+      addFields(result, field)
     }
     result
   }
 
-  private def toField(field: Any): Option[Field] = field match {
+  private def addFields(doc: Document, field0: Any): Unit = field0 match {
     case (name: String, value: String, options: List[(String, Any)]) =>
       val map = options.toMap
       constructField(name, value, toStore(map), toIndex(map), toTermVector(map)) match {
@@ -98,21 +95,33 @@ object ClouseauTypeFactory extends TypeFactory {
             case None =>
               'ok
           }
-          Some(field)
+          doc.add(field)
+          if (isFacet(map)) {
+            val facets = new SortedSetDocValuesFacetFields
+            facets.addFields(doc, List(new CategoryPath(name, value)))
+          }
         case None =>
-          None
+          'ok
       }
     case (name: String, value: Boolean, options: List[(String, Any)]) =>
       val map = options.toMap
-      constructField(name, value.toString, toStore(map), Index.NOT_ANALYZED, toTermVector(map))
+      constructField(name, value.toString, toStore(map), Index.NOT_ANALYZED, toTermVector(map)) match {
+        case Some(field) =>
+          doc.add(field)
+        case None =>
+          'ok
+      }
     case (name: String, value: Any, options: List[(String, Any)]) =>
       val map = options.toMap
       toDouble(value) match {
         case Some(doubleValue) =>
-          Some(new DoubleField(name, doubleValue, toStore(map)))
+          doc.add(new DoubleField(name, doubleValue, toStore(map)))
+          if (isFacet(map)) {
+            doc.add(new DoubleDocValuesField(name, doubleValue))
+          }
         case None =>
           logger.warn("Unrecognized value: %s".format(value))
-          None
+          'ok
       }
   }
 
@@ -178,6 +187,10 @@ object ClouseauTypeFactory extends TypeFactory {
   def toTermVector(options: Map[String, Any]): TermVector = {
     val termVector = options.getOrElse("termvector", "no").asInstanceOf[String]
     TermVector.valueOf(termVector toUpperCase)
+  }
+
+  def isFacet(options: Map[String, Any]) = {
+    options.getOrElse("facet", false).asInstanceOf[Boolean]
   }
 
 }
