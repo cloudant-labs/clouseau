@@ -35,10 +35,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
   val sortFieldRE = """^([-+])?([\.\w]+)(?:<(\w+)>)?$""".r
   var reader = DirectoryReader.open(ctx.args.writer, true)
-  var updateSeq = reader.getIndexCommit.getUserData.get("update_seq") match {
-    case null => 0L
-    case seq => seq.toLong
-  }
+  var updateSeq = getCommittedSeq
   var pendingSeq = updateSeq
   var committing = false
   var forceRefresh = false
@@ -270,13 +267,30 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
   private def getInfo: List[Any] = {
     reopenIfChanged()
-    val sizes = reader.directory.listAll map { reader.directory.fileLength }
-    val diskSize = sizes.sum
     List(
-      ('disk_size, diskSize),
+      ('disk_size, getDiskSize),
       ('doc_count, reader.numDocs),
-      ('doc_del_count, reader.numDeletedDocs)
+      ('doc_del_count, reader.numDeletedDocs),
+      ('pending_seq, pendingSeq),
+      ('committed_seq, getCommittedSeq)
     )
+  }
+
+  private def getDiskSize = {
+    val sizes = reader.directory.listAll map {
+      reader.directory.fileLength
+    }
+    sizes.sum
+  }
+
+  private def getCommittedSeq = {
+    val commitData = ctx.args.writer.getCommitData
+    commitData.get("update_seq") match {
+      case null =>
+        0L
+      case seq =>
+        seq.toLong
+    }
   }
 
   private def parseSort(v: Any): Sort = v match {
