@@ -125,7 +125,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       committing = true
       val index = self
       node.spawn((_) => {
-        ctx.args.writer.setCommitData(Map("update_seq" -> newSeq.toString))
+        ctx.args.writer.setCommitData(ctx.args.writer.getCommitData +
+          ("update_seq" -> newSeq.toString))
         try {
           commitTimer.time {
             ctx.args.writer.commit()
