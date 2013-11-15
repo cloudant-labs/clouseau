@@ -50,8 +50,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   logger.info("Opened at update_seq %d".format(updateSeq))
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
-    case SearchMsg(query: String, limit: Int, refresh: Boolean, after: Option[ScoreDoc], sort: Any) =>
-      search(query, limit, refresh, after, sort)
+    case request: SearchRequest =>
+      search(request)
     case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
       groupLimit: Int) =>
       group1(query, field, refresh, groupSort, groupOffset, groupLimit)
@@ -140,30 +140,51 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     }
   }
 
-  private def search(queryString: String, limit: Int, refresh: Boolean, after: Option[ScoreDoc], sort: Any): Any = parseQuery(queryString) match {
-    case query: Query =>
-      safeSearch {
-        val searcher = getSearcher(refresh)
-        val topDocs = searchTimer.time {
-          (after, parseSort(sort)) match {
+  private def search(request: SearchRequest): Any = {
+    val queryString = request.options.getOrElse('query, "*:*").asInstanceOf[String]
+    val refresh = request.options.getOrElse('fresh, true).asInstanceOf[Boolean]
+    val sort = parseSort(request.options.getOrElse('sort, 'relevance))
+    val after = toScoreDoc(request.options.getOrElse('after, 'nil))
+    val limit = request.options.getOrElse('limit, 25).asInstanceOf[Int]
+
+    parseQuery(queryString) match {
+      case query: Query =>
+        safeSearch {
+          val searcher = getSearcher(refresh)
+          val weight = searcher.createNormalizedWeight(query)
+          val docsScoredInOrder = !weight.scoresDocsOutOfOrder
+
+          val topDocsCollector = (after, sort) match {
             case (None, Sort.RELEVANCE) =>
-              searcher.search(query, limit)
+              TopScoreDocCollector.create(limit, docsScoredInOrder)
             case (Some(scoreDoc), Sort.RELEVANCE) =>
-              searcher.searchAfter(scoreDoc, query, limit)
-            case (None, sort1) =>
-              searcher.search(query, limit, sort1)
-            case (Some(fieldDoc), sort1) =>
-              searcher.searchAfter(fieldDoc, query, limit, sort1)
+              TopScoreDocCollector.create(limit, scoreDoc, docsScoredInOrder)
+            case (None, sort1: Sort) =>
+              TopFieldCollector.create(sort1, limit, true, false, false,
+                docsScoredInOrder)
+            case (Some(fieldDoc: FieldDoc), sort1: Sort) =>
+              TopFieldCollector.create(sort1, limit, fieldDoc, true, false,
+                false, docsScoredInOrder)
+          }
+
+          val collector = MultiCollector.wrap(topDocsCollector)
+
+          searchTimer.time {
+            searcher.search(query, collector)
+          }
+          logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".
+            format(query, limit, refresh, topDocsCollector.getTotalHits))
+
+          val hits = topDocsCollector.topDocs.scoreDocs.map({
+            docToHit(searcher, _)
+          }).toList
+
+          ('ok, TopDocs(updateSeq, topDocsCollector.getTotalHits, hits))
           }
         }
-        logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".format(query, limit, refresh, topDocs.totalHits))
-        val hits = topDocs.scoreDocs.map({
-          docToHit(searcher, _)
-        }).toList
-        ('ok, TopDocs(updateSeq, topDocs.totalHits, hits))
-      }
-    case error =>
-      error
+      case error =>
+        error
+    }
   }
 
   private def group1(queryString: String, field: String, refresh: Boolean, groupSort: Any,
@@ -353,6 +374,26 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         }, fieldOrder == "-")
     case None =>
       throw new ParseException("Unrecognized sort parameter: " + field)
+  }
+
+  private def toScoreDoc(any: Any): Option[ScoreDoc] = any match {
+    case 'nil =>
+      None
+    case (score: Any, doc: Any) =>
+      Some(new ScoreDoc(ClouseauTypeFactory.toInteger(doc),
+        ClouseauTypeFactory.toFloat(score)))
+    case list: List[Object] =>
+      val doc = list.last
+      val fields = list dropRight 1
+      Some(new FieldDoc(ClouseauTypeFactory.toInteger(doc),
+        Float.NaN, fields map {
+          case 'null =>
+            null
+          case str: String =>
+            Utils.stringToBytesRef(str)
+          case field =>
+            field
+        } toArray))
   }
 
   override def toString: String = {

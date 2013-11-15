@@ -13,11 +13,11 @@ import scalang._
 import org.jboss.netty.buffer.ChannelBuffer
 import org.apache.lucene.util.BytesRef
 
+case class SearchRequest(options: Map[Symbol, Any])
+
 case class OpenIndexMsg(peer: Pid, path: String, options: Any)
 case class CleanupPathMsg(path: String)
 case class CleanupDbMsg(dbName: String, activeSigs: List[String])
-
-case class SearchMsg(query: String, limit: Int, refresh: Boolean, after: Option[ScoreDoc], sort: Any)
 
 case class Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
                      groupLimit: Int)
@@ -41,9 +41,17 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(CleanupPathMsg(reader.readAs[String]))
     case ('cleanup, 3) =>
       Some(CleanupDbMsg(reader.readAs[String], reader.readAs[List[String]]))
-    case ('search, 6) =>
-      Some(SearchMsg(reader.readAs[String], reader.readAs[Int], reader.readAs[Boolean], readScoreDoc(reader),
-        reader.readTerm))
+    case ('search, 2) =>
+      val params = reader.readAs[List[(Symbol, Any)]].toMap
+      Some(SearchRequest(params))
+    case ('search, 6) => // legacy clause
+      Some(SearchRequest(Map(
+        'legacy -> true,
+        'query -> reader.readTerm,
+        'limit -> reader.readTerm,
+        'refresh -> reader.readTerm,
+        'after -> reader.readTerm,
+        'sort -> reader.readTerm)))
     case ('group1, 7) =>
       Some(Group1Msg(reader.readAs[String], reader.readAs[String], reader.readAs[Boolean], reader.readTerm,
         reader.readAs[Int], reader.readAs[Int]))
@@ -62,24 +70,6 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(SetUpdateSeqMsg(toLong(reader.readTerm)))
     case _ =>
       None
-  }
-
-  protected def readScoreDoc(reader: TermReader): Option[ScoreDoc] = reader.readTerm match {
-    case 'nil =>
-      None
-    case (score: Any, doc: Any) =>
-      Some(new ScoreDoc(toInteger(doc), toFloat(score)))
-    case list: List[Object] =>
-      val doc = list.last
-      val fields = list dropRight (1)
-      Some(new FieldDoc(toInteger(doc), Float.NaN, fields map {
-        case 'null =>
-          null
-        case str: String =>
-          Utils.stringToBytesRef(str)
-        case field =>
-          field
-      } toArray))
   }
 
   protected def readDoc(reader: TermReader): Document = {
