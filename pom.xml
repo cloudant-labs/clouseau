@@ -13,7 +13,7 @@
 
   <properties>
     <encoding>UTF-8</encoding>
-    <lucene-version>4.4.0</lucene-version>
+    <lucene-version>4.6.0</lucene-version>
     <maven.compiler.source>1.6</maven.compiler.source>
     <maven.compiler.target>1.6</maven.compiler.target>
     <scala.version>2.9.1</scala.version>
@@ -64,6 +64,11 @@
     <dependency>
       <groupId>org.apache.lucene</groupId>
       <artifactId>lucene-analyzers-kuromoji</artifactId>
+      <version>${lucene-version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-facet</artifactId>
       <version>${lucene-version}</version>
     </dependency>
 
