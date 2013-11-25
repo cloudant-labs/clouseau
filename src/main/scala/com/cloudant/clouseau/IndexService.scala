@@ -23,6 +23,21 @@ import collection.JavaConversions._
 import com.yammer.metrics.scala._
 import com.cloudant.clouseau.Utils._
 import org.apache.commons.configuration.Configuration
+import org.apache.lucene.facet.sortedset.{
+  SortedSetDocValuesReaderState,
+  SortedSetDocValuesAccumulator
+}
+import org.apache.lucene.facet.range.{
+  DoubleRange,
+  RangeAccumulator,
+  RangeFacetRequest
+}
+import org.apache.lucene.facet.search._
+import org.apache.lucene.facet.taxonomy.CategoryPath
+import org.apache.lucene.facet.params.FacetSearchParams
+import scala.Some
+import scalang.Pid
+import scalang.Reference
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
 
@@ -35,10 +50,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
   val sortFieldRE = """^([-+])?([\.\w]+)(?:<(\w+)>)?$""".r
   var reader = DirectoryReader.open(ctx.args.writer, true)
-  var updateSeq = reader.getIndexCommit.getUserData.get("update_seq") match {
-    case null => 0L
-    case seq => seq.toLong
-  }
+  var updateSeq = getCommittedSeq
   var pendingSeq = updateSeq
   var committing = false
   var forceRefresh = false
@@ -53,8 +65,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   logger.info("Opened at update_seq %d".format(updateSeq))
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
-    case SearchMsg(query: String, limit: Int, refresh: Boolean, after: Option[ScoreDoc], sort: Any) =>
-      search(query, limit, refresh, after, sort)
+    case request: SearchRequest =>
+      search(request)
     case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
       groupLimit: Int) =>
       group1(query, field, refresh, groupSort, groupOffset, groupLimit)
@@ -128,7 +140,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       committing = true
       val index = self
       node.spawn((_) => {
-        ctx.args.writer.setCommitData(Map("update_seq" -> newSeq.toString))
+        ctx.args.writer.setCommitData(ctx.args.writer.getCommitData +
+          ("update_seq" -> newSeq.toString))
         try {
           commitTimer.time {
             ctx.args.writer.commit()
@@ -143,30 +156,116 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     }
   }
 
-  private def search(queryString: String, limit: Int, refresh: Boolean, after: Option[ScoreDoc], sort: Any): Any = parseQuery(queryString) match {
-    case query: Query =>
-      safeSearch {
-        val searcher = getSearcher(refresh)
-        val topDocs = searchTimer.time {
-          (after, parseSort(sort)) match {
+  private def search(request: SearchRequest): Any = {
+    val queryString = request.options.getOrElse('query, "*:*").asInstanceOf[String]
+    val refresh = request.options.getOrElse('fresh, true).asInstanceOf[Boolean]
+    val sort = parseSort(request.options.getOrElse('sort, 'relevance))
+    val after = toScoreDoc(request.options.getOrElse('after, 'nil))
+    val limit = request.options.getOrElse('limit, 25).asInstanceOf[Int]
+    val counts = request.options.getOrElse('counts, 'nil) match {
+      case 'nil =>
+        None
+      case value =>
+        Some(value)
+    }
+    val ranges = request.options.getOrElse('ranges, 'nil) match {
+      case 'nil =>
+        None
+      case value =>
+        Some(value)
+    }
+    val legacy = request.options.getOrElse('legacy, false).asInstanceOf[Boolean]
+
+    parseQuery(queryString) match {
+      case query: Query =>
+        safeSearch {
+          val searcher = getSearcher(refresh)
+          val weight = searcher.createNormalizedWeight(query)
+          val docsScoredInOrder = !weight.scoresDocsOutOfOrder
+
+          val topDocsCollector = (after, sort) match {
             case (None, Sort.RELEVANCE) =>
-              searcher.search(query, limit)
+              TopScoreDocCollector.create(limit, docsScoredInOrder)
             case (Some(scoreDoc), Sort.RELEVANCE) =>
-              searcher.searchAfter(scoreDoc, query, limit)
-            case (None, sort1) =>
-              searcher.search(query, limit, sort1)
-            case (Some(fieldDoc), sort1) =>
-              searcher.searchAfter(fieldDoc, query, limit, sort1)
+              TopScoreDocCollector.create(limit, scoreDoc, docsScoredInOrder)
+            case (None, sort1: Sort) =>
+              TopFieldCollector.create(sort1, limit, true, false, false,
+                docsScoredInOrder)
+            case (Some(fieldDoc: FieldDoc), sort1: Sort) =>
+              TopFieldCollector.create(sort1, limit, fieldDoc, true, false,
+                false, docsScoredInOrder)
+          }
+
+          val countsCollector = counts match {
+            case None =>
+              null
+            case Some(counts: List[String]) =>
+              val state = new SortedSetDocValuesReaderState(reader)
+              val countFacetRequests = for (count <- counts) yield {
+                new CountFacetRequest(new CategoryPath(count), Int.MaxValue)
+              }
+              val facetSearchParams = new FacetSearchParams(countFacetRequests)
+              val acc = try {
+                new SortedSetDocValuesAccumulator(state, facetSearchParams)
+              } catch {
+                case e: IllegalArgumentException =>
+                  throw new ParseException(e.getMessage)
+              }
+              FacetsCollector.create(acc)
+          }
+
+          val rangesCollector = ranges match {
+            case None =>
+              null
+            case Some(rangeList: List[_]) =>
+              val rangeFacetRequests = for ((name: String, ranges: List[_]) <- rangeList) yield {
+                new RangeFacetRequest(name, ranges.map({
+                  case (label: String, rangeQuery: String) =>
+                    ctx.args.queryParser.parse(rangeQuery) match {
+                      case q: NumericRangeQuery[_] =>
+                        new DoubleRange(
+                          label,
+                          ClouseauTypeFactory.toDouble(q.getMin).get,
+                          q.includesMin,
+                          ClouseauTypeFactory.toDouble(q.getMax).get,
+                          q.includesMax)
+                      case _ =>
+                        throw new ParseException(rangeQuery +
+                          " was not a well-formed range specification")
+                    }
+                }))
+              }
+              val acc = new RangeAccumulator(rangeFacetRequests)
+              FacetsCollector.create(acc)
+          }
+
+          val collector = MultiCollector.wrap(
+            topDocsCollector, countsCollector, rangesCollector)
+
+          searchTimer.time {
+            searcher.search(query, collector)
+          }
+          logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".
+            format(query, limit, refresh, topDocsCollector.getTotalHits))
+
+          val hits = topDocsCollector.topDocs.scoreDocs.map({
+            docToHit(searcher, _)
+          }).toList
+
+          if (legacy) {
+            ('ok, TopDocs(updateSeq, topDocsCollector.getTotalHits, hits))
+          } else {
+            ('ok, List(
+              ('update_seq, updateSeq),
+              ('total_hits, topDocsCollector.getTotalHits),
+              ('hits, hits)
+            ) ++ convertFacets('counts, countsCollector)
+              ++ convertFacets('ranges, rangesCollector))
           }
         }
-        logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".format(query, limit, refresh, topDocs.totalHits))
-        val hits = topDocs.scoreDocs.map({
-          docToHit(searcher, _)
-        }).toList
-        ('ok, TopDocs(updateSeq, topDocs.totalHits, hits))
-      }
-    case error =>
-      error
+      case error =>
+        error
+    }
   }
 
   private def group1(queryString: String, field: String, refresh: Boolean, groupSort: Any,
@@ -246,6 +345,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   } catch {
     case e: NumberFormatException =>
       ('error, ('bad_request, "cannot sort string field as numeric field"))
+    case e: ClassCastException =>
+      ('error, ('bad_request, "Malformed query syntax"))
     case e: ParseException =>
       ('error, ('bad_request, e.getMessage))
     case e =>
@@ -270,13 +371,30 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
   private def getInfo: List[Any] = {
     reopenIfChanged()
-    val sizes = reader.directory.listAll map { reader.directory.fileLength }
-    val diskSize = sizes.sum
     List(
-      ('disk_size, diskSize),
+      ('disk_size, getDiskSize),
       ('doc_count, reader.numDocs),
-      ('doc_del_count, reader.numDeletedDocs)
+      ('doc_del_count, reader.numDeletedDocs),
+      ('pending_seq, pendingSeq),
+      ('committed_seq, getCommittedSeq)
     )
+  }
+
+  private def getDiskSize = {
+    val sizes = reader.directory.listAll map {
+      reader.directory.fileLength
+    }
+    sizes.sum
+  }
+
+  private def getCommittedSeq = {
+    val commitData = ctx.args.writer.getCommitData
+    commitData.get("update_seq") match {
+      case null =>
+        0L
+      case seq =>
+        seq.toLong
+    }
   }
 
   private def parseSort(v: Any): Sort = v match {
@@ -341,6 +459,42 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       throw new ParseException("Unrecognized sort parameter: " + field)
   }
 
+  private def convertFacets(name: Symbol, c: FacetsCollector): List[_] = c match {
+    case null =>
+      Nil
+    case _ =>
+      List((name, c.getFacetResults.map { f => convertFacet(f) }.toList))
+  }
+
+  private def convertFacet(facet: FacetResult): Any = {
+    convertFacetNode(facet.getFacetResultNode)
+  }
+
+  private def convertFacetNode(node: FacetResultNode): Any = {
+    val children = node.subResults.map { n => convertFacetNode(n) }.toList
+    (node.label.components.toList, node.value, children)
+  }
+
+  private def toScoreDoc(any: Any): Option[ScoreDoc] = any match {
+    case 'nil =>
+      None
+    case (score: Any, doc: Any) =>
+      Some(new ScoreDoc(ClouseauTypeFactory.toInteger(doc),
+        ClouseauTypeFactory.toFloat(score)))
+    case list: List[Object] =>
+      val doc = list.last
+      val fields = list dropRight 1
+      Some(new FieldDoc(ClouseauTypeFactory.toInteger(doc),
+        Float.NaN, fields map {
+          case 'null =>
+            null
+          case str: String =>
+            Utils.stringToBytesRef(str)
+          case field =>
+            field
+        } toArray))
+  }
+
   override def toString: String = {
     ctx.args.name
   }
@@ -349,7 +503,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
 object IndexService {
 
-  val version = Version.LUCENE_43
+  val version = Version.LUCENE_46
 
   def start(node: Node, config: Configuration, path: String, options: Any): Any = {
     val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
