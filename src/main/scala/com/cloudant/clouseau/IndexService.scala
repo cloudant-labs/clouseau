@@ -59,7 +59,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   val commitTimer = metrics.timer("commits")
 
   // Start committer heartbeat
-  val commitInterval = ctx.args.config.getInt("commit_interval_secs", 300)
+  val commitInterval = ctx.args.config.getInt("commit_interval_secs", 30)
   sendEvery(self, 'maybe_commit, commitInterval * 1000)
 
   logger.info("Opened at update_seq %d".format(updateSeq))
