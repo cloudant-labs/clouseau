@@ -212,6 +212,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
                   throw new ParseException(e.getMessage)
               }
               FacetsCollector.create(acc)
+            case Some(other) =>
+              throw new ParseException(other + " is not a valid counts query")
           }
 
           val rangesCollector = ranges match {
@@ -237,6 +239,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
               }
               val acc = new RangeAccumulator(rangeFacetRequests)
               FacetsCollector.create(acc)
+            case Some(other) =>
+              throw new ParseException(other + " is not a valid ranges query")
           }
 
           val collector = MultiCollector.wrap(
