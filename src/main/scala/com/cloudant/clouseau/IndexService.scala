@@ -235,6 +235,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
                         throw new ParseException(rangeQuery +
                           " was not a well-formed range specification")
                     }
+                  case _ =>
+                    throw new ParseException("invalid ranges query")
                 }))
               }
               val acc = new RangeAccumulator(rangeFacetRequests)
