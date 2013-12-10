@@ -449,21 +449,32 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     }.toList
   }
 
-  private def toSortField(field: String): SortField = sortFieldRE.findFirstMatchIn(field) match {
-    case Some(sortFieldRE(fieldOrder, fieldName, fieldType)) =>
-      new SortField(fieldName,
-        fieldType match {
-          case "string" =>
-            SortField.Type.STRING
-          case "number" =>
-            SortField.Type.DOUBLE
-          case null =>
-            SortField.Type.DOUBLE
-          case _ =>
-            throw new ParseException("Unrecognized type: " + fieldType)
-        }, fieldOrder == "-")
-    case None =>
-      throw new ParseException("Unrecognized sort parameter: " + field)
+  private def toSortField(field: String): SortField = field match {
+    case "<score>" =>
+      SortField.FIELD_SCORE
+    case "-<score>" =>
+      new SortField(null, SortField.Type.SCORE, true)
+    case "<doc>" =>
+      SortField.FIELD_DOC
+    case "-<doc>" =>
+      new SortField(null, SortField.Type.DOC, true)
+    case _ =>
+      sortFieldRE.findFirstMatchIn(field) match {
+        case Some(sortFieldRE(fieldOrder, fieldName, fieldType)) =>
+          new SortField(fieldName,
+            fieldType match {
+              case "string" =>
+                SortField.Type.STRING
+              case "number" =>
+                SortField.Type.DOUBLE
+              case null =>
+                SortField.Type.DOUBLE
+              case _ =>
+                throw new ParseException("Unrecognized type: " + fieldType)
+            }, fieldOrder == "-")
+        case None =>
+          throw new ParseException("Unrecognized sort parameter: " + field)
+      }
   }
 
   private def convertFacets(name: Symbol, c: FacetsCollector): List[_] = c match {
