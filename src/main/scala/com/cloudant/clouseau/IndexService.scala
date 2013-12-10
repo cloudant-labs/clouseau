@@ -159,7 +159,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   private def search(request: SearchRequest): Any = {
     val queryString = request.options.getOrElse('query, "*:*").asInstanceOf[String]
     val refresh = request.options.getOrElse('fresh, true).asInstanceOf[Boolean]
-    val sort = parseSort(request.options.getOrElse('sort, 'relevance))
     val after = toScoreDoc(request.options.getOrElse('after, 'nil))
     val limit = request.options.getOrElse('limit, 25).asInstanceOf[Int]
     val counts = request.options.getOrElse('counts, 'nil) match {
@@ -182,6 +181,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           val searcher = getSearcher(refresh)
           val weight = searcher.createNormalizedWeight(query)
           val docsScoredInOrder = !weight.scoresDocsOutOfOrder
+
+          val sort = parseSort(request.options.getOrElse('sort, 'relevance))
 
           val topDocsCollector = (after, sort) match {
             case (None, Sort.RELEVANCE) =>
