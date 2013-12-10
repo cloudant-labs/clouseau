@@ -77,7 +77,7 @@ object SupportedAnalyzers {
       try {
         createAnalyzerInt(list.toMap)
       } catch {
-        case e : ClassCastException => None
+        case e: ClassCastException => None
       }
     case map: Map[String, Any] =>
       map.get("name") match {
