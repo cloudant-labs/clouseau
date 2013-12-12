@@ -159,7 +159,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   private def search(request: SearchRequest): Any = {
     val queryString = request.options.getOrElse('query, "*:*").asInstanceOf[String]
     val refresh = request.options.getOrElse('fresh, true).asInstanceOf[Boolean]
-    val sort = parseSort(request.options.getOrElse('sort, 'relevance))
     val after = toScoreDoc(request.options.getOrElse('after, 'nil))
     val limit = request.options.getOrElse('limit, 25).asInstanceOf[Int]
     val counts = request.options.getOrElse('counts, 'nil) match {
@@ -204,6 +203,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           val searcher = getSearcher(refresh)
           val weight = searcher.createNormalizedWeight(query)
           val docsScoredInOrder = !weight.scoresDocsOutOfOrder
+
+          val sort = parseSort(request.options.getOrElse('sort, 'relevance))
 
           val topDocsCollector = (after, sort) match {
             case (None, Sort.RELEVANCE) =>
@@ -470,21 +471,32 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     }.toList
   }
 
-  private def toSortField(field: String): SortField = sortFieldRE.findFirstMatchIn(field) match {
-    case Some(sortFieldRE(fieldOrder, fieldName, fieldType)) =>
-      new SortField(fieldName,
-        fieldType match {
-          case "string" =>
-            SortField.Type.STRING
-          case "number" =>
-            SortField.Type.DOUBLE
-          case null =>
-            SortField.Type.DOUBLE
-          case _ =>
-            throw new ParseException("Unrecognized type: " + fieldType)
-        }, fieldOrder == "-")
-    case None =>
-      throw new ParseException("Unrecognized sort parameter: " + field)
+  private def toSortField(field: String): SortField = field match {
+    case "<score>" =>
+      SortField.FIELD_SCORE
+    case "-<score>" =>
+      new SortField(null, SortField.Type.SCORE, true)
+    case "<doc>" =>
+      SortField.FIELD_DOC
+    case "-<doc>" =>
+      new SortField(null, SortField.Type.DOC, true)
+    case _ =>
+      sortFieldRE.findFirstMatchIn(field) match {
+        case Some(sortFieldRE(fieldOrder, fieldName, fieldType)) =>
+          new SortField(fieldName,
+            fieldType match {
+              case "string" =>
+                SortField.Type.STRING
+              case "number" =>
+                SortField.Type.DOUBLE
+              case null =>
+                SortField.Type.DOUBLE
+              case _ =>
+                throw new ParseException("Unrecognized type: " + fieldType)
+            }, fieldOrder == "-")
+        case None =>
+          throw new ParseException("Unrecognized sort parameter: " + field)
+      }
   }
 
   private def convertFacets(name: Symbol, c: FacetsCollector): List[_] = c match {
