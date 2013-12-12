@@ -34,7 +34,7 @@ import org.apache.lucene.facet.range.{
 }
 import org.apache.lucene.facet.search._
 import org.apache.lucene.facet.taxonomy.CategoryPath
-import org.apache.lucene.facet.params.FacetSearchParams
+import org.apache.lucene.facet.params.{ FacetIndexingParams, FacetSearchParams }
 import scala.Some
 import scalang.Pid
 import scalang.Reference
@@ -177,8 +177,30 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     val legacy = request.options.getOrElse('legacy, false).asInstanceOf[Boolean]
 
     parseQuery(queryString) match {
-      case query: Query =>
+      case baseQuery: Query =>
         safeSearch {
+          val query = request.options.getOrElse('drilldown, Nil) match {
+            case Nil =>
+              baseQuery
+            case categories: List[List[String]] =>
+              val drilldownQuery = new DrillDownQuery(
+                FacetIndexingParams.DEFAULT, baseQuery)
+              for (category <- categories) {
+                try {
+                  drilldownQuery.add(new CategoryPath(category.toArray: _*))
+                } catch {
+                  case e: IllegalArgumentException =>
+                    throw new ParseException(e.getMessage)
+                  case e: ArrayStoreException =>
+                    throw new ParseException(category +
+                      " contains a non-string item")
+                }
+              }
+              drilldownQuery
+            case _ =>
+              throw new ParseException("invalid drilldown query")
+          }
+
           val searcher = getSearcher(refresh)
           val weight = searcher.createNormalizedWeight(query)
           val docsScoredInOrder = !weight.scoresDocsOutOfOrder
