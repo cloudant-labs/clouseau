@@ -190,7 +190,12 @@ object ClouseauTypeFactory extends TypeFactory {
   }
 
   def isFacet(options: Map[String, Any]) = {
-    options.getOrElse("facet", false).asInstanceOf[Boolean]
+    options.get("facet") match {
+      case Some(bool: Boolean) =>
+        bool
+      case _ =>
+        false
+    }
   }
 
 }
