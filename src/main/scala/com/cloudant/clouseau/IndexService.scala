@@ -222,7 +222,15 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
             case None =>
               null
             case Some(counts: List[String]) =>
-              val state = new SortedSetDocValuesReaderState(reader)
+              val state = try {
+                new SortedSetDocValuesReaderState(reader)
+              } catch {
+                case e: IllegalArgumentException =>
+                  if (e.getMessage contains "was not indexed with SortedSetDocValues")
+                    throw new ParseException("No fields were indexed for count faceting")
+                  else
+                    throw e
+              }
               val countFacetRequests = for (count <- counts) yield {
                 new CountFacetRequest(new CategoryPath(count), Int.MaxValue)
               }
