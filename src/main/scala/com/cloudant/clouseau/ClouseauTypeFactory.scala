@@ -96,7 +96,7 @@ object ClouseauTypeFactory extends TypeFactory {
               'ok
           }
           doc.add(field)
-          if (isFacet(map)) {
+          if (isFacet(map) && value.nonEmpty) {
             val facets = new SortedSetDocValuesFacetFields
             facets.addFields(doc, List(new CategoryPath(name, value)))
           }
