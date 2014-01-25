@@ -291,8 +291,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         } catch {
           case e: IllegalArgumentException =>
             if (e.getMessage contains "was not indexed with SortedSetDocValues")
-              throw new ParseException("No fields were indexed for count " +
-                "faceting")
+              return null
             else
               throw e
         }
