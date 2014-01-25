@@ -147,6 +147,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           }
           index ! ('committed, newSeq)
         } catch {
+          case e: AlreadyClosedException =>
+            logger.error("Commit failed to closed writer", e)
+            index ! 'commit_failed
           case e: IOException =>
             logger.error("Failed to commit changes", e)
             index ! 'commit_failed
