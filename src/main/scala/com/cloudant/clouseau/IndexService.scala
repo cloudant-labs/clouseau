@@ -206,7 +206,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           val docsScoredInOrder = !weight.scoresDocsOutOfOrder
 
           val sort = parseSort(request.options.getOrElse('sort, 'relevance))
-          val after = toScoreDoc(request.options.getOrElse('after, 'nil))
+          val after = toScoreDoc(sort, request.options.getOrElse('after, 'nil))
 
           val topDocsCollector = (after, sort) match {
             case (None, Sort.RELEVANCE) =>
@@ -550,7 +550,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     (node.label.components.toList, node.value, children)
   }
 
-  private def toScoreDoc(any: Any): Option[ScoreDoc] = any match {
+  private def toScoreDoc(sort: Sort, any: Any): Option[ScoreDoc] = any match {
     case 'nil =>
       None
     case (score: Any, doc: Any) =>
