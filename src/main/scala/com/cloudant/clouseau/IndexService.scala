@@ -564,13 +564,25 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
             ClouseauTypeFactory.toFloat(list.head)))
         case _ =>
           val fields = list dropRight 1
+          val sortfields = sort.getSort.toList
+          if (fields.length != sortfields.length) {
+            throw new ParseException("sort order not compatible with given bookmark")
+          }
           Some(new FieldDoc(ClouseauTypeFactory.toInteger(doc),
-            Float.NaN, fields map {
-              case 'null =>
+            Float.NaN, (sortfields zip fields) map {
+              case (_, 'null) =>
                 null
-              case str: String =>
+              case (_, str: String) =>
                 Utils.stringToBytesRef(str)
-              case field =>
+              case (SortField.FIELD_SCORE, number: java.lang.Double) =>
+                java.lang.Float.valueOf(number.floatValue())
+              case (IndexService.INVERSE_FIELD_SCORE, number: java.lang.Double) =>
+                java.lang.Float.valueOf(number.floatValue())
+              case (SortField.FIELD_DOC, number: java.lang.Double) =>
+                java.lang.Integer.valueOf(number.intValue())
+              case (IndexService.INVERSE_FIELD_DOC, number: java.lang.Double) =>
+                java.lang.Integer.valueOf(number.intValue())
+              case (_, field) =>
                 field
             } toArray))
       }
