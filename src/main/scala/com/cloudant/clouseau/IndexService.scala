@@ -550,7 +550,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     (node.label.components.toList, node.value, children)
   }
 
-  private def toScoreDoc(sort: Sort, any: Any): Option[ScoreDoc] = any match {
+  private def toScoreDoc(sort: Sort, after: Any): Option[ScoreDoc] = after match {
     case 'nil =>
       None
     case (score: Any, doc: Any) =>
