@@ -510,11 +510,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     case "<score>" =>
       SortField.FIELD_SCORE
     case "-<score>" =>
-      new SortField(null, SortField.Type.SCORE, true)
+      IndexService.INVERSE_FIELD_SCORE
     case "<doc>" =>
       SortField.FIELD_DOC
     case "-<doc>" =>
-      new SortField(null, SortField.Type.DOC, true)
+      IndexService.INVERSE_FIELD_DOC
     case _ =>
       sortFieldRE.findFirstMatchIn(field) match {
         case Some(sortFieldRE(fieldOrder, fieldName, fieldType)) =>
@@ -585,6 +585,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 object IndexService {
 
   val version = Version.LUCENE_46
+  val INVERSE_FIELD_SCORE = new SortField(null, SortField.Type.SCORE, true)
+  val INVERSE_FIELD_DOC = new SortField(null, SortField.Type.DOC, true)
 
   def start(node: Node, config: Configuration, path: String, options: Any): Any = {
     val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
