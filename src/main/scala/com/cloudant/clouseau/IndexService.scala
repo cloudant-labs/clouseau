@@ -558,16 +558,22 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         ClouseauTypeFactory.toFloat(score)))
     case list: List[Object] =>
       val doc = list.last
-      val fields = list dropRight 1
-      Some(new FieldDoc(ClouseauTypeFactory.toInteger(doc),
-        Float.NaN, fields map {
-          case 'null =>
-            null
-          case str: String =>
-            Utils.stringToBytesRef(str)
-          case field =>
-            field
-        } toArray))
+      sort.getSort match {
+        case Array(SortField.FIELD_SCORE) =>
+          Some(new ScoreDoc(ClouseauTypeFactory.toInteger(doc),
+            ClouseauTypeFactory.toFloat(list.head)))
+        case _ =>
+          val fields = list dropRight 1
+          Some(new FieldDoc(ClouseauTypeFactory.toInteger(doc),
+            Float.NaN, fields map {
+              case 'null =>
+                null
+              case str: String =>
+                Utils.stringToBytesRef(str)
+              case field =>
+                field
+            } toArray))
+      }
   }
 
   override def toString: String = {
