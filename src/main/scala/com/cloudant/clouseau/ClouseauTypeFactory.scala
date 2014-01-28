@@ -15,6 +15,7 @@ import org.jboss.netty.buffer.ChannelBuffer
 import org.apache.lucene.util.BytesRef
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetFields
 import org.apache.lucene.facet.taxonomy.CategoryPath
+import scala.collection.mutable.ArrayBuffer
 
 case class SearchRequest(options: Map[Symbol, Any])
 
@@ -237,6 +238,8 @@ object ClouseauTypeEncoder extends TypeEncoder {
 object ClouseauTypeDecoder extends TypeDecoder {
 
   def unapply(typeOrdinal: Int): Option[Int] = typeOrdinal match {
+    case 107 =>
+      Some(typeOrdinal)
     case 109 =>
       Some(typeOrdinal)
     case _ =>
@@ -244,6 +247,13 @@ object ClouseauTypeDecoder extends TypeDecoder {
   }
 
   def decode(typeOrdinal: Int, buffer: ChannelBuffer): Any = typeOrdinal match {
+    case 107 =>
+      val length = buffer.readUnsignedShort
+      val b = new ArrayBuffer[Int](length)
+      for (n <- 1 to length) {
+        b += buffer.readByte
+      }
+      b.toList
     case 109 =>
       val length = buffer.readInt
       val bytes = new Array[Byte](length)
