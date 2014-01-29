@@ -221,33 +221,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
                 false, docsScoredInOrder)
           }
 
-          val countsCollector = counts match {
-            case None =>
-              null
-            case Some(counts: List[String]) =>
-              val state = try {
-                new SortedSetDocValuesReaderState(reader)
-              } catch {
-                case e: IllegalArgumentException =>
-                  if (e.getMessage contains "was not indexed with SortedSetDocValues")
-                    throw new ParseException("No fields were indexed for count faceting")
-                  else
-                    throw e
-              }
-              val countFacetRequests = for (count <- counts) yield {
-                new CountFacetRequest(new CategoryPath(count), Int.MaxValue)
-              }
-              val facetSearchParams = new FacetSearchParams(countFacetRequests)
-              val acc = try {
-                new SortedSetDocValuesAccumulator(state, facetSearchParams)
-              } catch {
-                case e: IllegalArgumentException =>
-                  throw new ParseException(e.getMessage)
-              }
-              FacetsCollector.create(acc)
-            case Some(other) =>
-              throw new ParseException(other + " is not a valid counts query")
-          }
+          val countsCollector = createCountsCollector(counts)
 
           val rangesCollector = ranges match {
             case None =>
@@ -304,6 +278,36 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         }
       case error =>
         error
+    }
+  }
+
+  private def createCountsCollector(counts: Option[Any]): FacetsCollector = {
+    counts match {
+      case None =>
+        null
+      case Some(counts: List[String]) =>
+        val state = try {
+          new SortedSetDocValuesReaderState(reader)
+        } catch {
+          case e: IllegalArgumentException =>
+            if (e.getMessage contains "was not indexed with SortedSetDocValues")
+              return null
+            else
+              throw e
+        }
+        val countFacetRequests = for (count <- counts) yield {
+          new CountFacetRequest(new CategoryPath(count), Int.MaxValue)
+        }
+        val facetSearchParams = new FacetSearchParams(countFacetRequests)
+        val acc = try {
+          new SortedSetDocValuesAccumulator(state, facetSearchParams)
+        } catch {
+          case e: IllegalArgumentException =>
+            throw new ParseException(e.getMessage)
+        }
+        FacetsCollector.create(acc)
+      case Some(other) =>
+        throw new ParseException(other + " is not a valid counts query")
     }
   }
 
