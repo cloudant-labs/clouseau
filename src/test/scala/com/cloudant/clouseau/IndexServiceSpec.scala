@@ -91,6 +91,9 @@ class IndexServiceSpec extends SpecificationWithJUnit {
     }
 
     "support bookmarks" in new index_service {
+      val foo = new BytesRef("foo")
+      val bar = new BytesRef("bar")
+
       val doc1 = new Document()
       doc1.add(new StringField("_id", "foo", Field.Store.YES))
       val doc2 = new Document()
@@ -130,6 +133,31 @@ class IndexServiceSpec extends SpecificationWithJUnit {
         case ('ok, List(_, ('total_hits, 2),
           ('hits, List(Hit(List('null, 1), List(("_id", "bar"))))))) => ok
       }
+
+      node.call(service, SearchRequest(options =
+        Map('limit -> 1, 'sort -> List("<score>")))) must beLike {
+        case ('ok, List(_, ('total_hits, 2),
+          ('hits, List(Hit(List(1.0, 0), List(("_id", "foo"))))))) => ok
+      }
+
+      node.call(service, SearchRequest(options =
+        Map('limit -> 1, 'sort -> List("<doc>")))) must beLike {
+        case ('ok, List(_, ('total_hits, 2),
+          ('hits, List(Hit(List(0, 0), List(("_id", "foo"))))))) => ok
+      }
+
+      node.call(service, SearchRequest(options =
+        Map('limit -> 1, 'sort -> List("<score>", "_id<string>")))) must beLike {
+        case ('ok, List(_, ('total_hits, 2),
+        ('hits, List(Hit(List(1.0, bar, 1), List(("_id", "bar"))))))) => ok
+      }
+
+      node.call(service, SearchRequest(options =
+        Map('limit -> 1, 'sort -> List("<doc>", "_id<string>")))) must beLike {
+        case ('ok, List(_, ('total_hits, 2),
+        ('hits, List(Hit(List(0, foo, 0), List(("_id", "foo"))))))) => ok
+      }
+
     }
 
   }

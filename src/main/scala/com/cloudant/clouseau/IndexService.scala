@@ -161,7 +161,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   private def search(request: SearchRequest): Any = {
     val queryString = request.options.getOrElse('query, "*:*").asInstanceOf[String]
     val refresh = request.options.getOrElse('fresh, true).asInstanceOf[Boolean]
-    val after = toScoreDoc(request.options.getOrElse('after, 'nil))
     val limit = request.options.getOrElse('limit, 25).asInstanceOf[Int]
     val counts = request.options.getOrElse('counts, 'nil) match {
       case 'nil =>
@@ -207,6 +206,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           val docsScoredInOrder = !weight.scoresDocsOutOfOrder
 
           val sort = parseSort(request.options.getOrElse('sort, 'relevance))
+          val after = toScoreDoc(sort, request.options.getOrElse('after, 'nil))
 
           val topDocsCollector = (after, sort) match {
             case (None, Sort.RELEVANCE) =>
@@ -514,11 +514,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     case "<score>" =>
       SortField.FIELD_SCORE
     case "-<score>" =>
-      new SortField(null, SortField.Type.SCORE, true)
+      IndexService.INVERSE_FIELD_SCORE
     case "<doc>" =>
       SortField.FIELD_DOC
     case "-<doc>" =>
-      new SortField(null, SortField.Type.DOC, true)
+      IndexService.INVERSE_FIELD_DOC
     case _ =>
       sortFieldRE.findFirstMatchIn(field) match {
         case Some(sortFieldRE(fieldOrder, fieldName, fieldType)) =>
@@ -554,7 +554,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     (node.label.components.toList, node.value, children)
   }
 
-  private def toScoreDoc(any: Any): Option[ScoreDoc] = any match {
+  private def toScoreDoc(sort: Sort, after: Any): Option[ScoreDoc] = after match {
     case 'nil =>
       None
     case (score: Any, doc: Any) =>
@@ -562,16 +562,34 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         ClouseauTypeFactory.toFloat(score)))
     case list: List[Object] =>
       val doc = list.last
-      val fields = list dropRight 1
-      Some(new FieldDoc(ClouseauTypeFactory.toInteger(doc),
-        Float.NaN, fields map {
-          case 'null =>
-            null
-          case str: String =>
-            Utils.stringToBytesRef(str)
-          case field =>
-            field
-        } toArray))
+      sort.getSort match {
+        case Array(SortField.FIELD_SCORE) =>
+          Some(new ScoreDoc(ClouseauTypeFactory.toInteger(doc),
+            ClouseauTypeFactory.toFloat(list.head)))
+        case _ =>
+          val fields = list dropRight 1
+          val sortfields = sort.getSort.toList
+          if (fields.length != sortfields.length) {
+            throw new ParseException("sort order not compatible with given bookmark")
+          }
+          Some(new FieldDoc(ClouseauTypeFactory.toInteger(doc),
+            Float.NaN, (sortfields zip fields) map {
+              case (_, 'null) =>
+                null
+              case (_, str: String) =>
+                Utils.stringToBytesRef(str)
+              case (SortField.FIELD_SCORE, number: java.lang.Double) =>
+                java.lang.Float.valueOf(number.floatValue())
+              case (IndexService.INVERSE_FIELD_SCORE, number: java.lang.Double) =>
+                java.lang.Float.valueOf(number.floatValue())
+              case (SortField.FIELD_DOC, number: java.lang.Double) =>
+                java.lang.Integer.valueOf(number.intValue())
+              case (IndexService.INVERSE_FIELD_DOC, number: java.lang.Double) =>
+                java.lang.Integer.valueOf(number.intValue())
+              case (_, field) =>
+                field
+            } toArray))
+      }
   }
 
   override def toString: String = {
@@ -583,6 +601,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 object IndexService {
 
   val version = Version.LUCENE_46
+  val INVERSE_FIELD_SCORE = new SortField(null, SortField.Type.SCORE, true)
+  val INVERSE_FIELD_DOC = new SortField(null, SortField.Type.DOC, true)
 
   def start(node: Node, config: Configuration, path: String, options: Any): Any = {
     val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
