@@ -149,13 +149,13 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       node.call(service, SearchRequest(options =
         Map('limit -> 1, 'sort -> List("<score>", "_id<string>")))) must beLike {
         case ('ok, List(_, ('total_hits, 2),
-        ('hits, List(Hit(List(1.0, bar, 1), List(("_id", "bar"))))))) => ok
+          ('hits, List(Hit(List(1.0, bar, 1), List(("_id", "bar"))))))) => ok
       }
 
       node.call(service, SearchRequest(options =
         Map('limit -> 1, 'sort -> List("<doc>", "_id<string>")))) must beLike {
         case ('ok, List(_, ('total_hits, 2),
-        ('hits, List(Hit(List(0, foo, 0), List(("_id", "foo"))))))) => ok
+          ('hits, List(Hit(List(0, foo, 0), List(("_id", "foo"))))))) => ok
       }
 
     }
