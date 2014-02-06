@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.cloudant</groupId>
   <artifactId>clouseau</artifactId>
-  <version>2.4.2</version>
+  <version>2.4.3-SNAPSHOT</version>
   <name>${project.artifactId}</name>
   <description>Full-text indexing for Cloudant</description>
   <inceptionYear>2012</inceptionYear>
