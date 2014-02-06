@@ -512,9 +512,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
   private def toSortField(field: String): SortField = field match {
     case "<score>" =>
-      SortField.FIELD_SCORE
-    case "-<score>" =>
       IndexService.INVERSE_FIELD_SCORE
+    case "-<score>" =>
+      SortField.FIELD_SCORE
     case "<doc>" =>
       SortField.FIELD_DOC
     case "-<doc>" =>
