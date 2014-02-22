@@ -47,7 +47,6 @@ case class Hit(order: List[Any], fields: List[Any])
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
 
   val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
-  val sortFieldRE = """^([-+])?([\.\w]+)(?:<(\w+)>)?$""".r
   var reader = DirectoryReader.open(ctx.args.writer, true)
   var updateSeq = getCommittedSeq
   var pendingSeq = updateSeq
@@ -456,8 +455,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   private def parseGroupField(field: String) = {
-    sortFieldRE.findFirstMatchIn(field) match {
-      case Some(sortFieldRE(_fieldOrder, fieldName, fieldType)) =>
+    IndexService.SORT_FIELD_RE.findFirstMatchIn(field) match {
+      case Some(IndexService.SORT_FIELD_RE(_fieldOrder, fieldName, fieldType)) =>
         (fieldName, fieldType)
       case None =>
         throw new ParseException("Unrecognized group_field parameter: "
@@ -520,8 +519,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     case "-<doc>" =>
       IndexService.INVERSE_FIELD_DOC
     case _ =>
-      sortFieldRE.findFirstMatchIn(field) match {
-        case Some(sortFieldRE(fieldOrder, fieldName, fieldType)) =>
+      IndexService.SORT_FIELD_RE.findFirstMatchIn(field) match {
+        case Some(IndexService.SORT_FIELD_RE(fieldOrder, fieldName, fieldType)) =>
           new SortField(fieldName,
             fieldType match {
               case "string" =>
@@ -603,6 +602,7 @@ object IndexService {
   val version = Version.LUCENE_46
   val INVERSE_FIELD_SCORE = new SortField(null, SortField.Type.SCORE, true)
   val INVERSE_FIELD_DOC = new SortField(null, SortField.Type.DOC, true)
+  val SORT_FIELD_RE = """^([-+])?([\.\w]+)(?:<(\w+)>)?$""".r
 
   def start(node: Node, config: Configuration, path: String, options: Any): Any = {
     val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
