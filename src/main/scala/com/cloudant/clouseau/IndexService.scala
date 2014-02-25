@@ -518,23 +518,20 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       SortField.FIELD_DOC
     case "-<doc>" =>
       IndexService.INVERSE_FIELD_DOC
+    case IndexService.SORT_FIELD_RE(fieldOrder, fieldName, fieldType) =>
+      new SortField(fieldName,
+        fieldType match {
+          case "string" =>
+            SortField.Type.STRING
+          case "number" =>
+            SortField.Type.DOUBLE
+          case null =>
+            SortField.Type.DOUBLE
+          case _ =>
+            throw new ParseException("Unrecognized type: " + fieldType)
+        }, fieldOrder == "-")
     case _ =>
-      IndexService.SORT_FIELD_RE.findFirstMatchIn(field) match {
-        case Some(IndexService.SORT_FIELD_RE(fieldOrder, fieldName, fieldType)) =>
-          new SortField(fieldName,
-            fieldType match {
-              case "string" =>
-                SortField.Type.STRING
-              case "number" =>
-                SortField.Type.DOUBLE
-              case null =>
-                SortField.Type.DOUBLE
-              case _ =>
-                throw new ParseException("Unrecognized type: " + fieldType)
-            }, fieldOrder == "-")
-        case None =>
-          throw new ParseException("Unrecognized sort parameter: " + field)
-      }
+      throw new ParseException("Unrecognized sort parameter: " + field)
   }
 
   private def convertFacets(name: Symbol, c: FacetsCollector): List[_] = c match {
