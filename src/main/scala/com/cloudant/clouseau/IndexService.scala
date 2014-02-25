@@ -37,6 +37,8 @@ import org.apache.lucene.facet.params.{ FacetIndexingParams, FacetSearchParams }
 import scala.Some
 import scalang.Pid
 import scalang.Reference
+import com.spatial4j.core.context.SpatialContext
+import com.spatial4j.core.distance.DistanceUtils
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
 
@@ -204,7 +206,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           val weight = searcher.createNormalizedWeight(query)
           val docsScoredInOrder = !weight.scoresDocsOutOfOrder
 
-          val sort = parseSort(request.options.getOrElse('sort, 'relevance))
+          val sort = parseSort(request.options.getOrElse('sort, 'relevance)).rewrite(searcher)
           val after = toScoreDoc(sort, request.options.getOrElse('after, 'nil))
 
           val topDocsCollector = (after, sort) match {
@@ -518,6 +520,17 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       SortField.FIELD_DOC
     case "-<doc>" =>
       IndexService.INVERSE_FIELD_DOC
+    case IndexService.DISTANCE_RE(fieldOrder, fieldLon, fieldLat, lon, lat, units) =>
+      val radius = units match {
+        case "mi" => DistanceUtils.EARTH_EQUATORIAL_RADIUS_MI
+        case "km" => DistanceUtils.EARTH_EQUATORIAL_RADIUS_KM
+        case null => DistanceUtils.EARTH_EQUATORIAL_RADIUS_KM
+      }
+      val ctx = SpatialContext.GEO
+      val point = ctx.makePoint(lon toDouble, lat toDouble)
+      val degToKm = DistanceUtils.degrees2Dist(1, radius)
+      val valueSource = new DistanceValueSource(ctx, fieldLon, fieldLat, degToKm, point)
+      valueSource.getSortField(fieldOrder == "-")
     case IndexService.SORT_FIELD_RE(fieldOrder, fieldName, fieldType) =>
       new SortField(fieldName,
         fieldType match {
@@ -600,6 +613,8 @@ object IndexService {
   val INVERSE_FIELD_SCORE = new SortField(null, SortField.Type.SCORE, true)
   val INVERSE_FIELD_DOC = new SortField(null, SortField.Type.DOC, true)
   val SORT_FIELD_RE = """^([-+])?([\.\w]+)(?:<(\w+)>)?$""".r
+  val FP = """([-+]?[0-9]+(?:\.[0-9]+)?)"""
+  val DISTANCE_RE = "^([-+])?<distance,([\\.\\w]+),([\\.\\w]+),%s,%s,(mi|km)>$".format(FP, FP).r
 
   def start(node: Node, config: Configuration, path: String, options: Any): Any = {
     val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
