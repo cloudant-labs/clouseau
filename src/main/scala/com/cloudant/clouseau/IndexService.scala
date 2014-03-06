@@ -37,6 +37,8 @@ import org.apache.lucene.facet.params.{ FacetIndexingParams, FacetSearchParams }
 import scala.Some
 import scalang.Pid
 import scalang.Reference
+import com.spatial4j.core.context.SpatialContext
+import com.spatial4j.core.distance.DistanceUtils
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
 
@@ -47,7 +49,6 @@ case class Hit(order: List[Any], fields: List[Any])
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
 
   val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
-  val sortFieldRE = """^([-+])?([\.\w]+)(?:<(\w+)>)?$""".r
   var reader = DirectoryReader.open(ctx.args.writer, true)
   var updateSeq = getCommittedSeq
   var pendingSeq = updateSeq
@@ -205,7 +206,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           val weight = searcher.createNormalizedWeight(query)
           val docsScoredInOrder = !weight.scoresDocsOutOfOrder
 
-          val sort = parseSort(request.options.getOrElse('sort, 'relevance))
+          val sort = parseSort(request.options.getOrElse('sort, 'relevance)).rewrite(searcher)
           val after = toScoreDoc(sort, request.options.getOrElse('after, 'nil))
 
           val topDocsCollector = (after, sort) match {
@@ -456,8 +457,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   private def parseGroupField(field: String) = {
-    sortFieldRE.findFirstMatchIn(field) match {
-      case Some(sortFieldRE(_fieldOrder, fieldName, fieldType)) =>
+    IndexService.SORT_FIELD_RE.findFirstMatchIn(field) match {
+      case Some(IndexService.SORT_FIELD_RE(_fieldOrder, fieldName, fieldType)) =>
         (fieldName, fieldType)
       case None =>
         throw new ParseException("Unrecognized group_field parameter: "
@@ -519,23 +520,31 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       SortField.FIELD_DOC
     case "-<doc>" =>
       IndexService.INVERSE_FIELD_DOC
-    case _ =>
-      sortFieldRE.findFirstMatchIn(field) match {
-        case Some(sortFieldRE(fieldOrder, fieldName, fieldType)) =>
-          new SortField(fieldName,
-            fieldType match {
-              case "string" =>
-                SortField.Type.STRING
-              case "number" =>
-                SortField.Type.DOUBLE
-              case null =>
-                SortField.Type.DOUBLE
-              case _ =>
-                throw new ParseException("Unrecognized type: " + fieldType)
-            }, fieldOrder == "-")
-        case None =>
-          throw new ParseException("Unrecognized sort parameter: " + field)
+    case IndexService.DISTANCE_RE(fieldOrder, fieldLon, fieldLat, lon, lat, units) =>
+      val radius = units match {
+        case "mi" => DistanceUtils.EARTH_EQUATORIAL_RADIUS_MI
+        case "km" => DistanceUtils.EARTH_EQUATORIAL_RADIUS_KM
+        case null => DistanceUtils.EARTH_EQUATORIAL_RADIUS_KM
       }
+      val ctx = SpatialContext.GEO
+      val point = ctx.makePoint(lon toDouble, lat toDouble)
+      val degToKm = DistanceUtils.degrees2Dist(1, radius)
+      val valueSource = new DistanceValueSource(ctx, fieldLon, fieldLat, degToKm, point)
+      valueSource.getSortField(fieldOrder == "-")
+    case IndexService.SORT_FIELD_RE(fieldOrder, fieldName, fieldType) =>
+      new SortField(fieldName,
+        fieldType match {
+          case "string" =>
+            SortField.Type.STRING
+          case "number" =>
+            SortField.Type.DOUBLE
+          case null =>
+            SortField.Type.DOUBLE
+          case _ =>
+            throw new ParseException("Unrecognized type: " + fieldType)
+        }, fieldOrder == "-")
+    case _ =>
+      throw new ParseException("Unrecognized sort parameter: " + field)
   }
 
   private def convertFacets(name: Symbol, c: FacetsCollector): List[_] = c match {
@@ -603,6 +612,9 @@ object IndexService {
   val version = Version.LUCENE_46
   val INVERSE_FIELD_SCORE = new SortField(null, SortField.Type.SCORE, true)
   val INVERSE_FIELD_DOC = new SortField(null, SortField.Type.DOC, true)
+  val SORT_FIELD_RE = """^([-+])?([\.\w]+)(?:<(\w+)>)?$""".r
+  val FP = """([-+]?[0-9]+(?:\.[0-9]+)?)"""
+  val DISTANCE_RE = "^([-+])?<distance,([\\.\\w]+),([\\.\\w]+),%s,%s,(mi|km)>$".format(FP, FP).r
 
   def start(node: Node, config: Configuration, path: String, options: Any): Any = {
     val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
