@@ -161,7 +161,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
   private def search(request: SearchRequest): Any = {
     val queryString = request.options.getOrElse('query, "*:*").asInstanceOf[String]
-    val refresh = request.options.getOrElse('fresh, true).asInstanceOf[Boolean]
+    val refresh = request.options.getOrElse('refresh, true).asInstanceOf[Boolean]
     val limit = request.options.getOrElse('limit, 25).asInstanceOf[Int]
     val counts = request.options.getOrElse('counts, 'nil) match {
       case 'nil =>
