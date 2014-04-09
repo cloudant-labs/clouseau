@@ -28,7 +28,7 @@ class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs]) extends Service
     }
     if (monitored == analyzer) {
       logger.warn("analyzer crashed")
-      cleanup = spawnAndMonitorService[AnalyzerService, ConfigurationArgs]('analyzer, ctx.args)
+      analyzer = spawnAndMonitorService[AnalyzerService, ConfigurationArgs]('analyzer, ctx.args)
     }
   }
 
