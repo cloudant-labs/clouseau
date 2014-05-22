@@ -172,7 +172,14 @@ object ClouseauTypeFactory extends TypeFactory {
       case true => Store.YES
       case false => Store.NO
       case str: String =>
-        Store.valueOf(str toUpperCase)
+        try {
+          Store.valueOf(str toUpperCase)
+        } catch {
+          case _: IllegalArgumentException =>
+            Store.NO
+        }
+      case _ =>
+        Store.NO
     }
   }
 
@@ -181,7 +188,14 @@ object ClouseauTypeFactory extends TypeFactory {
       case true => Index.ANALYZED
       case false => Index.NO
       case str: String =>
-        Index.valueOf(str toUpperCase)
+        try {
+          Index.valueOf(str toUpperCase)
+        } catch {
+          case _: IllegalArgumentException =>
+            Index.ANALYZED
+        }
+      case _ =>
+        Index.ANALYZED
     }
   }
 

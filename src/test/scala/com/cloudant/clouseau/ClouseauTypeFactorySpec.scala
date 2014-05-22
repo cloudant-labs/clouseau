@@ -30,6 +30,14 @@ class ClouseauTypeFactorySpec extends SpecificationWithJUnit {
       }
     }
 
+    "use the default if store string is not recognized" in {
+      toStore(Map("store" -> "hello")) must be equalTo Store.NO
+    }
+
+    "use the default if store value is not recognized" in {
+      toStore(Map("store" -> 12)) must be equalTo Store.NO
+    }
+
     "support true for index" in {
       toIndex(Map("index" -> true)) must be equalTo Index.ANALYZED
     }
@@ -52,6 +60,13 @@ class ClouseauTypeFactorySpec extends SpecificationWithJUnit {
       }
     }
 
+    "use the default if index string is not recognized" in {
+      toIndex(Map("index" -> "hello")) must be equalTo Index.ANALYZED
+    }
+
+    "use the default if index value is not recognized" in {
+      toIndex(Map("index" -> 12)) must be equalTo Index.ANALYZED
+    }
   }
 
 }
