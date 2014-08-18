@@ -5,3 +5,6 @@ ENV DEBIAN_FRONTEND noninteractive
 # Install prereqs
 RUN apt-get -qq update
 RUN apt-get -y install git openjdk-6-jdk maven
+
+# Run test suite
+RUN mvn test
