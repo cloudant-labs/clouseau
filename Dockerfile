@@ -9,7 +9,6 @@ RUN useradd -m clouseau
 USER clouseau
 WORKDIR /home/clouseau
 
-ADD pom.xml /home/clouseau/
-ADD src /home/clouseau/
+ADD . /home/clouseau/
 
 RUN mvn test
