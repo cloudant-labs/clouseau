@@ -637,11 +637,16 @@ object IndexService {
   }
 
   private def newDirectory(config: Configuration, path: File): Directory = {
-    val clazzName = config.getString("clouseau.dir_class",
+    val lockClassName = config.getString("clouseau.lock_class",
+      "org.apache.lucene.store.NativeFSLockFactory")
+    val lockClass = Class.forName(lockClassName)
+    val lockFactory = lockClass.newInstance().asInstanceOf[LockFactory]
+
+    val dirClassName = config.getString("clouseau.dir_class",
       "org.apache.lucene.store.NIOFSDirectory")
-    val clazz = Class.forName(clazzName)
-    val ctor = clazz.getConstructor(classOf[File])
-    ctor.newInstance(path).asInstanceOf[Directory]
+    val dirClass = Class.forName(dirClassName)
+    val dirCtor = dirClass.getConstructor(classOf[File], classOf[LockFactory])
+    dirCtor.newInstance(path, lockFactory).asInstanceOf[Directory]
   }
 
 }
