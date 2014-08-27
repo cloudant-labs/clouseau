@@ -1,13 +1,16 @@
 package com.cloudant.clouseau
 
 import scalang.Node
-import org.specs2.mutable.After
+import org.specs2.mutable.BeforeAfter
 
-trait RunningNode extends After {
+trait RunningNode extends BeforeAfter {
 
   val cookie = "test"
   val epmd = EpmdCmd()
   val node = Node(Symbol("test@localhost"), cookie)
+
+  def before {
+  }
 
   def after {
     epmd.destroy()

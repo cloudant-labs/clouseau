@@ -8,6 +8,7 @@ import org.specs2.mutable.SpecificationWithJUnit
 import org.apache.lucene.util.BytesRef
 import scalang.Pid
 import scala.Some
+import java.io.File
 
 class IndexServiceSpec extends SpecificationWithJUnit {
   sequential
@@ -181,7 +182,19 @@ class IndexServiceSpec extends SpecificationWithJUnit {
 trait index_service extends RunningNode {
   val config = new SystemConfiguration()
   val args = new ConfigurationArgs(config)
-  var (_, service: Pid) = IndexService.start(node, config, "bar", options())
+  var service: Pid = null
+
+  override def before {
+    val dir = new File(new File("target", "indexes"), "bar")
+    if (dir.exists) {
+      for (f <- dir.listFiles) {
+        f.delete
+      }
+    }
+
+    val (_, pid: Pid) = IndexService.start(node, config, "bar", options())
+    service = pid
+  }
 
   def options(): Any = {
     "standard"
