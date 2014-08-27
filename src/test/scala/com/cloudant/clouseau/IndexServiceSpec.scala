@@ -1,6 +1,6 @@
 package com.cloudant.clouseau
 
-import org.apache.commons.configuration.BaseConfiguration
+import org.apache.commons.configuration.SystemConfiguration
 import scalang.Node
 import org.apache.lucene.document._
 import org.apache.lucene.search.{ FieldDoc, ScoreDoc }
@@ -179,7 +179,7 @@ class IndexServiceSpec extends SpecificationWithJUnit {
 }
 
 trait index_service extends RunningNode {
-  val config = new BaseConfiguration()
+  val config = new SystemConfiguration()
   val args = new ConfigurationArgs(config)
   var (_, service: Pid) = IndexService.start(node, config, "bar", options())
 

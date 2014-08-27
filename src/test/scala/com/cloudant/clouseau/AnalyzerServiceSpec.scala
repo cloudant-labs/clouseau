@@ -1,5 +1,6 @@
 package com.cloudant.clouseau
 
+import org.apache.commons.configuration.SystemConfiguration
 import org.specs2.mutable.SpecificationWithJUnit
 import org.specs2.specification.Scope
 
@@ -17,7 +18,8 @@ class AnalyzerServiceSpec extends SpecificationWithJUnit {
 }
 
 trait analyzer_service extends Scope {
-  val args = new ConfigurationArgs(null)
+  val config = new SystemConfiguration()
+  val args = new ConfigurationArgs(config)
   val service = new AnalyzerService(new FakeServiceContext[ConfigurationArgs](args))
 }
 

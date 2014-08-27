@@ -1,6 +1,6 @@
 package com.cloudant.clouseau
 
-import org.apache.commons.configuration.BaseConfiguration
+import org.apache.commons.configuration.SystemConfiguration
 import scalang.Pid
 import org.specs2.mutable.SpecificationWithJUnit
 
@@ -25,7 +25,7 @@ class IndexManagerServiceSpec extends SpecificationWithJUnit {
 }
 
 trait manager_service extends RunningNode {
-  val config = new BaseConfiguration()
+  val config = new SystemConfiguration()
   val args = new ConfigurationArgs(config)
   val service = node.spawnService[IndexManagerService, ConfigurationArgs](args)
   val mbox = node.spawnMbox
