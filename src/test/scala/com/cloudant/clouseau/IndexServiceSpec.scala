@@ -201,7 +201,9 @@ trait index_service extends RunningNode {
   }
 
   override def after {
-    node.send(service, 'delete)
+    if (service != null) {
+      node.send(service, 'delete)
+    }
     super.after
   }
 
