@@ -161,6 +161,38 @@ class IndexServiceSpec extends SpecificationWithJUnit {
 
     }
 
+    "support only group by string" in new index_service {
+      val foo = new BytesRef("foo")
+      val bar = new BytesRef("bar")
+
+      val doc1 = new Document()
+      doc1.add(new StringField("_id", "foo", Field.Store.YES))
+      doc1.add(new DoubleField("num", 1.0, Field.Store.YES))
+      val doc2 = new Document()
+      doc2.add(new StringField("_id", "bar", Field.Store.YES))
+      doc1.add(new DoubleField("num", 2.0, Field.Store.YES))
+
+      node.call(service, UpdateDocMsg("foo", doc1)) must be equalTo 'ok
+      node.call(service, UpdateDocMsg("bar", doc2)) must be equalTo 'ok
+
+      node.call(service, Group1Msg("_id:foo", "_id", true, "num", 0, 10)) must beLike {
+        case ('ok, List((foo, List(2.0)))) => ok
+      }
+
+      node.call(service, Group1Msg("_id:foo", "_id<string>", true, "num", 0, 10)) must beLike {
+        case ('ok, List((foo, List(2.0)))) => ok
+      }
+
+      node.call(service, Group1Msg("_id:foo", "num<number>", true, "num", 0, 10)) must beLike {
+        case ('error, ('bad_request, "Group by number not supported. Group by string terms only.")) => ok
+      }
+
+      node.call(service, Group1Msg("_id:foo", "_id<number>", true, "num", 0, 10)) must beLike {
+        case ('error, ('bad_request, "Group by number not supported. Group by string terms only.")) => ok
+      }
+
+    }
+
   }
 
   private def isSearchable(node: Node, service: Pid,
