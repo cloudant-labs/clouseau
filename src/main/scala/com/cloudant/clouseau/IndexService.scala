@@ -13,7 +13,8 @@ import org.apache.lucene.store._
 import org.apache.lucene.search._
 import grouping.SearchGroup
 import grouping.term.{ TermSecondPassGroupingCollector, TermFirstPassGroupingCollector }
-import org.apache.lucene.util.{ NumericUtils, BytesRef, Version }
+import org.apache.lucene.util.BytesRef
+import org.apache.lucene.util.Version
 import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.queryparser.classic.ParseException
@@ -317,9 +318,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     case query: Query =>
       val searcher = getSearcher(refresh)
       safeSearch {
-        val (fieldName, _) = parseGroupField(field)
-        val collector = new TermFirstPassGroupingCollector(fieldName,
-          parseSort(groupSort).rewrite(searcher), groupLimit)
+        val fieldName = validateGroupField(field)
+        val collector = new TermFirstPassGroupingCollector(fieldName, parseSort(groupSort), groupLimit)
         searchTimer.time {
           searcher.search(query, collector)
           collector.getTopGroups(groupOffset, true) match {
@@ -344,10 +344,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         g => makeSearchGroup(g)
       }
       safeSearch {
-        val (fieldName, fieldType) = parseGroupField(field)
-        val collector = new TermSecondPassGroupingCollector(fieldName,
-          groups1, parseSort(groupSort).rewrite(searcher),
-          parseSort(docSort).rewrite(searcher),
+        val fieldName = validateGroupField(field)
+        val collector = new TermSecondPassGroupingCollector(fieldName, groups1, parseSort(groupSort), parseSort(docSort),
           docLimit, true, false, true)
         searchTimer.time {
           searcher.search(query, collector)
@@ -359,18 +357,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
                 topGroups.groups.map {
                   g =>
                     (
-                      fieldType match {
-                        case "number" =>
-                          NumericUtils.sortableLongToDouble(
-                            NumericUtils.prefixCodedToLong(g.groupValue))
-                        case "string" =>
-                          g.groupValue
-                        case null =>
-                          g.groupValue
-                        case _ =>
-                          throw new ParseException(
-                            "Unrecognized type for group_field: " + fieldType)
-                      },
+                      g.groupValue,
                       g.totalHits,
                       g.scoreDocs.map({
                         docToHit(searcher, _)
@@ -382,6 +369,20 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       }
     case error =>
       error
+  }
+
+  private def validateGroupField(field: String) = {
+    IndexService.SORT_FIELD_RE.findFirstMatchIn(field) match {
+      case Some(IndexService.SORT_FIELD_RE(_fieldOrder, fieldName, "string")) =>
+        (fieldName)
+      case Some(IndexService.SORT_FIELD_RE(_fieldOrder, fieldName, null)) =>
+        (fieldName)
+      case Some(IndexService.SORT_FIELD_RE(_fieldOrder, fieldName, "number")) =>
+        throw new ParseException("Group by number not supported. Group by string terms only.")
+      case None =>
+        throw new ParseException("Unrecognized group_field parameter: "
+          + field)
+    }
   }
 
   private def makeSearchGroup(group: Any): SearchGroup[BytesRef] = group match {
@@ -454,16 +455,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         0L
       case seq =>
         seq.toLong
-    }
-  }
-
-  private def parseGroupField(field: String) = {
-    IndexService.SORT_FIELD_RE.findFirstMatchIn(field) match {
-      case Some(IndexService.SORT_FIELD_RE(_fieldOrder, fieldName, fieldType)) =>
-        (fieldName, fieldType)
-      case None =>
-        throw new ParseException("Unrecognized group_field parameter: "
-          + field)
     }
   }
 
