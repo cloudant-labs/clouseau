@@ -211,6 +211,7 @@
           <useFile>false</useFile>
           <disableXmlReport>true</disableXmlReport>
           <systemPropertyVariables>
+            <clouseau.lock_class>org.apache.lucene.store.SimpleFSLockFactory</clouseau.lock_class>
           </systemPropertyVariables>
           <!-- If you have classpath issue like NoDefClassError,... -->
           <!-- useManifestOnlyJar>false</useManifestOnlyJar -->
