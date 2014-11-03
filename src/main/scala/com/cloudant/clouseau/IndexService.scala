@@ -210,15 +210,17 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           val sort = parseSort(request.options.getOrElse('sort, 'relevance)).rewrite(searcher)
           val after = toScoreDoc(sort, request.options.getOrElse('after, 'nil))
 
-          val topDocsCollector = (after, sort) match {
-            case (None, Sort.RELEVANCE) =>
+          val hitsCollector = (limit, after, sort) match {
+            case (0, _, _) =>
+              new TotalHitCountCollector
+            case (_, None, Sort.RELEVANCE) =>
               TopScoreDocCollector.create(limit, docsScoredInOrder)
-            case (Some(scoreDoc), Sort.RELEVANCE) =>
+            case (_, Some(scoreDoc), Sort.RELEVANCE) =>
               TopScoreDocCollector.create(limit, scoreDoc, docsScoredInOrder)
-            case (None, sort1: Sort) =>
+            case (_, None, sort1: Sort) =>
               TopFieldCollector.create(sort1, limit, true, false, false,
                 docsScoredInOrder)
-            case (Some(fieldDoc: FieldDoc), sort1: Sort) =>
+            case (_, Some(fieldDoc: FieldDoc), sort1: Sort) =>
               TopFieldCollector.create(sort1, limit, fieldDoc, true, false,
                 false, docsScoredInOrder)
           }
@@ -255,24 +257,22 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           }
 
           val collector = MultiCollector.wrap(
-            topDocsCollector, countsCollector, rangesCollector)
+            hitsCollector, countsCollector, rangesCollector)
 
           searchTimer.time {
             searcher.search(query, collector)
           }
           logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".
-            format(query, limit, refresh, topDocsCollector.getTotalHits))
+            format(query, limit, refresh, getTotalHits(hitsCollector)))
 
-          val hits = topDocsCollector.topDocs.scoreDocs.map({
-            docToHit(searcher, _)
-          }).toList
+          val hits = getHits(hitsCollector, searcher)
 
           if (legacy) {
-            ('ok, TopDocs(updateSeq, topDocsCollector.getTotalHits, hits))
+            ('ok, TopDocs(updateSeq, getTotalHits(hitsCollector), hits))
           } else {
             ('ok, List(
               ('update_seq, updateSeq),
-              ('total_hits, topDocsCollector.getTotalHits),
+              ('total_hits, getTotalHits(hitsCollector)),
               ('hits, hits)
             ) ++ convertFacets('counts, countsCollector)
               ++ convertFacets('ranges, rangesCollector))
@@ -282,6 +282,21 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         error
     }
   }
+
+  private def getTotalHits(collector: Collector) = collector match {
+    case c: TopDocsCollector[_] =>
+      c.getTotalHits
+    case c: TotalHitCountCollector =>
+      c.getTotalHits
+  }
+
+  private def getHits(collector: Collector, searcher: IndexSearcher) =
+    collector match {
+      case c: TopDocsCollector[_] =>
+        c.topDocs.scoreDocs.map({ docToHit(searcher, _) }).toList
+      case c: TotalHitCountCollector =>
+        Nil
+    }
 
   private def createCountsCollector(counts: Option[Any]): FacetsCollector = {
     counts match {

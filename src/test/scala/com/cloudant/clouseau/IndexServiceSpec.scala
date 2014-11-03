@@ -91,6 +91,21 @@ class IndexServiceSpec extends SpecificationWithJUnit {
 
     }
 
+    "when limit=0 return only the number of hits" in new index_service {
+      val doc1 = new Document()
+      doc1.add(new StringField("_id", "foo", Field.Store.YES))
+      val doc2 = new Document()
+      doc2.add(new StringField("field2", "test", Field.Store.YES))
+
+      node.call(service, UpdateDocMsg("foo", doc1)) must be equalTo 'ok
+      node.call(service, UpdateDocMsg("bar", doc2)) must be equalTo 'ok
+      node.call(service, SearchRequest(options =
+        Map('limit -> 0))) must beLike {
+        case ('ok, List(_, ('total_hits, 2),
+          ('hits, List()))) => ok
+      }
+    }
+
     "support bookmarks" in new index_service {
       val foo = new BytesRef("foo")
       val bar = new BytesRef("bar")
