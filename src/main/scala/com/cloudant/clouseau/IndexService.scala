@@ -71,9 +71,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
       groupLimit: Int) =>
       group1(query, field, refresh, groupSort, groupOffset, groupLimit)
-    case Group2Msg(query: String, field: String, refresh: Boolean, groups: List[Any], groupSort: Any,
-      docSort: Any, docLimit: Int) =>
-      group2(query, field, refresh, groups, groupSort, docSort, docLimit)
+    case request: Group2Msg =>
+      group2(request)
     case 'get_update_seq =>
       ('ok, updateSeq)
     case UpdateDocMsg(id: String, doc: Document) =>
@@ -176,6 +175,17 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       case value =>
         Some(value)
     }
+
+    val includeFields: Set[String] =
+      request.options.getOrElse('include_fields, 'nil) match {
+        case 'nil =>
+          null
+        case value: List[String] =>
+          Set[String]() ++ ("_id" :: value).toSet
+        case other =>
+          throw new ParseException(other + " is not a valid include_fields query")
+      }
+
     val legacy = request.options.getOrElse('legacy, false).asInstanceOf[Boolean]
 
     parseQuery(queryString) match {
@@ -265,7 +275,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".
             format(query, limit, refresh, getTotalHits(hitsCollector)))
 
-          val hits = getHits(hitsCollector, searcher)
+          val hits = getHits(hitsCollector, searcher, includeFields)
 
           if (legacy) {
             ('ok, TopDocs(updateSeq, getTotalHits(hitsCollector), hits))
@@ -290,10 +300,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       c.getTotalHits
   }
 
-  private def getHits(collector: Collector, searcher: IndexSearcher) =
+  private def getHits(collector: Collector, searcher: IndexSearcher,
+                      includeFields: Set[String]) =
     collector match {
       case c: TopDocsCollector[_] =>
-        c.topDocs.scoreDocs.map({ docToHit(searcher, _) }).toList
+        c.topDocs.scoreDocs.map({ docToHit(searcher, _, includeFields) }).toList
       case c: TotalHitCountCollector =>
         Nil
     }
@@ -351,39 +362,56 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       error
   }
 
-  private def group2(queryString: String, field: String, refresh: Boolean, groups: List[Any],
-                     groupSort: Any, docSort: Any, docLimit: Int): Any = parseQuery(queryString) match {
-    case query: Query =>
-      val searcher = getSearcher(refresh)
-      val groups1 = groups.map {
-        g => makeSearchGroup(g)
+  private def group2(request: Group2Msg): Any = {
+    val queryString = request.options.getOrElse('query, "*:*").asInstanceOf[String]
+    val field = request.options('field).asInstanceOf[String]
+    val refresh = request.options.getOrElse('refresh, true).asInstanceOf[Boolean]
+    val groups = request.options('groups).asInstanceOf[List[Any]]
+    val groupSort = request.options('group_sort)
+    val docSort = request.options('sort)
+    val docLimit = request.options.getOrElse('limit, 25).asInstanceOf[Int]
+    val includeFields: Set[String] =
+      request.options.getOrElse('include_fields, 'nil) match {
+        case 'nil =>
+          null
+        case value: List[String] =>
+          Set[String]() ++ ("_id" :: value).toSet
+        case other =>
+          throw new ParseException(other + " is not a valid include_fields query")
       }
-      safeSearch {
-        val fieldName = validateGroupField(field)
-        val collector = new TermSecondPassGroupingCollector(fieldName, groups1, parseSort(groupSort), parseSort(docSort),
-          docLimit, true, false, true)
-        searchTimer.time {
-          searcher.search(query, collector)
-          collector.getTopGroups(0) match {
-            case null =>
-              ('ok, 0, 0, List())
-            case topGroups =>
-              ('ok, topGroups.totalHitCount, topGroups.totalGroupedHitCount,
-                topGroups.groups.map {
-                  g =>
-                    (
-                      g.groupValue,
-                      g.totalHits,
-                      g.scoreDocs.map({
-                        docToHit(searcher, _)
-                      }).toList
-                    )
-                }.toList)
+    parseQuery(queryString) match {
+      case query: Query =>
+        val searcher = getSearcher(refresh)
+        val groups1 = groups.map {
+          g => makeSearchGroup(g)
+        }
+        safeSearch {
+          val fieldName = validateGroupField(field)
+          val collector = new TermSecondPassGroupingCollector(fieldName, groups1, parseSort(groupSort),
+            parseSort(docSort), docLimit, true, false, true)
+          searchTimer.time {
+            searcher.search(query, collector)
+            collector.getTopGroups(0) match {
+              case null =>
+                ('ok, 0, 0, List())
+              case topGroups =>
+                ('ok, topGroups.totalHitCount, topGroups.totalGroupedHitCount,
+                  topGroups.groups.map {
+                    g =>
+                      (
+                        g.groupValue,
+                        g.totalHits,
+                        g.scoreDocs.map({
+                          docToHit(searcher, _, includeFields)
+                        }).toList
+                      )
+                  }.toList)
+            }
           }
         }
-      }
-    case error =>
-      error
+      case error =>
+        error
+    }
   }
 
   private def validateGroupField(field: String) = {
@@ -482,8 +510,14 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       new Sort(fields.map(toSortField).toArray: _*)
   }
 
-  private def docToHit(searcher: IndexSearcher, scoreDoc: ScoreDoc): Hit = {
-    val doc = searcher.doc(scoreDoc.doc)
+  private def docToHit(searcher: IndexSearcher, scoreDoc: ScoreDoc,
+                       includeFields: Set[String] = null): Hit = {
+    val doc = includeFields match {
+      case null =>
+        searcher.doc(scoreDoc.doc)
+      case _ =>
+        searcher.doc(scoreDoc.doc, includeFields)
+    }
     val fields = doc.getFields.foldLeft(Map[String, Any]())((acc, field) => {
       val value = field.numericValue match {
         case null =>
