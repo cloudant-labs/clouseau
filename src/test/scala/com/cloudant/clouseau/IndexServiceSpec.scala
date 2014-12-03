@@ -91,11 +91,27 @@ class IndexServiceSpec extends SpecificationWithJUnit {
 
     }
 
+    "support highlighting" in new index_service {
+      val doc1 = new Document()
+      doc1.add(new StringField("_id", "foo", Field.Store.YES))
+      doc1.add(new StringField("field1", "bar", Field.Store.YES))
+      node.call(service, UpdateDocMsg("foo", doc1)) must be equalTo 'ok
+      (node.call(service, SearchRequest(options =
+        Map('highlight_fields -> List("field1"), 'query -> "field1:bar")))
+        must beLike {
+          case ('ok, List(_, ('total_hits, 1),
+            ('hits, List(
+              Hit(_, List(("_id", "foo"), ("field1", "bar"),
+                ("_highlights", List(("field1", List("<em>bar</em>"))))))
+              )))) => ok
+        })
+    }
+
     "when limit=0 return only the number of hits" in new index_service {
       val doc1 = new Document()
       doc1.add(new StringField("_id", "foo", Field.Store.YES))
       val doc2 = new Document()
-      doc2.add(new StringField("field2", "test", Field.Store.YES))
+      doc2.add(new StringField("_id", "bar", Field.Store.YES))
 
       node.call(service, UpdateDocMsg("foo", doc1)) must be equalTo 'ok
       node.call(service, UpdateDocMsg("bar", doc2)) must be equalTo 'ok

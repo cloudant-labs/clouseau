@@ -18,6 +18,13 @@ import org.apache.lucene.util.Version
 import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.queryparser.classic.ParseException
+import org.apache.lucene.search.highlight.{
+  Highlighter,
+  QueryScorer,
+  SimpleHTMLFormatter,
+  SimpleFragmenter
+}
+import org.apache.lucene.analysis.Analyzer
 import scalang._
 import collection.JavaConversions._
 import com.yammer.metrics.scala._
@@ -42,6 +49,7 @@ import com.spatial4j.core.context.SpatialContext
 import com.spatial4j.core.distance.DistanceUtils
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
+case class HighlightParameters(highlighter: Highlighter, highlightFields: List[String], highlightNumber: Int, analyzers: List[Analyzer])
 
 // These must match the records in dreyfus.
 case class TopDocs(updateSeq: Long, totalHits: Long, hits: List[Hit])
@@ -274,8 +282,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           }
           logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".
             format(query, limit, refresh, getTotalHits(hitsCollector)))
+          val HPs = getHighlightParameters(request.options, query)
 
-          val hits = getHits(hitsCollector, searcher, includeFields)
+          val hits = getHits(hitsCollector, searcher, includeFields, HPs)
 
           if (legacy) {
             ('ok, TopDocs(updateSeq, getTotalHits(hitsCollector), hits))
@@ -301,10 +310,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   private def getHits(collector: Collector, searcher: IndexSearcher,
-                      includeFields: Set[String]) =
+                      includeFields: Set[String], HPs: HighlightParameters = null) =
     collector match {
       case c: TopDocsCollector[_] =>
-        c.topDocs.scoreDocs.map({ docToHit(searcher, _, includeFields) }).toList
+        c.topDocs.scoreDocs.map({ docToHit(searcher, _, includeFields, HPs) }).toList
       case c: TotalHitCountCollector =>
         Nil
     }
@@ -394,7 +403,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
             collector.getTopGroups(0) match {
               case null =>
                 ('ok, 0, 0, List())
-              case topGroups =>
+              case topGroups => {
+                val HPs = getHighlightParameters(request.options, query)
                 ('ok, topGroups.totalHitCount, topGroups.totalGroupedHitCount,
                   topGroups.groups.map {
                     g =>
@@ -402,10 +412,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
                         g.groupValue,
                         g.totalHits,
                         g.scoreDocs.map({
-                          docToHit(searcher, _, includeFields)
+                          docToHit(searcher, _, includeFields, HPs)
                         }).toList
                       )
                   }.toList)
+              }
             }
           }
         }
@@ -413,6 +424,39 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         error
     }
   }
+
+  private def getHighlightParameters(options: Map[Symbol, Any], query: Query) =
+    options.getOrElse('highlight_fields, 'nil) match {
+      case 'nil =>
+        null
+      case highlightFields: List[String] => {
+        val preTag = options.getOrElse('highlight_pre_tag,
+          "<em>").asInstanceOf[String]
+        val postTag = options.getOrElse('highlight_post_tag,
+          "</em>").asInstanceOf[String]
+        val highlightNumber = options.getOrElse('highlight_number,
+          1).asInstanceOf[Int] //number of fragments
+        val highlightSize = options.getOrElse('highlight_size, 0).
+          asInstanceOf[Int]
+        val htmlFormatter = new SimpleHTMLFormatter(preTag, postTag)
+        val highlighter = new Highlighter(htmlFormatter, new QueryScorer(query))
+        if (highlightSize > 0) {
+          highlighter.setTextFragmenter(new SimpleFragmenter(highlightSize))
+        }
+        val analyzers = highlightFields.map { field =>
+          ctx.args.queryParser.getAnalyzer() match {
+            case a1: PerFieldAnalyzer =>
+              a1.getWrappedAnalyzer(field)
+            case a2: Analyzer =>
+              a2
+          }
+        }
+        HighlightParameters(highlighter, highlightFields, highlightNumber,
+          analyzers)
+      }
+      case other =>
+        throw new ParseException(other + " is not a valid highlight_fields query")
+    }
 
   private def validateGroupField(field: String) = {
     IndexService.SORT_FIELD_RE.findFirstMatchIn(field) match {
@@ -511,14 +555,15 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   private def docToHit(searcher: IndexSearcher, scoreDoc: ScoreDoc,
-                       includeFields: Set[String] = null): Hit = {
+                       includeFields: Set[String] = null, HPs: HighlightParameters = null): Hit = {
     val doc = includeFields match {
       case null =>
         searcher.doc(scoreDoc.doc)
       case _ =>
         searcher.doc(scoreDoc.doc, includeFields)
     }
-    val fields = doc.getFields.foldLeft(Map[String, Any]())((acc, field) => {
+
+    var fields = doc.getFields.foldLeft(Map[String, Any]())((acc, field) => {
       val value = field.numericValue match {
         case null =>
           field.stringValue
@@ -539,6 +584,15 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         convertOrder(fieldDoc.fields) :+ scoreDoc.doc
       case _ =>
         List[Any](scoreDoc.score, scoreDoc.doc)
+    }
+    if (HPs != null) {
+      val highlights = (HPs.highlightFields zip HPs.analyzers).map {
+        case (field, analyzer) =>
+          val frags = HPs.highlighter.getBestFragments(analyzer, field,
+            doc.get(field), HPs.highlightNumber).toList
+          (field, frags)
+      }
+      fields += "_highlights" -> highlights.toList
     }
     Hit(order, fields.toList)
   }
