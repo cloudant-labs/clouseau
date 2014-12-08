@@ -106,6 +106,55 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       }
     }
 
+    "support include_fields" in new index_service {
+      val doc1 = new Document()
+      doc1.add(new StringField("_id", "foo", Field.Store.YES))
+      doc1.add(new StringField("field1", "f11", Field.Store.YES))
+      doc1.add(new StringField("field2", "f21", Field.Store.YES))
+      doc1.add(new StringField("field3", "f31", Field.Store.YES))
+      val doc2 = new Document()
+      doc2.add(new StringField("_id", "bar", Field.Store.YES))
+      doc2.add(new StringField("field1", "f12", Field.Store.YES))
+      doc2.add(new StringField("field2", "f22", Field.Store.YES))
+      doc2.add(new StringField("field3", "f32", Field.Store.YES))
+
+      node.call(service, UpdateDocMsg("foo", doc1)) must be equalTo 'ok
+      node.call(service, UpdateDocMsg("bar", doc2)) must be equalTo 'ok
+
+      //Include only field1
+      (node.call(service, SearchRequest(options =
+        Map('include_fields -> List("field1"))))
+        must beLike {
+          case ('ok, List(_, ('total_hits, 2),
+            ('hits, List(
+              Hit(_, List(("_id", "foo"), ("field1", "f11"))),
+              Hit(_, List(("_id", "bar"), ("field1", "f12")))
+              )))) => ok
+        })
+
+      //Include only field1 and field2
+      (node.call(service, SearchRequest(options =
+        Map('include_fields -> List("field1", "field2"))))
+        must beLike {
+          case ('ok, List(_, ('total_hits, 2),
+            ('hits, List(
+              Hit(_, List(("_id", "foo"), ("field1", "f11"), ("field2", "f21"))),
+              Hit(_, List(("_id", "bar"), ("field1", "f12"), ("field2", "f22")))
+              )))) => ok
+        })
+
+      //Include no field
+      (node.call(service, SearchRequest(options =
+        Map('include_fields -> List())))
+        must beLike {
+          case ('ok, List(_, ('total_hits, 2),
+            ('hits, List(
+              Hit(_, List(("_id", "foo"))),
+              Hit(_, List(("_id", "bar")))
+              )))) => ok
+        })
+    }
+
     "support bookmarks" in new index_service {
       val foo = new BytesRef("foo")
       val bar = new BytesRef("bar")

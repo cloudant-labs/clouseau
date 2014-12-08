@@ -26,8 +26,7 @@ case class CleanupDbMsg(dbName: String, activeSigs: List[String])
 case class Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
                      groupLimit: Int)
 
-case class Group2Msg(query: String, field: String, refresh: Boolean, groups: Any, groupSort: Any,
-                     docSort: Any, docLimit: Int)
+case class Group2Msg(options: Map[Symbol, Any])
 
 case class UpdateDocMsg(id: String, doc: Document)
 case class DeleteDocMsg(id: String)
@@ -59,9 +58,18 @@ object ClouseauTypeFactory extends TypeFactory {
     case ('group1, 7) =>
       Some(Group1Msg(reader.readAs[String], reader.readAs[String], reader.readAs[Boolean], reader.readTerm,
         reader.readAs[Int], reader.readAs[Int]))
-    case ('group2, 8) =>
-      Some(Group2Msg(reader.readAs[String], reader.readAs[String], reader.readAs[Boolean],
-        reader.readTerm, reader.readTerm, reader.readTerm, reader.readAs[Int]))
+    case ('group2, 2) =>
+      val params = reader.readAs[List[(Symbol, Any)]].toMap
+      Some(Group2Msg(params))
+    case ('group2, 8) => //legacy clause
+      Some(Group2Msg(Map(
+        'query -> reader.readAs[String],
+        'field -> reader.readAs[String],
+        'refresh -> reader.readAs[Boolean],
+        'groups -> reader.readTerm,
+        'group_sort -> reader.readTerm,
+        'sort -> reader.readTerm,
+        'limit -> reader.readAs[Int])))
     case ('update, 3) =>
       val doc = readDoc(reader)
       val id = doc.getField("_id").stringValue
