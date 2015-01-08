@@ -13,6 +13,7 @@ import scala.collection.JavaConversions._
 import scalang._
 import org.jboss.netty.buffer.ChannelBuffer
 import org.apache.lucene.util.BytesRef
+import org.apache.lucene.facet.params.FacetIndexingParams
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetFields
 import org.apache.lucene.facet.taxonomy.CategoryPath
 import scala.collection.mutable.ArrayBuffer
@@ -106,8 +107,12 @@ object ClouseauTypeFactory extends TypeFactory {
           }
           doc.add(field)
           if (isFacet(map) && value.nonEmpty) {
-            val facets = new SortedSetDocValuesFacetFields
-            facets.addFields(doc, List(new CategoryPath(name, value)))
+            val fp = FacetIndexingParams.DEFAULT
+            val delim = fp.getFacetDelimChar
+            if (!name.contains(delim) && !value.contains(delim)) {
+              val facets = new SortedSetDocValuesFacetFields(fp)
+              facets.addFields(doc, List(new CategoryPath(name, value)))
+            }
           }
         case None =>
           'ok
