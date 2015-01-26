@@ -65,6 +65,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   var forceRefresh = false
 
   val searchTimer = metrics.timer("searches")
+  val updateTimer = metrics.timer("updates")
+  val deleteTimer = metrics.timer("deletes")
   val commitTimer = metrics.timer("commits")
 
   // Start committer heartbeat
@@ -85,11 +87,15 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       ('ok, updateSeq)
     case UpdateDocMsg(id: String, doc: Document) =>
       logger.debug("Updating %s".format(id))
-      ctx.args.writer.updateDocument(new Term("_id", id), doc)
+      updateTimer.time {
+        ctx.args.writer.updateDocument(new Term("_id", id), doc)
+      }
       'ok
     case DeleteDocMsg(id: String) =>
       logger.debug("Deleting %s".format(id))
-      ctx.args.writer.deleteDocuments(new Term("_id", id))
+      deleteTimer.time {
+        ctx.args.writer.deleteDocuments(new Term("_id", id))
+      }
       'ok
     case CommitMsg(commitSeq: Long) => // deprecated
       pendingSeq = commitSeq
