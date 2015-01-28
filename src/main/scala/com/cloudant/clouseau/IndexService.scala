@@ -27,23 +27,28 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
     case _: SearchRequest =>
-      call(reader, msg)
+      forward(reader, tag, msg)
     case _: Group1Msg =>
-      call(reader, msg)
+      forward(reader, tag, msg)
     case _: Group2Msg =>
-      call(reader, msg)
+      forward(reader, tag, msg)
     case 'get_update_seq =>
-      call(reader, msg)
+      forward(reader, tag, msg)
     case _: UpdateDocMsg =>
-      call(writer, msg)
+      forward(writer, tag, msg)
     case _: DeleteDocMsg =>
-      call(writer, msg)
+      forward(writer, tag, msg)
     case _: CommitMsg => // deprecated
-      call(writer, msg)
+      forward(writer, tag, msg)
     case _: SetUpdateSeqMsg =>
-      call(writer, msg)
+      forward(writer, tag, msg)
     case 'info =>
-      call(reader, msg)
+      forward(reader, tag, msg)
+  }
+
+  private def forward(to: Pid, tag: (Pid, Reference), msg: Any) = {
+    send(to, ('$gen_call, tag, msg))
+    'noreply
   }
 
   override def handleInfo(msg: Any) = msg match {
