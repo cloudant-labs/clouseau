@@ -118,6 +118,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         forceRefresh = true
         logger.info("Forced merge complete.")
       })
+    case _ =>
+      'ignored
   }
 
   override def handleInfo(msg: Any) = msg match {
