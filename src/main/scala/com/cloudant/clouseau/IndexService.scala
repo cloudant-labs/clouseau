@@ -77,12 +77,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
     case request: SearchRequest =>
-      search(request)
+      async(tag, () => search(request))
     case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
       groupLimit: Int) =>
-      group1(query, field, refresh, groupSort, groupOffset, groupLimit)
+      async(tag, () => group1(query, field, refresh, groupSort, groupOffset, groupLimit))
     case request: Group2Msg =>
-      group2(request)
+      async(tag, () => group2(request))
     case 'get_update_seq =>
       ('ok, updateSeq)
     case UpdateDocMsg(id: String, doc: Document) =>
@@ -160,6 +160,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     } finally {
       super.exit(msg)
     }
+  }
+
+  private def async(tag: (Pid, Reference), fun: () => Any): Any = {
+    node.spawn((_) => {
+      node.send(tag._1, (tag._2, fun()))
+    })
+    'noreply
   }
 
   private def commit(newSeq: Long) {
