@@ -109,6 +109,17 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       ('ok, getInfo)
   }
 
+  override def handleCast(msg: Any) = msg match {
+    case ('merge, maxNumSegments: Int) =>
+      logger.info("Forcibly merging index to no more than " + maxNumSegments + " segments.")
+      node.spawn((_) => {
+        ctx.args.writer.forceMerge(maxNumSegments, true)
+        ctx.args.writer.commit
+        forceRefresh = true
+        logger.info("Forced merge complete.")
+      })
+  }
+
   override def handleInfo(msg: Any) = msg match {
     case 'close =>
       exit(msg)
