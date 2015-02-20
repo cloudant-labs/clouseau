@@ -223,7 +223,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
     val legacy = request.options.getOrElse('legacy, false).asInstanceOf[Boolean]
 
-    parseQuery(queryString) match {
+    safeParseQuery(queryString) match {
       case baseQuery: Query =>
         safeSearch {
           val query = request.options.getOrElse('drilldown, Nil) match {
@@ -279,7 +279,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
                 val rangeFacetRequests = for ((name: String, ranges: List[_]) <- rangeList) yield {
                   new RangeFacetRequest(name, ranges.map({
                     case (label: String, rangeQuery: String) =>
-                      ctx.args.queryParser.parse(rangeQuery) match {
+                      parseQuery(rangeQuery) match {
                         case q: NumericRangeQuery[_] =>
                           new DoubleRange(
                             label,
@@ -377,7 +377,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   private def group1(queryString: String, field: String, refresh: Boolean, groupSort: Any,
-                     groupOffset: Int, groupLimit: Int): Any = parseQuery(queryString) match {
+                     groupOffset: Int, groupLimit: Int): Any = safeParseQuery(queryString) match {
     case query: Query =>
       withSearcher(refresh, (searcher) => {
         safeSearch {
@@ -417,7 +417,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         case other =>
           throw new ParseException(other + " is not a valid include_fields query")
       }
-    parseQuery(queryString) match {
+    safeParseQuery(queryString) match {
       case query: Query =>
         withSearcher(refresh, (searcher) => {
           val groups1 = groups.map {
@@ -514,8 +514,14 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       result
   }
 
+  private def safeParseQuery(query: String): Any = {
+    safeSearch { parseQuery(query) }
+  }
+
   private def parseQuery(query: String): Any = {
-    safeSearch { ctx.args.queryParser.parse(query) }
+    ctx.args.queryParser.synchronized {
+      ctx.args.queryParser.parse(query)
+    }
   }
 
   private def safeSearch[A](fun: => A): Any = try {
