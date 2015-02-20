@@ -165,9 +165,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
   private def async(tag: (Pid, Reference), fun: () => Any): Any = {
     node.spawn((_) => {
-      val result = fun()
-      logger.info("async %s -> %s".format(tag, result))
-      node.send(tag._1, (tag._2, result))
+      node.send(tag._1, (tag._2, fun()))
     })
     'noreply
   }
@@ -536,7 +534,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     case e: ParseException =>
       ('error, ('bad_request, e.getMessage))
     case e =>
-      ('error, if (e.getMessage == null) e.getClass else e.getMessage)
+      ('error, e.getMessage)
   }
 
   private def reopenIfChanged() {
