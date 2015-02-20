@@ -57,7 +57,6 @@ case class Hit(order: List[Any], fields: List[Any])
 
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
 
-  val mutex = new Object()
   val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
   var reader = DirectoryReader.open(ctx.args.writer, true)
   var updateSeq = getCommittedSeq
@@ -78,12 +77,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
     case request: SearchRequest =>
-      async(tag, () => search(request))
+      search(request)
     case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
       groupLimit: Int) =>
-      async(tag, () => group1(query, field, refresh, groupSort, groupOffset, groupLimit))
+      group1(query, field, refresh, groupSort, groupOffset, groupLimit)
     case request: Group2Msg =>
-      async(tag, () => group2(request))
+      group2(request)
     case 'get_update_seq =>
       ('ok, updateSeq)
     case UpdateDocMsg(id: String, doc: Document) =>
@@ -163,13 +162,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     }
   }
 
-  private def async(tag: (Pid, Reference), fun: () => Any): Any = {
-    node.spawn((_) => {
-      node.send(tag._1, (tag._2, fun()))
-    })
-    'noreply
-  }
-
   private def commit(newSeq: Long) {
     if (!committing && newSeq > updateSeq) {
       committing = true
@@ -223,7 +215,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
     val legacy = request.options.getOrElse('legacy, false).asInstanceOf[Boolean]
 
-    safeParseQuery(queryString) match {
+    parseQuery(queryString) match {
       case baseQuery: Query =>
         safeSearch {
           val query = request.options.getOrElse('drilldown, Nil) match {
@@ -248,82 +240,81 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
               throw new ParseException("invalid drilldown query")
           }
 
-          withSearcher(refresh, (searcher) => {
-            val weight = searcher.createNormalizedWeight(query)
-            val docsScoredInOrder = !weight.scoresDocsOutOfOrder
+          val searcher = getSearcher(refresh)
+          val weight = searcher.createNormalizedWeight(query)
+          val docsScoredInOrder = !weight.scoresDocsOutOfOrder
 
-            val sort = parseSort(request.options.getOrElse('sort, 'relevance)).rewrite(searcher)
-            val after = toScoreDoc(sort, request.options.getOrElse('after, 'nil))
+          val sort = parseSort(request.options.getOrElse('sort, 'relevance)).rewrite(searcher)
+          val after = toScoreDoc(sort, request.options.getOrElse('after, 'nil))
 
-            val hitsCollector = (limit, after, sort) match {
-              case (0, _, _) =>
-                new TotalHitCountCollector
-              case (_, None, Sort.RELEVANCE) =>
-                TopScoreDocCollector.create(limit, docsScoredInOrder)
-              case (_, Some(scoreDoc), Sort.RELEVANCE) =>
-                TopScoreDocCollector.create(limit, scoreDoc, docsScoredInOrder)
-              case (_, None, sort1: Sort) =>
-                TopFieldCollector.create(sort1, limit, true, false, false,
-                  docsScoredInOrder)
-              case (_, Some(fieldDoc: FieldDoc), sort1: Sort) =>
-                TopFieldCollector.create(sort1, limit, fieldDoc, true, false,
-                  false, docsScoredInOrder)
-            }
+          val hitsCollector = (limit, after, sort) match {
+            case (0, _, _) =>
+              new TotalHitCountCollector
+            case (_, None, Sort.RELEVANCE) =>
+              TopScoreDocCollector.create(limit, docsScoredInOrder)
+            case (_, Some(scoreDoc), Sort.RELEVANCE) =>
+              TopScoreDocCollector.create(limit, scoreDoc, docsScoredInOrder)
+            case (_, None, sort1: Sort) =>
+              TopFieldCollector.create(sort1, limit, true, false, false,
+                docsScoredInOrder)
+            case (_, Some(fieldDoc: FieldDoc), sort1: Sort) =>
+              TopFieldCollector.create(sort1, limit, fieldDoc, true, false,
+                false, docsScoredInOrder)
+          }
 
-            val countsCollector = createCountsCollector(counts)
+          val countsCollector = createCountsCollector(counts)
 
-            val rangesCollector = ranges match {
-              case None =>
-                null
-              case Some(rangeList: List[_]) =>
-                val rangeFacetRequests = for ((name: String, ranges: List[_]) <- rangeList) yield {
-                  new RangeFacetRequest(name, ranges.map({
-                    case (label: String, rangeQuery: String) =>
-                      parseQuery(rangeQuery) match {
-                        case q: NumericRangeQuery[_] =>
-                          new DoubleRange(
-                            label,
-                            ClouseauTypeFactory.toDouble(q.getMin).get,
-                            q.includesMin,
-                            ClouseauTypeFactory.toDouble(q.getMax).get,
-                            q.includesMax)
-                        case _ =>
-                          throw new ParseException(rangeQuery +
-                            " was not a well-formed range specification")
-                      }
-                    case _ =>
-                      throw new ParseException("invalid ranges query")
-                  }))
-                }
-                val acc = new RangeAccumulator(rangeFacetRequests)
-                FacetsCollector.create(acc)
-              case Some(other) =>
-                throw new ParseException(other + " is not a valid ranges query")
-            }
+          val rangesCollector = ranges match {
+            case None =>
+              null
+            case Some(rangeList: List[_]) =>
+              val rangeFacetRequests = for ((name: String, ranges: List[_]) <- rangeList) yield {
+                new RangeFacetRequest(name, ranges.map({
+                  case (label: String, rangeQuery: String) =>
+                    ctx.args.queryParser.parse(rangeQuery) match {
+                      case q: NumericRangeQuery[_] =>
+                        new DoubleRange(
+                          label,
+                          ClouseauTypeFactory.toDouble(q.getMin).get,
+                          q.includesMin,
+                          ClouseauTypeFactory.toDouble(q.getMax).get,
+                          q.includesMax)
+                      case _ =>
+                        throw new ParseException(rangeQuery +
+                          " was not a well-formed range specification")
+                    }
+                  case _ =>
+                    throw new ParseException("invalid ranges query")
+                }))
+              }
+              val acc = new RangeAccumulator(rangeFacetRequests)
+              FacetsCollector.create(acc)
+            case Some(other) =>
+              throw new ParseException(other + " is not a valid ranges query")
+          }
 
-            val collector = MultiCollector.wrap(
-              hitsCollector, countsCollector, rangesCollector)
+          val collector = MultiCollector.wrap(
+            hitsCollector, countsCollector, rangesCollector)
 
-            searchTimer.time {
-              searcher.search(query, collector)
-            }
-            logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".
-              format(query, limit, refresh, getTotalHits(hitsCollector)))
-            val HPs = getHighlightParameters(request.options, query)
+          searchTimer.time {
+            searcher.search(query, collector)
+          }
+          logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".
+            format(query, limit, refresh, getTotalHits(hitsCollector)))
+          val HPs = getHighlightParameters(request.options, query)
 
-            val hits = getHits(hitsCollector, searcher, includeFields, HPs)
+          val hits = getHits(hitsCollector, searcher, includeFields, HPs)
 
-            if (legacy) {
-              ('ok, TopDocs(updateSeq, getTotalHits(hitsCollector), hits))
-            } else {
-              ('ok, List(
-                ('update_seq, updateSeq),
-                ('total_hits, getTotalHits(hitsCollector)),
-                ('hits, hits)
-              ) ++ convertFacets('counts, countsCollector)
-                ++ convertFacets('ranges, rangesCollector))
-            }
-          })
+          if (legacy) {
+            ('ok, TopDocs(updateSeq, getTotalHits(hitsCollector), hits))
+          } else {
+            ('ok, List(
+              ('update_seq, updateSeq),
+              ('total_hits, getTotalHits(hitsCollector)),
+              ('hits, hits)
+            ) ++ convertFacets('counts, countsCollector)
+              ++ convertFacets('ranges, rangesCollector))
+          }
         }
       case error =>
         error
@@ -377,25 +368,24 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   private def group1(queryString: String, field: String, refresh: Boolean, groupSort: Any,
-                     groupOffset: Int, groupLimit: Int): Any = safeParseQuery(queryString) match {
+                     groupOffset: Int, groupLimit: Int): Any = parseQuery(queryString) match {
     case query: Query =>
-      withSearcher(refresh, (searcher) => {
-        safeSearch {
-          val fieldName = validateGroupField(field)
-          val collector = new TermFirstPassGroupingCollector(fieldName, parseSort(groupSort), groupLimit)
-          searchTimer.time {
-            searcher.search(query, collector)
-            collector.getTopGroups(groupOffset, true) match {
-              case null =>
-                ('ok, List())
-              case topGroups =>
-                ('ok, topGroups map {
-                  g => (g.groupValue, convertOrder(g.sortValues))
-                })
-            }
+      val searcher = getSearcher(refresh)
+      safeSearch {
+        val fieldName = validateGroupField(field)
+        val collector = new TermFirstPassGroupingCollector(fieldName, parseSort(groupSort), groupLimit)
+        searchTimer.time {
+          searcher.search(query, collector)
+          collector.getTopGroups(groupOffset, true) match {
+            case null =>
+              ('ok, List())
+            case topGroups =>
+              ('ok, topGroups map {
+                g => (g.groupValue, convertOrder(g.sortValues))
+              })
           }
         }
-      })
+      }
     case error =>
       error
   }
@@ -417,39 +407,38 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         case other =>
           throw new ParseException(other + " is not a valid include_fields query")
       }
-    safeParseQuery(queryString) match {
+    parseQuery(queryString) match {
       case query: Query =>
-        withSearcher(refresh, (searcher) => {
-          val groups1 = groups.map {
-            g => makeSearchGroup(g)
-          }
-          safeSearch {
-            val fieldName = validateGroupField(field)
-            val collector = new TermSecondPassGroupingCollector(fieldName, groups1, parseSort(groupSort),
-              parseSort(docSort), docLimit, true, false, true)
-            searchTimer.time {
-              searcher.search(query, collector)
-              collector.getTopGroups(0) match {
-                case null =>
-                  ('ok, 0, 0, List())
-                case topGroups => {
-                  val HPs = getHighlightParameters(request.options, query)
-                  ('ok, topGroups.totalHitCount, topGroups.totalGroupedHitCount,
-                    topGroups.groups.map {
-                      g =>
-                        (
-                          g.groupValue,
-                          g.totalHits,
-                          g.scoreDocs.map({
-                            docToHit(searcher, _, includeFields, HPs)
-                          }).toList
-                        )
-                    }.toList)
-                }
+        val searcher = getSearcher(refresh)
+        val groups1 = groups.map {
+          g => makeSearchGroup(g)
+        }
+        safeSearch {
+          val fieldName = validateGroupField(field)
+          val collector = new TermSecondPassGroupingCollector(fieldName, groups1, parseSort(groupSort),
+            parseSort(docSort), docLimit, true, false, true)
+          searchTimer.time {
+            searcher.search(query, collector)
+            collector.getTopGroups(0) match {
+              case null =>
+                ('ok, 0, 0, List())
+              case topGroups => {
+                val HPs = getHighlightParameters(request.options, query)
+                ('ok, topGroups.totalHitCount, topGroups.totalGroupedHitCount,
+                  topGroups.groups.map {
+                    g =>
+                      (
+                        g.groupValue,
+                        g.totalHits,
+                        g.scoreDocs.map({
+                          docToHit(searcher, _, includeFields, HPs)
+                        }).toList
+                      )
+                  }.toList)
               }
             }
           }
-        })
+        }
       case error =>
         error
     }
@@ -514,14 +503,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       result
   }
 
-  private def safeParseQuery(query: String): Any = {
-    safeSearch { parseQuery(query) }
-  }
-
   private def parseQuery(query: String): Any = {
-    ctx.args.queryParser.synchronized {
-      ctx.args.queryParser.parse(query)
-    }
+    safeSearch { ctx.args.queryParser.parse(query) }
   }
 
   private def safeSearch[A](fun: => A): Any = try {
@@ -537,35 +520,24 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       ('error, e.getMessage)
   }
 
-  private def withSearcher(refresh: Boolean, fun: IndexSearcher => Any): Any = {
-    var thisReader = mutex.synchronized {
-      reader
+  private def getSearcher(refresh: Boolean): IndexSearcher = {
+    if (forceRefresh || refresh) {
+      reopenIfChanged()
     }
-    if (thisReader.tryIncRef()) {
-      try {
-        if (forceRefresh || refresh) {
-          val newReader = DirectoryReader.openIfChanged(thisReader)
-          if (newReader != null) {
-            newReader.incRef()
-            thisReader.decRef() // for the tryIncRef above
-            thisReader.decRef() // for the original open
-            mutex.synchronized {
-              reader = newReader
-            }
-            thisReader = newReader
-            forceRefresh = false
-          }
-        }
-        fun(new IndexSearcher(thisReader))
-      } finally {
-        thisReader.decRef()
-      }
-    } else /* retry */ {
-      withSearcher(refresh, fun)
+    new IndexSearcher(reader)
+  }
+
+  private def reopenIfChanged() {
+    val newReader = DirectoryReader.openIfChanged(reader)
+    if (newReader != null) {
+      reader.close()
+      reader = newReader
+      forceRefresh = false
     }
   }
 
   private def getInfo: List[Any] = {
+    reopenIfChanged()
     List(
       ('disk_size, getDiskSize),
       ('doc_count, reader.numDocs),
