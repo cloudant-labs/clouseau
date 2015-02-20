@@ -57,6 +57,7 @@ case class Hit(order: List[Any], fields: List[Any])
 
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
 
+  val mutex = new Object()
   val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
   var reader = DirectoryReader.open(ctx.args.writer, true)
   var updateSeq = getCommittedSeq
@@ -540,7 +541,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   private def withSearcher(refresh: Boolean, fun: IndexSearcher => Any): Any = {
-    var thisReader = reader
+    var thisReader = mutex.synchronized {
+      reader
+    }
     if (thisReader.tryIncRef()) {
       try {
         if (forceRefresh || refresh) {
@@ -549,7 +552,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
             newReader.incRef()
             thisReader.decRef() // for the tryIncRef above
             thisReader.decRef() // for the original open
-            reader = newReader
+            mutex.synchronized {
+              reader = newReader
+            }
             thisReader = newReader
             forceRefresh = false
           }
