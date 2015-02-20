@@ -537,15 +537,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       ('error, e.getMessage)
   }
 
-  private def reopenIfChanged() {
-    val newReader = DirectoryReader.openIfChanged(reader)
-    if (newReader != null) {
-      reader.close()
-      reader = newReader
-      forceRefresh = false
-    }
-  }
-
   private def withSearcher(refresh: Boolean, fun: IndexSearcher => Any): Any = {
     var thisReader = mutex.synchronized {
       reader
@@ -575,7 +566,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   private def getInfo: List[Any] = {
-    reopenIfChanged()
     List(
       ('disk_size, getDiskSize),
       ('doc_count, reader.numDocs),
