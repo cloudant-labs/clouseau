@@ -225,8 +225,19 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
               val drilldownQuery = new DrillDownQuery(
                 FacetIndexingParams.DEFAULT, baseQuery)
               for (category <- categories) {
+                val category1 = category.toArray
+                val len = category1.length
                 try {
-                  drilldownQuery.add(new CategoryPath(category.toArray: _*))
+                  if (len < 3) {
+                    drilldownQuery.add(new CategoryPath(category1: _*))
+                  } else { //if there are multiple values OR'd them, delete this else part after updating to Apache Lucene > 4.6
+                    val dim = category1(0)
+                    val categoryPaths: Array[CategoryPath] = new Array[CategoryPath](len - 1)
+                    for (i <- 1 until len) {
+                      categoryPaths(i - 1) = new CategoryPath(Array(dim, category1(i)): _*)
+                    }
+                    drilldownQuery.add(categoryPaths: _*)
+                  }
                 } catch {
                   case e: IllegalArgumentException =>
                     throw new ParseException(e.getMessage)
