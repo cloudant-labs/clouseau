@@ -14,6 +14,7 @@ package com.cloudant.clouseau
 
 import java.util.{ Set => JSet }
 import org.apache.log4j.Logger
+import org.apache.log4j.Level
 import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.analysis.util.CharArraySet
 import scala.collection.JavaConversions._
@@ -62,9 +63,15 @@ import org.apache.lucene.analysis.tr.TurkishAnalyzer
 // Extras
 import org.apache.lucene.analysis.ja.JapaneseTokenizer
 
+import java.io.FileInputStream
+import java.io.InputStreamReader
+import java.nio.charset.StandardCharsets
+import org.apache.lucene.analysis.ja.dict.UserDictionary
+
 object SupportedAnalyzers {
 
   val logger = Logger.getLogger("clouseau.analyzers")
+  logger.setLevel(Level.DEBUG)
 
   def createAnalyzer(options: Any): Option[Analyzer] = {
     createAnalyzerInt(options) match {
@@ -267,11 +274,24 @@ object SupportedAnalyzers {
           Some(new ItalianAnalyzer(IndexService.version))
       }
     case "japanese" =>
+      val userdictionary = options.get("userdictionary") match {
+        case Some(userdictionary: String) =>
+          val fis = new FileInputStream(userdictionary)
+          val reader = new InputStreamReader(fis, StandardCharsets.UTF_8)
+          logger.debug("userdictionary is not null")
+          logger.debug("userdictionary is " + userdictionary)
+          new UserDictionary(reader)
+        case _ =>
+          logger.debug("userdictionary is null")
+          null
+      }
       options.get("stopwords") match {
         case Some(stopwords: List[String]) =>
-          Some(new JapaneseAnalyzer(IndexService.version, null, JapaneseTokenizer.DEFAULT_MODE, stopwords, JapaneseAnalyzer.getDefaultStopTags))
+          logger.debug("stopwords is not null")
+          Some(new JapaneseAnalyzer(IndexService.version, userdictionary, JapaneseTokenizer.DEFAULT_MODE, stopwords, JapaneseAnalyzer.getDefaultStopTags))
         case _ =>
-          Some(new JapaneseAnalyzer(IndexService.version))
+          logger.debug("stopwords is null")
+          Some(new JapaneseAnalyzer(IndexService.version, userdictionary, JapaneseTokenizer.DEFAULT_MODE, null, JapaneseAnalyzer.getDefaultStopTags))
       }
     case "latvian" =>
       options.get("stopwords") match {
