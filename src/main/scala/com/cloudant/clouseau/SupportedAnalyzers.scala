@@ -14,7 +14,6 @@ package com.cloudant.clouseau
 
 import java.util.{ Set => JSet }
 import org.apache.log4j.Logger
-import org.apache.log4j.Level
 import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.analysis.util.CharArraySet
 import scala.collection.JavaConversions._
@@ -71,7 +70,6 @@ import org.apache.lucene.analysis.ja.dict.UserDictionary
 object SupportedAnalyzers {
 
   val logger = Logger.getLogger("clouseau.analyzers")
-  logger.setLevel(Level.DEBUG)
 
   def createAnalyzer(options: Any): Option[Analyzer] = {
     createAnalyzerInt(options) match {
@@ -278,19 +276,14 @@ object SupportedAnalyzers {
         case Some(userdictionary: String) =>
           val fis = new FileInputStream(userdictionary)
           val reader = new InputStreamReader(fis, StandardCharsets.UTF_8)
-          logger.debug("userdictionary is not null")
-          logger.debug("userdictionary is " + userdictionary)
           new UserDictionary(reader)
         case _ =>
-          logger.debug("userdictionary is null")
           null
       }
       options.get("stopwords") match {
         case Some(stopwords: List[String]) =>
-          logger.debug("stopwords is not null")
           Some(new JapaneseAnalyzer(IndexService.version, userdictionary, JapaneseTokenizer.DEFAULT_MODE, stopwords, JapaneseAnalyzer.getDefaultStopTags))
         case _ =>
-          logger.debug("stopwords is null")
           Some(new JapaneseAnalyzer(IndexService.version, userdictionary, JapaneseTokenizer.DEFAULT_MODE, null, JapaneseAnalyzer.getDefaultStopTags))
       }
     case "latvian" =>
