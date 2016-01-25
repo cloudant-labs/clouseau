@@ -346,6 +346,39 @@ class IndexServiceSpec extends SpecificationWithJUnit {
 
     }
 
+    "support sort by distance in group search" in new index_service {
+      val foo = new BytesRef("foo")
+      val bar = new BytesRef("bar")
+      val zzz = new BytesRef("zzz")
+
+      val doc1 = new Document()
+      doc1.add(new StringField("_id", "foo", Field.Store.YES))
+      doc1.add(new DoubleField("lon", 0.5, Field.Store.YES))
+      doc1.add(new DoubleField("lat", 57.15, Field.Store.YES))
+
+      val doc2 = new Document()
+      doc2.add(new StringField("_id", "bar", Field.Store.YES))
+      doc1.add(new DoubleField("lon", 10, Field.Store.YES))
+      doc1.add(new DoubleField("lat", 57.15, Field.Store.YES))
+
+      val doc3 = new Document()
+      doc3.add(new StringField("_id", "zzz", Field.Store.YES))
+      doc3.add(new DoubleField("lon", 3, Field.Store.YES))
+      doc3.add(new DoubleField("lat", 57.15, Field.Store.YES))
+
+      node.call(service, UpdateDocMsg("foo", doc1)) must be equalTo 'ok
+      node.call(service, UpdateDocMsg("bar", doc2)) must be equalTo 'ok
+      node.call(service, UpdateDocMsg("zzz", doc3)) must be equalTo 'ok
+
+      node.call(service, Group1Msg("*:*", "_id", true,"<distance,lon,lat,0.2,57.15,km>", 0, 10)) must beLike {
+        case ('ok, List((foo, _), (zzz, _), (bar, _))) => ok
+      }
+
+      node.call(service, Group1Msg("*:*", "_id", true,"<distance,lon,lat,12,57.15,km>", 0, 10)) must beLike {
+        case ('ok, List((bar, _), (zzz, _), (foo, _))) => ok
+      }
+    }
+
   }
 
   private def isSearchable(node: Node, service: Pid,
