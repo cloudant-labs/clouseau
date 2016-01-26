@@ -392,7 +392,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       val searcher = getSearcher(refresh)
       safeSearch {
         val fieldName = validateGroupField(field)
-        val collector = new TermFirstPassGroupingCollector(fieldName, parseSort(groupSort), groupLimit)
+        val collector = new TermFirstPassGroupingCollector(fieldName,
+          parseSort(groupSort).rewrite(searcher), groupLimit)
         searchTimer.time {
           searcher.search(query, collector)
           collector.getTopGroups(groupOffset, true) match {
@@ -434,8 +435,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         }
         safeSearch {
           val fieldName = validateGroupField(field)
-          val collector = new TermSecondPassGroupingCollector(fieldName, groups1, parseSort(groupSort),
-            parseSort(docSort), docLimit, true, false, true)
+          val collector = new TermSecondPassGroupingCollector(fieldName, groups1,
+            parseSort(groupSort).rewrite(searcher),
+            parseSort(docSort).rewrite(searcher), docLimit, true, false, true)
           searchTimer.time {
             searcher.search(query, collector)
             collector.getTopGroups(0) match {
