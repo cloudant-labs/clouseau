@@ -71,6 +71,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   var pendingSeq = updateSeq
   var committing = false
   var forceRefresh = false
+  var idle = true
 
   val searchTimer = metrics.timer("searches")
   val updateTimer = metrics.timer("updates")
@@ -81,9 +82,22 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   val commitInterval = ctx.args.config.getInt("commit_interval_secs", 30)
   sendEvery(self, 'maybe_commit, commitInterval * 1000)
 
+  // Check if the index is idle and optionally close it if there is no activity between
+  //Two consecutive idle status checks.
+  val closeIfIdleEnabled = ctx.args.config.getBoolean("clouseau.close_if_idle", false)
+  val idleTimeout = ctx.args.config.getInt("clouseau.idle_check_interval_secs", 300)
+  if (closeIfIdleEnabled) {
+    sendEvery(self, 'close_if_idle, idleTimeout * 1000)
+  }
+
   logger.info("Opened at update_seq %d".format(updateSeq))
 
-  override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
+  override def handleCall(tag : (Pid, Reference), msg : Any) : Any = {
+    idle = false
+    internalHandleCall(tag, msg)
+  }
+
+  def internalHandleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
     case request: SearchRequest =>
       search(request)
     case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
@@ -135,6 +149,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       exit(msg)
     case ('close, reason) =>
       exit(reason)
+    case ('close_if_idle) =>
+      if (idle){
+        exit("Idle Timeout")
+      }
+      idle = true
     case 'delete =>
       val dir = ctx.args.writer.getDirectory
       ctx.args.writer.close()
