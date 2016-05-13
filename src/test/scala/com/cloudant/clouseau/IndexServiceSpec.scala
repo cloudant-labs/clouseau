@@ -32,6 +32,26 @@ class IndexServiceSpec extends SpecificationWithJUnit {
 
   "an index" should {
 
+    "not be closed if close_if_idle and idle_check_interval_secs not set" in new index_service {
+      indexNotClosedAfterTimeout(node, service)
+    }
+
+    "not be closed if idle_check_interval_secs set and close_if_idle set to false" in new index_service_with_idle_timeout_and_close_if_idle_false {
+      indexNotClosedAfterTimeout(node, service)
+    }
+
+    "not be closed if close_if_idle set to false" in new index_service_with_idle_timeout_only {
+      indexNotClosedAfterTimeout(node, service)
+    }
+
+    "be closed after idle timeout" in new index_service_with_idle_timeout_and_close_if_idle {
+      indexClosedAfterTimeOut(node, service)
+    }
+
+    "not be closed if there is any activity before two consecutive idle checks" in new index_service_with_idle_timeout_and_close_if_idle {
+      indexNotClosedAfterActivityBetweenTwoIdleChecks(node, service)
+    }
+
     "perform basic queries" in new index_service {
       isSearchable(node, service, "foo", "foo")
     }
@@ -397,6 +417,67 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       })
   }
 
+  private def indexNotClosedAfterTimeout(node: Node, service : Pid) {
+    val value, query = "foo"
+    val doc = new Document()
+    doc.add(new StringField("_id", value, Field.Store.YES))
+    doc.add(new NumericDocValuesField("timestamp", System.currentTimeMillis()))
+
+    node.call(service, UpdateDocMsg(value, doc)) must be equalTo 'ok
+    val req = SearchRequest(options = Map('query -> "_id:%s".format(query)))
+    (node.call(service, req)
+      must beLike {
+        case ('ok, (List(_, ('total_hits, 1), _))) => ok
+      })
+    Thread.sleep(4200)
+    (node.isAlive(service) must beTrue)
+  }
+
+  private def indexClosedAfterTimeOut(node: Node, service : Pid) {
+    val value, query = "foo"
+    val doc = new Document()
+    doc.add(new StringField("_id", value, Field.Store.YES))
+    doc.add(new NumericDocValuesField("timestamp", System.currentTimeMillis()))
+
+    node.call(service, UpdateDocMsg(value, doc)) must be equalTo 'ok
+    val req = SearchRequest(options = Map('query -> "_id:%s".format(query)))
+    (node.call(service, req)
+      must beLike {
+        case ('ok, (List(_, ('total_hits, 1), _))) => ok
+      })
+    Thread.sleep(4200)
+    (node.isAlive(service) must beFalse)
+  }
+
+  private def indexNotClosedAfterActivityBetweenTwoIdleChecks(node: Node,
+      service : Pid) {
+    var value, query = "foo"
+    var doc = new Document()
+    doc.add(new StringField("_id", value, Field.Store.YES))
+    doc.add(new NumericDocValuesField("timestamp", System.currentTimeMillis()))
+
+    node.call(service, UpdateDocMsg(value, doc)) must be equalTo 'ok
+    val req = SearchRequest(options = Map('query -> "_id:%s".format(query)))
+    (node.call(service, req)
+      must beLike {
+        case ('ok, (List(_, ('total_hits, 1), _))) => ok
+      })
+
+    Thread.sleep(3000)
+    value = "foo2"
+    query = "foo2"
+    doc = new Document()
+    doc.add(new StringField("_id", value, Field.Store.YES))
+    doc.add(new NumericDocValuesField("timestamp", System.currentTimeMillis()))
+    node.call(service, UpdateDocMsg(value, doc)) must be equalTo 'ok
+
+    Thread.sleep(2000)
+    (node.isAlive(service) must beTrue)
+
+    Thread.sleep(1200)
+    (node.isAlive(service) must beFalse)
+  }
+
 }
 
 trait index_service extends RunningNode {
@@ -435,4 +516,24 @@ trait index_service_perfield extends index_service {
     Map("name" -> "perfield", "default" -> "english")
   }
 
+}
+
+trait index_service_with_idle_timeout_and_close_if_idle extends index_service {
+    override val config = new SystemConfiguration()
+    config.addProperty("clouseau.close_if_idle", true)
+    config.addProperty("clouseau.idle_check_interval_secs", 2)
+    override val args = new ConfigurationArgs(config)
+}
+
+trait index_service_with_idle_timeout_only extends index_service {
+    override val config = new SystemConfiguration()
+    config.addProperty("clouseau.idle_check_interval_secs", 2)
+    override val args = new ConfigurationArgs(config)
+}
+
+trait index_service_with_idle_timeout_and_close_if_idle_false extends index_service {
+    override val config = new SystemConfiguration()
+    config.addProperty("clouseau.close_if_idle", false)
+    config.addProperty("clouseau.idle_check_interval_secs", 2)
+    override val args = new ConfigurationArgs(config)
 }
