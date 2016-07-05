@@ -108,7 +108,7 @@ the License.
     <dependency>
       <groupId>com.boundary</groupId>
       <artifactId>scalang-scala_2.9.1</artifactId>
-      <version>0.28-cloudant1</version>
+      <version>0.28-cloudant2</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
