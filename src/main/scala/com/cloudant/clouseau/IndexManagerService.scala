@@ -134,6 +134,9 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     case ('open_error, path: String, error: Any) =>
       replyAll(path, error)
       'noreply
+    case ('touch_lru, path: String) =>
+      lru.get(path)
+      'noreply
   }
 
   override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any) = monitored match {
