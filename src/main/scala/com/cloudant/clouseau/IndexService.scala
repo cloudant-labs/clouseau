@@ -83,38 +83,42 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
   logger.info("Opened at update_seq %d".format(updateSeq))
 
-  override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
-    case request: SearchRequest =>
-      search(request)
-    case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
-      groupLimit: Int) =>
-      group1(query, field, refresh, groupSort, groupOffset, groupLimit)
-    case request: Group2Msg =>
-      group2(request)
-    case 'get_update_seq =>
-      ('ok, updateSeq)
-    case UpdateDocMsg(id: String, doc: Document) =>
-      logger.debug("Updating %s".format(id))
-      updateTimer.time {
-        ctx.args.writer.updateDocument(new Term("_id", id), doc)
-      }
-      'ok
-    case DeleteDocMsg(id: String) =>
-      logger.debug("Deleting %s".format(id))
-      deleteTimer.time {
-        ctx.args.writer.deleteDocuments(new Term("_id", id))
-      }
-      'ok
-    case CommitMsg(commitSeq: Long) => // deprecated
-      pendingSeq = commitSeq
-      logger.debug("Pending sequence is now %d".format(commitSeq))
-      'ok
-    case SetUpdateSeqMsg(newSeq: Long) =>
-      pendingSeq = newSeq
-      logger.debug("Pending sequence is now %d".format(newSeq))
-      'ok
-    case 'info =>
-      ('ok, getInfo)
+  override def handleCall(tag: (Pid, Reference), msg: Any): Any = {
+    send('main, ('touch_lru, ctx.args.name))
+
+    msg match {
+      case request: SearchRequest =>
+        search(request)
+      case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
+        groupLimit: Int) =>
+        group1(query, field, refresh, groupSort, groupOffset, groupLimit)
+      case request: Group2Msg =>
+        group2(request)
+      case 'get_update_seq =>
+        ('ok, updateSeq)
+      case UpdateDocMsg(id: String, doc: Document) =>
+        logger.debug("Updating %s".format(id))
+        updateTimer.time {
+          ctx.args.writer.updateDocument(new Term("_id", id), doc)
+        }
+        'ok
+      case DeleteDocMsg(id: String) =>
+        logger.debug("Deleting %s".format(id))
+        deleteTimer.time {
+          ctx.args.writer.deleteDocuments(new Term("_id", id))
+        }
+        'ok
+      case CommitMsg(commitSeq: Long) => // deprecated
+        pendingSeq = commitSeq
+        logger.debug("Pending sequence is now %d".format(commitSeq))
+        'ok
+      case SetUpdateSeqMsg(newSeq: Long) =>
+        pendingSeq = newSeq
+        logger.debug("Pending sequence is now %d".format(newSeq))
+        'ok
+      case 'info =>
+        ('ok, getInfo)
+    }
   }
 
   override def handleCast(msg: Any) = msg match {
