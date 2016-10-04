@@ -94,6 +94,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
   override def handleCall(tag : (Pid, Reference), msg : Any) : Any = {
     idle = false
+    send('main, ('touch_lru, ctx.args.name))
     internalHandleCall(tag, msg)
   }
 
