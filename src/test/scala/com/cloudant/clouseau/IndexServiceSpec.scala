@@ -187,6 +187,35 @@ class IndexServiceSpec extends SpecificationWithJUnit {
         })
     }
 
+    "preserve the order of stored fields" in new index_service {
+      // Test with 10 fields
+      val doc1 = new Document()
+      doc1.add(new StringField("_id", "foo", Field.Store.YES))
+      doc1.add(new StringField("r_field", "f_r", Field.Store.YES))
+      doc1.add(new StringField("a_field", "f_a", Field.Store.YES))
+      doc1.add(new StringField("n_field", "f_n", Field.Store.YES))
+      doc1.add(new StringField("d_field", "f_d", Field.Store.YES))
+      doc1.add(new StringField("o_field", "f_o", Field.Store.YES))
+      doc1.add(new StringField("m_field", "f_m", Field.Store.YES))
+      doc1.add(new StringField("$_field", "f_$", Field.Store.YES))
+
+      node.call(service, UpdateDocMsg("foo", doc1)) must be equalTo 'ok
+
+      (node.call(service, SearchRequest(options = Map()))
+        must beLike {
+          case ('ok, List(_, ('total_hits, 1),
+            ('hits, List(Hit(_, List(("_id", "foo"),
+              ("r_field", "f_r"),
+              ("a_field", "f_a"),
+              ("n_field", "f_n"),
+              ("d_field", "f_d"),
+              ("o_field", "f_o"),
+              ("m_field", "f_m"),
+              ("$_field", "f_$")))
+              )))) => ok
+        })
+    }
+
     "support faceting and drilldown" in new index_service {
       val facets = new SortedSetDocValuesFacetFields(FacetIndexingParams.DEFAULT)
       val doc1 = new Document()

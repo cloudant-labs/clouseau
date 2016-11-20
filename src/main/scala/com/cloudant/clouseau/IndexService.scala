@@ -35,6 +35,7 @@ import org.apache.lucene.search.highlight.{
 import org.apache.lucene.analysis.Analyzer
 import scalang._
 import collection.JavaConversions._
+import scala.collection.immutable.ListMap
 import com.yammer.metrics.scala._
 import com.cloudant.clouseau.Utils._
 import org.apache.commons.configuration.Configuration
@@ -607,7 +608,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         searcher.doc(scoreDoc.doc, includeFields)
     }
 
-    var fields = doc.getFields.foldLeft(Map[String, Any]())((acc, field) => {
+    var fields = doc.getFields.foldLeft(ListMap[String, Any]())((acc, field) => {
       val value = field.numericValue match {
         case null =>
           field.stringValue
