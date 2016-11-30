@@ -70,6 +70,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   var reader = DirectoryReader.open(ctx.args.writer, true)
   var updateSeq = getCommittedSeq
   var pendingSeq = updateSeq
+  var purgeSeq = 0L
   var committing = false
   var forceRefresh = false
 
@@ -97,6 +98,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         group2(request)
       case 'get_update_seq =>
         ('ok, updateSeq)
+      case 'get_purge_seq =>
+        ('ok, purgeSeq)
       case UpdateDocMsg(id: String, doc: Document) =>
         logger.debug("Updating %s".format(id))
         updateTimer.time {
@@ -116,6 +119,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       case SetUpdateSeqMsg(newSeq: Long) =>
         pendingSeq = newSeq
         logger.debug("Pending sequence is now %d".format(newSeq))
+        'ok
+      case SetPurgeSeqMsg(newSeq: Long) =>
+        purgeSeq = newSeq
         'ok
       case 'info =>
         ('ok, getInfo)
