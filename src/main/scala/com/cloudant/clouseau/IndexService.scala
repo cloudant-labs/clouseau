@@ -82,7 +82,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   val commitInterval = ctx.args.config.getInt("commit_interval_secs", 30)
   sendEvery(self, 'maybe_commit, commitInterval * 1000)
 
-  logger.info("Opened at update_seq %d".format(updateSeq))
+  logger.debug("Opened at update_seq %d".format(updateSeq))
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = {
     send('main, ('touch_lru, ctx.args.name))
@@ -124,12 +124,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
   override def handleCast(msg: Any) = msg match {
     case ('merge, maxNumSegments: Int) =>
-      logger.info("Forcibly merging index to no more than " + maxNumSegments + " segments.")
+      logger.debug("Forcibly merging index to no more than " + maxNumSegments + " segments.")
       node.spawn((_) => {
         ctx.args.writer.forceMerge(maxNumSegments, true)
         ctx.args.writer.commit
         forceRefresh = true
-        logger.info("Forced merge complete.")
+        logger.debug("Forced merge complete.")
       })
     case _ =>
       'ignored
@@ -153,13 +153,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       updateSeq = newSeq
       forceRefresh = true
       committing = false
-      logger.info("Committed sequence %d".format(newSeq))
+      logger.debug("Committed sequence %d".format(newSeq))
     case 'commit_failed =>
       committing = false
   }
 
   override def exit(msg: Any) {
-    logger.info("Closed with reason: %.1000s".format(msg))
+    logger.debug("Closed with reason: %.1000s".format(msg))
     try {
       reader.close()
     } catch {
