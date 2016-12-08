@@ -55,6 +55,7 @@ import scalang.Pid
 import scalang.Reference
 import com.spatial4j.core.context.SpatialContext
 import com.spatial4j.core.distance.DistanceUtils
+import java.util.HashSet
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
 case class HighlightParameters(highlighter: Highlighter, highlightFields: List[String], highlightNumber: Int, analyzers: List[Analyzer])
@@ -81,6 +82,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   // Start committer heartbeat
   val commitInterval = ctx.args.config.getInt("commit_interval_secs", 30)
   sendEvery(self, 'maybe_commit, commitInterval * 1000)
+  val countFieldsEnabled = ctx.args.config.getBoolean("clouseau.count_fields", false)
+  send(self, 'count_fields)
 
   // Check if the index is idle and optionally close it if there is no activity between
   //Two consecutive idle status checks.
@@ -155,6 +158,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         exit("Idle Timeout")
       }
       idle = true
+    case 'count_fields =>
+      countFields
     case 'delete =>
       val dir = ctx.args.writer.getDirectory
       ctx.args.writer.close()
@@ -171,6 +176,25 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       logger.debug("Committed sequence %d".format(newSeq))
     case 'commit_failed =>
       committing = false
+  }
+
+  def countFields() {
+    if(countFieldsEnabled){
+      val leaves = reader.leaves().iterator()
+      val warningThreshold = ctx.args.config.
+          getInt("clouseau.field_count_warn_threshold", 5000)
+      val fields = new HashSet[String]()
+      while (leaves.hasNext() && fields.size <= warningThreshold) {
+        val fieldInfoIter = leaves.next.reader().getFieldInfos().iterator()
+        while (fieldInfoIter.hasNext() && fields.size <= warningThreshold){
+          fields.add(fieldInfoIter.next().name)
+        }
+      }
+      if (fields.size > warningThreshold) {
+        logger.warn("Index has more than %d fields, ".format(warningThreshold) +
+                    "too many fields will lead to heap exhuastion")
+      }
+    }
   }
 
   override def exit(msg: Any) {
