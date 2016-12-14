@@ -70,7 +70,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   var reader = DirectoryReader.open(ctx.args.writer, true)
   var updateSeq = getCommittedSeq
   var pendingSeq = updateSeq
-  var purgeSeq = 0L
+  var purgeSeq = getCommittedPurgeSeq
   var committing = false
   var forceRefresh = false
 
@@ -121,7 +121,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         logger.debug("Pending sequence is now %d".format(newSeq))
         'ok
       case SetPurgeSeqMsg(newSeq: Long) =>
+        commitPurgeSeq(newSeq)
         purgeSeq = newSeq
+        'ok
+      case ResetDbMsg(dbName: String) =>
+        ctx.args.writer.deleteAll()
+        commit(0)
         'ok
       case 'info =>
         ('ok, getInfo)
@@ -200,6 +205,26 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           case e: IOException =>
             logger.error("Failed to commit changes", e)
             index ! 'commit_failed
+        }
+      })
+    }
+  }
+
+  private def commitPurgeSeq(newSeq: Long) {
+    if (newSeq > purgeSeq) {
+      val index = self
+      node.spawn((_) => {
+        ctx.args.writer.setCommitData(ctx.args.writer.getCommitData +
+          ("purge_seq" -> newSeq.toString))
+        try {
+          commitTimer.time {
+            ctx.args.writer.commit()
+          }
+        } catch {
+          case e: AlreadyClosedException =>
+            logger.error("Commit Purge Seq failed to closed writer", e)
+          case e: IOException =>
+            logger.error("Failed to commit purge seq changes", e)
         }
       })
     }
@@ -575,7 +600,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       ('doc_count, reader.numDocs),
       ('doc_del_count, reader.numDeletedDocs),
       ('pending_seq, pendingSeq),
-      ('committed_seq, getCommittedSeq)
+      ('committed_seq, getCommittedSeq),
+      ('purge_seq, getCommittedPurgeSeq)
     )
   }
 
@@ -589,6 +615,16 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   private def getCommittedSeq = {
     val commitData = ctx.args.writer.getCommitData
     commitData.get("update_seq") match {
+      case null =>
+        0L
+      case seq =>
+        seq.toLong
+    }
+  }
+
+  private def getCommittedPurgeSeq = {
+    val commitData = ctx.args.writer.getCommitData
+    commitData.get("purge_seq") match {
       case null =>
         0L
       case seq =>

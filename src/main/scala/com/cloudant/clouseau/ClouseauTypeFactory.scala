@@ -31,6 +31,7 @@ case class SearchRequest(options: Map[Symbol, Any])
 case class OpenIndexMsg(peer: Pid, path: String, options: Any)
 case class CleanupPathMsg(path: String)
 case class CleanupDbMsg(dbName: String, activeSigs: List[String])
+case class ResetDbMsg(dbName: String)
 
 case class Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
                      groupLimit: Int)
@@ -92,6 +93,9 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(SetUpdateSeqMsg(toLong(reader.readTerm)))
     case ('set_purge_seq, 2) =>
       Some(SetPurgeSeqMsg(toLong(reader.readTerm)))
+    case ('reset, 2) =>
+      Some(ResetDbMsg(reader.readAs[String]))
+
     case _ =>
       None
   }
