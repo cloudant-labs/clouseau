@@ -124,10 +124,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         commitPurgeSeq(newSeq)
         purgeSeq = newSeq
         'ok
-      case ResetDbMsg(dbName: String) =>
-        ctx.args.writer.deleteAll()
-        commit(0)
-        'ok
       case 'info =>
         ('ok, getInfo)
     }
