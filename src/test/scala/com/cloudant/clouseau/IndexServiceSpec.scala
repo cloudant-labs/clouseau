@@ -411,8 +411,10 @@ class IndexServiceSpec extends SpecificationWithJUnit {
     "support set/get purge seq" in new index_service {
       node.call(service, 'get_purge_seq) must be equalTo ('ok, 0)
       node.call(service, SetPurgeSeqMsg(1)) must be equalTo 'ok
+      Thread.sleep(100)
       node.call(service, 'get_purge_seq) must be equalTo ('ok, 1)
       node.call(service, SetPurgeSeqMsg(2)) must be equalTo 'ok
+      Thread.sleep(100)
       node.call(service, 'get_purge_seq) must be equalTo ('ok, 2)
     }
 

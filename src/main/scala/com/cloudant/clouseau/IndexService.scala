@@ -71,6 +71,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   var updateSeq = getCommittedSeq
   var pendingSeq = updateSeq
   var purgeSeq = getCommittedPurgeSeq
+  var pendingPurgeSeq = purgeSeq
   var committing = false
   var forceRefresh = false
 
@@ -121,8 +122,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         logger.debug("Pending sequence is now %d".format(newSeq))
         'ok
       case SetPurgeSeqMsg(newSeq: Long) =>
-        commitPurgeSeq(newSeq)
-        purgeSeq = newSeq
+        pendingPurgeSeq = newSeq
+        logger.debug("Pending purge sequence is now %d".format(newSeq))
+        commit(pendingSeq, pendingPurgeSeq)
         'ok
       case 'info =>
         ('ok, getInfo)
@@ -155,12 +157,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       }
       exit('deleted)
     case 'maybe_commit =>
-      commit(pendingSeq)
-    case ('committed, newSeq: Long) =>
-      updateSeq = newSeq
+      commit(pendingSeq, pendingPurgeSeq)
+    case ('committed, newUpdateSeq: Long, newPurgeSeq: Long) =>
+      updateSeq = newUpdateSeq
+      purgeSeq = newPurgeSeq
       forceRefresh = true
       committing = false
-      logger.info("Committed sequence %d".format(newSeq))
+      logger.info("Committed sequence %d and %d".format(newUpdateSeq, newPurgeSeq))
     case 'commit_failed =>
       committing = false
   }
@@ -182,18 +185,19 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     }
   }
 
-  private def commit(newSeq: Long) {
-    if (!committing && newSeq > updateSeq) {
+  private def commit(newUpdateSeq: Long, newPurgeSeq: Long) {
+    if (!committing && (newUpdateSeq > updateSeq || newPurgeSeq > purgeSeq)) {
       committing = true
       val index = self
       node.spawn((_) => {
         ctx.args.writer.setCommitData(ctx.args.writer.getCommitData +
-          ("update_seq" -> newSeq.toString))
+          ("update_seq" -> newUpdateSeq.toString) +
+          ("purge_seq" -> newPurgeSeq.toString))
         try {
           commitTimer.time {
             ctx.args.writer.commit()
           }
-          index ! ('committed, newSeq)
+          index ! ('committed, newUpdateSeq, newPurgeSeq)
         } catch {
           case e: AlreadyClosedException =>
             logger.error("Commit failed to closed writer", e)
@@ -201,26 +205,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           case e: IOException =>
             logger.error("Failed to commit changes", e)
             index ! 'commit_failed
-        }
-      })
-    }
-  }
-
-  private def commitPurgeSeq(newSeq: Long) {
-    if (newSeq > purgeSeq) {
-      val index = self
-      node.spawn((_) => {
-        ctx.args.writer.setCommitData(ctx.args.writer.getCommitData +
-          ("purge_seq" -> newSeq.toString))
-        try {
-          commitTimer.time {
-            ctx.args.writer.commit()
-          }
-        } catch {
-          case e: AlreadyClosedException =>
-            logger.error("Commit Purge Seq failed to closed writer", e)
-          case e: IOException =>
-            logger.error("Failed to commit purge seq changes", e)
         }
       })
     }
@@ -597,7 +581,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       ('doc_del_count, reader.numDeletedDocs),
       ('pending_seq, pendingSeq),
       ('committed_seq, getCommittedSeq),
-      ('purge_seq, getCommittedPurgeSeq)
+      ('purge_seq, pendingPurgeSeq)
     )
   }
 
