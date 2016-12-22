@@ -399,13 +399,23 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       node.call(service, UpdateDocMsg("bar", doc2)) must be equalTo 'ok
       node.call(service, UpdateDocMsg("zzz", doc3)) must be equalTo 'ok
 
-      node.call(service, Group1Msg("*:*", "_id", true,"<distance,lon,lat,0.2,57.15,km>", 0, 10)) must beLike {
+      node.call(service, Group1Msg("*:*", "_id", true, "<distance,lon,lat,0.2,57.15,km>", 0, 10)) must beLike {
         case ('ok, List((foo, _), (zzz, _), (bar, _))) => ok
       }
 
-      node.call(service, Group1Msg("*:*", "_id", true,"<distance,lon,lat,12,57.15,km>", 0, 10)) must beLike {
+      node.call(service, Group1Msg("*:*", "_id", true, "<distance,lon,lat,12,57.15,km>", 0, 10)) must beLike {
         case ('ok, List((bar, _), (zzz, _), (foo, _))) => ok
       }
+    }
+
+    "support set/get purge seq" in new index_service {
+      node.call(service, 'get_purge_seq) must be equalTo ('ok, 0)
+      node.call(service, SetPurgeSeqMsg(1)) must be equalTo 'ok
+      Thread.sleep(100)
+      node.call(service, 'get_purge_seq) must be equalTo ('ok, 1)
+      node.call(service, SetPurgeSeqMsg(2)) must be equalTo 'ok
+      Thread.sleep(100)
+      node.call(service, 'get_purge_seq) must be equalTo ('ok, 2)
     }
 
   }
