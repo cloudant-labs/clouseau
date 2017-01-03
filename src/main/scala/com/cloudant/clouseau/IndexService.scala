@@ -71,7 +71,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   var updateSeq = getCommittedSeq
   var pendingSeq = updateSeq
   var purgeSeq = getCommittedPurgeSeq
-  var pendingPurgeSeq = purgeSeq
   var committing = false
   var forceRefresh = false
 
@@ -121,10 +120,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         pendingSeq = newSeq
         logger.debug("Pending sequence is now %d".format(newSeq))
         'ok
-      case SetPurgeSeqMsg(newSeq: Long) =>
-        pendingPurgeSeq = newSeq
-        logger.debug("Pending purge sequence is now %d".format(newSeq))
-        commit(pendingSeq, pendingPurgeSeq)
+      case SetPurgeSeqMsg(newPurgeSeq: Long) =>
+        purgeSeq = newPurgeSeq
+        logger.debug("purge sequence is now %d".format(newPurgeSeq))
         'ok
       case 'info =>
         ('ok, getInfo)
@@ -157,13 +155,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       }
       exit('deleted)
     case 'maybe_commit =>
-      commit(pendingSeq, pendingPurgeSeq)
-    case ('committed, newUpdateSeq: Long, newPurgeSeq: Long) =>
+      commit(pendingSeq, purgeSeq)
+    case ('committed, newUpdateSeq: Long) =>
       updateSeq = newUpdateSeq
-      purgeSeq = newPurgeSeq
       forceRefresh = true
       committing = false
-      logger.debug("Committed sequence %d and %d".format(newUpdateSeq, newPurgeSeq))
+      logger.debug("Committed sequence %d".format(newUpdateSeq))
     case 'commit_failed =>
       committing = false
   }
@@ -197,7 +194,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           commitTimer.time {
             ctx.args.writer.commit()
           }
-          index ! ('committed, newUpdateSeq, newPurgeSeq)
+          index ! ('committed, newUpdateSeq)
         } catch {
           case e: AlreadyClosedException =>
             logger.error("Commit failed to closed writer", e)
@@ -581,7 +578,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       ('doc_del_count, reader.numDeletedDocs),
       ('pending_seq, pendingSeq),
       ('committed_seq, getCommittedSeq),
-      ('purge_seq, pendingPurgeSeq)
+      ('purge_seq, purgeSeq)
     )
   }
 
