@@ -71,6 +71,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   var updateSeq = getCommittedSeq
   var pendingSeq = updateSeq
   var purgeSeq = getCommittedPurgeSeq
+  var pendingPurgeSeq = purgeSeq
   var committing = false
   var forceRefresh = false
 
@@ -121,7 +122,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         logger.debug("Pending sequence is now %d".format(newSeq))
         'ok
       case SetPurgeSeqMsg(newPurgeSeq: Long) =>
-        purgeSeq = newPurgeSeq
+        pendingPurgeSeq = newPurgeSeq
         logger.debug("purge sequence is now %d".format(newPurgeSeq))
         'ok
       case 'info =>
@@ -155,12 +156,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       }
       exit('deleted)
     case 'maybe_commit =>
-      commit(pendingSeq, purgeSeq)
-    case ('committed, newUpdateSeq: Long) =>
+      commit(pendingSeq, pendingPurgeSeq)
+    case ('committed, newUpdateSeq: Long, newPurgeSeq: Long) =>
       updateSeq = newUpdateSeq
+      purgeSeq = newPurgeSeq
       forceRefresh = true
       committing = false
-      logger.debug("Committed sequence %d".format(newUpdateSeq))
+      logger.debug("Committed update sequence %d and purge sequence %d".format(newUpdateSeq, newPurgeSeq))
     case 'commit_failed =>
       committing = false
   }
@@ -194,7 +196,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           commitTimer.time {
             ctx.args.writer.commit()
           }
-          index ! ('committed, newUpdateSeq)
+          index ! ('committed, newUpdateSeq, newPurgeSeq)
         } catch {
           case e: AlreadyClosedException =>
             logger.error("Commit failed to closed writer", e)
