@@ -83,8 +83,28 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
   val openTimer = metrics.timer("opens")
   val lru = new LRU()
   val waiters = Map[String, List[(Pid, Reference)]]()
+  var closing = false
 
-  override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
+  Runtime.getRuntime().addShutdownHook(new Thread() {
+    override def run {
+      logger.info("Clouseau is shutting down, close all active indices.")
+      closing = true
+      lru.close()
+      while (!lru.isEmpty) {
+        Thread.sleep(100)
+      }
+      logger.info("Done closing all active indices, resume shutdown.")
+    }
+  })
+
+  override def handleCall(tag : (Pid, Reference), msg : Any) : Any = closing match {
+    case true =>
+      ('error, 'closing)
+    case false =>
+      internalHandleCall(tag, msg)
+  }
+
+  private def internalHandleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
     case OpenIndexMsg(peer: Pid, path: String, options: Any) =>
       lru.get(path) match {
         case null =>
