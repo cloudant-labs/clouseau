@@ -16,21 +16,17 @@ go right ahead and do that by hand.
 Deploying to production
 -----------------------
 
-1. Update pom.xml to the new version number. Example:  <version>2.10.0</version>.
-2. Make a new version tag, which, like the others, includes the list of changes.
-3. Build it:
-    3.1 Ensuring that jdk6 on the path
-    3.2 Make sure there is no trash
+On your local machine:
+1. Update pom.xml to a new version: e.g remove <version>2.11.4-SNAPSHOT</version>, update to the next new version number <version>2.11.4</version>. Commit changes.
+2. Make a new annotated tag:
+    git tag -a 2.11.4
+3. Update pom.xml to a new SNAPSHOT tag:  <version>2.11.5-SNAPSHOT</version>. Commit changes.
+4. Build clouseau on your local machine:
+    4.1 Ensuring that jdk6 on the path
+    4.2 Make sure there is no trash
         git clean -xdff
-        git checkout 2.10.0.
-    3.3. mvn clean package
-    If built is successful, all tests should pass.
-4. Deploy package .zip file:
-    4.1 First, scp to home dir
-        rsync -avz target/*.zip deployer.cloudant.com:/home/<USER>
-    4.2 sudo mv it
-        sudo mv clouseau-2.10.0.zip /opt/repo/builds/clouseau/releases/
-5. Update pom.xml to the next snapshot version. Example: <version>2.10.1-SNAPSHOT</version>.
-
-NOTE: You might need to change the version attribute in chef to match the
-zipfile's version.
+    4.3. mvn clean package
+5. If built is successful and all tests are passed, push the commits and the new tag into the origin (git push --tags). 
+6. Deploy package .zip file:
+Scp to home dir rsync -avz target/*.zip deployer.cloudant.com:/home/<USER>
+7. Work with the release engineering team after that.
