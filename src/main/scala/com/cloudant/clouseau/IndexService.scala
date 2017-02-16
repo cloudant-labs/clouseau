@@ -66,7 +66,6 @@ case class Hit(order: List[Any], fields: List[Any])
 
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
 
-  val logger = Logger.getLogger("clouseau.%s".format(ctx.args.name))
   var reader = DirectoryReader.open(ctx.args.writer, true)
   var updateSeq = getCommittedSeq
   var pendingSeq = updateSeq
@@ -82,7 +81,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   val commitInterval = ctx.args.config.getInt("commit_interval_secs", 30)
   sendEvery(self, 'maybe_commit, commitInterval * 1000)
 
-  logger.debug("Opened at update_seq %d".format(updateSeq))
+  debug("Opened at update_seq %d".format(updateSeq))
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = {
     send('main, ('touch_lru, ctx.args.name))
@@ -98,24 +97,24 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       case 'get_update_seq =>
         ('ok, updateSeq)
       case UpdateDocMsg(id: String, doc: Document) =>
-        logger.debug("Updating %s".format(id))
+        debug("Updating %s".format(id))
         updateTimer.time {
           ctx.args.writer.updateDocument(new Term("_id", id), doc)
         }
         'ok
       case DeleteDocMsg(id: String) =>
-        logger.debug("Deleting %s".format(id))
+        debug("Deleting %s".format(id))
         deleteTimer.time {
           ctx.args.writer.deleteDocuments(new Term("_id", id))
         }
         'ok
       case CommitMsg(commitSeq: Long) => // deprecated
         pendingSeq = commitSeq
-        logger.debug("Pending sequence is now %d".format(commitSeq))
+        debug("Pending sequence is now %d".format(commitSeq))
         'ok
       case SetUpdateSeqMsg(newSeq: Long) =>
         pendingSeq = newSeq
-        logger.debug("Pending sequence is now %d".format(newSeq))
+        debug("Pending sequence is now %d".format(newSeq))
         'ok
       case 'info =>
         ('ok, getInfo)
@@ -124,12 +123,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
   override def handleCast(msg: Any) = msg match {
     case ('merge, maxNumSegments: Int) =>
-      logger.debug("Forcibly merging index to no more than " + maxNumSegments + " segments.")
+      debug("Forcibly merging index to no more than " + maxNumSegments + " segments.")
       node.spawn((_) => {
         ctx.args.writer.forceMerge(maxNumSegments, true)
         ctx.args.writer.commit
         forceRefresh = true
-        logger.debug("Forced merge complete.")
+        debug("Forced merge complete.")
       })
     case _ =>
       'ignored
@@ -153,23 +152,23 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       updateSeq = newSeq
       forceRefresh = true
       committing = false
-      logger.debug("Committed sequence %d".format(newSeq))
+      debug("Committed sequence %d".format(newSeq))
     case 'commit_failed =>
       committing = false
   }
 
   override def exit(msg: Any) {
-    logger.debug("Closed with reason: %.1000s".format(msg))
+    debug("Closed with reason: %.1000s".format(msg))
     try {
       reader.close()
     } catch {
-      case e: IOException => logger.warn("Error while closing reader", e)
+      case e: IOException => warn("Error while closing reader", e)
     }
     try {
       ctx.args.writer.rollback()
     } catch {
       case e: AlreadyClosedException => 'ignored
-      case e: IOException => logger.warn("Error while closing writer", e)
+      case e: IOException => warn("Error while closing writer", e)
     } finally {
       super.exit(msg)
     }
@@ -189,10 +188,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           index ! ('committed, newSeq)
         } catch {
           case e: AlreadyClosedException =>
-            logger.error("Commit failed to closed writer", e)
+            error("Commit failed to closed writer", e)
             index ! 'commit_failed
           case e: IOException =>
-            logger.error("Failed to commit changes", e)
+            error("Failed to commit changes", e)
             index ! 'commit_failed
         }
       })
@@ -323,7 +322,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           searchTimer.time {
             searcher.search(query, collector)
           }
-          logger.debug("search for '%s' limit=%d, refresh=%s had %d hits".
+          debug("search for '%s' limit=%d, refresh=%s had %d hits".
             format(query, limit, refresh, getTotalHits(hitsCollector)))
           val HPs = getHighlightParameters(request.options, query)
 
@@ -741,6 +740,30 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       }
   }
 
+  private def debug(str: String) {
+    IndexService.logger.debug(prefix_name(str))
+  }
+
+  private def info(str: String) {
+    IndexService.logger.info(prefix_name(str))
+  }
+
+  private def warn(str: String) {
+    IndexService.logger.warn(prefix_name(str))
+  }
+
+  private def warn(str: String, e: Throwable) {
+    IndexService.logger.warn(prefix_name(str), e)
+  }
+
+  private def error(str: String, e: Throwable) {
+    IndexService.logger.error(prefix_name(str), e)
+  }
+
+  private def prefix_name(str: String): String = {
+    ctx.args.name + " " + str
+  }
+
   override def toString: String = {
     ctx.args.name
   }
@@ -749,6 +772,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
 object IndexService {
 
+  val logger = Logger.getLogger("clouseau")
   val version = Version.LUCENE_46
   val INVERSE_FIELD_SCORE = new SortField(null, SortField.Type.SCORE, true)
   val INVERSE_FIELD_DOC = new SortField(null, SortField.Type.DOC, true)
