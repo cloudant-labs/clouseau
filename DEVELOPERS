@@ -22,6 +22,7 @@ On your local machine:
     git tag -a 2.11.4
 3. Update pom.xml to a new SNAPSHOT tag:  <version>2.11.5-SNAPSHOT</version>. Commit changes.
 4. Build clouseau on your local machine:
+    4.0 git checkout tags/2.11.4
     4.1 Ensuring that jdk6 on the path
     4.2 Make sure there is no trash
         git clean -xdff
