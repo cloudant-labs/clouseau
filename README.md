@@ -56,3 +56,33 @@ If `close_if_idle` is set to true, then it will start monitoring the activity of
 
 This variation (instead of fixed) in the index closing due to inactivity is a result of the implementation approach, where during the first index idle check interval we mark the index as idle and close that index if the state is still idle during the next check. And if there is any activity between the two `index idle check` intervals then it will not be closed.
 
+
+## Taking and analyzing a heap dump of clouseau
+1. Put a node into the maintenance mode (inform the client if need). In remsh:
+
+      ```
+      s:maintenance_mode("heap dump of clouseau").
+      ```
+2. Find the clouseau pid (process: "java [...] com.cloudant.clouseau.Main /opt/cloudant/etc/clouseau.ini" ):
+     
+     ```
+     ps aux | grep clouseau
+     ```
+3. cd to /srv, so that the heap dump is stored in `/srv/heap.bin` file.
+4. Take a heap dump:
+
+      ```
+      sudo jmap -F -dump:live,format=b,file=heap.bin <ClouseauPID>
+      ```
+5. After a dump is taken, put the node back into the production mode. In remsh:
+
+      ```
+      s:production_mode().
+      ```
+6. Copy heap.bin file from the cloudant node to your local machine:
+
+      ```
+      rsync -avz db<X>.<CLUSTER>.cloudant.com:/srv/heap.bin .
+      ```
+      
+7. Analyze the heap dump using `visualVM` tool or Eclipse memory analyzer tool(http://www.eclipse.org/mat/downloads.php).
