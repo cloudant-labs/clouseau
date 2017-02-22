@@ -62,6 +62,11 @@ import org.apache.lucene.analysis.tr.TurkishAnalyzer
 // Extras
 import org.apache.lucene.analysis.ja.JapaneseTokenizer
 
+import java.io.FileInputStream
+import java.io.InputStreamReader
+import java.nio.charset.StandardCharsets
+import org.apache.lucene.analysis.ja.dict.UserDictionary
+
 object SupportedAnalyzers {
 
   val logger = Logger.getLogger("clouseau.analyzers")
@@ -267,11 +272,19 @@ object SupportedAnalyzers {
           Some(new ItalianAnalyzer(IndexService.version))
       }
     case "japanese" =>
+      val userdictionary = options.get("userdictionary") match {
+        case Some(userdictionary: String) =>
+          val fis = new FileInputStream(userdictionary)
+          val reader = new InputStreamReader(fis, StandardCharsets.UTF_8)
+          new UserDictionary(reader)
+        case _ =>
+          null
+      }
       options.get("stopwords") match {
         case Some(stopwords: List[String]) =>
-          Some(new JapaneseAnalyzer(IndexService.version, null, JapaneseTokenizer.DEFAULT_MODE, stopwords, JapaneseAnalyzer.getDefaultStopTags))
+          Some(new JapaneseAnalyzer(IndexService.version, userdictionary, JapaneseTokenizer.DEFAULT_MODE, stopwords, JapaneseAnalyzer.getDefaultStopTags))
         case _ =>
-          Some(new JapaneseAnalyzer(IndexService.version))
+          Some(new JapaneseAnalyzer(IndexService.version, userdictionary, JapaneseTokenizer.DEFAULT_MODE, null, JapaneseAnalyzer.getDefaultStopTags))
       }
     case "latvian" =>
       options.get("stopwords") match {
