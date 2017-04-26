@@ -10,7 +10,6 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-
 package com.cloudant.clouseau
 
 import org.apache.commons.configuration.SystemConfiguration
@@ -214,12 +213,12 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       doc1.add(new StringField("_id", "foo", Field.Store.YES))
       doc1.add(new StringField("ffield", "f1", Field.Store.YES))
       facets.addFields(doc1, List(new CategoryPath("ffield", "f1")))
-      
+
       val doc2 = new Document()
       doc2.add(new StringField("_id", "foo2", Field.Store.YES))
       doc2.add(new StringField("ffield", "f1", Field.Store.YES))
       facets.addFields(doc2, List(new CategoryPath("ffield", "f1")))
-      
+
       val doc3 = new Document()
       doc3.add(new StringField("_id", "foo3", Field.Store.YES))
       doc3.add(new StringField("ffield", "f3", Field.Store.YES))
@@ -228,44 +227,43 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       node.call(service, UpdateDocMsg("foo", doc1)) must be equalTo 'ok
       node.call(service, UpdateDocMsg("foo2", doc2)) must be equalTo 'ok
       node.call(service, UpdateDocMsg("foo3", doc3)) must be equalTo 'ok
-      
+
       //counts
       (node.call(service, SearchRequest(options =
         Map('counts -> List("ffield"))))
         must beLike {
           case ('ok, List(_, ('total_hits, 3), _,
             ('counts, List((
-              List("ffield"),0.0,List(
-                (List("ffield", "f1"),2.0,List()),
-                (List("ffield", "f3"),1.0,List()))
+              List("ffield"), 0.0, List(
+                (List("ffield", "f1"), 2.0, List()),
+                (List("ffield", "f3"), 1.0, List()))
               ))))) => ok
         })
 
       //drilldown - one value
       (node.call(service, SearchRequest(options =
-        Map('counts -> List("ffield"), 'drilldown -> List(List("ffield","f1")))))
+        Map('counts -> List("ffield"), 'drilldown -> List(List("ffield", "f1")))))
         must beLike {
           case ('ok, List(_, ('total_hits, 2), _,
             ('counts, List((
-              List("ffield"),0.0,List(
-                (List("ffield", "f1"),2.0,List()))
+              List("ffield"), 0.0, List(
+                (List("ffield", "f1"), 2.0, List()))
               ))))) => ok
         })
-      
+
       //drilldown - multivalued
       (node.call(service, SearchRequest(options =
-        Map('counts -> List("ffield"), 'drilldown -> List(List("ffield","f1", "f3")))))
+        Map('counts -> List("ffield"), 'drilldown -> List(List("ffield", "f1", "f3")))))
         must beLike {
           case ('ok, List(_, ('total_hits, 3), _,
             ('counts, List((
-              List("ffield"),0.0,List(
-                (List("ffield", "f1"),2.0,List()),
-                (List("ffield", "f3"),1.0,List()))
+              List("ffield"), 0.0, List(
+                (List("ffield", "f1"), 2.0, List()),
+                (List("ffield", "f3"), 1.0, List()))
               ))))) => ok
         })
     }
 
-    
     "support bookmarks" in new index_service {
       val foo = new BytesRef("foo")
       val bar = new BytesRef("bar")
@@ -392,11 +390,11 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       node.call(service, UpdateDocMsg("bar", doc2)) must be equalTo 'ok
       node.call(service, UpdateDocMsg("zzz", doc3)) must be equalTo 'ok
 
-      node.call(service, Group1Msg("*:*", "_id", true,"<distance,lon,lat,0.2,57.15,km>", 0, 10)) must beLike {
+      node.call(service, Group1Msg("*:*", "_id", true, "<distance,lon,lat,0.2,57.15,km>", 0, 10)) must beLike {
         case ('ok, List((foo, _), (zzz, _), (bar, _))) => ok
       }
 
-      node.call(service, Group1Msg("*:*", "_id", true,"<distance,lon,lat,12,57.15,km>", 0, 10)) must beLike {
+      node.call(service, Group1Msg("*:*", "_id", true, "<distance,lon,lat,12,57.15,km>", 0, 10)) must beLike {
         case ('ok, List((bar, _), (zzz, _), (foo, _))) => ok
       }
     }
@@ -417,7 +415,7 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       })
   }
 
-  private def indexNotClosedAfterTimeout(node: Node, service : Pid) {
+  private def indexNotClosedAfterTimeout(node: Node, service: Pid) {
     val value, query = "foo"
     val doc = new Document()
     doc.add(new StringField("_id", value, Field.Store.YES))
@@ -433,7 +431,7 @@ class IndexServiceSpec extends SpecificationWithJUnit {
     (node.isAlive(service) must beTrue)
   }
 
-  private def indexClosedAfterTimeOut(node: Node, service : Pid) {
+  private def indexClosedAfterTimeOut(node: Node, service: Pid) {
     val value, query = "foo"
     val doc = new Document()
     doc.add(new StringField("_id", value, Field.Store.YES))
@@ -450,7 +448,7 @@ class IndexServiceSpec extends SpecificationWithJUnit {
   }
 
   private def indexNotClosedAfterActivityBetweenTwoIdleChecks(node: Node,
-      service : Pid) {
+                                                              service: Pid) {
     var value, query = "foo"
     var doc = new Document()
     doc.add(new StringField("_id", value, Field.Store.YES))
@@ -519,21 +517,21 @@ trait index_service_perfield extends index_service {
 }
 
 trait index_service_with_idle_timeout_and_close_if_idle extends index_service {
-    override val config = new SystemConfiguration()
-    config.addProperty("clouseau.close_if_idle", true)
-    config.addProperty("clouseau.idle_check_interval_secs", 2)
-    override val args = new ConfigurationArgs(config)
+  override val config = new SystemConfiguration()
+  config.addProperty("clouseau.close_if_idle", true)
+  config.addProperty("clouseau.idle_check_interval_secs", 2)
+  override val args = new ConfigurationArgs(config)
 }
 
 trait index_service_with_idle_timeout_only extends index_service {
-    override val config = new SystemConfiguration()
-    config.addProperty("clouseau.idle_check_interval_secs", 2)
-    override val args = new ConfigurationArgs(config)
+  override val config = new SystemConfiguration()
+  config.addProperty("clouseau.idle_check_interval_secs", 2)
+  override val args = new ConfigurationArgs(config)
 }
 
 trait index_service_with_idle_timeout_and_close_if_idle_false extends index_service {
-    override val config = new SystemConfiguration()
-    config.addProperty("clouseau.close_if_idle", false)
-    config.addProperty("clouseau.idle_check_interval_secs", 2)
-    override val args = new ConfigurationArgs(config)
+  override val config = new SystemConfiguration()
+  config.addProperty("clouseau.close_if_idle", false)
+  config.addProperty("clouseau.idle_check_interval_secs", 2)
+  override val args = new ConfigurationArgs(config)
 }
