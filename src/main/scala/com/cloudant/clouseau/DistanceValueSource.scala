@@ -10,7 +10,6 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-
 package com.cloudant.clouseau
 
 import com.spatial4j.core.context.SpatialContext

@@ -94,7 +94,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
   debug("Opened at update_seq %d".format(updateSeq))
 
-  override def handleCall(tag : (Pid, Reference), msg : Any) : Any = {
+  override def handleCall(tag: (Pid, Reference), msg: Any): Any = {
     idle = false
     send('main, ('touch_lru, ctx.args.name))
     internalHandleCall(tag, msg)
@@ -153,7 +153,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     case ('close, reason) =>
       exit(reason)
     case ('close_if_idle) =>
-      if (idle){
+      if (idle) {
         exit("Idle Timeout")
       }
       idle = true
@@ -178,14 +178,14 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   def countFields() {
-    if(countFieldsEnabled){
+    if (countFieldsEnabled) {
       val leaves = reader.leaves().iterator()
       val warningThreshold = ctx.args.config.
-          getInt("clouseau.field_count_warn_threshold", 5000)
+        getInt("clouseau.field_count_warn_threshold", 5000)
       val fields = new HashSet[String]()
       while (leaves.hasNext() && fields.size <= warningThreshold) {
         val fieldInfoIter = leaves.next.reader().getFieldInfos().iterator()
-        while (fieldInfoIter.hasNext() && fields.size <= warningThreshold){
+        while (fieldInfoIter.hasNext() && fields.size <= warningThreshold) {
           fields.add(fieldInfoIter.next().name)
         }
       }
