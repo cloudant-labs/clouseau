@@ -117,6 +117,8 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
           pid ! 'delete
           'ok
       }
+    case DiskSizeMsg(path: String) =>
+      ('ok, getDiskSize(path))
     case 'close_lru =>
       lru.close()
       'ok
@@ -144,6 +146,13 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       lru.remove(pid)
     case _ =>
       'ignored
+  }
+
+  private def getDiskSize(path: String): List[Any] = {
+    val indexDir = new File(rootDir, path)
+    val size = indexDir.list().foldLeft(0L)((acc, fileName) =>
+      acc + (new File(indexDir, fileName)).length())
+    List(('disk_size, size))
   }
 
   private def replyAll(path: String, msg: Any) {
