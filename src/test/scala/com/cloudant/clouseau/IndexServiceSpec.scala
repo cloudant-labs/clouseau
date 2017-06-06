@@ -482,16 +482,17 @@ trait index_service extends RunningNode {
   val config = new SystemConfiguration()
   val args = new ConfigurationArgs(config)
   var service: Pid = null
+  val path = System.currentTimeMillis().toString
 
   override def before {
-    val dir = new File(new File("target", "indexes"), "bar")
+    val dir = new File(new File("target", "indexes"), path)
     if (dir.exists) {
       for (f <- dir.listFiles) {
         f.delete
       }
     }
 
-    val (_, pid: Pid) = IndexService.start(node, config, "bar", options())
+    val (_, pid: Pid) = IndexService.start(node, config, path, options())
     service = pid
   }
 
