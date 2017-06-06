@@ -154,7 +154,7 @@
               <jvmArgs>
                 <jvmArg>-Dclouseau.name=clouseau1@127.0.0.1</jvmArg>
                 <jvmArg>-Dclouseau.cookie=monster</jvmArg>
-                <jvmArg>-Dclouseau.dir=target/clouseau1</jvmArg>
+                <jvmArg>-Dclouseau.dir=${basedir}/target/clouseau1</jvmArg>
               </jvmArgs>
             </launcher>
             <launcher>
@@ -163,7 +163,7 @@
               <jvmArgs>
                 <jvmArg>-Dclouseau.name=clouseau2@127.0.0.1</jvmArg>
                 <jvmArg>-Dclouseau.cookie=monster</jvmArg>
-                <jvmArg>-Dclouseau.dir=target/clouseau2</jvmArg>
+                <jvmArg>-Dclouseau.dir=${basedir}/target/clouseau2</jvmArg>
               </jvmArgs>
             </launcher>
             <launcher>
@@ -172,7 +172,7 @@
               <jvmArgs>
                 <jvmArg>-Dclouseau.name=clouseau3@127.0.0.1</jvmArg>
                 <jvmArg>-Dclouseau.cookie=monster</jvmArg>
-                <jvmArg>-Dclouseau.dir=target/clouseau3</jvmArg>
+                <jvmArg>-Dclouseau.dir=${basedir}/target/clouseau3</jvmArg>
               </jvmArgs>
             </launcher>
           </launchers>
