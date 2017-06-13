@@ -157,6 +157,10 @@ the License.
         <configuration>
           <launchers>
             <launcher>
+              <id>clouseau</id>
+              <mainClass>com.cloudant.clouseau.Main</mainClass>
+            </launcher>
+            <launcher>
               <id>clouseau1</id>
               <mainClass>com.cloudant.clouseau.Main</mainClass>
               <jvmArgs>
