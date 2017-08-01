@@ -29,7 +29,11 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       logger.info("Removing %s".format(path))
       recursivelyDelete(dir)
     case MovePathMsg(path: String) =>
-      move(path)
+      val srcDir = new File(rootDir, path)
+      val recoveryDir = new File(rootDir, ".recovery")
+      val targetDir = new File(recoveryDir, path)
+      logger.info("Moving '%s' to '%s'".format(srcDir.getAbsolutePath, targetDir.getAbsolutePath))
+      move(srcDir, targetDir)
     case CleanupDbMsg(dbName: String, activeSigs: List[String]) =>
       logger.info("Cleaning up " + dbName)
       val pattern = Pattern.compile("shards/[0-9a-f]+-[0-9a-f]+/" + dbName + "\\.[0-9]+/([0-9a-f]+)$")
@@ -64,16 +68,13 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       fileOrDir.delete
   }
 
-  private def move(path: String) {
-    val orgDir = new File(rootDir, path)
-    val targetPath = ".recovery" + File.separator + path
-    val targetDir = new File(rootDir, targetPath)
-    logger.info("Moving '%s' to '%s'".format(path, targetPath))
+  private def move(srcDir: File, targetDir: File) {
     if (!targetDir.exists) {
       targetDir.mkdirs
     }
-    if (!orgDir.renameTo(targetDir)) {
-      logger.error("Failed to move directory from '%s' to '%s'".format(path, targetPath))
+    if (!srcDir.renameTo(targetDir)) {
+      logger.error("Failed to move directory from '%s' to '%s'".format(
+        srcDir.getAbsolutePath, targetDir.getAbsolutePath))
     }
   }
 

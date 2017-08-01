@@ -46,8 +46,4 @@ trait cleanup_service extends RunningNode {
     }
   }
 
-  override def after {
-    super.after
-  }
-
 }
