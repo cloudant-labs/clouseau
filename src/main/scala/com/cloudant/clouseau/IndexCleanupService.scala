@@ -30,8 +30,8 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       recursivelyDelete(dir)
     case MovePathMsg(srcPath: String, destPath: String) =>
       logger.info("Moving '%s' to '%s'".format(srcPath, destPath))
-      val srcDir = new File(rootDir, srcPath)
-      val destDir = new File(rootDir, destPath)
+      val srcDir = new File(srcPath)
+      val destDir = new File(destPath)
       move(srcDir, destDir)
     case CleanupDbMsg(dbName: String, activeSigs: List[String]) =>
       logger.info("Cleaning up " + dbName)
