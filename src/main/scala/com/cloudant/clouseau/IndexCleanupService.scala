@@ -28,6 +28,12 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       val dir = new File(rootDir, path)
       logger.info("Removing %s".format(path))
       recursivelyDelete(dir)
+    case MovePathMsg(dbName: String) =>
+      val recoveryDir = new File(ctx.args.config.getString("clouseau.recovery_dir", "target/indexes/.recovery"))
+      val srcDir = new File(rootDir, dbName)
+      val destDir = new File(recoveryDir, dbName)
+      logger.info("Moving '%s' to '%s'".format(srcDir.getAbsolutePath, destDir.getAbsolutePath))
+      move(srcDir, destDir)
     case CleanupDbMsg(dbName: String, activeSigs: List[String]) =>
       logger.info("Cleaning up " + dbName)
       val pattern = Pattern.compile("shards/[0-9a-f]+-[0-9a-f]+/" + dbName + "\\.[0-9]+/([0-9a-f]+)$")
@@ -60,6 +66,16 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
         recursivelyDelete(file)
     if (fileOrDir.isFile)
       fileOrDir.delete
+  }
+
+  private def move(srcDir: File, destDir: File) {
+    if (!destDir.exists) {
+      destDir.mkdirs
+    }
+    if (!srcDir.renameTo(destDir)) {
+      logger.error("Failed to move directory from '%s' to '%s'".format(
+        srcDir.getAbsolutePath, destDir.getAbsolutePath))
+    }
   }
 
 }
