@@ -28,10 +28,11 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       val dir = new File(rootDir, path)
       logger.info("Removing %s".format(path))
       recursivelyDelete(dir)
-    case MovePathMsg(srcPath: String, destPath: String) =>
-      logger.info("Moving '%s' to '%s'".format(srcPath, destPath))
-      val srcDir = new File(srcPath)
-      val destDir = new File(destPath)
+    case MovePathMsg(dbName: String) =>
+      val recoveryDir = new File(ctx.args.config.getString("clouseau.recovery_dir", "target/indexes/.recovery"))
+      val srcDir = new File(rootDir, dbName)
+      val destDir = new File(recoveryDir, dbName)
+      logger.info("Moving '%s' to '%s'".format(srcDir.getAbsolutePath, destDir.getAbsolutePath))
       move(srcDir, destDir)
     case CleanupDbMsg(dbName: String, activeSigs: List[String]) =>
       logger.info("Cleaning up " + dbName)

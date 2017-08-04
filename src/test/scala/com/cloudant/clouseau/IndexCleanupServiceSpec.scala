@@ -23,8 +23,7 @@ class IndexCleanupServiceSpec extends SpecificationWithJUnit {
   "the index clean-up service" should {
 
     "move index when database is deleted" in new cleanup_service {
-      node.cast(service, MovePathMsg("target" + File.separator + "indexes" + File.separator + "foo",
-        "target" + File.separator + "indexes" + File.separator + ".recovery" + File.separator + "foo")) must be equalTo 'ok
+      node.cast(service, MovePathMsg("foo")) must be equalTo 'ok
       Thread.sleep(1000)
       val indexdir = new File(new File(new File("target", "indexes"), ".recovery"), "foo")
       indexdir.exists must be equalTo true

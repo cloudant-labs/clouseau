@@ -30,7 +30,7 @@ case class SearchRequest(options: Map[Symbol, Any])
 
 case class OpenIndexMsg(peer: Pid, path: String, options: Any)
 case class CleanupPathMsg(path: String)
-case class MovePathMsg(srcPath: String, destPath: String)
+case class MovePathMsg(dbName: String)
 case class CleanupDbMsg(dbName: String, activeSigs: List[String])
 
 case class Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
@@ -52,8 +52,8 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(OpenIndexMsg(reader.readAs[Pid], reader.readAs[String], reader.readTerm))
     case ('cleanup, 2) =>
       Some(CleanupPathMsg(reader.readAs[String]))
-    case ('move, 3) =>
-      Some(MovePathMsg(reader.readAs[String], reader.readAs[String]))
+    case ('move, 2) =>
+      Some(MovePathMsg(reader.readAs[String]))
     case ('cleanup, 3) =>
       Some(CleanupDbMsg(reader.readAs[String], reader.readAs[List[String]]))
     case ('search, 2) =>
