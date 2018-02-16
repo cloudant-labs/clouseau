@@ -33,7 +33,7 @@ the License.
     <repository>
       <id>CloudantPublicRepo</id>
       <name>Cloudant Public Repo</name>
-      <url>http://maven.cloudant.com/repo/</url>
+      <url>https://maven.cloudant.com/repo/</url>
     </repository>
   </repositories>
 
