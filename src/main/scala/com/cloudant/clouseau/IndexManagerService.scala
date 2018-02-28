@@ -118,7 +118,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
           'ok
       }
     case DiskSizeMsg(path: String) =>
-      ('ok, getDiskSize(path))
+      getDiskSize(path)
     case 'close_lru =>
       lru.close()
       'ok
@@ -148,11 +148,16 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       'ignored
   }
 
-  private def getDiskSize(path: String): List[Any] = {
+  private def getDiskSize(path: String) = {
     val indexDir = new File(rootDir, path)
-    val size = indexDir.list().foldLeft(0L)((acc, fileName) =>
-      acc + (new File(indexDir, fileName)).length())
-    List(('disk_size, size))
+    val files = indexDir.list()
+    if (files != null) {
+      val size = files.foldLeft(0L)((acc, fileName) =>
+        acc + (new File(indexDir, fileName)).length())
+      ('ok, List(('disk_size, size)))
+    } else {
+      ('error, 'not_a_directory)
+    }
   }
 
   private def replyAll(path: String, msg: Any) {
