@@ -25,7 +25,7 @@
     <repository>
       <id>CloudantPublicRepo</id>
       <name>Cloudant Public Repo</name>
-      <url>https://maven.cloudant.com/repo/</url>
+      <url>http://maven.cloudant.com/repo/</url>
     </repository>
   </repositories>
 
