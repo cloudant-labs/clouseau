@@ -399,6 +399,63 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       }
     }
 
+    "supports partitioned databases" in new index_service {
+      val doc1 = new Document()
+      val id1 = "foo:hello"
+      doc1.add(new StringField("_id", id1, Field.Store.YES))
+      doc1.add(new StringField("field", "fieldvalue", Field.Store.YES))
+      doc1.add(new StringField("_partition", "foo", Field.Store.YES))
+
+      val doc2 = new Document()
+      val id2 = "bar:world"
+      doc2.add(new StringField("_id", id2, Field.Store.YES))
+      doc2.add(new StringField("field", "fieldvalue", Field.Store.YES))
+      doc2.add(new StringField("_partition", "bar", Field.Store.YES))
+
+      node.call(service, UpdateDocMsg(id1, doc1)) must be equalTo 'ok
+      node.call(service, UpdateDocMsg(id2, doc2)) must be equalTo 'ok
+
+      val req = SearchRequest(
+        options = Map(
+          'query -> "field:fieldvalue",
+          'partition -> "foo"
+        )
+      )
+
+      (node.call(service, req)
+        must beLike {
+          case ('ok, (List(_, ('total_hits, 1), _))) => ok
+        })
+    }
+
+    "ignores partitioned key if partition missing" in new index_service {
+      val doc1 = new Document()
+      val id1 = "foo:hello"
+      doc1.add(new StringField("_id", id1, Field.Store.YES))
+      doc1.add(new StringField("field", "fieldvalue", Field.Store.YES))
+      doc1.add(new StringField("_partition", "foo", Field.Store.YES))
+
+      val doc2 = new Document()
+      val id2 = "bar:world"
+      doc2.add(new StringField("_id", id2, Field.Store.YES))
+      doc2.add(new StringField("field", "fieldvalue", Field.Store.YES))
+      doc2.add(new StringField("_partition", "bar", Field.Store.YES))
+
+      node.call(service, UpdateDocMsg(id1, doc1)) must be equalTo 'ok
+      node.call(service, UpdateDocMsg(id2, doc2)) must be equalTo 'ok
+
+      val req = SearchRequest(
+        options = Map(
+          'query -> "field:fieldvalue"
+        )
+      )
+
+      (node.call(service, req)
+        must beLike {
+          case ('ok, (List(_, ('total_hits, 2), _))) => ok
+        })
+    }
+
   }
 
   private def isSearchable(node: Node, service: Pid,
