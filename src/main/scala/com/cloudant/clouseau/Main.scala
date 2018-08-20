@@ -42,6 +42,11 @@ object Main extends App {
 
   val name = config.getString("clouseau.name", "clouseau@127.0.0.1")
   val cookie = config.getString("clouseau.cookie", "monster")
+  val closeIfIdleEnabled = config.getBoolean("clouseau.close_if_idle", false)
+  val idleTimeout = config.getInt("clouseau.idle_check_interval_secs", 300)
+  if (closeIfIdleEnabled) {
+    logger.info("Idle timout is enabled and will check the indexer idle status every %d seconds".format(idleTimeout))
+  }
   val nodeconfig = NodeConfig(
     typeFactory = ClouseauTypeFactory,
     typeEncoder = ClouseauTypeEncoder,

@@ -56,6 +56,7 @@ import scalang.Pid
 import scalang.Reference
 import com.spatial4j.core.context.SpatialContext
 import com.spatial4j.core.distance.DistanceUtils
+import java.util.HashSet
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
 case class HighlightParameters(highlighter: Highlighter, highlightFields: List[String], highlightNumber: Int, analyzers: List[Analyzer])
@@ -71,6 +72,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   var pendingSeq = updateSeq
   var committing = false
   var forceRefresh = false
+  var idle = true
 
   val searchTimer = metrics.timer("searches")
   val updateTimer = metrics.timer("updates")
@@ -80,45 +82,57 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   // Start committer heartbeat
   val commitInterval = ctx.args.config.getInt("commit_interval_secs", 30)
   sendEvery(self, 'maybe_commit, commitInterval * 1000)
+  val countFieldsEnabled = ctx.args.config.getBoolean("clouseau.count_fields", false)
+  send(self, 'count_fields)
+
+  // Check if the index is idle and optionally close it if there is no activity between
+  //Two consecutive idle status checks.
+  val closeIfIdleEnabled = ctx.args.config.getBoolean("clouseau.close_if_idle", false)
+  val idleTimeout = ctx.args.config.getInt("clouseau.idle_check_interval_secs", 300)
+  if (closeIfIdleEnabled) {
+    sendEvery(self, 'close_if_idle, idleTimeout * 1000)
+  }
 
   debug("Opened at update_seq %d".format(updateSeq))
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = {
+    idle = false
     send('main, ('touch_lru, ctx.args.name))
+    internalHandleCall(tag, msg)
+  }
 
-    msg match {
-      case request: SearchRequest =>
-        search(request)
-      case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
-        groupLimit: Int) =>
-        group1(query, field, refresh, groupSort, groupOffset, groupLimit)
-      case request: Group2Msg =>
-        group2(request)
-      case 'get_update_seq =>
-        ('ok, updateSeq)
-      case UpdateDocMsg(id: String, doc: Document) =>
-        debug("Updating %s".format(id))
-        updateTimer.time {
-          ctx.args.writer.updateDocument(new Term("_id", id), doc)
-        }
-        'ok
-      case DeleteDocMsg(id: String) =>
-        debug("Deleting %s".format(id))
-        deleteTimer.time {
-          ctx.args.writer.deleteDocuments(new Term("_id", id))
-        }
-        'ok
-      case CommitMsg(commitSeq: Long) => // deprecated
-        pendingSeq = commitSeq
-        debug("Pending sequence is now %d".format(commitSeq))
-        'ok
-      case SetUpdateSeqMsg(newSeq: Long) =>
-        pendingSeq = newSeq
-        debug("Pending sequence is now %d".format(newSeq))
-        'ok
-      case 'info =>
-        ('ok, getInfo)
-    }
+  def internalHandleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
+    case request: SearchRequest =>
+      search(request)
+    case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
+      groupLimit: Int) =>
+      group1(query, field, refresh, groupSort, groupOffset, groupLimit)
+    case request: Group2Msg =>
+      group2(request)
+    case 'get_update_seq =>
+      ('ok, updateSeq)
+    case UpdateDocMsg(id: String, doc: Document) =>
+      debug("Updating %s".format(id))
+      updateTimer.time {
+        ctx.args.writer.updateDocument(new Term("_id", id), doc)
+      }
+      'ok
+    case DeleteDocMsg(id: String) =>
+      debug("Deleting %s".format(id))
+      deleteTimer.time {
+        ctx.args.writer.deleteDocuments(new Term("_id", id))
+      }
+      'ok
+    case CommitMsg(commitSeq: Long) => // deprecated
+      pendingSeq = commitSeq
+      debug("Pending sequence is now %d".format(commitSeq))
+      'ok
+    case SetUpdateSeqMsg(newSeq: Long) =>
+      pendingSeq = newSeq
+      debug("Pending sequence is now %d".format(newSeq))
+      'ok
+    case 'info =>
+      ('ok, getInfo)
   }
 
   override def handleCast(msg: Any) = msg match {
@@ -139,6 +153,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       exit(msg)
     case ('close, reason) =>
       exit(reason)
+    case ('close_if_idle) =>
+      if (idle) {
+        exit("Idle Timeout")
+      }
+      idle = true
+    case 'count_fields =>
+      countFields
     case 'delete =>
       val dir = ctx.args.writer.getDirectory
       ctx.args.writer.close()
@@ -155,6 +176,25 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       debug("Committed sequence %d".format(newSeq))
     case 'commit_failed =>
       committing = false
+  }
+
+  def countFields() {
+    if (countFieldsEnabled) {
+      val leaves = reader.leaves().iterator()
+      val warningThreshold = ctx.args.config.
+        getInt("clouseau.field_count_warn_threshold", 5000)
+      val fields = new HashSet[String]()
+      while (leaves.hasNext() && fields.size <= warningThreshold) {
+        val fieldInfoIter = leaves.next.reader().getFieldInfos().iterator()
+        while (fieldInfoIter.hasNext() && fields.size <= warningThreshold) {
+          fields.add(fieldInfoIter.next().name)
+        }
+      }
+      if (fields.size > warningThreshold) {
+        warn("Index has more than %d fields, ".format(warningThreshold) +
+          "too many fields will lead to heap exhuastion")
+      }
+    }
   }
 
   override def exit(msg: Any) {
