@@ -108,7 +108,7 @@ the License.
     <dependency>
       <groupId>com.boundary</groupId>
       <artifactId>scalang-scala_2.9.1</artifactId>
-      <version>0.28-cloudant2</version>
+      <version>0.28-cloudant5</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
@@ -157,16 +157,12 @@ the License.
         <configuration>
           <launchers>
             <launcher>
-              <id>clouseau</id>
-              <mainClass>com.cloudant.clouseau.Main</mainClass>
-            </launcher>
-            <launcher>
               <id>clouseau1</id>
               <mainClass>com.cloudant.clouseau.Main</mainClass>
               <jvmArgs>
                 <jvmArg>-Dclouseau.name=clouseau1@127.0.0.1</jvmArg>
                 <jvmArg>-Dclouseau.cookie=monster</jvmArg>
-                <jvmArg>-Dclouseau.dir=target/clouseau1</jvmArg>
+                <jvmArg>-Dclouseau.dir=${basedir}/target/clouseau1</jvmArg>
               </jvmArgs>
             </launcher>
             <launcher>
@@ -175,7 +171,7 @@ the License.
               <jvmArgs>
                 <jvmArg>-Dclouseau.name=clouseau2@127.0.0.1</jvmArg>
                 <jvmArg>-Dclouseau.cookie=monster</jvmArg>
-                <jvmArg>-Dclouseau.dir=target/clouseau2</jvmArg>
+                <jvmArg>-Dclouseau.dir=${basedir}/target/clouseau2</jvmArg>
               </jvmArgs>
             </launcher>
             <launcher>
@@ -184,7 +180,7 @@ the License.
               <jvmArgs>
                 <jvmArg>-Dclouseau.name=clouseau3@127.0.0.1</jvmArg>
                 <jvmArg>-Dclouseau.cookie=monster</jvmArg>
-                <jvmArg>-Dclouseau.dir=target/clouseau3</jvmArg>
+                <jvmArg>-Dclouseau.dir=${basedir}/target/clouseau3</jvmArg>
               </jvmArgs>
             </launcher>
           </launchers>
@@ -362,5 +358,26 @@ the License.
       </plugin>
     </plugins>
   </reporting>
+
+  <distributionManagement>
+    <repository>
+      <id>maven.cloudant.com</id>
+      <name>maven.cloudant.com-releases</name>
+      <url>scpexe://maven.cloudant.com/var/www/domains/cloudant.com/maven/htdocs/repo/</url>
+    </repository>
+    <snapshotRepository>
+      <id>maven.cloudant.com</id>
+      <name>maven.cloudant.com-snapshots</name>
+      <url>scpexe://maven.cloudant.com/var/www/domains/cloudant.com/maven/htdocs/repo/</url>
+    </snapshotRepository>
+    <site>
+      <id>website</id>
+      <url>scpexe://maven.cloudant.com/var/www/domains/cloudant.com/maven/htdocs/site/</url>
+    </site>
+  </distributionManagement>
+
+  <scm>
+    <connection>scm:git:https://github.com/cloudant-labs/clouseau.git</connection>
+  </scm>
 
 </project>
