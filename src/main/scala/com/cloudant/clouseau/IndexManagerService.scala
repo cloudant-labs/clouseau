@@ -156,7 +156,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
         acc + (new File(indexDir, fileName)).length())
       ('ok, List(('disk_size, size)))
     } else {
-      ('error, 'not_a_directory)
+      ('ok, List(('disk_size, 0)))
     }
   }
 
