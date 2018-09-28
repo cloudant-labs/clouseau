@@ -109,6 +109,8 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
         case pid =>
           ('ok, pid)
       }
+    case ('get_root_dir) =>
+      ('ok, rootDir.getAbsolutePath())
     case ('delete, path: String) =>
       lru.get(path) match {
         case null =>
