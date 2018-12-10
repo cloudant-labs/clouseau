@@ -81,8 +81,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   val deleteTimer = metrics.timer("deletes")
   val commitTimer = metrics.timer("commits")
 
+  val parSearchTimeOutCount = metrics.counter("partition_search.timeout.count")
+
   // Start committer heartbeat
   val commitInterval = ctx.args.config.getInt("commit_interval_secs", 30)
+  val timeAllowed = ctx.args.config.getLong("clouseau.search_allowed_timeout_msecs", 5000)
   sendEvery(self, 'maybe_commit, commitInterval * 1000)
   val countFieldsEnabled = ctx.args.config.getBoolean("clouseau.count_fields", false)
   send(self, 'count_fields)
@@ -258,6 +261,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       case value =>
         Some(value.asInstanceOf[String])
     }
+
     val counts = request.options.getOrElse('counts, 'nil) match {
       case 'nil =>
         None
@@ -376,7 +380,21 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
             hitsCollector, countsCollector, rangesCollector)
 
           searchTimer.time {
-            searcher.search(query, collector)
+            partition match {
+              case None =>
+                searcher.search(query, collector)
+              case Some(p) =>
+                val tlcollector = new TimeLimitingCollector(collector,
+                  TimeLimitingCollector.getGlobalCounter, timeAllowed)
+                try {
+                  searcher.search(query, tlcollector)
+                } catch {
+                  case x: TimeLimitingCollector.TimeExceededException => {
+                    parSearchTimeOutCount += 1
+                    throw new ParseException("Query exceeded allowed time: " + timeAllowed + "ms.")
+                  }
+                }
+            }
           }
           debug("search for '%s' limit=%d, refresh=%s had %d hits".
             format(query, limit, refresh, getTotalHits(hitsCollector)))
