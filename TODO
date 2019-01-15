@@ -14,4 +14,4 @@ Code Cleanliness
 
 * eliminate ClouseauTypeFactory
 * eliminate typing as much as possible
-* ditch Maven for Buildr
+* ditch Maven for Builder
