@@ -24,6 +24,7 @@ import grouping.term.{ TermSecondPassGroupingCollector, TermFirstPassGroupingCol
 import org.apache.lucene.util.BytesRef
 import org.apache.lucene.util.Version
 import org.apache.lucene.search.IndexSearcher
+import org.apache.lucene.search.BooleanClause.Occur
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.queryparser.classic.ParseException
 import org.apache.lucene.search.highlight.{
@@ -80,8 +81,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   val deleteTimer = metrics.timer("deletes")
   val commitTimer = metrics.timer("commits")
 
+  val parSearchTimeOutCount = metrics.counter("partition_search.timeout.count")
+
   // Start committer heartbeat
   val commitInterval = ctx.args.config.getInt("commit_interval_secs", 30)
+  val timeAllowed = ctx.args.config.getLong("clouseau.search_allowed_timeout_msecs", 5000)
   sendEvery(self, 'maybe_commit, commitInterval * 1000)
   val countFieldsEnabled = ctx.args.config.getBoolean("clouseau.count_fields", false)
   send(self, 'count_fields)
@@ -251,6 +255,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     val queryString = request.options.getOrElse('query, "*:*").asInstanceOf[String]
     val refresh = request.options.getOrElse('refresh, true).asInstanceOf[Boolean]
     val limit = request.options.getOrElse('limit, 25).asInstanceOf[Int]
+    val partition = request.options.getOrElse('partition, 'nil) match {
+      case 'nil =>
+        None
+      case value =>
+        Some(value.asInstanceOf[String])
+    }
+
     val counts = request.options.getOrElse('counts, 'nil) match {
       case 'nil =>
         None
@@ -276,7 +287,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
     val legacy = request.options.getOrElse('legacy, false).asInstanceOf[Boolean]
 
-    parseQuery(queryString) match {
+    parseQuery(queryString, partition) match {
       case baseQuery: Query =>
         safeSearch {
           val query = request.options.getOrElse('drilldown, Nil) match {
@@ -369,7 +380,21 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
             hitsCollector, countsCollector, rangesCollector)
 
           searchTimer.time {
-            searcher.search(query, collector)
+            partition match {
+              case None =>
+                searcher.search(query, collector)
+              case Some(p) =>
+                val tlcollector = new TimeLimitingCollector(collector,
+                  TimeLimitingCollector.getGlobalCounter, timeAllowed)
+                try {
+                  searcher.search(query, tlcollector)
+                } catch {
+                  case x: TimeLimitingCollector.TimeExceededException => {
+                    parSearchTimeOutCount += 1
+                    throw new ParseException("Query exceeded allowed time: " + timeAllowed + "ms.")
+                  }
+                }
+            }
           }
           debug("search for '%s' limit=%d, refresh=%s had %d hits".
             format(query, limit, refresh, getTotalHits(hitsCollector)))
@@ -440,7 +465,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   private def group1(queryString: String, field: String, refresh: Boolean, groupSort: Any,
-                     groupOffset: Int, groupLimit: Int): Any = parseQuery(queryString) match {
+                     groupOffset: Int, groupLimit: Int): Any = parseQuery(queryString, None) match {
     case query: Query =>
       val searcher = getSearcher(refresh)
       safeSearch {
@@ -480,7 +505,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         case other =>
           throw new ParseException(other + " is not a valid include_fields query")
       }
-    parseQuery(queryString) match {
+    parseQuery(queryString, None) match {
       case query: Query =>
         val searcher = getSearcher(refresh)
         val groups1 = groups.map {
@@ -577,8 +602,18 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       result
   }
 
-  private def parseQuery(query: String): Any = {
-    safeSearch { ctx.args.queryParser.parse(query) }
+  private def parseQuery(query: String, partition: Option[String]): Any = {
+    safeSearch {
+      partition match {
+        case None =>
+          ctx.args.queryParser.parse(query)
+        case Some(p) =>
+          val q = new BooleanQuery();
+          q.add(new TermQuery(new Term("_partition", p)), Occur.MUST);
+          q.add(ctx.args.queryParser.parse(query), Occur.MUST);
+          q
+      }
+    }
   }
 
   private def safeSearch[A](fun: => A): Any = try {
