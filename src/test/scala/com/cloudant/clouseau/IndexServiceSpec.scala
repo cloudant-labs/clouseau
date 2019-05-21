@@ -31,6 +31,26 @@ class IndexServiceSpec extends SpecificationWithJUnit {
 
   "an index" should {
 
+    "not be closed if close_if_idle and idle_check_interval_secs not set" in new index_service {
+      indexNotClosedAfterTimeout(node, service)
+    }
+
+    "not be closed if idle_check_interval_secs set and close_if_idle set to false" in new index_service_with_idle_timeout_and_close_if_idle_false {
+      indexNotClosedAfterTimeout(node, service)
+    }
+
+    "not be closed if close_if_idle set to false" in new index_service_with_idle_timeout_only {
+      indexNotClosedAfterTimeout(node, service)
+    }
+
+    "be closed after idle timeout" in new index_service_with_idle_timeout_and_close_if_idle {
+      indexClosedAfterTimeOut(node, service)
+    }
+
+    "not be closed if there is any activity before two consecutive idle checks" in new index_service_with_idle_timeout_and_close_if_idle {
+      indexNotClosedAfterActivityBetweenTwoIdleChecks(node, service)
+    }
+
     "perform basic queries" in new index_service {
       isSearchable(node, service, "foo", "foo")
     }
@@ -183,35 +203,6 @@ class IndexServiceSpec extends SpecificationWithJUnit {
             ('hits, List(
               Hit(_, List(("_id", "foo"))),
               Hit(_, List(("_id", "bar")))
-              )))) => ok
-        })
-    }
-
-    "preserve the order of stored fields" in new index_service {
-      // Test with 10 fields
-      val doc1 = new Document()
-      doc1.add(new StringField("_id", "foo", Field.Store.YES))
-      doc1.add(new StringField("r_field", "f_r", Field.Store.YES))
-      doc1.add(new StringField("a_field", "f_a", Field.Store.YES))
-      doc1.add(new StringField("n_field", "f_n", Field.Store.YES))
-      doc1.add(new StringField("d_field", "f_d", Field.Store.YES))
-      doc1.add(new StringField("o_field", "f_o", Field.Store.YES))
-      doc1.add(new StringField("m_field", "f_m", Field.Store.YES))
-      doc1.add(new StringField("$_field", "f_$", Field.Store.YES))
-
-      node.call(service, UpdateDocMsg("foo", doc1)) must be equalTo 'ok
-
-      (node.call(service, SearchRequest(options = Map()))
-        must beLike {
-          case ('ok, List(_, ('total_hits, 1),
-            ('hits, List(Hit(_, List(("_id", "foo"),
-              ("r_field", "f_r"),
-              ("a_field", "f_a"),
-              ("n_field", "f_n"),
-              ("d_field", "f_d"),
-              ("o_field", "f_o"),
-              ("m_field", "f_m"),
-              ("$_field", "f_$")))
               )))) => ok
         })
     }
@@ -399,13 +390,70 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       node.call(service, UpdateDocMsg("bar", doc2)) must be equalTo 'ok
       node.call(service, UpdateDocMsg("zzz", doc3)) must be equalTo 'ok
 
-      node.call(service, Group1Msg("*:*", "_id", true,"<distance,lon,lat,0.2,57.15,km>", 0, 10)) must beLike {
+      node.call(service, Group1Msg("*:*", "_id", true, "<distance,lon,lat,0.2,57.15,km>", 0, 10)) must beLike {
         case ('ok, List((foo, _), (zzz, _), (bar, _))) => ok
       }
 
-      node.call(service, Group1Msg("*:*", "_id", true,"<distance,lon,lat,12,57.15,km>", 0, 10)) must beLike {
+      node.call(service, Group1Msg("*:*", "_id", true, "<distance,lon,lat,12,57.15,km>", 0, 10)) must beLike {
         case ('ok, List((bar, _), (zzz, _), (foo, _))) => ok
       }
+    }
+
+    "supports partitioned databases" in new index_service {
+      val doc1 = new Document()
+      val id1 = "foo:hello"
+      doc1.add(new StringField("_id", id1, Field.Store.YES))
+      doc1.add(new StringField("field", "fieldvalue", Field.Store.YES))
+      doc1.add(new StringField("_partition", "foo", Field.Store.YES))
+
+      val doc2 = new Document()
+      val id2 = "bar:world"
+      doc2.add(new StringField("_id", id2, Field.Store.YES))
+      doc2.add(new StringField("field", "fieldvalue", Field.Store.YES))
+      doc2.add(new StringField("_partition", "bar", Field.Store.YES))
+
+      node.call(service, UpdateDocMsg(id1, doc1)) must be equalTo 'ok
+      node.call(service, UpdateDocMsg(id2, doc2)) must be equalTo 'ok
+
+      val req = SearchRequest(
+        options = Map(
+          'query -> "field:fieldvalue",
+          'partition -> "foo"
+        )
+      )
+
+      (node.call(service, req)
+        must beLike {
+          case ('ok, (List(_, ('total_hits, 1), _))) => ok
+        })
+    }
+
+    "ignores partitioned key if partition missing" in new index_service {
+      val doc1 = new Document()
+      val id1 = "foo:hello"
+      doc1.add(new StringField("_id", id1, Field.Store.YES))
+      doc1.add(new StringField("field", "fieldvalue", Field.Store.YES))
+      doc1.add(new StringField("_partition", "foo", Field.Store.YES))
+
+      val doc2 = new Document()
+      val id2 = "bar:world"
+      doc2.add(new StringField("_id", id2, Field.Store.YES))
+      doc2.add(new StringField("field", "fieldvalue", Field.Store.YES))
+      doc2.add(new StringField("_partition", "bar", Field.Store.YES))
+
+      node.call(service, UpdateDocMsg(id1, doc1)) must be equalTo 'ok
+      node.call(service, UpdateDocMsg(id2, doc2)) must be equalTo 'ok
+
+      val req = SearchRequest(
+        options = Map(
+          'query -> "field:fieldvalue"
+        )
+      )
+
+      (node.call(service, req)
+        must beLike {
+          case ('ok, (List(_, ('total_hits, 2), _))) => ok
+        })
     }
 
   }
@@ -424,22 +472,84 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       })
   }
 
+  private def indexNotClosedAfterTimeout(node: Node, service: Pid) {
+    val value, query = "foo"
+    val doc = new Document()
+    doc.add(new StringField("_id", value, Field.Store.YES))
+    doc.add(new NumericDocValuesField("timestamp", System.currentTimeMillis()))
+
+    node.call(service, UpdateDocMsg(value, doc)) must be equalTo 'ok
+    val req = SearchRequest(options = Map('query -> "_id:%s".format(query)))
+    (node.call(service, req)
+      must beLike {
+        case ('ok, (List(_, ('total_hits, 1), _))) => ok
+      })
+    Thread.sleep(4200)
+    (node.isAlive(service) must beTrue)
+  }
+
+  private def indexClosedAfterTimeOut(node: Node, service: Pid) {
+    val value, query = "foo"
+    val doc = new Document()
+    doc.add(new StringField("_id", value, Field.Store.YES))
+    doc.add(new NumericDocValuesField("timestamp", System.currentTimeMillis()))
+
+    node.call(service, UpdateDocMsg(value, doc)) must be equalTo 'ok
+    val req = SearchRequest(options = Map('query -> "_id:%s".format(query)))
+    (node.call(service, req)
+      must beLike {
+        case ('ok, (List(_, ('total_hits, 1), _))) => ok
+      })
+    Thread.sleep(4200)
+    (node.isAlive(service) must beFalse)
+  }
+
+  private def indexNotClosedAfterActivityBetweenTwoIdleChecks(node: Node,
+                                                              service: Pid) {
+    var value, query = "foo"
+    var doc = new Document()
+    doc.add(new StringField("_id", value, Field.Store.YES))
+    doc.add(new NumericDocValuesField("timestamp", System.currentTimeMillis()))
+
+    node.call(service, UpdateDocMsg(value, doc)) must be equalTo 'ok
+    val req = SearchRequest(options = Map('query -> "_id:%s".format(query)))
+    (node.call(service, req)
+      must beLike {
+        case ('ok, (List(_, ('total_hits, 1), _))) => ok
+      })
+
+    Thread.sleep(3000)
+    value = "foo2"
+    query = "foo2"
+    doc = new Document()
+    doc.add(new StringField("_id", value, Field.Store.YES))
+    doc.add(new NumericDocValuesField("timestamp", System.currentTimeMillis()))
+    node.call(service, UpdateDocMsg(value, doc)) must be equalTo 'ok
+
+    Thread.sleep(2000)
+    (node.isAlive(service) must beTrue)
+
+    Thread.sleep(1200)
+    (node.isAlive(service) must beFalse)
+  }
+
 }
 
 trait index_service extends RunningNode {
   val config = new SystemConfiguration()
   val args = new ConfigurationArgs(config)
   var service: Pid = null
+  val path = System.currentTimeMillis().toString
 
   override def before {
-    val dir = new File(new File("target", "indexes"), "bar")
+    val dir = new File(new File("target", "indexes"), path)
     if (dir.exists) {
       for (f <- dir.listFiles) {
         f.delete
       }
     }
 
-    val (_, pid: Pid) = IndexService.start(node, config, "bar", options())
+    val (_, pid: Pid) = IndexService.start(node, config, path, options())
     service = pid
   }
 
@@ -462,4 +572,24 @@ trait index_service_perfield extends index_service {
     Map("name" -> "perfield", "default" -> "english")
   }
 
+}
+
+trait index_service_with_idle_timeout_and_close_if_idle extends index_service {
+  override val config = new SystemConfiguration()
+  config.addProperty("clouseau.close_if_idle", true)
+  config.addProperty("clouseau.idle_check_interval_secs", 2)
+  override val args = new ConfigurationArgs(config)
+}
+
+trait index_service_with_idle_timeout_only extends index_service {
+  override val config = new SystemConfiguration()
+  config.addProperty("clouseau.idle_check_interval_secs", 2)
+  override val args = new ConfigurationArgs(config)
+}
+
+trait index_service_with_idle_timeout_and_close_if_idle_false extends index_service {
+  override val config = new SystemConfiguration()
+  config.addProperty("clouseau.close_if_idle", false)
+  config.addProperty("clouseau.idle_check_interval_secs", 2)
+  override val args = new ConfigurationArgs(config)
 }

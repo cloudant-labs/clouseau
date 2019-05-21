@@ -32,6 +32,7 @@ case class OpenIndexMsg(peer: Pid, path: String, options: Any)
 case class CleanupPathMsg(path: String)
 case class RenamePathMsg(dbName: String)
 case class CleanupDbMsg(dbName: String, activeSigs: List[String])
+case class DiskSizeMsg(path: String)
 
 case class Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
                      groupLimit: Int)
@@ -42,6 +43,7 @@ case class UpdateDocMsg(id: String, doc: Document)
 case class DeleteDocMsg(id: String)
 case class CommitMsg(seq: Long)
 case class SetUpdateSeqMsg(seq: Long)
+case class SetPurgeSeqMsg(seq: Long)
 
 object ClouseauTypeFactory extends TypeFactory {
 
@@ -88,10 +90,14 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(UpdateDocMsg(id, doc))
     case ('delete, 2) =>
       Some(DeleteDocMsg(reader.readAs[String]))
+    case ('disk_size, 2) =>
+      Some(DiskSizeMsg(reader.readAs[String]))
     case ('commit, 2) =>
       Some(CommitMsg(toLong(reader.readTerm)))
     case ('set_update_seq, 2) =>
       Some(SetUpdateSeqMsg(toLong(reader.readTerm)))
+    case ('set_purge_seq, 2) =>
+      Some(SetPurgeSeqMsg(toLong(reader.readTerm)))
     case _ =>
       None
   }

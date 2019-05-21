@@ -14,6 +14,7 @@ package com.cloudant.clouseau
 
 import org.apache.commons.configuration.SystemConfiguration
 import scalang.Pid
+import java.io.File
 import org.specs2.mutable.SpecificationWithJUnit
 
 class IndexManagerServiceSpec extends SpecificationWithJUnit {
@@ -34,6 +35,26 @@ class IndexManagerServiceSpec extends SpecificationWithJUnit {
 
   }
 
+  "the index disk size service" should {
+
+    "return 0 for (db) when index directory is missing" in new manager_service {
+      node.call(service, DiskSizeMsg("foo.1234567890")) must be equalTo ('ok, List(('disk_size, 0)))
+    }
+
+    "return 0 for (db/index) when index directory is missing" in new manager_service {
+      node.call(service, DiskSizeMsg("foo.1234567890/5838a59330e52227a58019dc1b9edd6e")) must be equalTo ('ok, List(('disk_size, 0)))
+    }
+
+    "should not return 0 for (db) when index directory is not missing" in new manager_service {
+      node.call(service, DiskSizeMsg("foo.0987654321")) must not be equalTo('ok, List(('disk_size, 0)))
+    }
+
+    "return 0 for (db/index) when index directory is not missing but empty" in new manager_service {
+      node.call(service, DiskSizeMsg("foo.0987654321/5838a59330e52227a58019dc1b9edd6e")) must be equalTo ('ok, List(('disk_size, 0)))
+    }
+
+  }
+
 }
 
 trait manager_service extends RunningNode {
@@ -45,6 +66,28 @@ trait manager_service extends RunningNode {
   override def after {
     node.call(service, 'close_lru)
     super.after
+  }
+
+  val dir = new File("target", "indexes")
+  if (dir.exists) {
+    for (f <- dir.listFiles) {
+      f.delete
+    }
+  }
+
+  val foodir = new File(new File("target", "indexes"), "foo.1234567890")
+  if (!foodir.exists) {
+    foodir.mkdirs
+  }
+
+  val foo2dir = new File(new File("target", "indexes"), "foo.0987654321")
+  if (!foo2dir.exists) {
+    foo2dir.mkdirs
+  }
+
+  val foo2indexdir = new File(new File(new File("target", "indexes"), "foo.0987654321"), "5838a59330e52227a58019dc1b9edd6e")
+  if (!foo2indexdir.exists) {
+    foo2indexdir.mkdirs
   }
 
 }

@@ -24,6 +24,7 @@ import grouping.term.{ TermSecondPassGroupingCollector, TermFirstPassGroupingCol
 import org.apache.lucene.util.BytesRef
 import org.apache.lucene.util.Version
 import org.apache.lucene.search.IndexSearcher
+import org.apache.lucene.search.BooleanClause.Occur
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.queryparser.classic.ParseException
 import org.apache.lucene.search.highlight.{
@@ -35,7 +36,6 @@ import org.apache.lucene.search.highlight.{
 import org.apache.lucene.analysis.Analyzer
 import scalang._
 import collection.JavaConversions._
-import scala.collection.immutable.ListMap
 import com.yammer.metrics.scala._
 import com.cloudant.clouseau.Utils._
 import org.apache.commons.configuration.Configuration
@@ -56,6 +56,7 @@ import scalang.Pid
 import scalang.Reference
 import com.spatial4j.core.context.SpatialContext
 import com.spatial4j.core.distance.DistanceUtils
+import java.util.HashSet
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
 case class HighlightParameters(highlighter: Highlighter, highlightFields: List[String], highlightNumber: Int, analyzers: List[Analyzer])
@@ -69,56 +70,80 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   var reader = DirectoryReader.open(ctx.args.writer, true)
   var updateSeq = getCommittedSeq
   var pendingSeq = updateSeq
+  var purgeSeq = getCommittedPurgeSeq
+  var pendingPurgeSeq = purgeSeq
   var committing = false
   var forceRefresh = false
+  var idle = true
 
   val searchTimer = metrics.timer("searches")
   val updateTimer = metrics.timer("updates")
   val deleteTimer = metrics.timer("deletes")
   val commitTimer = metrics.timer("commits")
 
+  val parSearchTimeOutCount = metrics.counter("partition_search.timeout.count")
+
   // Start committer heartbeat
   val commitInterval = ctx.args.config.getInt("commit_interval_secs", 30)
+  val timeAllowed = ctx.args.config.getLong("clouseau.search_allowed_timeout_msecs", 5000)
   sendEvery(self, 'maybe_commit, commitInterval * 1000)
+  val countFieldsEnabled = ctx.args.config.getBoolean("clouseau.count_fields", false)
+  send(self, 'count_fields)
+
+  // Check if the index is idle and optionally close it if there is no activity between
+  //Two consecutive idle status checks.
+  val closeIfIdleEnabled = ctx.args.config.getBoolean("clouseau.close_if_idle", false)
+  val idleTimeout = ctx.args.config.getInt("clouseau.idle_check_interval_secs", 300)
+  if (closeIfIdleEnabled) {
+    sendEvery(self, 'close_if_idle, idleTimeout * 1000)
+  }
 
   debug("Opened at update_seq %d".format(updateSeq))
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = {
+    idle = false
     send('main, ('touch_lru, ctx.args.name))
+    internalHandleCall(tag, msg)
+  }
 
-    msg match {
-      case request: SearchRequest =>
-        search(request)
-      case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
-        groupLimit: Int) =>
-        group1(query, field, refresh, groupSort, groupOffset, groupLimit)
-      case request: Group2Msg =>
-        group2(request)
-      case 'get_update_seq =>
-        ('ok, updateSeq)
-      case UpdateDocMsg(id: String, doc: Document) =>
-        debug("Updating %s".format(id))
-        updateTimer.time {
-          ctx.args.writer.updateDocument(new Term("_id", id), doc)
-        }
-        'ok
-      case DeleteDocMsg(id: String) =>
-        debug("Deleting %s".format(id))
-        deleteTimer.time {
-          ctx.args.writer.deleteDocuments(new Term("_id", id))
-        }
-        'ok
-      case CommitMsg(commitSeq: Long) => // deprecated
-        pendingSeq = commitSeq
-        debug("Pending sequence is now %d".format(commitSeq))
-        'ok
-      case SetUpdateSeqMsg(newSeq: Long) =>
-        pendingSeq = newSeq
-        debug("Pending sequence is now %d".format(newSeq))
-        'ok
-      case 'info =>
-        ('ok, getInfo)
-    }
+  def internalHandleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
+    case request: SearchRequest =>
+      search(request)
+    case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
+      groupLimit: Int) =>
+      group1(query, field, refresh, groupSort, groupOffset, groupLimit)
+    case request: Group2Msg =>
+      group2(request)
+    case 'get_update_seq =>
+      ('ok, updateSeq)
+    case 'get_purge_seq =>
+      ('ok, purgeSeq)
+    case UpdateDocMsg(id: String, doc: Document) =>
+      debug("Updating %s".format(id))
+      updateTimer.time {
+        ctx.args.writer.updateDocument(new Term("_id", id), doc)
+      }
+      'ok
+    case DeleteDocMsg(id: String) =>
+      debug("Deleting %s".format(id))
+      deleteTimer.time {
+        ctx.args.writer.deleteDocuments(new Term("_id", id))
+      }
+      'ok
+    case CommitMsg(commitSeq: Long) => // deprecated
+      pendingSeq = commitSeq
+      debug("Pending sequence is now %d".format(commitSeq))
+      'ok
+    case SetUpdateSeqMsg(newSeq: Long) =>
+      pendingSeq = newSeq
+      debug("Pending sequence is now %d".format(newSeq))
+      'ok
+    case SetPurgeSeqMsg(newPurgeSeq: Long) =>
+      pendingPurgeSeq = newPurgeSeq
+      debug("purge sequence is now %d".format(newPurgeSeq))
+      'ok
+    case 'info =>
+      ('ok, getInfo)
   }
 
   override def handleCast(msg: Any) = msg match {
@@ -139,6 +164,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       exit(msg)
     case ('close, reason) =>
       exit(reason)
+    case ('close_if_idle) =>
+      if (idle) {
+        exit("Idle Timeout")
+      }
+      idle = true
+    case 'count_fields =>
+      countFields
     case 'delete =>
       val dir = ctx.args.writer.getDirectory
       ctx.args.writer.close()
@@ -147,14 +179,34 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       }
       exit('deleted)
     case 'maybe_commit =>
-      commit(pendingSeq)
-    case ('committed, newSeq: Long) =>
-      updateSeq = newSeq
+      commit(pendingSeq, pendingPurgeSeq)
+    case ('committed, newUpdateSeq: Long, newPurgeSeq: Long) =>
+      updateSeq = newUpdateSeq
+      purgeSeq = newPurgeSeq
       forceRefresh = true
       committing = false
-      debug("Committed sequence %d".format(newSeq))
+      debug("Committed update sequence %d and purge sequence %d".format(newUpdateSeq, newPurgeSeq))
     case 'commit_failed =>
       committing = false
+  }
+
+  def countFields() {
+    if (countFieldsEnabled) {
+      val leaves = reader.leaves().iterator()
+      val warningThreshold = ctx.args.config.
+        getInt("clouseau.field_count_warn_threshold", 5000)
+      val fields = new HashSet[String]()
+      while (leaves.hasNext() && fields.size <= warningThreshold) {
+        val fieldInfoIter = leaves.next.reader().getFieldInfos().iterator()
+        while (fieldInfoIter.hasNext() && fields.size <= warningThreshold) {
+          fields.add(fieldInfoIter.next().name)
+        }
+      }
+      if (fields.size > warningThreshold) {
+        warn("Index has more than %d fields, ".format(warningThreshold) +
+          "too many fields will lead to heap exhuastion")
+      }
+    }
   }
 
   override def exit(msg: Any) {
@@ -174,18 +226,19 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     }
   }
 
-  private def commit(newSeq: Long) {
-    if (!committing && newSeq > updateSeq) {
+  private def commit(newUpdateSeq: Long, newPurgeSeq: Long) {
+    if (!committing && (newUpdateSeq > updateSeq || newPurgeSeq > purgeSeq)) {
       committing = true
       val index = self
       node.spawn((_) => {
         ctx.args.writer.setCommitData(ctx.args.writer.getCommitData +
-          ("update_seq" -> newSeq.toString))
+          ("update_seq" -> newUpdateSeq.toString) +
+          ("purge_seq" -> newPurgeSeq.toString))
         try {
           commitTimer.time {
             ctx.args.writer.commit()
           }
-          index ! ('committed, newSeq)
+          index ! ('committed, newUpdateSeq, newPurgeSeq)
         } catch {
           case e: AlreadyClosedException =>
             error("Commit failed to closed writer", e)
@@ -202,6 +255,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     val queryString = request.options.getOrElse('query, "*:*").asInstanceOf[String]
     val refresh = request.options.getOrElse('refresh, true).asInstanceOf[Boolean]
     val limit = request.options.getOrElse('limit, 25).asInstanceOf[Int]
+    val partition = request.options.getOrElse('partition, 'nil) match {
+      case 'nil =>
+        None
+      case value =>
+        Some(value.asInstanceOf[String])
+    }
+
     val counts = request.options.getOrElse('counts, 'nil) match {
       case 'nil =>
         None
@@ -227,7 +287,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
     val legacy = request.options.getOrElse('legacy, false).asInstanceOf[Boolean]
 
-    parseQuery(queryString) match {
+    parseQuery(queryString, partition) match {
       case baseQuery: Query =>
         safeSearch {
           val query = request.options.getOrElse('drilldown, Nil) match {
@@ -320,7 +380,21 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
             hitsCollector, countsCollector, rangesCollector)
 
           searchTimer.time {
-            searcher.search(query, collector)
+            partition match {
+              case None =>
+                searcher.search(query, collector)
+              case Some(p) =>
+                val tlcollector = new TimeLimitingCollector(collector,
+                  TimeLimitingCollector.getGlobalCounter, timeAllowed)
+                try {
+                  searcher.search(query, tlcollector)
+                } catch {
+                  case x: TimeLimitingCollector.TimeExceededException => {
+                    parSearchTimeOutCount += 1
+                    throw new ParseException("Query exceeded allowed time: " + timeAllowed + "ms.")
+                  }
+                }
+            }
           }
           debug("search for '%s' limit=%d, refresh=%s had %d hits".
             format(query, limit, refresh, getTotalHits(hitsCollector)))
@@ -391,7 +465,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   private def group1(queryString: String, field: String, refresh: Boolean, groupSort: Any,
-                     groupOffset: Int, groupLimit: Int): Any = parseQuery(queryString) match {
+                     groupOffset: Int, groupLimit: Int): Any = parseQuery(queryString, None) match {
     case query: Query =>
       val searcher = getSearcher(refresh)
       safeSearch {
@@ -431,7 +505,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         case other =>
           throw new ParseException(other + " is not a valid include_fields query")
       }
-    parseQuery(queryString) match {
+    parseQuery(queryString, None) match {
       case query: Query =>
         val searcher = getSearcher(refresh)
         val groups1 = groups.map {
@@ -528,8 +602,18 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       result
   }
 
-  private def parseQuery(query: String): Any = {
-    safeSearch { ctx.args.queryParser.parse(query) }
+  private def parseQuery(query: String, partition: Option[String]): Any = {
+    safeSearch {
+      partition match {
+        case None =>
+          ctx.args.queryParser.parse(query)
+        case Some(p) =>
+          val q = new BooleanQuery();
+          q.add(new TermQuery(new Term("_partition", p)), Occur.MUST);
+          q.add(ctx.args.queryParser.parse(query), Occur.MUST);
+          q
+      }
+    }
   }
 
   private def safeSearch[A](fun: => A): Any = try {
@@ -568,7 +652,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       ('doc_count, reader.numDocs),
       ('doc_del_count, reader.numDeletedDocs),
       ('pending_seq, pendingSeq),
-      ('committed_seq, getCommittedSeq)
+      ('committed_seq, getCommittedSeq),
+      ('purge_seq, purgeSeq)
     )
   }
 
@@ -582,6 +667,16 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   private def getCommittedSeq = {
     val commitData = ctx.args.writer.getCommitData
     commitData.get("update_seq") match {
+      case null =>
+        0L
+      case seq =>
+        seq.toLong
+    }
+  }
+
+  private def getCommittedPurgeSeq = {
+    val commitData = ctx.args.writer.getCommitData
+    commitData.get("purge_seq") match {
       case null =>
         0L
       case seq =>
@@ -607,7 +702,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         searcher.doc(scoreDoc.doc, includeFields)
     }
 
-    var fields = doc.getFields.foldLeft(ListMap[String, Any]())((acc, field) => {
+    var fields = doc.getFields.foldLeft(Map[String, Any]())((acc, field) => {
       val value = field.numericValue match {
         case null =>
           field.stringValue

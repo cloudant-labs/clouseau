@@ -72,7 +72,8 @@ object SupportedAnalyzers {
         Some(perfield)
       case Some(analyzer: Analyzer) =>
         Some(new PerFieldAnalyzer(analyzer,
-          Map("_id" -> new KeywordAnalyzer())))
+          Map("_id" -> new KeywordAnalyzer(),
+            "_partition" -> new KeywordAnalyzer())))
       case None =>
         None
     }
@@ -370,6 +371,7 @@ object SupportedAnalyzers {
           Map.empty
       }
       fieldMap += ("_id" -> new KeywordAnalyzer())
+      fieldMap += ("_partition" -> new KeywordAnalyzer())
       Some(new PerFieldAnalyzer(defaultAnalyzer, fieldMap))
     case "swedish" =>
       options.get("stopwords") match {
