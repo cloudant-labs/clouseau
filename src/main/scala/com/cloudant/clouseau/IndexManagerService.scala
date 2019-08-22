@@ -76,6 +76,15 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       }
     }
 
+    def closeByPath(path: String) {
+      pidToPath foreach {
+        kv =>
+          if (kv._2.startsWith(path)) {
+            logger.info("closing lru for " + path)
+            kv._1 ! ('close, 'closing)
+          }
+      }
+    }
   }
 
   val logger = Logger.getLogger("clouseau.main")
@@ -123,6 +132,9 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       getDiskSize(path)
     case 'close_lru =>
       lru.close()
+      'ok
+    case CloseLRUByPathMsg(path: String) =>
+      lru.closeByPath(path)
       'ok
     case 'version =>
       ('ok, getClass.getPackage.getImplementationVersion)
