@@ -23,9 +23,9 @@ class IndexCleanupServiceSpec extends SpecificationWithJUnit {
   "the index clean-up service" should {
 
     "rename index when database is deleted" in new cleanup_service {
-      node.cast(service, RenamePathMsg("foo.1234567890")) must be equalTo 'ok
+      node.cast(cleanup, RenamePathMsg("shards/00000000-ffffffff/foo.1234567890")) must be equalTo 'ok
       Thread.sleep(1000)
-      val indexdir = new File("target", "indexes")
+      val indexdir = new File(new File(new File("target", "indexes"), "shards"), "00000000-ffffffff")
       var subdirlist = List[String]()
 
       for (file <- indexdir.listFiles if file.getName contains ".deleted") {
@@ -41,7 +41,9 @@ class IndexCleanupServiceSpec extends SpecificationWithJUnit {
 trait cleanup_service extends RunningNode {
   val config = new SystemConfiguration()
   val args = new ConfigurationArgs(config)
-  val service = node.spawnService[IndexCleanupService, ConfigurationArgs](args)
+  val cleanup = node.spawnService[IndexCleanupService, ConfigurationArgs](args)
+  var manager = node.spawnService[IndexManagerService, ConfigurationArgs]('main, args)
+
   val mbox = node.spawnMbox
 
   val dir = new File("target", "indexes")
@@ -51,7 +53,8 @@ trait cleanup_service extends RunningNode {
     }
   }
 
-  val foodir = new File(new File("target", "indexes"), "foo.1234567890")
+  val foodir = new File(new File(new File(new File(new File("target", "indexes"), "shards"),
+    "00000000-ffffffff"), "foo.1234567890"), "5838a59330e52227a58019dc1b9edd6e")
   if (!foodir.exists) {
     foodir.mkdirs
   }

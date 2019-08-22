@@ -119,6 +119,18 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
           pid ! 'delete
           'ok
       }
+    case ('rename, path: String) =>
+      lru.get(path) match {
+        case null =>
+          ('error, 'not_found)
+        case pid: Pid =>
+          call('pid, ('close_writer))
+          val dbpath = path.substring(0, path.lastIndexOf('/'))
+          val sig = path.substring(path.lastIndexOf('/') + 1)
+          Utils.rename(rootDir, dbpath, sig)
+          call('pid, ('exit_with_deleted))
+          'ok
+      }
     case DiskSizeMsg(path: String) =>
       getDiskSize(path)
     case 'close_lru =>

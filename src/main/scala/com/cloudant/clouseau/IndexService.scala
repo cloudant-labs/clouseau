@@ -169,6 +169,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         exit("Idle Timeout")
       }
       idle = true
+    case 'close_writer =>
+      debug("Closing writer")
+      ctx.args.writer.close()
+      'ok
+    case 'exit_with_deleted =>
+      exit('deleted)
     case 'count_fields =>
       countFields
     case 'delete =>
@@ -210,7 +216,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   override def exit(msg: Any) {
-    debug("Closed with reason: %.1000s".format(msg))
     try {
       reader.close()
     } catch {
@@ -220,7 +225,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       ctx.args.writer.rollback()
     } catch {
       case e: AlreadyClosedException => 'ignored
-      case e: IOException => warn("Error while closing writer", e)
+      case e: IOException =>
+        val dir = ctx.args.writer.getDirectory
+        if (IndexWriter.isLocked(dir)) {
+          IndexWriter.unlock(dir);
+        }
+        warn("Error while closing writer", e)
     } finally {
       super.exit(msg)
     }
