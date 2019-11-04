@@ -220,7 +220,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       ctx.args.writer.rollback()
     } catch {
       case e: AlreadyClosedException => 'ignored
-      case e: IOException => warn("Error while closing writer", e)
+      case e: IOException =>
+        warn("Error while closing writer", e)
+        ctx.args.writer.close()
     } finally {
       super.exit(msg)
     }

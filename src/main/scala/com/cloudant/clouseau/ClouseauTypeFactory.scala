@@ -33,6 +33,7 @@ case class CleanupPathMsg(path: String)
 case class RenamePathMsg(dbName: String)
 case class CleanupDbMsg(dbName: String, activeSigs: List[String])
 case class DiskSizeMsg(path: String)
+case class CloseLRUByPathMsg(path: String)
 
 case class Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
                      groupLimit: Int)
@@ -92,6 +93,8 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(DeleteDocMsg(reader.readAs[String]))
     case ('disk_size, 2) =>
       Some(DiskSizeMsg(reader.readAs[String]))
+    case ('close_lru_by_path, 2) =>
+      Some(CloseLRUByPathMsg(reader.readAs[String]))
     case ('commit, 2) =>
       Some(CommitMsg(toLong(reader.readTerm)))
     case ('set_update_seq, 2) =>
