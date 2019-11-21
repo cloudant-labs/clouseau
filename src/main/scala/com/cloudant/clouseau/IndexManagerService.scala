@@ -95,29 +95,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
     case OpenIndexMsg(peer: Pid, path: String, options: Any) =>
-      lru.get(path) match {
-        case null =>
-          waiters.get(path) match {
-            case None =>
-              val manager = self
-              node.spawn((_) => {
-                openTimer.time {
-                  IndexService.start(node, ctx.args.config, path, options) match {
-                    case ('ok, pid: Pid) =>
-                      manager ! ('open_ok, path, peer, pid)
-                    case error =>
-                      manager ! ('open_error, path, error)
-                  }
-                }
-              })
-              waiters.put(path, List(tag))
-            case Some(list) =>
-              waiters.put(path, tag :: list)
-          }
-          'noreply
-        case pid =>
-          ('ok, pid)
-      }
+      openIndex(tag, peer, path, options)
     case ('get_root_dir) =>
       ('ok, rootDir.getAbsolutePath())
     case ('delete, path: String) =>
@@ -136,6 +114,14 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     case CloseLRUByPathMsg(path: String) =>
       lru.closeByPath(path)
       'ok
+    case SoftDeleteMsg(path: String) =>
+      openIndex(tag, node.spawnMbox.self, path, "standard") match {
+        case ('ok, pid: Pid) =>
+          pid ! 'soft_delete
+          'ok
+        case (error: Any) =>
+          'error
+      }
     case 'version =>
       ('ok, getClass.getPackage.getImplementationVersion)
   }
@@ -160,6 +146,32 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       lru.remove(pid)
     case _ =>
       'ignored
+  }
+
+  private def openIndex(tag: (Pid, Reference), peer: Pid, path: String, options: Any) = {
+    lru.get(path) match {
+      case null =>
+        waiters.get(path) match {
+          case None =>
+            val manager = self
+            node.spawn((_) => {
+              openTimer.time {
+                IndexService.start(node, ctx.args.config, path, options) match {
+                  case ('ok, pid: Pid) =>
+                    manager ! ('open_ok, path, peer, pid)
+                  case error =>
+                    manager ! ('open_error, path, error)
+                }
+              }
+            })
+            waiters.put(path, List(tag))
+          case Some(list) =>
+            waiters.put(path, tag :: list)
+        }
+        'noreply
+      case pid =>
+        ('ok, pid)
+    }
   }
 
   private def getDiskSize(path: String) = {

@@ -30,10 +30,10 @@ case class SearchRequest(options: Map[Symbol, Any])
 
 case class OpenIndexMsg(peer: Pid, path: String, options: Any)
 case class CleanupPathMsg(path: String)
-case class RenamePathMsg(dbName: String)
 case class CleanupDbMsg(dbName: String, activeSigs: List[String])
 case class DiskSizeMsg(path: String)
 case class CloseLRUByPathMsg(path: String)
+case class SoftDeleteMsg(path: String)
 
 case class Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
                      groupLimit: Int)
@@ -55,8 +55,6 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(OpenIndexMsg(reader.readAs[Pid], reader.readAs[String], reader.readTerm))
     case ('cleanup, 2) =>
       Some(CleanupPathMsg(reader.readAs[String]))
-    case ('rename, 2) =>
-      Some(RenamePathMsg(reader.readAs[String]))
     case ('cleanup, 3) =>
       Some(CleanupDbMsg(reader.readAs[String], reader.readAs[List[String]]))
     case ('search, 2) =>
@@ -95,6 +93,8 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(DiskSizeMsg(reader.readAs[String]))
     case ('close_lru_by_path, 2) =>
       Some(CloseLRUByPathMsg(reader.readAs[String]))
+    case ('soft_delete, 2) =>
+      Some(SoftDeleteMsg(reader.readAs[String]))
     case ('commit, 2) =>
       Some(CommitMsg(toLong(reader.readTerm)))
     case ('set_update_seq, 2) =>

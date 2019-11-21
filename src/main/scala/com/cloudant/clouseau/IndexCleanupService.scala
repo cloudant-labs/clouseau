@@ -15,9 +15,6 @@ package com.cloudant.clouseau
 import com.yammer.metrics.scala._
 import java.io.File
 import java.util.regex.Pattern
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.TimeZone
 import org.apache.log4j.Logger
 import scalang._
 
@@ -31,19 +28,6 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       val dir = new File(rootDir, path)
       logger.info("Removing %s".format(path))
       recursivelyDelete(dir)
-    case RenamePathMsg(dbName: String) =>
-      val srcDir = new File(rootDir, dbName)
-      val sdf = new SimpleDateFormat("yyyyMMdd'.'HHmmss")
-      sdf.setTimeZone(TimeZone.getTimeZone("UTC"))
-      val sdfNow = sdf.format(Calendar.getInstance().getTime())
-      // move timestamp information in dbName to end of destination path
-      // for example, from foo.1234567890 to foo.20170912.092828.deleted.1234567890
-      val destPath = dbName.dropRight(10) + sdfNow + ".deleted." + dbName.takeRight(10)
-      val destDir = new File(rootDir, destPath)
-      logger.info("Renaming '%s' to '%s'".format(
-        srcDir.getAbsolutePath, destDir.getAbsolutePath)
-      )
-      rename(srcDir, destDir)
     case CleanupDbMsg(dbName: String, activeSigs: List[String]) =>
       logger.info("Cleaning up " + dbName)
       val pattern = Pattern.compile("shards/[0-9a-f]+-[0-9a-f]+/" + dbName + "\\.[0-9]+/([0-9a-f]+)$")
@@ -76,16 +60,6 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
         recursivelyDelete(file)
     if (fileOrDir.isFile)
       fileOrDir.delete
-  }
-
-  private def rename(srcDir: File, destDir: File) {
-    if (!srcDir.isDirectory) {
-      return
-    }
-    if (!srcDir.renameTo(destDir)) {
-      logger.error("Failed to rename directory from '%s' to '%s'".format(
-        srcDir.getAbsolutePath, destDir.getAbsolutePath))
-    }
   }
 
 }
