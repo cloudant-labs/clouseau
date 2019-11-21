@@ -55,22 +55,6 @@ class IndexManagerServiceSpec extends SpecificationWithJUnit {
 
   }
 
-  "the index soft deletion service" should {
-
-    "softly delete index when database is deleted" in new manager_service {
-      node.call(service, SoftDeleteMsg("foo.5432109876"))
-      Thread.sleep(1000)
-      val indexdir = new File("target", "indexes")
-      var subdirlist = List[String]()
-
-      for (file <- indexdir.listFiles if file.getName contains ".deleted") {
-        subdirlist = file.getName() +: subdirlist
-      }
-      subdirlist.length > 0 must be equalTo true
-    }
-
-  }
-
 }
 
 trait manager_service extends RunningNode {
