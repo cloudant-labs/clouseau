@@ -57,6 +57,9 @@ import scalang.Reference
 import com.spatial4j.core.context.SpatialContext
 import com.spatial4j.core.distance.DistanceUtils
 import java.util.HashSet
+import java.util.Calendar
+import java.util.TimeZone
+import java.text.SimpleDateFormat
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
 case class HighlightParameters(highlighter: Highlighter, highlightFields: List[String], highlightNumber: Int, analyzers: List[Analyzer])
@@ -178,6 +181,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         dir.deleteFile(name)
       }
       exit('deleted)
+    case 'soft_delete =>
+      ctx.args.writer.close()
+      softDelete(ctx.args.name)
+      exit('soft_deleted)
     case 'maybe_commit =>
       commit(pendingSeq, pendingPurgeSeq)
     case ('committed, newUpdateSeq: Long, newPurgeSeq: Long) =>
@@ -220,11 +227,35 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       ctx.args.writer.rollback()
     } catch {
       case e: AlreadyClosedException => 'ignored
-      case e: IOException =>
-        warn("Error while closing writer", e)
-        ctx.args.writer.close()
+      case e: IOException => warn("Error while closing writer", e)
     } finally {
       super.exit(msg)
+    }
+  }
+
+  private def softDelete(dbName: String) {
+    val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
+    val srcDir = new File(rootDir, dbName)
+    val sdf = new SimpleDateFormat("yyyyMMdd'.'HHmmss")
+    sdf.setTimeZone(TimeZone.getTimeZone("UTC"))
+    val sdfNow = sdf.format(Calendar.getInstance().getTime())
+    // move timestamp information in dbName to end of destination path
+    // for example, from foo.1234567890 to foo.20170912.092828.deleted.1234567890
+    val destPath = dbName.dropRight(10) + sdfNow + ".deleted." + dbName.takeRight(10)
+    val destDir = new File(rootDir, destPath)
+    rename(srcDir, destDir)
+  }
+
+  private def rename(srcDir: File, destDir: File) {
+    info("Renaming '%s' to '%s'".format(
+      srcDir.getAbsolutePath, destDir.getAbsolutePath)
+    )
+    if (!srcDir.isDirectory) {
+      return
+    }
+    if (!srcDir.renameTo(destDir)) {
+      warn("Failed to rename directory from '%s' to '%s'".format(
+        srcDir.getAbsolutePath, destDir.getAbsolutePath))
     }
   }
 

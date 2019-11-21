@@ -136,6 +136,26 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     case CloseLRUByPathMsg(path: String) =>
       lru.closeByPath(path)
       'ok
+    case SoftDeleteMsg(path: String) =>
+      lru.get(path) match {
+        case null =>
+          val manager = self
+          node.spawn((_) => {
+            openTimer.time {
+              IndexService.start(node, ctx.args.config, path, "standard") match {
+                case ('ok, pid: Pid) =>
+                  pid ! 'soft_delete
+                  'ok
+                case error =>
+                  'error
+              }
+            }
+          })
+        case pid =>
+          lru.remove(pid)
+          pid ! 'soft_delete
+          'ok
+      }
     case 'version =>
       ('ok, getClass.getPackage.getImplementationVersion)
   }
