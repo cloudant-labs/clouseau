@@ -30,7 +30,7 @@ case class SearchRequest(options: Map[Symbol, Any])
 
 case class OpenIndexMsg(peer: Pid, path: String, options: Any)
 case class CleanupPathMsg(path: String)
-case class RenamePathMsg(dbName: String)
+case class RenamePathMsg(path: String)
 case class CleanupDbMsg(dbName: String, activeSigs: List[String])
 case class DiskSizeMsg(path: String)
 case class CloseLRUByPathMsg(path: String)

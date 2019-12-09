@@ -31,14 +31,14 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       val dir = new File(rootDir, path)
       logger.info("Removing %s".format(path))
       recursivelyDelete(dir)
-    case RenamePathMsg(dbName: String) =>
-      val srcDir = new File(rootDir, dbName)
+    case RenamePathMsg(path: String) =>
+      val srcDir = new File(rootDir, path)
       val sdf = new SimpleDateFormat("yyyyMMdd'.'HHmmss")
       sdf.setTimeZone(TimeZone.getTimeZone("UTC"))
       val sdfNow = sdf.format(Calendar.getInstance().getTime())
-      // move timestamp information in dbName to end of destination path
+      // move timestamp information in path to end of destination path
       // for example, from foo.1234567890 to foo.20170912.092828.deleted.1234567890
-      val destPath = dbName.dropRight(10) + sdfNow + ".deleted." + dbName.takeRight(10)
+      val destPath = path.dropRight(10) + sdfNow + ".deleted." + path.takeRight(10)
       val destDir = new File(rootDir, destPath)
       logger.info("Renaming '%s' to '%s'".format(
         srcDir.getAbsolutePath, destDir.getAbsolutePath)
