@@ -40,10 +40,18 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       // for example, from foo.1234567890 to foo.20170912.092828.deleted.1234567890
       val destPath = path.dropRight(10) + sdfNow + ".deleted." + path.takeRight(10)
       val destDir = new File(rootDir, destPath)
-      logger.info("Renaming '%s' to '%s'".format(
-        srcDir.getAbsolutePath, destDir.getAbsolutePath)
-      )
-      rename(srcDir, destDir)
+      destDir.mkdirs()
+
+      for (index <- srcDir.listFiles) {
+        val indexPath = path + File.separator + index.getName
+        val renameDir = new File(destDir, index.getName)
+        call('main, ('rename, indexPath, renameDir.getAbsolutePath)) match {
+          case 'ok =>
+            'ok
+          case ('error, 'not_found) =>
+            rename(new File(srcDir, index.getName), renameDir)
+        }
+      }
     case CleanupDbMsg(dbName: String, activeSigs: List[String]) =>
       logger.info("Cleaning up " + dbName)
       val pattern = Pattern.compile("shards/[0-9a-f]+-[0-9a-f]+/" + dbName + "\\.[0-9]+/([0-9a-f]+)$")
@@ -82,6 +90,9 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     if (!srcDir.isDirectory) {
       return
     }
+    logger.info("Renaming closed index '%s' to '%s'".format(
+        srcDir.getAbsolutePath, destDir.getAbsolutePath)
+      )
     if (!srcDir.renameTo(destDir)) {
       logger.error("Failed to rename directory from '%s' to '%s'".format(
         srcDir.getAbsolutePath, destDir.getAbsolutePath))

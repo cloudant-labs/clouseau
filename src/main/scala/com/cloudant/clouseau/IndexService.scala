@@ -58,7 +58,7 @@ import com.spatial4j.core.context.SpatialContext
 import com.spatial4j.core.distance.DistanceUtils
 import java.util.HashSet
 
-case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
+case class IndexServiceArgs(config: Configuration, rootDir: File, name: String, queryParser: QueryParser, writer: IndexWriter)
 case class HighlightParameters(highlighter: Highlighter, highlightFields: List[String], highlightNumber: Int, analyzers: List[Analyzer])
 
 // These must match the records in dreyfus.
@@ -169,6 +169,18 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         exit("Idle Timeout")
       }
       idle = true
+    case ('rename, path: String) =>
+      close()
+      val srcDir = new File(ctx.args.rootDir, ctx.args.name)
+      val destDir = new File(path)
+      info("Renaming open index '%s' to '%s'".format(
+        srcDir.getAbsolutePath, destDir.getAbsolutePath)
+      )
+      if (!srcDir.renameTo(destDir)) {
+        error("Failed to rename directory from '%s' to '%s'".format(
+          srcDir.getAbsolutePath, destDir.getAbsolutePath))
+      }
+      exit('close)
     case 'count_fields =>
       countFields
     case 'delete =>
@@ -217,6 +229,14 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       case e: IOException => warn("Error while closing reader", e)
     }
     try {
+      close()
+    } finally {
+      super.exit(msg)
+    }
+  }
+
+  private def close() {
+    try {
       ctx.args.writer.rollback()
     } catch {
       case e: AlreadyClosedException => 'ignored
@@ -226,8 +246,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         if (IndexWriter.isLocked(dir)) {
           IndexWriter.unlock(dir);
         }
-    } finally {
-      super.exit(msg)
     }
   }
 
@@ -856,6 +874,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     IndexService.logger.warn(prefix_name(str), e)
   }
 
+  private def error(str: String) {
+    IndexService.logger.error(prefix_name(str))
+  }
+
   private def error(str: String, e: Throwable) {
     IndexService.logger.error(prefix_name(str), e)
   }
@@ -889,7 +911,7 @@ object IndexService {
           val queryParser = new ClouseauQueryParser(version, "default", analyzer)
           val writerConfig = new IndexWriterConfig(version, analyzer)
           val writer = new IndexWriter(dir, writerConfig)
-          ('ok, node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(config, path, queryParser, writer)))
+          ('ok, node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(config, rootDir, path, queryParser, writer)))
         case None =>
           ('error, 'no_such_analyzer)
       }
