@@ -138,6 +138,14 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       'ok
     case 'version =>
       ('ok, getClass.getPackage.getImplementationVersion)
+    case ('rename, indexPath: String, destPath: String) =>
+      lru.get(indexPath) match {
+        case null =>
+          ('error, 'not_found)
+        case pid: Pid =>
+          pid ! ('rename, destPath)
+          'ok
+      }
   }
 
   override def handleInfo(msg: Any) = msg match {
