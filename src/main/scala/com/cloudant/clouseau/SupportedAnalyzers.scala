@@ -18,6 +18,7 @@ import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.analysis.util.CharArraySet
 import scala.collection.JavaConversions._
 
+import org.apache.lucene.analysis.ngram.NGramTokenizer
 import org.apache.lucene.analysis.core.KeywordAnalyzer
 import org.apache.lucene.analysis.core.SimpleAnalyzer
 import org.apache.lucene.analysis.core.WhitespaceAnalyzer
@@ -106,6 +107,8 @@ object SupportedAnalyzers {
       Some(new SimpleAnalyzer(IndexService.version))
     case "whitespace" =>
       Some(new WhitespaceAnalyzer(IndexService.version))
+    case "ngram" =>
+      Some(new NGramTokenizer(IndexService.version, null, options.get("mingram"), options.get("maxgram")))
     case "arabic" =>
       options.get("stopwords") match {
         case Some(stopwords: List[String]) =>
