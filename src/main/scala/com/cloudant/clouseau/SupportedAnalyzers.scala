@@ -12,22 +12,23 @@
 
 package com.cloudant.clouseau
 
+import java.io.Reader
 import java.util.{ Set => JSet }
 import org.apache.log4j.Logger
 import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.analysis.util.CharArraySet
 import scala.collection.JavaConversions._
 
-import org.apache.lucene.analysis.ngram.NGramTokenizer
-import org.apache.lucene.analysis.core.KeywordAnalyzer
-import org.apache.lucene.analysis.core.SimpleAnalyzer
-import org.apache.lucene.analysis.core.WhitespaceAnalyzer
+import org.apache.lucene.analysis.Analyzer.TokenStreamComponents
 import org.apache.lucene.analysis.ar.ArabicAnalyzer
 import org.apache.lucene.analysis.bg.BulgarianAnalyzer
 import org.apache.lucene.analysis.br.BrazilianAnalyzer
 import org.apache.lucene.analysis.ca.CatalanAnalyzer
 import org.apache.lucene.analysis.cjk.CJKAnalyzer
 import org.apache.lucene.analysis.cn.smart.SmartChineseAnalyzer
+import org.apache.lucene.analysis.core.KeywordAnalyzer
+import org.apache.lucene.analysis.core.SimpleAnalyzer
+import org.apache.lucene.analysis.core.WhitespaceAnalyzer
 import org.apache.lucene.analysis.cz.CzechAnalyzer
 import org.apache.lucene.analysis.da.DanishAnalyzer
 import org.apache.lucene.analysis.de.GermanAnalyzer
@@ -47,6 +48,8 @@ import org.apache.lucene.analysis.id.IndonesianAnalyzer
 import org.apache.lucene.analysis.it.ItalianAnalyzer
 import org.apache.lucene.analysis.ja.JapaneseAnalyzer
 import org.apache.lucene.analysis.lv.LatvianAnalyzer
+import org.apache.lucene.analysis.ngram.EdgeNGramTokenizer
+import org.apache.lucene.analysis.ngram.NGramTokenizer
 import org.apache.lucene.analysis.nl.DutchAnalyzer
 import org.apache.lucene.analysis.no.NorwegianAnalyzer
 import org.apache.lucene.analysis.pl.PolishAnalyzer
@@ -108,7 +111,19 @@ object SupportedAnalyzers {
     case "whitespace" =>
       Some(new WhitespaceAnalyzer(IndexService.version))
     case "ngram" =>
-      Some(new NGramTokenizer(IndexService.version, null, options.get("mingram"), options.get("maxgram")))
+      Some(new Analyzer() {
+        def createComponents(fieldName: String, reader: Reader): TokenStreamComponents = {
+          new TokenStreamComponents(new NGramTokenizer(IndexService.version, reader,
+            options.get("mingram").asInstanceOf[Int], options.get("maxgram").asInstanceOf[Int]))
+        }
+      })
+    case "edgengram" =>
+      Some(new Analyzer() {
+        def createComponents(fieldName: String, reader: Reader): TokenStreamComponents = {
+          new TokenStreamComponents(new EdgeNGramTokenizer(IndexService.version, reader,
+            options.get("mingram").asInstanceOf[Int], options.get("maxgram").asInstanceOf[Int]))
+        }
+      })
     case "arabic" =>
       options.get("stopwords") match {
         case Some(stopwords: List[String]) =>
