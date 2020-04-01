@@ -12,15 +12,16 @@
 
 package com.cloudant.clouseau
 
-import org.apache.lucene.analysis.core.KeywordAnalyzer
-import org.apache.lucene.analysis.core.SimpleAnalyzer
-import org.apache.lucene.analysis.core.WhitespaceAnalyzer
+import org.apache.lucene.analysis.Analyzer.TokenStreamComponents
 import org.apache.lucene.analysis.ar.ArabicAnalyzer
 import org.apache.lucene.analysis.bg.BulgarianAnalyzer
 import org.apache.lucene.analysis.br.BrazilianAnalyzer
 import org.apache.lucene.analysis.ca.CatalanAnalyzer
 import org.apache.lucene.analysis.cjk.CJKAnalyzer
 import org.apache.lucene.analysis.cn.smart.SmartChineseAnalyzer
+import org.apache.lucene.analysis.core.KeywordAnalyzer
+import org.apache.lucene.analysis.core.SimpleAnalyzer
+import org.apache.lucene.analysis.core.WhitespaceAnalyzer
 import org.apache.lucene.analysis.cz.CzechAnalyzer
 import org.apache.lucene.analysis.da.DanishAnalyzer
 import org.apache.lucene.analysis.de.GermanAnalyzer
@@ -40,6 +41,8 @@ import org.apache.lucene.analysis.id.IndonesianAnalyzer
 import org.apache.lucene.analysis.it.ItalianAnalyzer
 import org.apache.lucene.analysis.ja.JapaneseAnalyzer
 import org.apache.lucene.analysis.lv.LatvianAnalyzer
+import org.apache.lucene.analysis.ngram.EdgeNGramTokenizer
+import org.apache.lucene.analysis.ngram.NGramTokenizer
 import org.apache.lucene.analysis.nl.DutchAnalyzer
 import org.apache.lucene.analysis.no.NorwegianAnalyzer
 import org.apache.lucene.analysis.pl.PolishAnalyzer
@@ -76,6 +79,14 @@ class SupportedAnalyzersSpec extends SpecificationWithJUnit {
     }
     "email" in {
       createAnalyzer("email") must haveClass[Some[UAX29URLEmailAnalyzer]]
+    }
+    "ngram" in {
+      createAnalyzer("ngram") must haveClass[Some[TokenStreamComponents]]
+      createAnalyzer("ngram") must haveClass[Some[NGramTokenizer]]
+    }
+    "edgengram" in {
+      createAnalyzer("edgengram") must haveClass[Some[TokenStreamComponents]]
+      createAnalyzer("edgengram") must haveClass[Some[EdgeNGramTokenizer]]
     }
     "perfield" in {
       // basic
