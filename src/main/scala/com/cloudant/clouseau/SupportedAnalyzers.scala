@@ -114,14 +114,14 @@ object SupportedAnalyzers {
       Some(new Analyzer() {
         def createComponents(fieldName: String, reader: Reader): TokenStreamComponents = {
           new TokenStreamComponents(new NGramTokenizer(IndexService.version, reader,
-            options.get("mingram").asInstanceOf[Int], options.get("maxgram").asInstanceOf[Int]))
+            options.get("mingram").get.asInstanceOf[Int], options.get("maxgram").get.asInstanceOf[Int]))
         }
       })
     case "edgengram" =>
       Some(new Analyzer() {
         def createComponents(fieldName: String, reader: Reader): TokenStreamComponents = {
           new TokenStreamComponents(new EdgeNGramTokenizer(IndexService.version, reader,
-            options.get("mingram").asInstanceOf[Int], options.get("maxgram").asInstanceOf[Int]))
+            options.get("mingram").get.asInstanceOf[Int], options.get("maxgram").get.asInstanceOf[Int]))
         }
       })
     case "arabic" =>
