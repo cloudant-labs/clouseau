@@ -14,9 +14,9 @@
   <properties>
     <encoding>UTF-8</encoding>
     <lucene-version>4.6.1</lucene-version>
-    <maven.compiler.source>1.6</maven.compiler.source>
-    <maven.compiler.target>1.6</maven.compiler.target>
-    <scala.version>2.9.1</scala.version>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+    <scala.version>2.12.12</scala.version>
     <scala.plugin.version>3.1.0</scala.plugin.version>
     <tika-version>1.0</tika-version>
   </properties>
