@@ -70,4 +70,12 @@ class DistanceValueSource(ctx: SpatialContext,
     }
   }
 
+  override def equals(o: Any): Boolean = {
+    false
+  }
+
+  override def hashCode: Int = {
+    0
+  }
+
 }
