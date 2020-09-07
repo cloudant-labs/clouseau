@@ -18,14 +18,11 @@ import org.apache.commons.configuration.*;
 import com.ericsson.otp.erlang.*;
 import org.apache.log4j.*;
 
+import static com.cloudant.cloujeau.OtpUtils.*;
+
 public class Main {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
-
-    private static final OtpErlangAtom GEN_CALL = atom("$gen_call");
-    private static final OtpErlangAtom IS_AUTH = atom("is_auth");
-    private static final OtpErlangAtom OK = atom("ok");
-    private static final OtpErlangAtom YES = atom("yes");
 
     public static void main(final String[] args) throws Exception {
         Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
@@ -111,18 +108,6 @@ public class Main {
         default:
             logger.warn("received message of unknown type " + msg.type());
         }
-    }
-
-    private static OtpErlangTuple genCallReply(OtpErlangRef ref, OtpErlangObject reply) {
-        return tuple(ref, reply);
-    }
-
-    public static OtpErlangTuple tuple(OtpErlangObject... items) {
-        return new OtpErlangTuple(items);
-    }
-
-    public static OtpErlangAtom atom(String val) {
-        return new OtpErlangAtom(val);
     }
 
 }
