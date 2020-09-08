@@ -12,13 +12,28 @@
 
 package com.cloudant.cloujeau;
 
+import static com.cloudant.cloujeau.OtpUtils.GEN_CALL;
+import static com.cloudant.cloujeau.OtpUtils.IS_AUTH;
+import static com.cloudant.cloujeau.OtpUtils.YES;
+import static com.cloudant.cloujeau.OtpUtils.reply;
+
+import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import org.apache.commons.configuration.CompositeConfiguration;
+import org.apache.commons.configuration.HierarchicalINIConfiguration;
+import org.apache.commons.configuration.SystemConfiguration;
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy;
+import org.apache.log4j.Logger;
 
-import org.apache.commons.configuration.*;
-import com.ericsson.otp.erlang.*;
-import org.apache.log4j.*;
-
-import static com.cloudant.cloujeau.OtpUtils.*;
+import com.ericsson.otp.erlang.OtpConnection;
+import com.ericsson.otp.erlang.OtpErlangAtom;
+import com.ericsson.otp.erlang.OtpErlangObject;
+import com.ericsson.otp.erlang.OtpErlangTuple;
+import com.ericsson.otp.erlang.OtpException;
+import com.ericsson.otp.erlang.OtpMsg;
+import com.ericsson.otp.erlang.OtpSelf;
 
 public class Main {
 
@@ -53,17 +68,36 @@ public class Main {
 
         final OtpSelf self = new OtpSelf(name, cookie);
         self.publishPort();
-        
+
         logger.info("Clouseau running as " + name);
-        
-        final OtpConnection conn = self.accept();
+
+        final ExecutorService executor = Executors.newCachedThreadPool();
+
         while (true) {
-            final OtpMsg msg = conn.receiveMsg();
-            handleMessage(self, conn, msg);
+            final OtpConnection conn = self.accept();
+            executor.execute(() -> {
+                while (conn.isConnected()) {
+                    try {
+                        final OtpMsg msg = conn.receiveMsg();
+                        executor.execute(() -> {
+                            try {
+                                handleMessage(self, conn, msg);
+                            } catch (final OtpException | IOException e) {
+                                logger.error("Error when handling message", e);
+                                conn.close();
+                            }
+                        });
+                    } catch (final OtpException | IOException e) {
+                        logger.error("Error when receiving message", e);
+                        conn.close();
+                        break;
+                    }
+                }
+            });
         }
     }
 
-    private static void handleMessage(OtpSelf self, OtpConnection conn, OtpMsg msg) throws Exception {
+    private static void handleMessage(OtpSelf self, OtpConnection conn, OtpMsg msg) throws IOException, OtpException {
         switch (msg.type()) {
         case OtpMsg.linkTag:
             break;
@@ -87,19 +121,21 @@ public class Main {
                 OtpErlangAtom atom = (OtpErlangAtom) tuple.elementAt(0);
                 if (GEN_CALL.equals(atom)) {
                     OtpErlangTuple from = (OtpErlangTuple) tuple.elementAt(1);
-                    OtpErlangPid fromPid = (OtpErlangPid) from.elementAt(0);
-                    OtpErlangRef fromRef = (OtpErlangRef) from.elementAt(1);
-                    OtpErlangObject cmd = tuple.elementAt(2);
-
-                    // respond to a "ping".
-                    if ("net_kernel".equals(msg.getRecipientName())) {
-                        if (cmd instanceof OtpErlangTuple) {
-                            if (IS_AUTH.equals(((OtpErlangTuple) cmd).elementAt(0))) {
-                                conn.send(fromPid, genCallReply(fromRef, YES));
-                            }
-                        }
-                    } else {
-                        conn.send(fromPid, genCallReply(fromRef, self.createPid()));
+                    OtpErlangObject request = tuple.elementAt(2);
+                    switch (msg.getRecipientName()) {
+                    case "net_kernel":
+                        handleNetKernelMsg(conn, from, request);
+                        break;
+                    case "main":
+                        break;
+                    case "analyze":
+                        handleAnalyzeMsg(conn, from, request);
+                        break;
+                    case "cleanup":
+                        break;
+                    default:
+                        reply(conn, from, self.createPid());
+                        break;
                     }
                 }
             }
@@ -108,6 +144,21 @@ public class Main {
         default:
             logger.warn("received message of unknown type " + msg.type());
         }
+    }
+
+    private static void handleNetKernelMsg(OtpConnection conn, OtpErlangTuple from, OtpErlangObject request)
+            throws IOException {
+        if (request instanceof OtpErlangTuple) {
+            if (IS_AUTH.equals(((OtpErlangTuple) request).elementAt(0))) {
+                // respond to a "ping".
+                reply(conn, from, YES);
+            }
+        }
+    }
+
+    private static void handleAnalyzeMsg(OtpConnection conn, OtpErlangTuple from, OtpErlangObject request)
+            throws IOException {
+
     }
 
 }
