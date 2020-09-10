@@ -1,8 +1,9 @@
 package com.cloudant.cloujeau;
 
+import static java.util.Map.entry;
+
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.util.HashMap;
 import java.util.Map;
 
 import com.ericsson.otp.erlang.OtpConnection;
@@ -15,18 +16,15 @@ import com.ericsson.otp.erlang.OtpErlangTuple;
 
 public final class OtpUtils {
 
-    private static final Map<String, OtpErlangAtom> atoms = new HashMap<String, OtpErlangAtom>();
-
-    static {
-        registerAtom("$gen_call");
-        registerAtom("is_auth");
-        registerAtom("yes");
-        registerAtom("analyze");
-        registerAtom("no_such_analyzer");
-        registerAtom("noproc");
-        registerAtom("ok");
-        registerAtom("error");
-    }
+    private static final Map<String, OtpErlangAtom> atoms = Map.ofEntries(
+            registerAtom("$gen_call"),
+            registerAtom("is_auth"),
+            registerAtom("yes"),
+            registerAtom("analyze"),
+            registerAtom("no_such_analyzer"),
+            registerAtom("noproc"),
+            registerAtom("ok"),
+            registerAtom("error"));
 
     public static OtpErlangTuple tuple(OtpErlangObject... items) {
         return new OtpErlangTuple(items);
@@ -62,8 +60,8 @@ public final class OtpUtils {
         conn.send(fromPid, tuple(fromRef, reply));
     }
 
-    private static void registerAtom(final String atom) {
-        atoms.put(atom, new OtpErlangAtom(atom));
+    private static Map.Entry<String, OtpErlangAtom> registerAtom(final String name) {
+        return entry(name, new OtpErlangAtom(name));
     }
 
 }

@@ -12,10 +12,10 @@
 
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.*;
+import static com.cloudant.cloujeau.OtpUtils.existingAtom;
+import static com.cloudant.cloujeau.OtpUtils.reply;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,16 +34,14 @@ import com.ericsson.otp.erlang.OtpException;
 import com.ericsson.otp.erlang.OtpMsg;
 import com.ericsson.otp.erlang.OtpSelf;
 
+import static java.util.Map.entry;
+
 public class Main {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
 
-    private static final Map<String, Service> services = new HashMap<String, Service>();
-
-    static {
-        registerService("analyzer", new AnalyzerService());
-        registerService("net_kernel", new NetKernelService());
-    }
+    private static final Map<String, Service> services = Map
+            .ofEntries(entry("analyzer", new AnalyzerService()), entry("net_kernel", new NetKernelService()));
 
     public static void main(final String[] args) throws Exception {
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
@@ -64,8 +62,10 @@ public class Main {
         final boolean closeIfIdleEnabled = config.getBoolean("clouseau.close_if_idle", false);
         final int idleTimeout = config.getInt("clouseau.idle_check_interval_secs", 300);
         if (closeIfIdleEnabled) {
-            logger.info(String.format("Idle timout is enabled and will check the indexer idle status every %d seconds",
-                    idleTimeout));
+            logger.info(
+                    String.format(
+                            "Idle timout is enabled and will check the indexer idle status every %d seconds",
+                            idleTimeout));
         }
 
         final OtpSelf self = new OtpSelf(name, cookie);
@@ -144,10 +144,6 @@ public class Main {
             logger.warn("received message of unknown type " + msg.type());
         }
 
-    }
-
-    private static void registerService(final String name, final Service service) {
-        services.put(name, service);
     }
 
 }
