@@ -12,12 +12,11 @@
 
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.GEN_CALL;
-import static com.cloudant.cloujeau.OtpUtils.IS_AUTH;
-import static com.cloudant.cloujeau.OtpUtils.YES;
-import static com.cloudant.cloujeau.OtpUtils.reply;
+import static com.cloudant.cloujeau.OtpUtils.*;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -39,28 +38,31 @@ public class Main {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
 
-    public static void main(final String[] args) throws Exception {
-        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+    private static final Map<String, Service> services = new HashMap<String, Service>();
 
-            @Override
-            public void uncaughtException(Thread t, Throwable e) {
-                logger.fatal("Uncaught exception: " + e.getMessage());
-                System.exit(1);
-            }
+    static {
+        registerService("analyzer", new AnalyzerService());
+        registerService("net_kernel", new NetKernelService());
+    }
+
+    public static void main(final String[] args) throws Exception {
+        Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+            logger.fatal("Uncaught exception", e);
+            System.exit(1);
         });
 
-        CompositeConfiguration config = new CompositeConfiguration();
+        final CompositeConfiguration config = new CompositeConfiguration();
         config.addConfiguration(new SystemConfiguration());
 
         final String fileName = args.length > 0 ? args[0] : "clouseau.ini";
-        HierarchicalINIConfiguration reloadableConfig = new HierarchicalINIConfiguration(fileName);
+        final HierarchicalINIConfiguration reloadableConfig = new HierarchicalINIConfiguration(fileName);
         reloadableConfig.setReloadingStrategy(new FileChangedReloadingStrategy());
         config.addConfiguration(reloadableConfig);
 
-        String name = config.getString("clouseau.name", "clouseau@127.0.0.1");
-        String cookie = config.getString("clouseau.cookie", "monster");
-        boolean closeIfIdleEnabled = config.getBoolean("clouseau.close_if_idle", false);
-        int idleTimeout = config.getInt("clouseau.idle_check_interval_secs", 300);
+        final String name = config.getString("clouseau.name", "clouseau@127.0.0.1");
+        final String cookie = config.getString("clouseau.cookie", "monster");
+        final boolean closeIfIdleEnabled = config.getBoolean("clouseau.close_if_idle", false);
+        final int idleTimeout = config.getInt("clouseau.idle_check_interval_secs", 300);
         if (closeIfIdleEnabled) {
             logger.info(String.format("Idle timout is enabled and will check the indexer idle status every %d seconds",
                     idleTimeout));
@@ -97,7 +99,8 @@ public class Main {
         }
     }
 
-    private static void handleMessage(OtpSelf self, OtpConnection conn, OtpMsg msg) throws IOException, OtpException {
+    private static void handleMessage(final OtpSelf self, final OtpConnection conn, final OtpMsg msg)
+            throws IOException, OtpException {
         switch (msg.type()) {
         case OtpMsg.linkTag:
             break;
@@ -117,25 +120,21 @@ public class Main {
         case OtpMsg.regSendTag:
             final OtpErlangObject obj = msg.getMsg();
             if (obj instanceof OtpErlangTuple) {
-                OtpErlangTuple tuple = (OtpErlangTuple) obj;
-                OtpErlangAtom atom = (OtpErlangAtom) tuple.elementAt(0);
-                if (GEN_CALL.equals(atom)) {
-                    OtpErlangTuple from = (OtpErlangTuple) tuple.elementAt(1);
-                    OtpErlangObject request = tuple.elementAt(2);
-                    switch (msg.getRecipientName()) {
-                    case "net_kernel":
-                        handleNetKernelMsg(conn, from, request);
+                final OtpErlangTuple tuple = (OtpErlangTuple) obj;
+                final OtpErlangAtom atom = (OtpErlangAtom) tuple.elementAt(0);
+                if (existingAtom("$gen_call").equals(atom)) {
+                    final OtpErlangTuple from = (OtpErlangTuple) tuple.elementAt(1);
+                    final OtpErlangObject request = tuple.elementAt(2);
+                    final Service service = services.get(msg.getRecipientName());
+                    if (service == null) {
+                        logger.warn("No registered process called " + msg.getRecipientName());
+                        conn.exit(msg.getSenderPid(), existingAtom("noproc"));
                         break;
-                    case "main":
-                        break;
-                    case "analyze":
-                        handleAnalyzeMsg(conn, from, request);
-                        break;
-                    case "cleanup":
-                        break;
-                    default:
-                        reply(conn, from, self.createPid());
-                        break;
+                    }
+
+                    final OtpErlangObject response = service.handleCall(from, request);
+                    if (response != null) {
+                        reply(conn, from, response);
                     }
                 }
             }
@@ -144,21 +143,11 @@ public class Main {
         default:
             logger.warn("received message of unknown type " + msg.type());
         }
+
     }
 
-    private static void handleNetKernelMsg(OtpConnection conn, OtpErlangTuple from, OtpErlangObject request)
-            throws IOException {
-        if (request instanceof OtpErlangTuple) {
-            if (IS_AUTH.equals(((OtpErlangTuple) request).elementAt(0))) {
-                // respond to a "ping".
-                reply(conn, from, YES);
-            }
-        }
-    }
-
-    private static void handleAnalyzeMsg(OtpConnection conn, OtpErlangTuple from, OtpErlangObject request)
-            throws IOException {
-
+    private static void registerService(final String name, final Service service) {
+        services.put(name, service);
     }
 
 }

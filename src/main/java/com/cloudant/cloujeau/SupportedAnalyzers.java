@@ -5,9 +5,11 @@ import org.apache.lucene.analysis.core.KeywordAnalyzer;
 import org.apache.lucene.analysis.core.SimpleAnalyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 
+import com.ericsson.otp.erlang.OtpErlangObject;
+
 public class SupportedAnalyzers {
 
-    public static Analyzer createAnalyzer(final Object analyzerConfig) {
+    public static Analyzer createAnalyzer(final OtpErlangObject analyzerConfig) {
         return createAnalyzerInt("standard");
     }
 

@@ -1,8 +1,8 @@
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.ERROR;
-import static com.cloudant.cloujeau.OtpUtils.OK;
-import static com.cloudant.cloujeau.OtpUtils.atom;
+import static com.cloudant.cloujeau.OtpUtils.binaryToString;
+import static com.cloudant.cloujeau.OtpUtils.existingAtom;
+import static com.cloudant.cloujeau.OtpUtils.stringToBinary;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
 
 import java.io.IOException;
@@ -12,38 +12,47 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 
-import com.ericsson.otp.erlang.OtpErlangAtom;
+import com.ericsson.otp.erlang.OtpErlangBinary;
 import com.ericsson.otp.erlang.OtpErlangList;
 import com.ericsson.otp.erlang.OtpErlangObject;
-import com.ericsson.otp.erlang.OtpErlangString;
+import com.ericsson.otp.erlang.OtpErlangTuple;
 
-public class AnalyzerService {
+public final class AnalyzerService extends Service {
 
-    private static final OtpErlangAtom NO_SUCH_ANALYZER = atom("no_such_analyzer");
+    private static final OtpErlangBinary[] EMPTY = new OtpErlangBinary[0];
 
-    public static OtpErlangObject analyze(final Object analyzerConfig, final String text) throws IOException {
-        Analyzer analyzer = SupportedAnalyzers.createAnalyzer(analyzerConfig);
-        if (analyzer != null) {
-            return tuple(OK, tokenize(text, analyzer));
-        } else {
-            return tuple(ERROR, NO_SUCH_ANALYZER);
+    @Override
+    public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws IOException {
+        if (request instanceof OtpErlangTuple) {
+            OtpErlangTuple tuple = (OtpErlangTuple) request;
+            if (existingAtom("analyze").equals(tuple.elementAt(0))) {
+                final OtpErlangObject analyzerConfig = tuple.elementAt(1);
+                final OtpErlangBinary text = (OtpErlangBinary) tuple.elementAt(2);
+                Analyzer analyzer = SupportedAnalyzers.createAnalyzer(analyzerConfig);
+                if (analyzer != null) {
+                    return tuple(existingAtom("ok"), tokenize(binaryToString(text), analyzer));
+                } else {
+                    return tuple(existingAtom("error"), existingAtom("no_such_analyzer"));
+                }
+            }
         }
+        return null;
     }
 
     private static OtpErlangList tokenize(String text, Analyzer analyzer) throws IOException {
-        ArrayList<OtpErlangString> result = new ArrayList<OtpErlangString>();
+        ArrayList<OtpErlangBinary> result = new ArrayList<OtpErlangBinary>();
         TokenStream tokenStream = analyzer.tokenStream("default", text);
         try {
             tokenStream.reset();
             while (tokenStream.incrementToken()) {
                 CharTermAttribute term = tokenStream.getAttribute(CharTermAttribute.class);
-                result.add(new OtpErlangString(term.toString()));
+                result.add(stringToBinary(term.toString()));
             }
             tokenStream.end();
         } finally {
             tokenStream.close();
         }
-        return new OtpErlangList((OtpErlangObject[]) result.toArray());
+        return new OtpErlangList(result.toArray(EMPTY));
     }
 
 }
