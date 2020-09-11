@@ -5,6 +5,7 @@ import static java.util.Map.entry;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.ericsson.otp.erlang.OtpConnection;
 import com.ericsson.otp.erlang.OtpErlangAtom;
@@ -17,24 +18,14 @@ import com.ericsson.otp.erlang.OtpErlangTuple;
 
 public final class OtpUtils {
 
-    private static final Map<String, OtpErlangAtom> atoms = Map.ofEntries(
-            registerAtom("$gen_call"),
-            registerAtom("is_auth"),
-            registerAtom("yes"),
-            registerAtom("analyze"),
-            registerAtom("no_such_analyzer"),
-            registerAtom("noproc"),
-            registerAtom("ok"),
-            registerAtom("error"),
-            registerAtom("open"),
-            registerAtom("get_update_seq"));
+    private static final Map<String, OtpErlangAtom> atoms = new ConcurrentHashMap<String, OtpErlangAtom>();
 
     public static OtpErlangTuple tuple(final OtpErlangObject... items) {
         return new OtpErlangTuple(items);
     }
 
     public static OtpErlangAtom atom(final String val) {
-        return atoms.get(val);
+        return atoms.computeIfAbsent(val, (v) -> new OtpErlangAtom(v));
     }
 
     public static OtpErlangLong _long(final long val) {

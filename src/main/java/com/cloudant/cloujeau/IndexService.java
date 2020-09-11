@@ -30,16 +30,48 @@ public class IndexService extends Service {
         if (atom("get_update_seq").equals(request)) {
             return tuple(atom("ok"), _long(getCommittedSeq()));
         }
+        if (atom("get_purge_seq").equals(request)) {
+            return tuple(atom("ok"), _long(getCommittedPurgeSeq()));
+        }
+        if (request instanceof OtpErlangTuple) {
+            final OtpErlangTuple tuple = (OtpErlangTuple) request;
+            final OtpErlangObject cmd = tuple.elementAt(0);
+
+            if (atom("set_update_seq").equals(cmd)) {
+                return tuple(atom("ok"));
+            }
+
+            if (atom("set_purge_seq").equals(cmd)) {
+                return tuple(atom("ok"));
+            }
+
+            if (atom("search").equals(cmd)) {
+                return handleSearchCall(conn, from, tuple.elementAt(1));
+            }
+        }
 
         return null;
     }
 
+    private OtpErlangObject handleSearchCall(final OtpConnection conn, final OtpErlangTuple from,
+            final OtpErlangObject searchRequest) {
+        return null;
+    }
+
     private long getCommittedSeq() {
-        final String updateSeq = writer.getCommitData().get("update_seq");
-        if (updateSeq == null) {
+        return getLong("update_seq");
+    }
+
+    private long getCommittedPurgeSeq() {
+        return getLong("purge_seq");
+    }
+
+    private long getLong(final String name) {
+        final String val = writer.getCommitData().get(name);
+        if (val == null) {
             return 0;
         }
-        return Long.parseLong(updateSeq);
+        return Long.parseLong(val);
     }
 
 }

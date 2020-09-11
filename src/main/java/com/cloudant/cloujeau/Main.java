@@ -12,7 +12,7 @@
 
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.atom;
+import static com.cloudant.cloujeau.OtpUtils.*;
 import static com.cloudant.cloujeau.OtpUtils.reply;
 
 import java.io.IOException;
@@ -37,6 +37,8 @@ import com.ericsson.otp.erlang.OtpSelf;
 public class Main {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
+
+    private static final OtpErlangObject INVALID_MSG = tuple(atom("error"), atom("invalid_msg"));
 
     public static void main(final String[] args) throws Exception {
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
@@ -101,8 +103,8 @@ public class Main {
         }
     }
 
-    private static void handleMessage(final ServerState state, final OtpConnection conn,
-            final OtpMsg msg) throws Exception {
+    private static void handleMessage(final ServerState state, final OtpConnection conn, final OtpMsg msg)
+            throws Exception {
         switch (msg.type()) {
         case OtpMsg.linkTag:
             break;
@@ -117,8 +119,6 @@ public class Main {
             break;
 
         case OtpMsg.sendTag:
-            break;
-
         case OtpMsg.regSendTag:
             final OtpErlangObject obj = msg.getMsg();
             if (obj instanceof OtpErlangTuple) {
@@ -127,7 +127,21 @@ public class Main {
                 if (atom("$gen_call").equals(atom)) {
                     final OtpErlangTuple from = (OtpErlangTuple) tuple.elementAt(1);
                     final OtpErlangObject request = tuple.elementAt(2);
-                    final Service service = state.getNamedService(msg.getRecipientName());
+
+                    final Service service;
+
+                    switch (msg.type()) {
+                    case OtpMsg.sendTag:
+                        service = state.getService(msg.getRecipientPid());
+                        break;
+                    case OtpMsg.regSendTag:
+                        service = state.getNamedService(msg.getRecipientName());
+                        break;
+                    default:
+                        service = null;
+                        break;
+                    }
+
                     if (service == null) {
                         logger.warn("No registered process called " + msg.getRecipientName());
                         conn.exit(msg.getSenderPid(), atom("noproc"));
@@ -137,6 +151,8 @@ public class Main {
                     final OtpErlangObject response = service.handleCall(conn, from, request);
                     if (response != null) {
                         reply(conn, from, response);
+                    } else {
+                        reply(conn, from, INVALID_MSG);
                     }
                 }
             }
