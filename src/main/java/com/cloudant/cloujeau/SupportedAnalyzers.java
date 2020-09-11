@@ -13,18 +13,17 @@ public class SupportedAnalyzers {
         return createAnalyzerInt("standard");
     }
 
-    private static Analyzer createAnalyzerInt(String name) {
+    private static Analyzer createAnalyzerInt(final String name) {
         switch (name) {
         case "keyword":
             return new KeywordAnalyzer();
         case "simple":
-            return new SimpleAnalyzer();
+            return new SimpleAnalyzer(LuceneUtils.VERSION);
         case "standard":
-            return new StandardAnalyzer();
+            return new StandardAnalyzer(LuceneUtils.VERSION);
         default:
             return null;
         }
     }
-
 
 }

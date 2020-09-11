@@ -12,15 +12,15 @@
 
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.existingAtom;
+import static com.cloudant.cloujeau.OtpUtils.atom;
 import static com.cloudant.cloujeau.OtpUtils.reply;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.apache.commons.configuration.CompositeConfiguration;
+import org.apache.commons.configuration.FileConfiguration;
 import org.apache.commons.configuration.HierarchicalINIConfiguration;
 import org.apache.commons.configuration.SystemConfiguration;
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy;
@@ -34,14 +34,9 @@ import com.ericsson.otp.erlang.OtpException;
 import com.ericsson.otp.erlang.OtpMsg;
 import com.ericsson.otp.erlang.OtpSelf;
 
-import static java.util.Map.entry;
-
 public class Main {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
-
-    private static final Map<String, Service> services = Map
-            .ofEntries(entry("analyzer", new AnalyzerService()), entry("net_kernel", new NetKernelService()));
 
     public static void main(final String[] args) throws Exception {
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
@@ -53,7 +48,7 @@ public class Main {
         config.addConfiguration(new SystemConfiguration());
 
         final String fileName = args.length > 0 ? args[0] : "clouseau.ini";
-        final HierarchicalINIConfiguration reloadableConfig = new HierarchicalINIConfiguration(fileName);
+        final FileConfiguration reloadableConfig = new HierarchicalINIConfiguration(fileName);
         reloadableConfig.setReloadingStrategy(new FileChangedReloadingStrategy());
         config.addConfiguration(reloadableConfig);
 
@@ -69,6 +64,13 @@ public class Main {
         }
 
         final OtpSelf self = new OtpSelf(name, cookie);
+
+        final ServerState state = new ServerState(config, self);
+
+        state.addNamedService("main", new IndexManagerService(state));
+        state.addNamedService("analyzer", new AnalyzerService(state));
+        state.addNamedService("net_kernel", new NetKernelService(state));
+
         self.publishPort();
 
         logger.info("Clouseau running as " + name);
@@ -83,8 +85,8 @@ public class Main {
                         final OtpMsg msg = conn.receiveMsg();
                         executor.execute(() -> {
                             try {
-                                handleMessage(self, conn, msg);
-                            } catch (final OtpException | IOException e) {
+                                handleMessage(state, conn, msg);
+                            } catch (final Exception e) {
                                 logger.error("Error when handling message", e);
                                 conn.close();
                             }
@@ -99,8 +101,8 @@ public class Main {
         }
     }
 
-    private static void handleMessage(final OtpSelf self, final OtpConnection conn, final OtpMsg msg)
-            throws IOException, OtpException {
+    private static void handleMessage(final ServerState state, final OtpConnection conn,
+            final OtpMsg msg) throws Exception {
         switch (msg.type()) {
         case OtpMsg.linkTag:
             break;
@@ -122,17 +124,17 @@ public class Main {
             if (obj instanceof OtpErlangTuple) {
                 final OtpErlangTuple tuple = (OtpErlangTuple) obj;
                 final OtpErlangAtom atom = (OtpErlangAtom) tuple.elementAt(0);
-                if (existingAtom("$gen_call").equals(atom)) {
+                if (atom("$gen_call").equals(atom)) {
                     final OtpErlangTuple from = (OtpErlangTuple) tuple.elementAt(1);
                     final OtpErlangObject request = tuple.elementAt(2);
-                    final Service service = services.get(msg.getRecipientName());
+                    final Service service = state.getNamedService(msg.getRecipientName());
                     if (service == null) {
                         logger.warn("No registered process called " + msg.getRecipientName());
-                        conn.exit(msg.getSenderPid(), existingAtom("noproc"));
+                        conn.exit(msg.getSenderPid(), atom("noproc"));
                         break;
                     }
 
-                    final OtpErlangObject response = service.handleCall(from, request);
+                    final OtpErlangObject response = service.handleCall(conn, from, request);
                     if (response != null) {
                         reply(conn, from, response);
                     }

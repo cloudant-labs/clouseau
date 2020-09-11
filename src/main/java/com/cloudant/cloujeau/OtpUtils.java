@@ -9,6 +9,7 @@ import java.util.Map;
 import com.ericsson.otp.erlang.OtpConnection;
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
+import com.ericsson.otp.erlang.OtpErlangLong;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangPid;
 import com.ericsson.otp.erlang.OtpErlangRef;
@@ -24,24 +25,26 @@ public final class OtpUtils {
             registerAtom("no_such_analyzer"),
             registerAtom("noproc"),
             registerAtom("ok"),
-            registerAtom("error"));
+            registerAtom("error"),
+            registerAtom("open"),
+            registerAtom("get_update_seq"));
 
-    public static OtpErlangTuple tuple(OtpErlangObject... items) {
+    public static OtpErlangTuple tuple(final OtpErlangObject... items) {
         return new OtpErlangTuple(items);
     }
 
-    public static OtpErlangAtom atom(String val) {
-        return new OtpErlangAtom(val);
-    }
-
-    public static OtpErlangAtom existingAtom(String val) {
+    public static OtpErlangAtom atom(final String val) {
         return atoms.get(val);
     }
 
-    public static String binaryToString(OtpErlangBinary bin) {
+    public static OtpErlangLong _long(final long val) {
+        return new OtpErlangLong(val);
+    }
+
+    public static String binaryToString(final OtpErlangBinary bin) {
         try {
             return new String(bin.binaryValue(), "UTF-8");
-        } catch (UnsupportedEncodingException e) {
+        } catch (final UnsupportedEncodingException e) {
             throw new Error("UTF-8 support missing");
         }
     }
@@ -49,14 +52,15 @@ public final class OtpUtils {
     public static OtpErlangBinary stringToBinary(final String str) {
         try {
             return new OtpErlangBinary(str.getBytes("UTF-8"));
-        } catch (UnsupportedEncodingException e) {
+        } catch (final UnsupportedEncodingException e) {
             throw new Error("UTF-8 support missing");
         }
     }
 
-    public static void reply(OtpConnection conn, OtpErlangTuple from, OtpErlangObject reply) throws IOException {
-        OtpErlangPid fromPid = (OtpErlangPid) from.elementAt(0);
-        OtpErlangRef fromRef = (OtpErlangRef) from.elementAt(1);
+    public static void reply(final OtpConnection conn, final OtpErlangTuple from, final OtpErlangObject reply)
+            throws IOException {
+        final OtpErlangPid fromPid = (OtpErlangPid) from.elementAt(0);
+        final OtpErlangRef fromRef = (OtpErlangRef) from.elementAt(1);
         conn.send(fromPid, tuple(fromRef, reply));
     }
 
