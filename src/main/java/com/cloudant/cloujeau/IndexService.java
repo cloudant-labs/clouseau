@@ -114,7 +114,7 @@ public class IndexService extends Service {
     }
 
     public String toString() {
-        return String.format("Service(%s)", name);
+        return String.format("IndexService(%s)", name);
     }
 
 }
