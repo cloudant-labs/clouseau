@@ -2,9 +2,13 @@ package com.cloudant.cloujeau;
 
 import static com.cloudant.cloujeau.OtpUtils.atom;
 import static com.cloudant.cloujeau.OtpUtils.binaryToString;
+import static com.cloudant.cloujeau.OtpUtils.stringToBinary;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
@@ -13,7 +17,6 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.LockFactory;
 
-import com.ericsson.otp.erlang.OtpConnection;
 import com.ericsson.otp.erlang.OtpErlangBinary;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangPid;
@@ -23,36 +26,39 @@ public class IndexManagerService extends Service {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
 
+    private final ExecutorService executor = Executors.newCachedThreadPool();
+
     public IndexManagerService(final ServerState state) {
-        super(state);
+        super(state, "main");
     }
 
     @Override
-    public OtpErlangObject handleCall(final OtpConnection conn, final OtpErlangTuple from,
-            final OtpErlangObject request) throws Exception {
+    public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws Exception {
         if (request instanceof OtpErlangTuple) {
             final OtpErlangTuple tuple = (OtpErlangTuple) request;
             if (atom("open").equals(tuple.elementAt(0))) {
-                return handleOpenCall(conn, from, (OtpErlangTuple) request);
+                return handleOpenCall(from, (OtpErlangTuple) request);
             }
         }
         return null;
     }
 
-    private OtpErlangObject handleOpenCall(final OtpConnection conn, final OtpErlangTuple from,
-            final OtpErlangTuple request) throws Exception {
+    private OtpErlangObject handleOpenCall(final OtpErlangTuple from, final OtpErlangTuple request) throws Exception {
         final OtpErlangPid peer = (OtpErlangPid) request.elementAt(1);
         final OtpErlangBinary path = (OtpErlangBinary) request.elementAt(2);
         final OtpErlangObject analyzerConfig = request.elementAt(3);
 
         final String strPath = binaryToString(path);
         logger.info(String.format("Opening index at %s", strPath));
-        final IndexWriter writer = newWriter(path, analyzerConfig);
-        final OtpErlangPid pid = state.self.createPid();
-        final IndexService index = new IndexService(state, strPath, writer);
-        state.addService(pid, index);
-        conn.link(peer);
-        return tuple(atom("ok"), pid);
+        try {
+            final IndexWriter writer = newWriter(path, analyzerConfig);
+            final IndexService index = new IndexService(state, strPath, writer);
+            executor.execute(index);
+            index.link(peer);
+            return tuple(atom("ok"), index.self());
+        } catch (IOException e) {
+            return tuple(atom("error"), stringToBinary(e.getMessage()));
+        }
     }
 
     private IndexWriter newWriter(final OtpErlangBinary path, final OtpErlangObject analyzerConfig) throws Exception {

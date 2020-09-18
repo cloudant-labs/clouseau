@@ -1,13 +1,10 @@
 package com.cloudant.cloujeau;
 
-import static java.util.Map.entry;
-
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.ericsson.otp.erlang.OtpConnection;
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
 import com.ericsson.otp.erlang.OtpErlangLong;
@@ -15,6 +12,7 @@ import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangPid;
 import com.ericsson.otp.erlang.OtpErlangRef;
 import com.ericsson.otp.erlang.OtpErlangTuple;
+import com.ericsson.otp.erlang.OtpMbox;
 
 public final class OtpUtils {
 
@@ -48,15 +46,11 @@ public final class OtpUtils {
         }
     }
 
-    public static void reply(final OtpConnection conn, final OtpErlangTuple from, final OtpErlangObject reply)
+    public static void reply(final OtpMbox mbox, final OtpErlangTuple from, final OtpErlangObject reply)
             throws IOException {
         final OtpErlangPid fromPid = (OtpErlangPid) from.elementAt(0);
         final OtpErlangRef fromRef = (OtpErlangRef) from.elementAt(1);
-        conn.send(fromPid, tuple(fromRef, reply));
-    }
-
-    private static Map.Entry<String, OtpErlangAtom> registerAtom(final String name) {
-        return entry(name, new OtpErlangAtom(name));
+        mbox.send(fromPid, tuple(fromRef, reply));
     }
 
 }

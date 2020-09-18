@@ -12,12 +12,9 @@
 
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.*;
-import static com.cloudant.cloujeau.OtpUtils.reply;
-
-import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.configuration.CompositeConfiguration;
 import org.apache.commons.configuration.FileConfiguration;
@@ -26,19 +23,11 @@ import org.apache.commons.configuration.SystemConfiguration;
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy;
 import org.apache.log4j.Logger;
 
-import com.ericsson.otp.erlang.OtpConnection;
-import com.ericsson.otp.erlang.OtpErlangAtom;
-import com.ericsson.otp.erlang.OtpErlangObject;
-import com.ericsson.otp.erlang.OtpErlangTuple;
-import com.ericsson.otp.erlang.OtpException;
-import com.ericsson.otp.erlang.OtpMsg;
-import com.ericsson.otp.erlang.OtpSelf;
+import com.ericsson.otp.erlang.OtpClouseauNode;
 
 public class Main {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
-
-    private static final OtpErlangObject INVALID_MSG = tuple(atom("error"), atom("invalid_msg"));
 
     public static void main(final String[] args) throws Exception {
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
@@ -65,121 +54,17 @@ public class Main {
                             idleTimeout));
         }
 
-        final OtpSelf self = new OtpSelf(name, cookie);
+        final OtpClouseauNode node = new OtpClouseauNode(name, cookie);
 
-        final ServerState state = new ServerState(config, self);
+        final ServerState state = new ServerState(config, node);
 
-        state.addNamedService("main", new IndexManagerService(state));
-        state.addNamedService("analyzer", new AnalyzerService(state));
-        state.addNamedService("net_kernel", new NetKernelService(state));
-
-        self.publishPort();
+        final ExecutorService executor = Executors.newCachedThreadPool();
+        executor.execute(new IndexManagerService(state));
+        executor.execute(new AnalyzerService(state));
 
         logger.info("Clouseau running as " + name);
 
-        final ExecutorService executor = Executors.newCachedThreadPool();
-
-        while (true) {
-            final OtpConnection conn = self.accept();
-            executor.execute(() -> {
-                while (conn.isConnected()) {
-                    try {
-                        final OtpMsg msg = conn.receiveMsg();
-                        final Service service = findService(state, msg);
-                        // Handle link/unlink/exit synchronously as order
-                        // matters.
-                        handleMessageSync(state, conn, service, msg);
-                        executor.execute(() -> {
-                            try {
-                                handleMessageAsync(state, conn, service, msg);
-                            } catch (final Exception e) {
-                                logger.error("Error when handling message", e);
-                                conn.close();
-                            }
-                        });
-                    } catch (final Exception e) {
-                        logger.error("Error when receiving message", e);
-                        conn.close();
-                        break;
-                    }
-                }
-            });
-        }
-    }
-
-    private static void handleMessageSync(final ServerState state, final OtpConnection conn, final Service service,
-            final OtpMsg msg)
-            throws Exception {
-        switch (msg.type()) {
-        case OtpMsg.linkTag:
-            if (service == null) {
-                conn.exit(msg.getSenderPid(), atom("noproc"));
-            } else {
-                service.link(msg.getSenderPid());
-            }
-            break;
-
-        case OtpMsg.unlinkTag:
-            if (service != null) {
-                service.unlink(msg.getSenderPid());
-            }
-            break;
-
-        case OtpMsg.exitTag:
-        case OtpMsg.exit2Tag:
-            if (service != null) {
-                service.exit(conn, msg.getMsg());
-            }
-            break;
-        }
-    }
-
-    private static void handleMessageAsync(final ServerState state, final OtpConnection conn, final Service service,
-            final OtpMsg msg)
-            throws Exception {
-        switch (msg.type()) {
-        case OtpMsg.sendTag:
-        case OtpMsg.regSendTag: {
-            final OtpErlangObject obj = msg.getMsg();
-            if (obj instanceof OtpErlangTuple) {
-                final OtpErlangTuple tuple = (OtpErlangTuple) obj;
-                final OtpErlangAtom atom = (OtpErlangAtom) tuple.elementAt(0);
-                if (atom("$gen_call").equals(atom)) {
-                    final OtpErlangTuple from = (OtpErlangTuple) tuple.elementAt(1);
-                    final OtpErlangObject request = tuple.elementAt(2);
-
-                    if (service == null) {
-                        logger.warn("No registered process called " + msg.getRecipientName());
-                        conn.exit(msg.getSenderPid(), atom("noproc"));
-                        break;
-                    }
-
-                    final OtpErlangObject response = service.handleCall(conn, from, request);
-                    if (response != null) {
-                        reply(conn, from, response);
-                    } else {
-                        reply(conn, from, INVALID_MSG);
-                    }
-                }
-            }
-            break;
-        }
-
-        default:
-            logger.warn("received message of unknown type " + msg.type());
-        }
-
-    }
-
-    private static Service findService(final ServerState state, final OtpMsg msg) {
-        switch (msg.type()) {
-        case OtpMsg.sendTag:
-            return state.getService(msg.getRecipientPid());
-        case OtpMsg.regSendTag:
-            return state.getNamedService(msg.getRecipientName());
-        default:
-            return null;
-        }
+        executor.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
     }
 
 }

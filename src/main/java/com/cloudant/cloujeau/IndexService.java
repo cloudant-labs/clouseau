@@ -1,14 +1,16 @@
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.*;
+import static com.cloudant.cloujeau.OtpUtils._long;
+import static com.cloudant.cloujeau.OtpUtils.atom;
+import static com.cloudant.cloujeau.OtpUtils.tuple;
 
 import java.io.IOException;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.SearcherManager;
+import org.apache.lucene.util.IOUtils;
 
-import com.ericsson.otp.erlang.OtpConnection;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangTuple;
 
@@ -31,8 +33,7 @@ public class IndexService extends Service {
     }
 
     @Override
-    public OtpErlangObject handleCall(final OtpConnection conn, final OtpErlangTuple from,
-            final OtpErlangObject request) throws IOException {
+    public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws IOException {
         if (atom("get_update_seq").equals(request)) {
             return tuple(atom("ok"), _long(getCommittedSeq()));
         }
@@ -52,7 +53,7 @@ public class IndexService extends Service {
             }
 
             if (atom("search").equals(cmd)) {
-                return handleSearchCall(conn, from, tuple.elementAt(1));
+                return handleSearchCall(from, tuple.elementAt(1));
             }
         }
 
@@ -61,15 +62,10 @@ public class IndexService extends Service {
 
     @Override
     public void terminate(final OtpErlangObject reason) {
-        try {
-            writer.close();
-        } catch (final IOException e) {
-            logger.error("I/OException while terminating", e);
-        }
+        IOUtils.closeWhileHandlingException(searcherManager, writer);
     }
 
-    private OtpErlangObject handleSearchCall(final OtpConnection conn, final OtpErlangTuple from,
-            final OtpErlangObject searchRequest) {
+    private OtpErlangObject handleSearchCall(final OtpErlangTuple from, final OtpErlangObject searchRequest) {
         return null;
     }
 
@@ -115,6 +111,10 @@ public class IndexService extends Service {
 
     private String prefix_name(final String str) {
         return String.format("%s %s", name, str);
+    }
+
+    public String toString() {
+        return String.format("Service(%s)", name);
     }
 
 }

@@ -12,7 +12,6 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 
-import com.ericsson.otp.erlang.OtpConnection;
 import com.ericsson.otp.erlang.OtpErlangBinary;
 import com.ericsson.otp.erlang.OtpErlangList;
 import com.ericsson.otp.erlang.OtpErlangObject;
@@ -23,12 +22,11 @@ public final class AnalyzerService extends Service {
     private static final OtpErlangBinary[] EMPTY = new OtpErlangBinary[0];
 
     public AnalyzerService(final ServerState state) {
-        super(state);
+        super(state, "analyzer");
     }
 
     @Override
-    public OtpErlangObject handleCall(final OtpConnection conn, final OtpErlangTuple from,
-            final OtpErlangObject request) throws IOException {
+    public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws IOException {
         if (request instanceof OtpErlangTuple) {
             final OtpErlangTuple tuple = (OtpErlangTuple) request;
             if (atom("analyze").equals(tuple.elementAt(0))) {
