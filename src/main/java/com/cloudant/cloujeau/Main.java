@@ -23,7 +23,7 @@ import org.apache.commons.configuration.SystemConfiguration;
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy;
 import org.apache.log4j.Logger;
 
-import com.ericsson.otp.erlang.OtpClouseauNode;
+import com.ericsson.otp.erlang.OtpNode;
 
 public class Main {
 
@@ -54,7 +54,7 @@ public class Main {
                             idleTimeout));
         }
 
-        final OtpClouseauNode node = new OtpClouseauNode(name, cookie);
+        final OtpNode node = new OtpNode(name, cookie);
 
         final ServerState state = new ServerState(config, node);
 
