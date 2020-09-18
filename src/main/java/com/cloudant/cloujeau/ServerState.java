@@ -22,7 +22,7 @@ public final class ServerState {
     public final Configuration config;
 
     public final OtpSelf self;
-    
+
     public void addService(final OtpErlangPid pid, final Service service) {
         services.put(pid, service);
     }
@@ -32,6 +32,7 @@ public final class ServerState {
     }
 
     public Service getService(final OtpErlangPid pid) {
+        System.err.println(services);
         return services.get(pid);
     }
 
@@ -46,5 +47,6 @@ public final class ServerState {
     public Service getNamedService(final String name) {
         return namedServices.get(name);
     }
+
 
 }

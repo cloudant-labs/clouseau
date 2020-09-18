@@ -45,10 +45,11 @@ public class IndexManagerService extends Service {
         final OtpErlangBinary path = (OtpErlangBinary) request.elementAt(2);
         final OtpErlangObject analyzerConfig = request.elementAt(3);
 
-        logger.info(String.format("Opening index at %s", binaryToString(path)));
+        final String strPath = binaryToString(path);
+        logger.info(String.format("Opening index at %s", strPath));
         final IndexWriter writer = newWriter(path, analyzerConfig);
         final OtpErlangPid pid = state.self.createPid();
-        final IndexService index = new IndexService(state, writer);
+        final IndexService index = new IndexService(state, strPath, writer);
         state.addService(pid, index);
         conn.link(peer);
         return tuple(atom("ok"), pid);

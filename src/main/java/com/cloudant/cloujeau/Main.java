@@ -85,15 +85,19 @@ public class Main {
                 while (conn.isConnected()) {
                     try {
                         final OtpMsg msg = conn.receiveMsg();
+                        final Service service = findService(state, msg);
+                        // Handle link/unlink/exit synchronously as order
+                        // matters.
+                        handleMessageSync(state, conn, service, msg);
                         executor.execute(() -> {
                             try {
-                                handleMessage(state, conn, msg);
+                                handleMessageAsync(state, conn, service, msg);
                             } catch (final Exception e) {
                                 logger.error("Error when handling message", e);
                                 conn.close();
                             }
                         });
-                    } catch (final OtpException | IOException e) {
+                    } catch (final Exception e) {
                         logger.error("Error when receiving message", e);
                         conn.close();
                         break;
@@ -103,23 +107,39 @@ public class Main {
         }
     }
 
-    private static void handleMessage(final ServerState state, final OtpConnection conn, final OtpMsg msg)
+    private static void handleMessageSync(final ServerState state, final OtpConnection conn, final Service service,
+            final OtpMsg msg)
             throws Exception {
         switch (msg.type()) {
         case OtpMsg.linkTag:
+            if (service == null) {
+                conn.exit(msg.getSenderPid(), atom("noproc"));
+            } else {
+                service.link(msg.getSenderPid());
+            }
             break;
 
         case OtpMsg.unlinkTag:
+            if (service != null) {
+                service.unlink(msg.getSenderPid());
+            }
             break;
 
         case OtpMsg.exitTag:
-            break;
-
         case OtpMsg.exit2Tag:
+            if (service != null) {
+                service.exit(conn, msg.getMsg());
+            }
             break;
+        }
+    }
 
+    private static void handleMessageAsync(final ServerState state, final OtpConnection conn, final Service service,
+            final OtpMsg msg)
+            throws Exception {
+        switch (msg.type()) {
         case OtpMsg.sendTag:
-        case OtpMsg.regSendTag:
+        case OtpMsg.regSendTag: {
             final OtpErlangObject obj = msg.getMsg();
             if (obj instanceof OtpErlangTuple) {
                 final OtpErlangTuple tuple = (OtpErlangTuple) obj;
@@ -127,20 +147,6 @@ public class Main {
                 if (atom("$gen_call").equals(atom)) {
                     final OtpErlangTuple from = (OtpErlangTuple) tuple.elementAt(1);
                     final OtpErlangObject request = tuple.elementAt(2);
-
-                    final Service service;
-
-                    switch (msg.type()) {
-                    case OtpMsg.sendTag:
-                        service = state.getService(msg.getRecipientPid());
-                        break;
-                    case OtpMsg.regSendTag:
-                        service = state.getNamedService(msg.getRecipientName());
-                        break;
-                    default:
-                        service = null;
-                        break;
-                    }
 
                     if (service == null) {
                         logger.warn("No registered process called " + msg.getRecipientName());
@@ -157,11 +163,23 @@ public class Main {
                 }
             }
             break;
+        }
 
         default:
             logger.warn("received message of unknown type " + msg.type());
         }
 
+    }
+
+    private static Service findService(final ServerState state, final OtpMsg msg) {
+        switch (msg.type()) {
+        case OtpMsg.sendTag:
+            return state.getService(msg.getRecipientPid());
+        case OtpMsg.regSendTag:
+            return state.getNamedService(msg.getRecipientName());
+        default:
+            return null;
+        }
     }
 
 }
