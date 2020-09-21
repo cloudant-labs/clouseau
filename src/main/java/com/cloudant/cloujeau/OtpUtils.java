@@ -2,11 +2,13 @@ package com.cloudant.cloujeau;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
+import com.ericsson.otp.erlang.OtpErlangList;
 import com.ericsson.otp.erlang.OtpErlangLong;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangPid;
@@ -40,6 +42,22 @@ public final class OtpUtils {
 
     public static long asLong(final OtpErlangObject obj) {
         return ((OtpErlangLong) obj).longValue();
+    }
+
+    public static Map<OtpErlangObject, OtpErlangObject> asMap(final OtpErlangObject obj) {
+        if (obj instanceof OtpErlangTuple) {
+            final OtpErlangTuple t = (OtpErlangTuple) obj;
+            if (t.arity() == 1 && t.elementAt(0) instanceof OtpErlangList) {
+                final Map<OtpErlangObject, OtpErlangObject> result = new HashMap<OtpErlangObject, OtpErlangObject>();
+                for (final OtpErlangObject i : (OtpErlangList) t.elementAt(0)) {
+                    if (i instanceof OtpErlangTuple) {
+                        result.put(((OtpErlangTuple) i).elementAt(0), ((OtpErlangTuple) i).elementAt(1));
+                    }
+                }
+                return result;
+            }
+        }
+        throw new IllegalArgumentException(obj + " not an encoded JSON object");
     }
 
     public static String asString(final OtpErlangObject obj) {

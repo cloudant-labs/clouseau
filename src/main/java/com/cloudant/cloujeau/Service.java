@@ -46,6 +46,7 @@ public abstract class Service implements Runnable {
                 case OtpMsg.sendTag:
                 case OtpMsg.regSendTag: {
                     final OtpErlangObject obj = msg.getMsg();
+                    System.err.println(obj.getClass());
                     if (obj instanceof OtpErlangTuple) {
                         final OtpErlangTuple tuple = (OtpErlangTuple) obj;
                         final OtpErlangAtom atom = (OtpErlangAtom) tuple.elementAt(0);
@@ -87,7 +88,6 @@ public abstract class Service implements Runnable {
                 System.exit(1);
             } catch (Exception e) {
                 logger.error(this + " encountered exception", e);
-                break loop;
             }
         }
     }

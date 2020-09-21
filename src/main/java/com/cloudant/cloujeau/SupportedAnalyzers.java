@@ -1,6 +1,6 @@
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.asBinary;
+import static com.cloudant.cloujeau.OtpUtils.*;
 import static com.cloudant.cloujeau.OtpUtils.asString;
 
 import java.util.Collections;
@@ -80,17 +80,12 @@ public class SupportedAnalyzers {
             return createAnalyzerInt(Map.of(asBinary("name"), analyzerConfig));
         }
 
-        if (analyzerConfig instanceof OtpErlangList) {
-            final OtpErlangList list = (OtpErlangList) analyzerConfig;
-            final Map result = new HashMap();
-            for (final OtpErlangObject item : list) {
-                final OtpErlangTuple t = (OtpErlangTuple) item;
-                result.put(t.elementAt(0), t.elementAt(1));
-            }
-            return createAnalyzerInt(result);
+        if (analyzerConfig instanceof OtpErlangTuple) {
+            return createAnalyzerInt(asMap((OtpErlangTuple) analyzerConfig));
         }
 
         if (analyzerConfig instanceof Map) {
+            @SuppressWarnings("rawtypes")
             final Map options = (Map) analyzerConfig;
             final String name = asString((OtpErlangBinary) options.get(asBinary("name")));
             final CharArraySet stopwords;

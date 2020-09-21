@@ -1,10 +1,14 @@
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.*;
+import static com.cloudant.cloujeau.OtpUtils.asAtom;
+import static com.cloudant.cloujeau.OtpUtils.asLong;
+import static com.cloudant.cloujeau.OtpUtils.asString;
+import static com.cloudant.cloujeau.OtpUtils.tuple;
 
 import java.io.IOException;
 
 import org.apache.log4j.Logger;
+import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.SearcherManager;
@@ -75,19 +79,28 @@ public class IndexService extends Service {
             if (cmd instanceof OtpErlangAtom) {
                 switch (asString(cmd)) {
                 case "commit": // deprecated
-                case "set_update_seq":
+                case "set_update_seq": {
                     pendingSeq = asLong(tuple.elementAt(1));
                     debug("Pending sequence is now " + pendingSeq);
                     return asAtom("ok");
-                case "set_purge_seq":
+                }
+                case "set_purge_seq": {
                     pendingPurgeSeq = asLong(tuple.elementAt(1));
                     debug("purge sequence is now " + pendingPurgeSeq);
                     return asAtom("ok");
-                case "delete":
+                }
+                case "delete": {
                     final String id = asString(tuple.elementAt(1));
                     debug(String.format("Deleting %s", id));
                     writer.deleteDocuments(new Term("_id", id));
                     return asAtom("ok");
+                }
+                case "update": {
+                    final Document doc = ClouseauTypeFactory.newDocument(tuple.elementAt(1), tuple.elementAt(2));
+                    debug("Updating " + doc.get("_id"));
+                    writer.updateDocument(new Term("_id", doc.get("_id")), doc);
+                    return asAtom("ok");
+                }
                 case "search":
                     return handleSearchCall(from, tuple.elementAt(1));
                 }
