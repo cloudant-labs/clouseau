@@ -1,6 +1,7 @@
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.*;
+import static com.cloudant.cloujeau.OtpUtils.asBinary;
+import static com.cloudant.cloujeau.OtpUtils.asString;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -76,7 +77,7 @@ public class SupportedAnalyzers {
     private static Analyzer createAnalyzerInt(final Object analyzerConfig) {
 
         if (analyzerConfig instanceof OtpErlangBinary) {
-            return createAnalyzerInt(Map.of(new OtpErlangBinary("name"), analyzerConfig));
+            return createAnalyzerInt(Map.of(asBinary("name"), analyzerConfig));
         }
 
         if (analyzerConfig instanceof OtpErlangList) {
@@ -91,12 +92,12 @@ public class SupportedAnalyzers {
 
         if (analyzerConfig instanceof Map) {
             final Map options = (Map) analyzerConfig;
-            final String name = binaryToString((OtpErlangBinary) options.get("name"));
+            final String name = asString((OtpErlangBinary) options.get(asBinary("name")));
             final CharArraySet stopwords;
             if (options.containsKey("stopwords")) {
                 final Set<String> set = new HashSet<String>();
-                for (final OtpErlangObject item : ((OtpErlangList) options.get("stopwords"))) {
-                    set.add(binaryToString((OtpErlangBinary) item));
+                for (final OtpErlangObject item : ((OtpErlangList) options.get(asBinary("stopwords")))) {
+                    set.add(asString((OtpErlangBinary) item));
                 }
                 stopwords = new CharArraySet(LuceneUtils.VERSION, set, false);
             } else {
@@ -311,28 +312,29 @@ public class SupportedAnalyzers {
                 }
             case "perfield": {
                 final Analyzer defaultAnalyzer;
-                if (options.containsKey("default")) {
-                    defaultAnalyzer = createAnalyzerInt(options.get("default"));
+                if (options.containsKey(asBinary("default"))) {
+                    defaultAnalyzer = createAnalyzerInt(options.get(asBinary("default")));
                 } else {
                     defaultAnalyzer = new StandardAnalyzer(LuceneUtils.VERSION);
                 }
                 final Map<String, Analyzer> fieldMap;
-                if (options.containsKey("fields")) {                
+                if (options.containsKey(asBinary("fields"))) {
                     fieldMap = new HashMap<String, Analyzer>();
-                    final OtpErlangList fields = (OtpErlangList) ((OtpErlangTuple)options.get("fields")).elementAt(0);
+                    final OtpErlangList fields = (OtpErlangList) ((OtpErlangTuple) options
+                            .get(asBinary("fields"))).elementAt(0);
                     for (OtpErlangObject o : fields) {
                         final OtpErlangTuple t = (OtpErlangTuple) o;
-                        final String fieldName = binaryToString((OtpErlangBinary) t.elementAt(0));
-                        final Analyzer fieldAnalyzer = createAnalyzerInt(t.elementAt(1));                        
-                        fieldMap.put(fieldName,  fieldAnalyzer != null ? fieldAnalyzer : defaultAnalyzer);
+                        final String fieldName = asString(t.elementAt(0));
+                        final Analyzer fieldAnalyzer = createAnalyzerInt(t.elementAt(1));
+                        fieldMap.put(fieldName, fieldAnalyzer != null ? fieldAnalyzer : defaultAnalyzer);
                     }
                 } else {
                     fieldMap = Collections.emptyMap();
                 }
-                fieldMap.put("_id",  new KeywordAnalyzer());
-                fieldMap.put("_partition",  new KeywordAnalyzer());
+                fieldMap.put("_id", new KeywordAnalyzer());
+                fieldMap.put("_partition", new KeywordAnalyzer());
                 return new PerFieldAnalyzer(defaultAnalyzer, fieldMap);
-            }                
+            }
             case "swedish":
                 if (stopwords != null) {
                     return new SwedishAnalyzer(LuceneUtils.VERSION, stopwords);

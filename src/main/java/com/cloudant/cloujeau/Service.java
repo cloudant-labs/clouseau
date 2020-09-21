@@ -1,6 +1,6 @@
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.atom;
+import static com.cloudant.cloujeau.OtpUtils.*;
 import static com.cloudant.cloujeau.OtpUtils.reply;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
 
@@ -20,7 +20,7 @@ public abstract class Service implements Runnable {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
 
-    private static final OtpErlangObject INVALID_MSG = tuple(atom("error"), atom("invalid_msg"));
+    private static final OtpErlangObject INVALID_MSG = tuple(asAtom("error"), asAtom("invalid_msg"));
 
     protected final ServerState state;
     private final OtpMbox mbox;
@@ -51,7 +51,7 @@ public abstract class Service implements Runnable {
                         final OtpErlangAtom atom = (OtpErlangAtom) tuple.elementAt(0);
 
                         // gen_call
-                        if (atom("$gen_call").equals(atom)) {
+                        if (asAtom("$gen_call").equals(atom)) {
                             final OtpErlangTuple from = (OtpErlangTuple) tuple.elementAt(1);
                             final OtpErlangObject request = tuple.elementAt(2);
 
@@ -63,7 +63,7 @@ public abstract class Service implements Runnable {
                             }
                         }
                         // gen cast
-                        else if (atom("$gen_cast").equals(atom)) {
+                        else if (asAtom("$gen_cast").equals(atom)) {
                             final OtpErlangObject request = tuple.elementAt(1);
                             handleCast(request);
                         }
@@ -82,10 +82,11 @@ public abstract class Service implements Runnable {
                 terminate(e.reason());
                 mbox.close();
                 break loop;
+            } catch (Error e) {
+                logger.fatal(this + " encountered error", e);
+                System.exit(1);
             } catch (Exception e) {
-                logger.error(this + " exiting", e);
-                terminate(atom("exit"));
-                mbox.close();
+                logger.error(this + " encountered exception", e);
                 break loop;
             }
         }

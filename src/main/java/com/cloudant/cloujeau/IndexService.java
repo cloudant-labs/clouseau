@@ -1,13 +1,12 @@
 package com.cloudant.cloujeau;
 
 import static com.cloudant.cloujeau.OtpUtils.*;
-import static com.cloudant.cloujeau.OtpUtils.atom;
-import static com.cloudant.cloujeau.OtpUtils.tuple;
 
 import java.io.IOException;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.util.IOUtils;
 
@@ -63,26 +62,32 @@ public class IndexService extends Service {
     @Override
     public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws IOException {
         if (request instanceof OtpErlangAtom) {
-            switch (atomToString(request)) {
+            switch (asString(request)) {
             case "get_update_seq":
-                return tuple(atom("ok"), fromLong(updateSeq));
+                return tuple(asAtom("ok"), asLong(updateSeq));
             case "get_purge_seq":
-                return tuple(atom("ok"), fromLong(purgeSeq));
+                return tuple(asAtom("ok"), asLong(purgeSeq));
             }
         } else if (request instanceof OtpErlangTuple) {
             final OtpErlangTuple tuple = (OtpErlangTuple) request;
             final OtpErlangObject cmd = tuple.elementAt(0);
 
             if (cmd instanceof OtpErlangAtom) {
-                switch (atomToString(cmd)) {
+                switch (asString(cmd)) {
+                case "commit": // deprecated
                 case "set_update_seq":
-                    pendingSeq = toLong(tuple.elementAt(1));
+                    pendingSeq = asLong(tuple.elementAt(1));
                     debug("Pending sequence is now " + pendingSeq);
-                    return atom("ok");
+                    return asAtom("ok");
                 case "set_purge_seq":
-                    pendingPurgeSeq = toLong(tuple.elementAt(1));
+                    pendingPurgeSeq = asLong(tuple.elementAt(1));
                     debug("purge sequence is now " + pendingPurgeSeq);
-                    return atom("ok");
+                    return asAtom("ok");
+                case "delete":
+                    final String id = asString(tuple.elementAt(1));
+                    debug(String.format("Deleting %s", id));
+                    writer.deleteDocuments(new Term("_id", id));
+                    return asAtom("ok");
                 case "search":
                     return handleSearchCall(from, tuple.elementAt(1));
                 }

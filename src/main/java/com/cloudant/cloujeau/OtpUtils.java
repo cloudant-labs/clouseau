@@ -22,27 +22,15 @@ public final class OtpUtils {
         return new OtpErlangTuple(items);
     }
 
-    public static OtpErlangAtom atom(final String val) {
+    public static OtpErlangAtom asAtom(final String val) {
         return atoms.computeIfAbsent(val, (v) -> new OtpErlangAtom(v));
     }
 
-    public static OtpErlangLong fromLong(final long val) {
+    public static OtpErlangObject asLong(final long val) {
         return new OtpErlangLong(val);
     }
 
-    public static long toLong(final OtpErlangObject obj) {
-        return ((OtpErlangLong) obj).longValue();
-    }
-
-    public static String binaryToString(final OtpErlangBinary bin) {
-        try {
-            return new String(bin.binaryValue(), "UTF-8");
-        } catch (final UnsupportedEncodingException e) {
-            throw new Error("UTF-8 support missing");
-        }
-    }
-
-    public static OtpErlangBinary stringToBinary(final String str) {
+    public static OtpErlangBinary asBinary(final String str) {
         try {
             return new OtpErlangBinary(str.getBytes("UTF-8"));
         } catch (final UnsupportedEncodingException e) {
@@ -50,8 +38,22 @@ public final class OtpUtils {
         }
     }
 
-    public static String atomToString(final OtpErlangObject obj) {
-        return ((OtpErlangAtom) obj).atomValue();
+    public static long asLong(final OtpErlangObject obj) {
+        return ((OtpErlangLong) obj).longValue();
+    }
+
+    public static String asString(final OtpErlangObject obj) {
+        if (obj instanceof OtpErlangBinary) {
+            try {
+                return new String(((OtpErlangBinary) obj).binaryValue(), "UTF-8");
+            } catch (final UnsupportedEncodingException e) {
+                throw new Error("UTF-8 support missing");
+            }
+        }
+        if (obj instanceof OtpErlangAtom) {
+            return ((OtpErlangAtom) obj).atomValue();
+        }
+        throw new IllegalArgumentException(obj + " cannot be converted to string");
     }
 
     public static void reply(final OtpMbox mbox, final OtpErlangTuple from, final OtpErlangObject reply)

@@ -1,8 +1,8 @@
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.atom;
-import static com.cloudant.cloujeau.OtpUtils.binaryToString;
-import static com.cloudant.cloujeau.OtpUtils.stringToBinary;
+import static com.cloudant.cloujeau.OtpUtils.asAtom;
+import static com.cloudant.cloujeau.OtpUtils.asBinary;
+import static com.cloudant.cloujeau.OtpUtils.asString;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
 
 import java.io.IOException;
@@ -29,14 +29,14 @@ public final class AnalyzerService extends Service {
     public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws IOException {
         if (request instanceof OtpErlangTuple) {
             final OtpErlangTuple tuple = (OtpErlangTuple) request;
-            if (atom("analyze").equals(tuple.elementAt(0))) {
+            if (asAtom("analyze").equals(tuple.elementAt(0))) {
                 final OtpErlangObject analyzerConfig = tuple.elementAt(1);
                 final OtpErlangBinary text = (OtpErlangBinary) tuple.elementAt(2);
                 final Analyzer analyzer = SupportedAnalyzers.createAnalyzer(analyzerConfig);
                 if (analyzer != null) {
-                    return tuple(atom("ok"), tokenize(binaryToString(text), analyzer));
+                    return tuple(asAtom("ok"), tokenize(asString(text), analyzer));
                 } else {
-                    return tuple(atom("error"), atom("no_such_analyzer"));
+                    return tuple(asAtom("error"), asAtom("no_such_analyzer"));
                 }
             }
         }
@@ -50,7 +50,7 @@ public final class AnalyzerService extends Service {
             tokenStream.reset();
             while (tokenStream.incrementToken()) {
                 final CharTermAttribute term = tokenStream.getAttribute(CharTermAttribute.class);
-                result.add(stringToBinary(term.toString()));
+                result.add(asBinary(term.toString()));
             }
             tokenStream.end();
         } finally {

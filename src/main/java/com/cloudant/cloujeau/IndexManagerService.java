@@ -1,8 +1,8 @@
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.atom;
-import static com.cloudant.cloujeau.OtpUtils.binaryToString;
-import static com.cloudant.cloujeau.OtpUtils.stringToBinary;
+import static com.cloudant.cloujeau.OtpUtils.asAtom;
+import static com.cloudant.cloujeau.OtpUtils.asBinary;
+import static com.cloudant.cloujeau.OtpUtils.asString;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
 
 import java.io.File;
@@ -36,7 +36,7 @@ public class IndexManagerService extends Service {
     public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws Exception {
         if (request instanceof OtpErlangTuple) {
             final OtpErlangTuple tuple = (OtpErlangTuple) request;
-            if (atom("open").equals(tuple.elementAt(0))) {
+            if (asAtom("open").equals(tuple.elementAt(0))) {
                 return handleOpenCall(from, (OtpErlangTuple) request);
             }
         }
@@ -48,23 +48,23 @@ public class IndexManagerService extends Service {
         final OtpErlangBinary path = (OtpErlangBinary) request.elementAt(2);
         final OtpErlangObject analyzerConfig = request.elementAt(3);
 
-        final String strPath = binaryToString(path);
+        final String strPath = asString(path);
         logger.info(String.format("Opening index at %s", strPath));
         try {
             final IndexWriter writer = newWriter(path, analyzerConfig);
             final IndexService index = new IndexService(state, strPath, writer);
             executor.execute(index);
             index.link(peer);
-            return tuple(atom("ok"), index.self());
+            return tuple(asAtom("ok"), index.self());
         } catch (IOException e) {
-            return tuple(atom("error"), stringToBinary(e.getMessage()));
+            return tuple(asAtom("error"), asBinary(e.getMessage()));
         }
     }
 
     private IndexWriter newWriter(final OtpErlangBinary path, final OtpErlangObject analyzerConfig) throws Exception {
         final File rootDir = new File(state.config.getString("clouseau.dir", "target/indexes"));
         final Analyzer analyzer = SupportedAnalyzers.createAnalyzer(analyzerConfig);
-        final Directory dir = newDirectory(new File(rootDir, binaryToString(path)));
+        final Directory dir = newDirectory(new File(rootDir, asString(path)));
         final IndexWriterConfig writerConfig = new IndexWriterConfig(LuceneUtils.VERSION, analyzer);
 
         return new IndexWriter(dir, writerConfig);
