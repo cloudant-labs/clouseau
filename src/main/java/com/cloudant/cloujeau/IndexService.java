@@ -1,6 +1,6 @@
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils._long;
+import static com.cloudant.cloujeau.OtpUtils.*;
 import static com.cloudant.cloujeau.OtpUtils.atom;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
 
@@ -11,6 +11,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.util.IOUtils;
 
+import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangTuple;
 
@@ -24,36 +25,67 @@ public class IndexService extends Service {
 
     private final SearcherManager searcherManager;
 
+    private long updateSeq;
+
+    private long pendingSeq;
+
+    private long purgeSeq;
+
+    private long pendingPurgeSeq;
+
+    private boolean committing = false;
+
+    private boolean forceRefresh = false;
+
+    private boolean idle = false;
+
     public IndexService(final ServerState state, final String name, final IndexWriter writer)
             throws ReflectiveOperationException, IOException {
         super(state);
+        if (state == null) {
+            throw new NullPointerException("state cannot be null");
+        }
+        if (name == null) {
+            throw new NullPointerException("name cannot be null");
+        }
+        if (writer == null) {
+            throw new NullPointerException("writer cannot be null");
+        }
         this.name = name;
         this.writer = writer;
         this.searcherManager = new SearcherManager(writer, true, null);
+        this.updateSeq = getCommittedSeq();
+        this.pendingSeq = updateSeq;
+        this.purgeSeq = getCommittedPurgeSeq();
+        this.pendingPurgeSeq = purgeSeq;
     }
 
     @Override
     public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws IOException {
-        if (atom("get_update_seq").equals(request)) {
-            return tuple(atom("ok"), _long(getCommittedSeq()));
-        }
-        if (atom("get_purge_seq").equals(request)) {
-            return tuple(atom("ok"), _long(getCommittedPurgeSeq()));
-        }
-        if (request instanceof OtpErlangTuple) {
+        if (request instanceof OtpErlangAtom) {
+            switch (atomToString(request)) {
+            case "get_update_seq":
+                return tuple(atom("ok"), fromLong(updateSeq));
+            case "get_purge_seq":
+                return tuple(atom("ok"), fromLong(purgeSeq));
+            }
+        } else if (request instanceof OtpErlangTuple) {
             final OtpErlangTuple tuple = (OtpErlangTuple) request;
             final OtpErlangObject cmd = tuple.elementAt(0);
 
-            if (atom("set_update_seq").equals(cmd)) {
-                return tuple(atom("ok"));
-            }
-
-            if (atom("set_purge_seq").equals(cmd)) {
-                return tuple(atom("ok"));
-            }
-
-            if (atom("search").equals(cmd)) {
-                return handleSearchCall(from, tuple.elementAt(1));
+            if (cmd instanceof OtpErlangAtom) {
+                switch (atomToString(cmd)) {
+                case "set_update_seq":
+                    pendingSeq = toLong(tuple.elementAt(1));
+                    debug("Pending sequence is now " + pendingSeq);
+                    return atom("ok");
+                case "set_purge_seq":
+                    pendingPurgeSeq = toLong(tuple.elementAt(1));
+                    debug("purge sequence is now " + pendingPurgeSeq);
+                    return atom("ok");
+                case "search":
+                    return handleSearchCall(from, tuple.elementAt(1));
+                }
             }
         }
 

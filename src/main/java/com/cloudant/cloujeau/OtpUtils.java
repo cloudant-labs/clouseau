@@ -26,8 +26,12 @@ public final class OtpUtils {
         return atoms.computeIfAbsent(val, (v) -> new OtpErlangAtom(v));
     }
 
-    public static OtpErlangLong _long(final long val) {
+    public static OtpErlangLong fromLong(final long val) {
         return new OtpErlangLong(val);
+    }
+
+    public static long toLong(final OtpErlangObject obj) {
+        return ((OtpErlangLong) obj).longValue();
     }
 
     public static String binaryToString(final OtpErlangBinary bin) {
@@ -44,6 +48,10 @@ public final class OtpUtils {
         } catch (final UnsupportedEncodingException e) {
             throw new Error("UTF-8 support missing");
         }
+    }
+
+    public static String atomToString(final OtpErlangObject obj) {
+        return ((OtpErlangAtom) obj).atomValue();
     }
 
     public static void reply(final OtpMbox mbox, final OtpErlangTuple from, final OtpErlangObject reply)
