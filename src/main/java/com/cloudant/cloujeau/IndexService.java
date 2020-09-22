@@ -3,10 +3,13 @@ package com.cloudant.cloujeau;
 import static com.cloudant.cloujeau.OtpUtils.asAtom;
 import static com.cloudant.cloujeau.OtpUtils.asBinary;
 import static com.cloudant.cloujeau.OtpUtils.asBoolean;
+import static com.cloudant.cloujeau.OtpUtils.asFloat;
 import static com.cloudant.cloujeau.OtpUtils.asInt;
+import static com.cloudant.cloujeau.OtpUtils.asList;
 import static com.cloudant.cloujeau.OtpUtils.asLong;
 import static com.cloudant.cloujeau.OtpUtils.asMap;
 import static com.cloudant.cloujeau.OtpUtils.asString;
+import static com.cloudant.cloujeau.OtpUtils.emptyList;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
 
 import java.io.IOException;
@@ -21,12 +24,21 @@ import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.Collector;
+import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TopDocsCollector;
+import org.apache.lucene.search.TopScoreDocCollector;
+import org.apache.lucene.search.TotalHitCountCollector;
+import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.IOUtils;
 
 import com.ericsson.otp.erlang.OtpErlangAtom;
+import com.ericsson.otp.erlang.OtpErlangBinary;
+import com.ericsson.otp.erlang.OtpErlangList;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangTuple;
 
@@ -135,11 +147,11 @@ public class IndexService extends Service {
     }
 
     private OtpErlangObject handleSearchCall(final OtpErlangTuple from,
-            final Map<OtpErlangObject, OtpErlangObject> searchRequest) {
+            final Map<OtpErlangObject, OtpErlangObject> searchRequest) throws IOException {
         final String queryString = asString(searchRequest.getOrDefault(asAtom("query"), asBinary("*:*")));
         final boolean refresh = asBoolean(searchRequest.getOrDefault(asAtom("refresh"), asAtom("true")));
         final int limit = asInt(searchRequest.getOrDefault(asAtom("limit"), asInt(25)));
-        final String partition = asString(searchRequest.get(asAtom("partition")));
+        final Object partition = searchRequest.get(asAtom("partition"));
 
         final Query baseQuery;
         try {
@@ -148,15 +160,69 @@ public class IndexService extends Service {
             return tuple(asAtom("error"), tuple(asAtom("bad_request"), asBinary(e.getMessage())));
         }
 
-        return null;
+        final Query query = baseQuery; // TODO add the other goop.
+
+        if (refresh) {
+            searcherManager.maybeRefreshBlocking();
+        }
+
+        final IndexSearcher searcher = searcherManager.acquire();
+        try {
+            final Weight weight = searcher.createNormalizedWeight(query);
+            final boolean docsScoredInOrder = !weight.scoresDocsOutOfOrder();
+            final Collector collector;
+            if (limit == 0) {
+                collector = new TotalHitCountCollector();
+            } else {
+                collector = TopScoreDocCollector.create(limit, docsScoredInOrder);
+            }
+            System.err.println(query);
+            searcher.search(query, collector);
+            return tuple(
+                    asAtom("ok"),
+                    tuple(asAtom("top_docs"), asLong(updateSeq), asLong(getTotalHits(collector)), getHits(collector)));
+        } finally {
+            searcherManager.release(searcher);
+        }
     }
 
-    private Query parseQuery(final String query, final String partition) throws ParseException {
-        if (partition == null) {
+    private long getTotalHits(final Collector collector) {
+        if (collector instanceof TopDocsCollector) {
+            return ((TopDocsCollector<?>) collector).getTotalHits();
+        }
+        if (collector instanceof TotalHitCountCollector) {
+            return ((TotalHitCountCollector) collector).getTotalHits();
+        }
+        throw new IllegalArgumentException("Can't get total hits for " + collector);
+    }
+
+    private OtpErlangList getHits(final Collector collector) {
+        if (collector instanceof TopDocsCollector) {
+            final ScoreDoc[] scoreDocs = ((TopDocsCollector<?>) collector).topDocs().scoreDocs;
+            final OtpErlangObject[] objs = new OtpErlangObject[scoreDocs.length];
+            for (int i = 0; i < scoreDocs.length; i++) {
+                objs[i] = docToHit(scoreDocs[i]);
+            }
+            return asList(objs);
+        }
+        if (collector instanceof TotalHitCountCollector) {
+            return emptyList();
+        }
+        throw new IllegalArgumentException("Can't get hits for " + collector);
+    }
+
+    private OtpErlangTuple docToHit(final ScoreDoc doc) {
+        final OtpErlangObject order = asList(asFloat(doc.score), asInt(doc.doc));
+        final OtpErlangObject fields = emptyList();
+        return tuple(asAtom("hit"), order, fields);
+    }
+
+    private Query parseQuery(final String query, final Object partition) throws ParseException {
+        if (asAtom("nil").equals(partition)) {
             return qp.parse(query);
         } else {
             final BooleanQuery result = new BooleanQuery();
-            result.add(new TermQuery(new Term("_partition", partition)), Occur.MUST);
+            result.add(new TermQuery(new Term("_partition", asString((OtpErlangBinary) partition))), Occur.MUST);
             result.add(qp.parse(query), Occur.MUST);
             return result;
         }

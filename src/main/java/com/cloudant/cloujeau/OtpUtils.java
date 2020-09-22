@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
-import com.ericsson.otp.erlang.OtpErlangDouble;
+import com.ericsson.otp.erlang.OtpErlangFloat;
 import com.ericsson.otp.erlang.OtpErlangInt;
 import com.ericsson.otp.erlang.OtpErlangList;
 import com.ericsson.otp.erlang.OtpErlangLong;
@@ -23,6 +23,8 @@ public final class OtpUtils {
 
     private static final Map<String, OtpErlangAtom> atoms = new ConcurrentHashMap<String, OtpErlangAtom>();
 
+    private static final OtpErlangList EMPTY_LIST = new OtpErlangList();
+
     public static OtpErlangTuple tuple(final OtpErlangObject... items) {
         return new OtpErlangTuple(items);
     }
@@ -33,6 +35,10 @@ public final class OtpUtils {
 
     public static OtpErlangObject asLong(final long val) {
         return new OtpErlangLong(val);
+    }
+
+    public static OtpErlangObject asFloat(final float val) {
+        return new OtpErlangFloat(val);
     }
 
     public static OtpErlangBinary asBinary(final String str) {
@@ -114,6 +120,14 @@ public final class OtpUtils {
             throw new IllegalArgumentException("out of range", e);
         }
         throw new IllegalArgumentException(obj + " cannot be converted to int");
+    }
+
+    public static OtpErlangList asList(final OtpErlangObject... objs) {
+        return new OtpErlangList(objs);
+    }
+
+    public static OtpErlangList emptyList() {
+        return EMPTY_LIST;
     }
 
     public static void reply(final OtpMbox mbox, final OtpErlangTuple from, final OtpErlangObject reply)
