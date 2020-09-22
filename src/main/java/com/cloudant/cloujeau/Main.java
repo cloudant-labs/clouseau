@@ -14,6 +14,7 @@ package com.cloudant.cloujeau;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.configuration.CompositeConfiguration;
@@ -28,6 +29,9 @@ import com.ericsson.otp.erlang.OtpNode;
 public class Main {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
+
+    private static final ScheduledExecutorService executor = Executors
+            .newScheduledThreadPool(Runtime.getRuntime().availableProcessors());
 
     public static void main(final String[] args) throws Exception {
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
@@ -56,7 +60,7 @@ public class Main {
 
         final OtpNode node = new OtpNode(name, cookie);
 
-        final ServerState state = new ServerState(config, node);
+        final ServerState state = new ServerState(config, executor, node);
 
         final ExecutorService executor = Executors.newCachedThreadPool();
         executor.execute(new IndexManagerService(state));

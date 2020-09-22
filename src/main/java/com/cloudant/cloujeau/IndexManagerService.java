@@ -7,8 +7,6 @@ import static com.cloudant.cloujeau.OtpUtils.tuple;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
@@ -26,8 +24,6 @@ import com.ericsson.otp.erlang.OtpErlangTuple;
 public class IndexManagerService extends Service {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
-
-    private final ExecutorService executor = Executors.newCachedThreadPool();
 
     public IndexManagerService(final ServerState state) {
         super(state, "main");
@@ -56,7 +52,7 @@ public class IndexManagerService extends Service {
             final IndexWriter writer = newWriter(path, analyzer);
             final QueryParser qp = new ClouseauQueryParser(LuceneUtils.VERSION, "default", analyzer);
             final IndexService index = new IndexService(state, strPath, writer, qp);
-            executor.execute(index);
+            state.executor.execute(index);
             index.link(peer);
             return tuple(asAtom("ok"), index.self());
         } catch (IOException e) {

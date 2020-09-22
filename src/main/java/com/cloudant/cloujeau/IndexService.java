@@ -11,6 +11,7 @@ import static com.cloudant.cloujeau.OtpUtils.tuple;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.document.Document;
@@ -49,8 +50,6 @@ public class IndexService extends Service {
 
     private long pendingPurgeSeq;
 
-    private boolean committing = false;
-
     private boolean forceRefresh = false;
 
     private boolean idle = false;
@@ -58,9 +57,6 @@ public class IndexService extends Service {
     public IndexService(final ServerState state, final String name, final IndexWriter writer, final QueryParser qp)
             throws ReflectiveOperationException, IOException {
         super(state);
-        if (state == null) {
-            throw new NullPointerException("state cannot be null");
-        }
         if (name == null) {
             throw new NullPointerException("name cannot be null");
         }
@@ -74,6 +70,12 @@ public class IndexService extends Service {
         this.writer = writer;
         this.searcherManager = new SearcherManager(writer, true, null);
         this.qp = qp;
+
+        final int commitIntervalSecs = state.config.getInt("clouseau.commit_interval_secs", 30);
+        state.executor.scheduleWithFixedDelay(() -> {
+            commit();
+        }, commitIntervalSecs, commitIntervalSecs, TimeUnit.SECONDS);
+
         this.updateSeq = getCommittedSeq();
         this.pendingSeq = updateSeq;
         this.purgeSeq = getCommittedPurgeSeq();
@@ -132,15 +134,20 @@ public class IndexService extends Service {
         IOUtils.closeWhileHandlingException(searcherManager, writer);
     }
 
-    private OtpErlangObject handleSearchCall(final OtpErlangTuple from, final Map<OtpErlangObject,OtpErlangObject> searchRequest) {
+    private OtpErlangObject handleSearchCall(final OtpErlangTuple from,
+            final Map<OtpErlangObject, OtpErlangObject> searchRequest) {
         final String queryString = asString(searchRequest.getOrDefault(asAtom("query"), asBinary("*:*")));
         final boolean refresh = asBoolean(searchRequest.getOrDefault(asAtom("refresh"), asAtom("true")));
         final int limit = asInt(searchRequest.getOrDefault(asAtom("limit"), asInt(25)));
         final String partition = asString(searchRequest.get(asAtom("partition")));
-        
-        final Query baseQuery = parseQuery(queryString, partition);
 
-        System.err.println(queryString);
+        final Query baseQuery;
+        try {
+            baseQuery = parseQuery(queryString, partition);
+        } catch (final ParseException e) {
+            return tuple(asAtom("error"), tuple(asAtom("bad_request"), asBinary(e.getMessage())));
+        }
+
         return null;
     }
 
@@ -152,6 +159,25 @@ public class IndexService extends Service {
             result.add(new TermQuery(new Term("_partition", partition)), Occur.MUST);
             result.add(qp.parse(query), Occur.MUST);
             return result;
+        }
+    }
+
+    private void commit() {
+        final long newUpdateSeq = pendingSeq;
+        final long newPurgeSeq = pendingPurgeSeq;
+
+        if (newUpdateSeq > updateSeq || newPurgeSeq > purgeSeq) {
+            writer.setCommitData(
+                    Map.of("update_seq", Long.toString(newUpdateSeq), "purge_seq", Long.toString(newPurgeSeq)));
+            try {
+                writer.commit();
+                updateSeq = newUpdateSeq;
+                purgeSeq = newPurgeSeq;
+                forceRefresh = true;
+                debug(String.format("Committed update sequence %d and purge sequence %d", newUpdateSeq, newPurgeSeq));
+            } catch (final IOException e) {
+                logger.warn("I/O exception while committing", e);
+            }
         }
     }
 

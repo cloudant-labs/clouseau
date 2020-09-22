@@ -34,6 +34,12 @@ public abstract class Service implements Runnable {
     }
 
     private Service(final ServerState state, final OtpMbox mbox) {
+        if (state == null) {
+            throw new NullPointerException("state cannot be null");
+        }
+        if (mbox == null) {
+            throw new NullPointerException("mbox cannot be null");
+        }
         this.state = state;
         this.mbox = mbox;
     }
