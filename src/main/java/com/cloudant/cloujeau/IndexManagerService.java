@@ -14,6 +14,7 @@ import org.apache.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.LockFactory;
 
@@ -51,8 +52,10 @@ public class IndexManagerService extends Service {
         final String strPath = asString(path);
         logger.info(String.format("Opening index at %s", strPath));
         try {
-            final IndexWriter writer = newWriter(path, analyzerConfig);
-            final IndexService index = new IndexService(state, strPath, writer);
+            final Analyzer analyzer = SupportedAnalyzers.createAnalyzer(analyzerConfig);
+            final IndexWriter writer = newWriter(path, analyzer);
+            final QueryParser qp = new ClouseauQueryParser(LuceneUtils.VERSION, "default", analyzer);
+            final IndexService index = new IndexService(state, strPath, writer, qp);
             executor.execute(index);
             index.link(peer);
             return tuple(asAtom("ok"), index.self());
@@ -61,9 +64,8 @@ public class IndexManagerService extends Service {
         }
     }
 
-    private IndexWriter newWriter(final OtpErlangBinary path, final OtpErlangObject analyzerConfig) throws Exception {
+    private IndexWriter newWriter(final OtpErlangBinary path, final Analyzer analyzer) throws Exception {
         final File rootDir = new File(state.config.getString("clouseau.dir", "target/indexes"));
-        final Analyzer analyzer = SupportedAnalyzers.createAnalyzer(analyzerConfig);
         final Directory dir = newDirectory(new File(rootDir, asString(path)));
         final IndexWriterConfig writerConfig = new IndexWriterConfig(LuceneUtils.VERSION, analyzer);
 

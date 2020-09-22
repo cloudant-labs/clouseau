@@ -79,7 +79,6 @@ public class ClouseauTypeFactory {
             if (f != null) {
                 doc.add(f);
             }
-
         } else {
             final Double doubleValue = toDouble(value);
             if (doubleValue != null) {

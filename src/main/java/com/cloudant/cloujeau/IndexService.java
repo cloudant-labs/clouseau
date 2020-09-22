@@ -1,17 +1,28 @@
 package com.cloudant.cloujeau;
 
 import static com.cloudant.cloujeau.OtpUtils.asAtom;
+import static com.cloudant.cloujeau.OtpUtils.asBinary;
+import static com.cloudant.cloujeau.OtpUtils.asBoolean;
+import static com.cloudant.cloujeau.OtpUtils.asInt;
 import static com.cloudant.cloujeau.OtpUtils.asLong;
+import static com.cloudant.cloujeau.OtpUtils.asMap;
 import static com.cloudant.cloujeau.OtpUtils.asString;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
 
 import java.io.IOException;
+import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.BooleanClause.Occur;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.Query;
 import org.apache.lucene.search.SearcherManager;
+import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.util.IOUtils;
 
 import com.ericsson.otp.erlang.OtpErlangAtom;
@@ -28,6 +39,8 @@ public class IndexService extends Service {
 
     private final SearcherManager searcherManager;
 
+    private final QueryParser qp;
+
     private long updateSeq;
 
     private long pendingSeq;
@@ -42,7 +55,7 @@ public class IndexService extends Service {
 
     private boolean idle = false;
 
-    public IndexService(final ServerState state, final String name, final IndexWriter writer)
+    public IndexService(final ServerState state, final String name, final IndexWriter writer, final QueryParser qp)
             throws ReflectiveOperationException, IOException {
         super(state);
         if (state == null) {
@@ -54,9 +67,13 @@ public class IndexService extends Service {
         if (writer == null) {
             throw new NullPointerException("writer cannot be null");
         }
+        if (qp == null) {
+            throw new NullPointerException("qp cannot be null");
+        }
         this.name = name;
         this.writer = writer;
         this.searcherManager = new SearcherManager(writer, true, null);
+        this.qp = qp;
         this.updateSeq = getCommittedSeq();
         this.pendingSeq = updateSeq;
         this.purgeSeq = getCommittedPurgeSeq();
@@ -102,7 +119,7 @@ public class IndexService extends Service {
                     return asAtom("ok");
                 }
                 case "search":
-                    return handleSearchCall(from, tuple.elementAt(1));
+                    return handleSearchCall(from, asMap(tuple.elementAt(1)));
                 }
             }
         }
@@ -115,8 +132,27 @@ public class IndexService extends Service {
         IOUtils.closeWhileHandlingException(searcherManager, writer);
     }
 
-    private OtpErlangObject handleSearchCall(final OtpErlangTuple from, final OtpErlangObject searchRequest) {
+    private OtpErlangObject handleSearchCall(final OtpErlangTuple from, final Map<OtpErlangObject,OtpErlangObject> searchRequest) {
+        final String queryString = asString(searchRequest.getOrDefault(asAtom("query"), asBinary("*:*")));
+        final boolean refresh = asBoolean(searchRequest.getOrDefault(asAtom("refresh"), asAtom("true")));
+        final int limit = asInt(searchRequest.getOrDefault(asAtom("limit"), asInt(25)));
+        final String partition = asString(searchRequest.get(asAtom("partition")));
+        
+        final Query baseQuery = parseQuery(queryString, partition);
+
+        System.err.println(queryString);
         return null;
+    }
+
+    private Query parseQuery(final String query, final String partition) throws ParseException {
+        if (partition == null) {
+            return qp.parse(query);
+        } else {
+            final BooleanQuery result = new BooleanQuery();
+            result.add(new TermQuery(new Term("_partition", partition)), Occur.MUST);
+            result.add(qp.parse(query), Occur.MUST);
+            return result;
+        }
     }
 
     private long getCommittedSeq() {
