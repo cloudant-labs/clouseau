@@ -45,6 +45,9 @@ public abstract class Service implements Runnable {
     }
 
     public void run() {
+        // Name the thread after the service.
+        Thread.currentThread().setName(toString());
+
         loop: while (true) {
             try {
                 final OtpMsg msg = mbox.receiveMsg();

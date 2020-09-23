@@ -15,6 +15,7 @@ import static com.cloudant.cloujeau.OtpUtils.tuple;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.document.Document;
@@ -64,7 +65,7 @@ public class IndexService extends Service {
 
     private boolean forceRefresh = false;
 
-    private boolean idle = false;
+    private boolean idle = true;
 
     public IndexService(final ServerState state, final String name, final IndexWriter writer, final QueryParser qp)
             throws ReflectiveOperationException, IOException {
@@ -88,6 +89,14 @@ public class IndexService extends Service {
             commit();
         }, commitIntervalSecs, commitIntervalSecs, TimeUnit.SECONDS);
 
+        final boolean closeIfIdleEnabled = state.config.getBoolean("clouseau.close_if_idle", false);
+        final int idleTimeoutSecs = state.config.getInt("clouseau.idle_check_interval_secs", 300);
+        if (closeIfIdleEnabled) {
+            state.executor.scheduleWithFixedDelay(() -> {
+                closeIfIdle();
+            }, idleTimeoutSecs, idleTimeoutSecs, TimeUnit.SECONDS);
+        }
+
         this.updateSeq = getCommittedSeq();
         this.pendingSeq = updateSeq;
         this.purgeSeq = getCommittedPurgeSeq();
@@ -96,6 +105,7 @@ public class IndexService extends Service {
 
     @Override
     public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws IOException {
+        idle = false;
         if (request instanceof OtpErlangAtom) {
             switch (asString(request)) {
             case "get_update_seq":
@@ -176,7 +186,6 @@ public class IndexService extends Service {
             } else {
                 collector = TopScoreDocCollector.create(limit, docsScoredInOrder);
             }
-            System.err.println(query);
             searcher.search(query, collector);
             return tuple(
                     asAtom("ok"),
@@ -228,6 +237,18 @@ public class IndexService extends Service {
         }
     }
 
+    private OtpErlangObject safeSearch(final Supplier<OtpErlangObject> s) {
+        try {
+            return s.get();
+        } catch (final NumberFormatException e) {
+            return tuple(
+                    asAtom("error"),
+                    tuple(asAtom("bad_request"), asBinary("cannot sort string field as numeric field")));
+        } catch (final ClassCastException e) {
+            return tuple(asAtom("error"), tuple(asAtom("bad_request"), asBinary(e.getMessage())));
+        }
+    }
+
     private void commit() {
         final long newUpdateSeq = pendingSeq;
         final long newPurgeSeq = pendingPurgeSeq;
@@ -243,6 +264,16 @@ public class IndexService extends Service {
                 debug(String.format("Committed update sequence %d and purge sequence %d", newUpdateSeq, newPurgeSeq));
             } catch (final IOException e) {
                 logger.warn("I/O exception while committing", e);
+            }
+        }
+    }
+
+    private void closeIfIdle() {
+        if (idle) {
+            try {
+                exit(asBinary("Idle Timeout"));
+            } catch (final IOException e) {
+                logger.warn("I/O exception while closing for idleness", e);
             }
         }
     }
