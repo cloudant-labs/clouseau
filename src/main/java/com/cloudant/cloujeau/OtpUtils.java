@@ -133,22 +133,6 @@ public final class OtpUtils {
         return EMPTY_LIST;
     }
 
-    public static OtpErlangObject fromNumber(final Number num) {
-        if (num instanceof Double) {
-            return new OtpErlangDouble((Double) num);
-        }
-        if (num instanceof Float) {
-            return new OtpErlangFloat((Float) num);
-        }
-        if (num instanceof Integer) {
-            return new OtpErlangInt((Integer) num);
-        }
-        if (num instanceof Long) {
-            return new OtpErlangLong((Long) num);
-        }
-        throw new IllegalArgumentException(num + " cannot be converted to otp");
-    }
-
     public static OtpErlangObject asOtp(final Object obj) {
         if (obj instanceof OtpErlangObject) {
             return (OtpErlangObject) obj;
