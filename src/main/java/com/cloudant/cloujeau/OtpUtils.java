@@ -3,11 +3,14 @@ package com.cloudant.cloujeau;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
+import com.ericsson.otp.erlang.OtpErlangBoolean;
+import com.ericsson.otp.erlang.OtpErlangDouble;
 import com.ericsson.otp.erlang.OtpErlangFloat;
 import com.ericsson.otp.erlang.OtpErlangInt;
 import com.ericsson.otp.erlang.OtpErlangList;
@@ -128,6 +131,64 @@ public final class OtpUtils {
 
     public static OtpErlangList emptyList() {
         return EMPTY_LIST;
+    }
+
+    public static OtpErlangObject fromNumber(final Number num) {
+        if (num instanceof Double) {
+            return new OtpErlangDouble((Double) num);
+        }
+        if (num instanceof Float) {
+            return new OtpErlangFloat((Float) num);
+        }
+        if (num instanceof Integer) {
+            return new OtpErlangInt((Integer) num);
+        }
+        if (num instanceof Long) {
+            return new OtpErlangLong((Long) num);
+        }
+        throw new IllegalArgumentException(num + " cannot be converted to otp");
+    }
+
+    public static OtpErlangObject asOtp(final Object obj) {
+        if (obj instanceof OtpErlangObject) {
+            return (OtpErlangObject) obj;
+        }
+        if (obj instanceof Double) {
+            return new OtpErlangDouble((Double) obj);
+        }
+        if (obj instanceof Float) {
+            return new OtpErlangFloat((Float) obj);
+        }
+        if (obj instanceof Integer) {
+            return new OtpErlangInt((Integer) obj);
+        }
+        if (obj instanceof Long) {
+            return new OtpErlangLong((Long) obj);
+        }
+        if (obj instanceof Boolean) {
+            return new OtpErlangBoolean((Boolean) obj);
+        }
+        if (obj instanceof String) {
+            return asBinary((String) obj);
+        }
+        if (obj instanceof List) {
+            final List<?> from = (List<?>) obj;
+            final OtpErlangObject[] to = new OtpErlangObject[from.size()];
+            for (int i = 0; i < to.length; i++) {
+                to[i] = asOtp(from.get(i));
+            }
+            return new OtpErlangList(to);
+        }
+        if (obj instanceof Map) {
+            final Map<?, ?> from = (Map<?, ?>) obj;
+            final OtpErlangObject[] to = new OtpErlangObject[from.size()];
+            int i = 0;
+            for (final Map.Entry entry : from.entrySet()) {
+                to[i++] = tuple(asOtp(entry.getKey()), asOtp(entry.getValue()));
+            }
+            return new OtpErlangList(to);
+        }
+        throw new IllegalArgumentException(obj + " cannot be converted to otp");
     }
 
     public static void reply(final OtpMbox mbox, final OtpErlangTuple from, final OtpErlangObject reply)

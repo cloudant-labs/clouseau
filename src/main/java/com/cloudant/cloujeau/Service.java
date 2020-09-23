@@ -87,7 +87,9 @@ public abstract class Service implements Runnable {
                     logger.warn("received message of unknown type " + msg.type());
                 }
             } catch (OtpErlangExit e) {
-                logger.error(String.format("%s exiting for reason %s", this, e.reason()));
+                if (!asAtom("normal").equals(e.reason())) {
+                    logger.error(String.format("%s exiting for reason %s", this, e.reason()));
+                }
                 terminate(e.reason());
                 mbox.close();
                 break loop;

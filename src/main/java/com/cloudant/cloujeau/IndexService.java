@@ -6,13 +6,16 @@ import static com.cloudant.cloujeau.OtpUtils.asBoolean;
 import static com.cloudant.cloujeau.OtpUtils.asFloat;
 import static com.cloudant.cloujeau.OtpUtils.asInt;
 import static com.cloudant.cloujeau.OtpUtils.asList;
-import static com.cloudant.cloujeau.OtpUtils.asLong;
+import static com.cloudant.cloujeau.OtpUtils.*;
 import static com.cloudant.cloujeau.OtpUtils.asMap;
 import static com.cloudant.cloujeau.OtpUtils.asString;
 import static com.cloudant.cloujeau.OtpUtils.emptyList;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -20,6 +23,7 @@ import java.util.function.Supplier;
 import org.apache.log4j.Logger;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
@@ -35,10 +39,11 @@ import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.search.TotalHitCountCollector;
 import org.apache.lucene.search.Weight;
-import org.apache.lucene.util.IOUtils;
+import org.apache.lucene.store.Directory;
 
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
+import com.ericsson.otp.erlang.OtpErlangDouble;
 import com.ericsson.otp.erlang.OtpErlangList;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangTuple;
@@ -153,7 +158,24 @@ public class IndexService extends Service {
 
     @Override
     public void terminate(final OtpErlangObject reason) {
-        IOUtils.closeWhileHandlingException(searcherManager, writer);
+        try {
+            searcherManager.close();
+        } catch (IOException e) {
+            logger.error("Error while closing searcher", e);
+        }
+        try {
+            writer.rollback();
+        } catch (IOException e1) {
+            logger.error("Error while closing writer", e1);
+            final Directory dir = writer.getDirectory();
+            try {
+                if (IndexWriter.isLocked(dir)) {
+                    IndexWriter.unlock(dir);
+                }
+            } catch (IOException e2) {
+                logger.error("Error while unlocking dir", e2);
+            }
+        }
     }
 
     private OtpErlangObject handleSearchCall(final OtpErlangTuple from,
@@ -189,7 +211,12 @@ public class IndexService extends Service {
             searcher.search(query, collector);
             return tuple(
                     asAtom("ok"),
-                    tuple(asAtom("top_docs"), asLong(updateSeq), asLong(getTotalHits(collector)), getHits(collector)));
+                    tuple(
+                            asAtom("top_docs"),
+                            asLong(updateSeq),
+                            asLong(getTotalHits(collector)),
+                            getHits(searcher, collector)));
+
         } finally {
             searcherManager.release(searcher);
         }
@@ -205,12 +232,12 @@ public class IndexService extends Service {
         throw new IllegalArgumentException("Can't get total hits for " + collector);
     }
 
-    private OtpErlangList getHits(final Collector collector) {
+    private OtpErlangList getHits(final IndexSearcher searcher, final Collector collector) throws IOException {
         if (collector instanceof TopDocsCollector) {
             final ScoreDoc[] scoreDocs = ((TopDocsCollector<?>) collector).topDocs().scoreDocs;
             final OtpErlangObject[] objs = new OtpErlangObject[scoreDocs.length];
             for (int i = 0; i < scoreDocs.length; i++) {
-                objs[i] = docToHit(scoreDocs[i]);
+                objs[i] = docToHit(searcher, scoreDocs[i]);
             }
             return asList(objs);
         }
@@ -220,10 +247,27 @@ public class IndexService extends Service {
         throw new IllegalArgumentException("Can't get hits for " + collector);
     }
 
-    private OtpErlangTuple docToHit(final ScoreDoc doc) {
-        final OtpErlangObject order = asList(asFloat(doc.score), asInt(doc.doc));
-        final OtpErlangObject fields = emptyList();
-        return tuple(asAtom("hit"), order, fields);
+    private OtpErlangTuple docToHit(final IndexSearcher searcher, final ScoreDoc scoreDoc) throws IOException {
+        final Document doc = searcher.doc(scoreDoc.doc);
+
+        final Map fields = new HashMap();
+        doc.getFields().forEach((field) -> {
+            final Object value = field.numericValue() == null ? field.stringValue() : field.numericValue();
+            final Object current = fields.get(field.name());
+            if (current == null) {
+                fields.put(field.name(), value);
+            } else if (current instanceof List) {
+                ((List) current).add(value);
+            } else {
+                final List list = new LinkedList();
+                list.add(current);
+                list.add(value);
+                fields.put(field.name(), list);
+            }
+        });
+
+        final OtpErlangObject order = asList(asFloat(scoreDoc.score), asInt(scoreDoc.doc));
+        return tuple(asAtom("hit"), order, asOtp(fields));
     }
 
     private Query parseQuery(final String query, final Object partition) throws ParseException {
