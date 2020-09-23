@@ -167,7 +167,7 @@ public final class OtpUtils {
             final Map<?, ?> from = (Map<?, ?>) obj;
             final OtpErlangObject[] to = new OtpErlangObject[from.size()];
             int i = 0;
-            for (final Map.Entry entry : from.entrySet()) {
+            for (final Map.Entry<?, ?> entry : from.entrySet()) {
                 to[i++] = tuple(asOtp(entry.getKey()), asOtp(entry.getValue()));
             }
             return new OtpErlangList(to);
