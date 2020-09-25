@@ -194,32 +194,60 @@ public class IndexService extends Service {
 
         final Query query = baseQuery; // TODO add the other goop.
 
-        if (refresh) {
-            searcherManager.maybeRefreshBlocking();
-        }
+        state.executor.execute(new Runnable() {
+            @Override
+            public void run() {
+                if (refresh) {
+                    try {
+                        searcherManager.maybeRefreshBlocking();
+                    } catch (final IOException e) {
+                        logger.error("I/O exception while refreshing searcher", e);
+                        IndexService.this.terminate(asBinary(e.getMessage()));
+                    }
+                }
 
-        final IndexSearcher searcher = searcherManager.acquire();
-        try {
-            final Weight weight = searcher.createNormalizedWeight(query);
-            final boolean docsScoredInOrder = !weight.scoresDocsOutOfOrder();
-            final Collector collector;
-            if (limit == 0) {
-                collector = new TotalHitCountCollector();
-            } else {
-                collector = TopScoreDocCollector.create(limit, docsScoredInOrder);
+                final IndexSearcher searcher;
+                try {
+                    searcher = searcherManager.acquire();
+                } catch (IOException e) {
+                    logger.error("I/O exception while acquiring searcher", e);
+                    IndexService.this.terminate(asBinary(e.getMessage()));
+                    return;
+                }
+                try {
+                    final Weight weight = searcher.createNormalizedWeight(query);
+                    final boolean docsScoredInOrder = !weight.scoresDocsOutOfOrder();
+                    final Collector collector;
+                    if (limit == 0) {
+                        collector = new TotalHitCountCollector();
+                    } else {
+                        collector = TopScoreDocCollector.create(limit, docsScoredInOrder);
+                    }
+                    searcher.search(query, collector);
+                    IndexService.this.reply(
+                            from,
+                            tuple(
+                                    asAtom("ok"),
+                                    tuple(
+                                            asAtom("top_docs"),
+                                            asLong(updateSeq),
+                                            asLong(getTotalHits(collector)),
+                                            getHits(searcher, collector))));
+
+                } catch (final IOException e) {
+                    logger.error("I/O exception while searching", e);
+                    IndexService.this.terminate(asBinary(e.getMessage()));
+                } finally {
+                    try {
+                        searcherManager.release(searcher);
+                    } catch (final IOException e) {
+                        logger.error("I/O exception while releasing searcher", e);
+                        IndexService.this.terminate(asBinary(e.getMessage()));
+                    }
+                }
             }
-            searcher.search(query, collector);
-            return tuple(
-                    asAtom("ok"),
-                    tuple(
-                            asAtom("top_docs"),
-                            asLong(updateSeq),
-                            asLong(getTotalHits(collector)),
-                            getHits(searcher, collector)));
-
-        } finally {
-            searcherManager.release(searcher);
-        }
+        });
+        return null;
     }
 
     private long getTotalHits(final Collector collector) {

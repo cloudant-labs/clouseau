@@ -1,8 +1,6 @@
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.*;
-import static com.cloudant.cloujeau.OtpUtils.reply;
-import static com.cloudant.cloujeau.OtpUtils.tuple;
+import static com.cloudant.cloujeau.OtpUtils.asAtom;
 
 import java.io.IOException;
 
@@ -19,8 +17,6 @@ import com.ericsson.otp.erlang.OtpMsg;
 public abstract class Service implements Runnable {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
-
-    private static final OtpErlangObject INVALID_MSG = tuple(asAtom("error"), asAtom("invalid_msg"));
 
     protected final ServerState state;
     private final OtpMbox mbox;
@@ -66,9 +62,9 @@ public abstract class Service implements Runnable {
 
                             final OtpErlangObject response = handleCall(from, request);
                             if (response != null) {
-                                reply(mbox, from, response);
+                                reply(from, response);
                             } else {
-                                reply(mbox, from, INVALID_MSG);
+                                // no reply. // reply(mbox, from, INVALID_MSG);
                             }
                         }
                         // gen cast
@@ -114,6 +110,10 @@ public abstract class Service implements Runnable {
 
     public void terminate(final OtpErlangObject reason) {
         // Intentionally empty.
+    }
+
+    protected void reply(final OtpErlangTuple from, final OtpErlangObject reply) throws IOException {
+        OtpUtils.reply(mbox, from, reply);
     }
 
     public final void link(final OtpErlangPid pid) throws OtpErlangExit {
