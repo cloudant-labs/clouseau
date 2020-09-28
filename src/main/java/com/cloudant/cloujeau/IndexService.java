@@ -6,8 +6,9 @@ import static com.cloudant.cloujeau.OtpUtils.asBoolean;
 import static com.cloudant.cloujeau.OtpUtils.asFloat;
 import static com.cloudant.cloujeau.OtpUtils.asInt;
 import static com.cloudant.cloujeau.OtpUtils.asList;
-import static com.cloudant.cloujeau.OtpUtils.*;
+import static com.cloudant.cloujeau.OtpUtils.asLong;
 import static com.cloudant.cloujeau.OtpUtils.asMap;
+import static com.cloudant.cloujeau.OtpUtils.asOtp;
 import static com.cloudant.cloujeau.OtpUtils.asString;
 import static com.cloudant.cloujeau.OtpUtils.emptyList;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
@@ -23,7 +24,6 @@ import java.util.function.Supplier;
 import org.apache.log4j.Logger;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
@@ -39,11 +39,13 @@ import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.search.TotalHitCountCollector;
 import org.apache.lucene.search.Weight;
+import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.Timer;
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
-import com.ericsson.otp.erlang.OtpErlangDouble;
 import com.ericsson.otp.erlang.OtpErlangList;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangTuple;
@@ -72,6 +74,12 @@ public class IndexService extends Service {
 
     private boolean idle = true;
 
+    private final Timer searchTimer;
+    private final Timer updateTimer;
+    private final Timer deleteTimer;
+    private final Timer commitTimer;
+    private final Counter parSearchTimeOutCount;
+
     public IndexService(final ServerState state, final String name, final IndexWriter writer, final QueryParser qp)
             throws ReflectiveOperationException, IOException {
         super(state);
@@ -88,6 +96,13 @@ public class IndexService extends Service {
         this.writer = writer;
         this.searcherManager = new SearcherManager(writer, true, null);
         this.qp = qp;
+
+        searchTimer = state.metricRegistry.timer("com.cloudant.clouseau:type=IndexService,name=searches");
+        updateTimer = state.metricRegistry.timer("com.cloudant.clouseau:type=IndexService,name=updates");
+        deleteTimer = state.metricRegistry.timer("com.cloudant.clouseau:type=IndexService,name=deletes");
+        commitTimer = state.metricRegistry.timer("com.cloudant.clouseau:type=IndexService,name=commits");
+        parSearchTimeOutCount = state.metricRegistry
+                .counter("com.cloudant.clouseau:type=IndexService,name=partition_search.timeout.count");
 
         final int commitIntervalSecs = state.config.getInt("clouseau.commit_interval_secs", 30);
         state.executor.scheduleWithFixedDelay(() -> {
@@ -138,13 +153,27 @@ public class IndexService extends Service {
                 case "delete": {
                     final String id = asString(tuple.elementAt(1));
                     debug(String.format("Deleting %s", id));
-                    writer.deleteDocuments(new Term("_id", id));
+                    deleteTimer.time(() -> {
+                        try {
+                            writer.deleteDocuments(new Term("_id", id));
+                        } catch (final IOException e) {
+                            error("I/O exception when deleting docs", e);
+                            terminate(asBinary(e.getMessage()));
+                        }
+                    });
                     return asAtom("ok");
                 }
                 case "update": {
                     final Document doc = ClouseauTypeFactory.newDocument(tuple.elementAt(1), tuple.elementAt(2));
                     debug("Updating " + doc.get("_id"));
-                    writer.updateDocument(new Term("_id", doc.get("_id")), doc);
+                    updateTimer.time(() -> {
+                        try {
+                            writer.updateDocument(new Term("_id", doc.get("_id")), doc);
+                        } catch (final IOException e) {
+                            error("I/O exception when updating docs", e);
+                            terminate(asBinary(e.getMessage()));
+                        }
+                    });
                     return asAtom("ok");
                 }
                 case "search":
@@ -161,19 +190,19 @@ public class IndexService extends Service {
         try {
             searcherManager.close();
         } catch (IOException e) {
-            logger.error("Error while closing searcher", e);
+            error("Error while closing searcher", e);
         }
         try {
             writer.rollback();
         } catch (IOException e1) {
-            logger.error("Error while closing writer", e1);
+            error("Error while closing writer", e1);
             final Directory dir = writer.getDirectory();
             try {
                 if (IndexWriter.isLocked(dir)) {
                     IndexWriter.unlock(dir);
                 }
             } catch (IOException e2) {
-                logger.error("Error while unlocking dir", e2);
+                error("Error while unlocking dir", e2);
             }
         }
     }
@@ -194,60 +223,37 @@ public class IndexService extends Service {
 
         final Query query = baseQuery; // TODO add the other goop.
 
-        state.executor.execute(new Runnable() {
-            @Override
-            public void run() {
-                if (refresh) {
-                    try {
-                        searcherManager.maybeRefreshBlocking();
-                    } catch (final IOException e) {
-                        logger.error("I/O exception while refreshing searcher", e);
-                        IndexService.this.terminate(asBinary(e.getMessage()));
-                    }
-                }
-
-                final IndexSearcher searcher;
-                try {
-                    searcher = searcherManager.acquire();
-                } catch (IOException e) {
-                    logger.error("I/O exception while acquiring searcher", e);
-                    IndexService.this.terminate(asBinary(e.getMessage()));
-                    return;
-                }
-                try {
-                    final Weight weight = searcher.createNormalizedWeight(query);
-                    final boolean docsScoredInOrder = !weight.scoresDocsOutOfOrder();
-                    final Collector collector;
-                    if (limit == 0) {
-                        collector = new TotalHitCountCollector();
-                    } else {
-                        collector = TopScoreDocCollector.create(limit, docsScoredInOrder);
-                    }
-                    searcher.search(query, collector);
-                    IndexService.this.reply(
-                            from,
-                            tuple(
-                                    asAtom("ok"),
-                                    tuple(
-                                            asAtom("top_docs"),
-                                            asLong(updateSeq),
-                                            asLong(getTotalHits(collector)),
-                                            getHits(searcher, collector))));
-
-                } catch (final IOException e) {
-                    logger.error("I/O exception while searching", e);
-                    IndexService.this.terminate(asBinary(e.getMessage()));
-                } finally {
-                    try {
-                        searcherManager.release(searcher);
-                    } catch (final IOException e) {
-                        logger.error("I/O exception while releasing searcher", e);
-                        IndexService.this.terminate(asBinary(e.getMessage()));
-                    }
-                }
+        if (refresh) {
+            try {
+                searcherManager.maybeRefreshBlocking();
+            } catch (final IOException e) {
+                error("I/O exception while refreshing searcher", e);
+                IndexService.this.terminate(asBinary(e.getMessage()));
             }
-        });
-        return null;
+        }
+
+        final IndexSearcher searcher = searcherManager.acquire();
+        try {
+            final Weight weight = searcher.createNormalizedWeight(query);
+            final boolean docsScoredInOrder = !weight.scoresDocsOutOfOrder();
+            final Collector collector;
+            if (limit == 0) {
+                collector = new TotalHitCountCollector();
+            } else {
+                collector = TopScoreDocCollector.create(limit, docsScoredInOrder);
+            }
+            searcher.search(query, collector);
+            return tuple(
+                    asAtom("ok"),
+                    tuple(
+                            asAtom("top_docs"),
+                            asLong(updateSeq),
+                            asLong(getTotalHits(collector)),
+                            getHits(searcher, collector)));
+
+        } finally {
+            searcherManager.release(searcher);
+        }
     }
 
     private long getTotalHits(final Collector collector) {
@@ -278,7 +284,7 @@ public class IndexService extends Service {
     private OtpErlangTuple docToHit(final IndexSearcher searcher, final ScoreDoc scoreDoc) throws IOException {
         final Document doc = searcher.doc(scoreDoc.doc);
 
-        final Map fields = new HashMap();
+        final Map<String, Object> fields = new HashMap<String, Object>();
         doc.getFields().forEach((field) -> {
             final Object value = field.numericValue() == null ? field.stringValue() : field.numericValue();
             final Object current = fields.get(field.name());
@@ -287,7 +293,7 @@ public class IndexService extends Service {
             } else if (current instanceof List) {
                 ((List) current).add(value);
             } else {
-                final List list = new LinkedList();
+                final List<Object> list = new LinkedList<Object>();
                 list.add(current);
                 list.add(value);
                 fields.put(field.name(), list);
@@ -328,15 +334,22 @@ public class IndexService extends Service {
         if (newUpdateSeq > updateSeq || newPurgeSeq > purgeSeq) {
             writer.setCommitData(
                     Map.of("update_seq", Long.toString(newUpdateSeq), "purge_seq", Long.toString(newPurgeSeq)));
-            try {
-                writer.commit();
-                updateSeq = newUpdateSeq;
-                purgeSeq = newPurgeSeq;
-                forceRefresh = true;
-                debug(String.format("Committed update sequence %d and purge sequence %d", newUpdateSeq, newPurgeSeq));
-            } catch (final IOException e) {
-                logger.warn("I/O exception while committing", e);
-            }
+
+            commitTimer.time(() -> {
+                try {
+                    writer.commit();
+                } catch (final AlreadyClosedException e) {
+                    error("Commit failed to closed writer", e);
+                    IndexService.this.terminate(asBinary(e.getMessage()));
+                } catch (IOException e) {
+                    error("Failed to commit changes", e);
+                    IndexService.this.terminate(asBinary(e.getMessage()));
+                }
+            });
+            updateSeq = newUpdateSeq;
+            purgeSeq = newPurgeSeq;
+            forceRefresh = true;
+            debug(String.format("Committed update sequence %d and purge sequence %d", newUpdateSeq, newPurgeSeq));
         }
     }
 
@@ -345,7 +358,7 @@ public class IndexService extends Service {
             try {
                 exit(asBinary("Idle Timeout"));
             } catch (final IOException e) {
-                logger.warn("I/O exception while closing for idleness", e);
+                error("I/O exception while closing for idleness", e);
             }
         }
     }

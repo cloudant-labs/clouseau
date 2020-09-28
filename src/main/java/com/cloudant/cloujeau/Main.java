@@ -24,11 +24,27 @@ import org.apache.commons.configuration.SystemConfiguration;
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy;
 import org.apache.log4j.Logger;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.jmx.JmxReporter;
 import com.ericsson.otp.erlang.OtpNode;
 
 public class Main {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
+
+    private static final MetricRegistry METRIC_REGISTRY = new MetricRegistry();
+    private static final JmxReporter JMX_REPORTER = JmxReporter.forRegistry(METRIC_REGISTRY).build();
+
+    private static final Thread SHUTDOWN_HOOK = new Thread() {
+        public void run() {
+            JMX_REPORTER.stop();
+        }
+    };
+
+    static {
+        JMX_REPORTER.start();
+        Runtime.getRuntime().addShutdownHook(SHUTDOWN_HOOK);
+    }
 
     private static final ScheduledExecutorService executor = Executors
             .newScheduledThreadPool(Runtime.getRuntime().availableProcessors());
@@ -60,7 +76,7 @@ public class Main {
 
         final OtpNode node = new OtpNode(name, cookie);
 
-        final ServerState state = new ServerState(config, executor, node);
+        final ServerState state = new ServerState(config, executor, node, METRIC_REGISTRY);
 
         final ExecutorService executor = Executors.newCachedThreadPool();
         executor.execute(new IndexManagerService(state));

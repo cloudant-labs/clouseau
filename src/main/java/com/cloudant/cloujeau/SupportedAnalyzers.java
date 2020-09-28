@@ -1,7 +1,6 @@
 package com.cloudant.cloujeau;
 
 import static com.cloudant.cloujeau.OtpUtils.*;
-import static com.cloudant.cloujeau.OtpUtils.asString;
 
 import java.util.Collections;
 import java.util.HashMap;
