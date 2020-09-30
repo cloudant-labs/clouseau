@@ -249,7 +249,10 @@ public class IndexService extends Service {
                             asAtom("top_docs"),
                             asLong(updateSeq),
                             asLong(getTotalHits(collector)),
-                            getHits(searcher, collector)));
+                            getHits(searcher, collector),
+                            emptyList(), // counts
+                            emptyList() // ranges
+                    ));
 
         } finally {
             searcherManager.release(searcher);
