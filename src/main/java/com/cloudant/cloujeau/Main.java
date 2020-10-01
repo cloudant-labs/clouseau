@@ -26,6 +26,8 @@ import org.apache.log4j.Logger;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.jmx.JmxReporter;
+import com.ericsson.otp.erlang.ClouseauNode;
+
 import com.ericsson.otp.erlang.OtpNode;
 
 public class Main {
@@ -74,7 +76,7 @@ public class Main {
                             idleTimeout));
         }
 
-        final OtpNode node = new OtpNode(name, cookie);
+        final OtpNode node = new ClouseauNode(name, cookie);
 
         final ServerState state = new ServerState(config, executor, node, METRIC_REGISTRY);
 

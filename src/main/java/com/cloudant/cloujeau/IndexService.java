@@ -245,15 +245,10 @@ public class IndexService extends Service {
             searcher.search(query, collector);
             return tuple(
                     asAtom("ok"),
-                    tuple(
-                            asAtom("top_docs"),
-                            asLong(updateSeq),
-                            asLong(getTotalHits(collector)),
-                            getHits(searcher, collector),
-                            emptyList(), // counts
-                            emptyList() // ranges
-                    ));
-
+                    asList(
+                            tuple(asAtom("update_seq"), asOtp(updateSeq)),
+                            tuple(asAtom("total_hits"), asOtp(getTotalHits(collector))),
+                            tuple(asAtom("hits"), getHits(searcher, collector))));
         } finally {
             searcherManager.release(searcher);
         }
