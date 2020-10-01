@@ -27,11 +27,11 @@ public class ClouseauNode extends OtpNode {
                 final String name = m.getRecipientName();
                 if (!name.equals("net_kernel")) {
                     final Service service = serviceRegistry.lookup(m.getRecipientName());
-                    executor.execute(service);
+                    // executor.execute(service);
                 }
             } else {
                 final Service service = serviceRegistry.lookup(m.getRecipientPid());
-                executor.execute(service);
+                // executor.execute(service);
             }
         }
         return delivered;

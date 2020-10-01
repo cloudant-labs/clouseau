@@ -193,7 +193,9 @@ public class IndexService extends Service {
     @Override
     public void terminate(final OtpErlangObject reason) {
         commitFuture.cancel(false);
-        closeFuture.cancel(false);
+        if (closeFuture != null) {
+            closeFuture.cancel(false);
+        }
         try {
             searcherManager.close();
         } catch (IOException e) {
