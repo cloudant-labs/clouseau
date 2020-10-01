@@ -9,20 +9,23 @@ import com.ericsson.otp.erlang.OtpNode;
 
 public final class ServerState {
 
-    public ServerState(final Configuration config, final ScheduledExecutorService executor, final OtpNode node,
-            final MetricRegistry metricRegistry) {
+    public ServerState(final Configuration config, final OtpNode node, final ServiceRegistry serviceRegistry,
+            final MetricRegistry metricRegistry, final ScheduledExecutorService scheduledExecutor) {
         this.config = config;
-        this.executor = executor;
         this.node = node;
+        this.serviceRegistry = serviceRegistry;
         this.metricRegistry = metricRegistry;
+        this.scheduledExecutor = scheduledExecutor;
     }
 
     public final Configuration config;
 
-    public final ScheduledExecutorService executor;
-
     public final OtpNode node;
 
+    public final ServiceRegistry serviceRegistry;
+
     public final MetricRegistry metricRegistry;
+
+    public final ScheduledExecutorService scheduledExecutor;
 
 }

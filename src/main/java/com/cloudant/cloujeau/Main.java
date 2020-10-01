@@ -48,8 +48,10 @@ public class Main {
         Runtime.getRuntime().addShutdownHook(SHUTDOWN_HOOK);
     }
 
-    private static final ScheduledExecutorService executor = Executors
-            .newScheduledThreadPool(Runtime.getRuntime().availableProcessors());
+    private static final ExecutorService executor = Executors
+            .newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+
+    private static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(1);
 
     public static void main(final String[] args) throws Exception {
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
@@ -76,13 +78,13 @@ public class Main {
                             idleTimeout));
         }
 
-        final OtpNode node = new ClouseauNode(name, cookie);
+        final ServiceRegistry serviceRegistry = new ServiceRegistry();
+        final OtpNode node = new ClouseauNode(name, cookie, executor, serviceRegistry);
 
-        final ServerState state = new ServerState(config, executor, node, METRIC_REGISTRY);
+        final ServerState state = new ServerState(config, node, serviceRegistry, METRIC_REGISTRY, scheduledExecutor);
 
-        final ExecutorService executor = Executors.newCachedThreadPool();
-        executor.execute(new IndexManagerService(state));
-        executor.execute(new AnalyzerService(state));
+        serviceRegistry.register("main", new IndexManagerService(state));
+        serviceRegistry.register("analyze", new AnalyzerService(state));
 
         logger.info("Clouseau running as " + name);
 

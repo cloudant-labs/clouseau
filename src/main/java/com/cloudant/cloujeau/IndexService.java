@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -80,6 +81,10 @@ public class IndexService extends Service {
     private final Timer commitTimer;
     private final Counter parSearchTimeOutCount;
 
+    private ScheduledFuture<?> commitFuture;
+
+    private ScheduledFuture<?> closeFuture;
+
     public IndexService(final ServerState state, final String name, final IndexWriter writer, final QueryParser qp)
             throws ReflectiveOperationException, IOException {
         super(state);
@@ -105,14 +110,14 @@ public class IndexService extends Service {
                 .counter("com.cloudant.clouseau:type=IndexService,name=partition_search.timeout.count");
 
         final int commitIntervalSecs = state.config.getInt("clouseau.commit_interval_secs", 30);
-        state.executor.scheduleWithFixedDelay(() -> {
+        commitFuture = state.scheduledExecutor.scheduleWithFixedDelay(() -> {
             commit();
         }, commitIntervalSecs, commitIntervalSecs, TimeUnit.SECONDS);
 
         final boolean closeIfIdleEnabled = state.config.getBoolean("clouseau.close_if_idle", false);
         final int idleTimeoutSecs = state.config.getInt("clouseau.idle_check_interval_secs", 300);
         if (closeIfIdleEnabled) {
-            state.executor.scheduleWithFixedDelay(() -> {
+            closeFuture = state.scheduledExecutor.scheduleWithFixedDelay(() -> {
                 closeIfIdle();
             }, idleTimeoutSecs, idleTimeoutSecs, TimeUnit.SECONDS);
         }
@@ -187,6 +192,8 @@ public class IndexService extends Service {
 
     @Override
     public void terminate(final OtpErlangObject reason) {
+        commitFuture.cancel(false);
+        closeFuture.cancel(false);
         try {
             searcherManager.close();
         } catch (IOException e) {

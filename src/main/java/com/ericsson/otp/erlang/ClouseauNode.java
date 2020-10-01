@@ -1,36 +1,21 @@
 package com.ericsson.otp.erlang;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.concurrent.ExecutorService;
+
+import com.cloudant.cloujeau.Service;
+import com.cloudant.cloujeau.ServiceRegistry;
 
 public class ClouseauNode extends OtpNode {
 
-    private final Set<Object> active = Collections.synchronizedSet(new HashSet<Object>());
+    private final ExecutorService executor;
+    private final ServiceRegistry serviceRegistry;
 
-    public ClouseauNode(String node, OtpTransportFactory transportFactory) throws IOException {
-        super(node, transportFactory);
-    }
-
-    public ClouseauNode(String node, String cookie, int port, OtpTransportFactory transportFactory) throws IOException {
-        super(node, cookie, port, transportFactory);
-    }
-
-    public ClouseauNode(String node, String cookie, int port) throws IOException {
-        super(node, cookie, port);
-    }
-
-    public ClouseauNode(String node, String cookie, OtpTransportFactory transportFactory) throws IOException {
-        super(node, cookie, transportFactory);
-    }
-
-    public ClouseauNode(String node, String cookie) throws IOException {
+    public ClouseauNode(String node, String cookie, final ExecutorService executor,
+            final ServiceRegistry serviceRegistry) throws IOException {
         super(node, cookie);
-    }
-
-    public ClouseauNode(String node) throws IOException {
-        super(node);
+        this.executor = executor;
+        this.serviceRegistry = serviceRegistry;
     }
 
     @Override
@@ -41,10 +26,12 @@ public class ClouseauNode extends OtpNode {
             if (t == OtpMsg.regSendTag) {
                 final String name = m.getRecipientName();
                 if (!name.equals("net_kernel")) {
-                    active.add(m.getRecipientName());
+                    final Service service = serviceRegistry.lookup(m.getRecipientName());
+                    executor.execute(service);
                 }
             } else {
-                active.add(m.getRecipientPid());
+                final Service service = serviceRegistry.lookup(m.getRecipientPid());
+                executor.execute(service);
             }
         }
         return delivered;

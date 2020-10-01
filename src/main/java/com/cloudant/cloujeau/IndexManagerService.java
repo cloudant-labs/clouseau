@@ -52,7 +52,7 @@ public class IndexManagerService extends Service {
             final IndexWriter writer = newWriter(path, analyzer);
             final QueryParser qp = new ClouseauQueryParser(LuceneUtils.VERSION, "default", analyzer);
             final IndexService index = new IndexService(state, strPath, writer, qp);
-            state.executor.execute(index);
+            state.serviceRegistry.register(index.self(), index);
             index.link(peer);
             return tuple(asAtom("ok"), index.self());
         } catch (IOException e) {
