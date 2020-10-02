@@ -49,8 +49,11 @@ public abstract class Service implements Runnable {
         Thread.currentThread().setName(toString());
         synchronized (mbox) {
             try {
-                OtpMsg msg = mbox.receiveMsg(0);
-                while (msg != null) {
+                do {
+                    final OtpMsg msg = mbox.receiveMsg(0L);
+                    if (msg == null) {
+                        break;
+                    }
                     try {
                         switch (msg.type()) {
                         case OtpMsg.sendTag:
@@ -93,10 +96,7 @@ public abstract class Service implements Runnable {
                     } catch (Exception e) {
                         logger.error(this + " encountered exception", e);
                     }
-
-                    msg = mbox.receiveMsg(0);
-                }
-
+                } while (true);
             } catch (OtpErlangExit e) {
                 if (!asAtom("normal").equals(e.reason())) {
                     logger.error(String.format("%s exiting for reason %s", this, e.reason()));
