@@ -122,7 +122,7 @@ public abstract class Service implements Runnable {
     }
 
     public void terminate(final OtpErlangObject reason) {
-        // Intentionally empty.
+        state.serviceRegistry.unregister(this);
     }
 
     protected void reply(final OtpErlangTuple from, final OtpErlangObject reply) throws IOException {
@@ -140,6 +140,10 @@ public abstract class Service implements Runnable {
     public final void exit(final OtpErlangObject reason) throws IOException {
         mbox.exit(reason);
         terminate(reason);
+    }
+
+    public String getName() {
+        return mbox.getName();
     }
 
     public OtpErlangPid self() {

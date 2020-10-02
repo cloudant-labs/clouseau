@@ -79,8 +79,8 @@ public class Main {
         final ClouseauNode node = new ClouseauNode(name, cookie, serviceRegistry);
         final ServerState state = new ServerState(config, node, serviceRegistry, METRIC_REGISTRY, scheduledExecutor);
 
-        serviceRegistry.register("main", new IndexManagerService(state));
-        serviceRegistry.register("analyze", new AnalyzerService(state));
+        serviceRegistry.register(new IndexManagerService(state));
+        serviceRegistry.register(new AnalyzerService(state));
 
         logger.info("Clouseau running as " + name);
 

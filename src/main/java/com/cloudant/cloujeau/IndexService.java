@@ -192,6 +192,7 @@ public class IndexService extends Service {
 
     @Override
     public void terminate(final OtpErlangObject reason) {
+        super.terminate(reason);
         commitFuture.cancel(false);
         if (closeFuture != null) {
             closeFuture.cancel(false);

@@ -16,20 +16,22 @@ public final class ServiceRegistry {
         this.executor = executor;
     }
 
-    public void register(final String name, final Service service) {
-        registeredServices.put(name, service);
+    public void register(final Service service) {
+        final String name = service.getName();
+        if (name != null) {
+            registeredServices.put(name, service);
+        } else {
+            unregisteredServices.put(service.self(), service);
+        }
     }
 
-    public void register(final OtpErlangPid pid, final Service service) {
-        unregisteredServices.put(pid, service);
-    }
-
-    public void unregister(final String name) {
-        registeredServices.remove(name);
-    }
-
-    public void unregister(final OtpErlangPid pid) {
-        unregisteredServices.remove(pid);
+    public void unregister(final Service service) {
+        final String name = service.getName();
+        if (name != null) {
+            registeredServices.remove(name);
+        } else {
+            unregisteredServices.remove(service.self());
+        }
     }
 
     public void setMessagePending(final String name) {
