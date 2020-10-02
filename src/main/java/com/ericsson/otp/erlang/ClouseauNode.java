@@ -1,20 +1,15 @@
 package com.ericsson.otp.erlang;
 
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
 
-import com.cloudant.cloujeau.Service;
 import com.cloudant.cloujeau.ServiceRegistry;
 
 public class ClouseauNode extends OtpNode {
 
-    private final ExecutorService executor;
     private final ServiceRegistry serviceRegistry;
 
-    public ClouseauNode(String node, String cookie, final ExecutorService executor,
-            final ServiceRegistry serviceRegistry) throws IOException {
+    public ClouseauNode(String node, String cookie, final ServiceRegistry serviceRegistry) throws IOException {
         super(node, cookie);
-        this.executor = executor;
         this.serviceRegistry = serviceRegistry;
     }
 
@@ -26,12 +21,11 @@ public class ClouseauNode extends OtpNode {
             if (t == OtpMsg.regSendTag) {
                 final String name = m.getRecipientName();
                 if (!name.equals("net_kernel")) {
-                    final Service service = serviceRegistry.lookup(m.getRecipientName());
-                    // executor.execute(service);
+                    serviceRegistry.setMessagePending(m.getRecipientName());
+
                 }
             } else {
-                final Service service = serviceRegistry.lookup(m.getRecipientPid());
-                // executor.execute(service);
+                serviceRegistry.setMessagePending(m.getRecipientPid());
             }
         }
         return delivered;

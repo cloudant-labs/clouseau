@@ -28,8 +28,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.jmx.JmxReporter;
 import com.ericsson.otp.erlang.ClouseauNode;
 
-import com.ericsson.otp.erlang.OtpNode;
-
 public class Main {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
@@ -48,9 +46,8 @@ public class Main {
         Runtime.getRuntime().addShutdownHook(SHUTDOWN_HOOK);
     }
 
-    private static final ExecutorService executor = Executors
-            .newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-
+    private static final int nThreads = Runtime.getRuntime().availableProcessors();
+    private static final ExecutorService executor = Executors.newFixedThreadPool(nThreads);
     private static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(1);
 
     public static void main(final String[] args) throws Exception {
@@ -78,9 +75,8 @@ public class Main {
                             idleTimeout));
         }
 
-        final ServiceRegistry serviceRegistry = new ServiceRegistry();
-        final OtpNode node = new ClouseauNode(name, cookie, executor, serviceRegistry);
-
+        final ServiceRegistry serviceRegistry = new ServiceRegistry(executor);
+        final ClouseauNode node = new ClouseauNode(name, cookie, serviceRegistry);
         final ServerState state = new ServerState(config, node, serviceRegistry, METRIC_REGISTRY, scheduledExecutor);
 
         serviceRegistry.register("main", new IndexManagerService(state));

@@ -47,12 +47,10 @@ public abstract class Service implements Runnable {
     public void run() {
         final String originalThreadName = Thread.currentThread().getName();
         Thread.currentThread().setName(toString());
-        int msgCount = 0;
         synchronized (mbox) {
             try {
                 OtpMsg msg = mbox.receiveMsg(0);
                 while (msg != null) {
-                    msgCount++;
                     try {
                         switch (msg.type()) {
                         case OtpMsg.sendTag:
@@ -108,7 +106,6 @@ public abstract class Service implements Runnable {
             } catch (InterruptedException e) {
                 return;
             } finally {
-                logger.info(toString() + " " + originalThreadName + " " + msgCount);
                 Thread.currentThread().setName(originalThreadName);
             }
         }
@@ -147,6 +144,31 @@ public abstract class Service implements Runnable {
 
     public OtpErlangPid self() {
         return mbox.self();
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((mbox == null) ? 0 : mbox.self().hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        Service other = (Service) obj;
+        if (mbox == null) {
+            if (other.mbox != null)
+                return false;
+        } else if (!mbox.self().equals(other.mbox.self()))
+            return false;
+        return true;
     }
 
     public String toString() {
