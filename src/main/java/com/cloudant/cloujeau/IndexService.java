@@ -24,6 +24,7 @@ import java.util.function.Supplier;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.ParseException;
@@ -34,7 +35,6 @@ import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.search.TopScoreDocCollector;
@@ -59,7 +59,7 @@ public class IndexService extends Service {
 
     private final IndexWriter writer;
 
-    private final SearcherManager searcherManager;
+    private DirectoryReader reader;
 
     private final QueryParser qp;
 
@@ -99,7 +99,7 @@ public class IndexService extends Service {
         }
         this.name = name;
         this.writer = writer;
-        this.searcherManager = new SearcherManager(writer, true, null);
+        this.reader = DirectoryReader.open(writer, true);
         this.qp = qp;
 
         searchTimer = state.metricRegistry.timer("com.cloudant.clouseau:type=IndexService,name=searches");
@@ -198,9 +198,9 @@ public class IndexService extends Service {
             closeFuture.cancel(false);
         }
         try {
-            searcherManager.close();
+            reader.close();
         } catch (IOException e) {
-            error("Error while closing searcher", e);
+            error("Error while closing reader", e);
         }
         try {
             writer.rollback();
@@ -233,34 +233,39 @@ public class IndexService extends Service {
 
         final Query query = baseQuery; // TODO add the other goop.
 
-        if (refresh) {
-            try {
-                searcherManager.maybeRefreshBlocking();
-            } catch (final IOException e) {
-                error("I/O exception while refreshing searcher", e);
-                IndexService.this.terminate(asBinary(e.getMessage()));
-            }
-        }
+        final IndexSearcher searcher = getSearcher(refresh);
 
-        final IndexSearcher searcher = searcherManager.acquire();
-        try {
-            final Weight weight = searcher.createNormalizedWeight(query);
-            final boolean docsScoredInOrder = !weight.scoresDocsOutOfOrder();
-            final Collector collector;
-            if (limit == 0) {
-                collector = new TotalHitCountCollector();
-            } else {
-                collector = TopScoreDocCollector.create(limit, docsScoredInOrder);
-            }
-            searcher.search(query, collector);
-            return tuple(
-                    asAtom("ok"),
-                    asList(
-                            tuple(asAtom("update_seq"), asOtp(updateSeq)),
-                            tuple(asAtom("total_hits"), asOtp(getTotalHits(collector))),
-                            tuple(asAtom("hits"), getHits(searcher, collector))));
-        } finally {
-            searcherManager.release(searcher);
+        final Weight weight = searcher.createNormalizedWeight(query);
+        final boolean docsScoredInOrder = !weight.scoresDocsOutOfOrder();
+        final Collector collector;
+        if (limit == 0) {
+            collector = new TotalHitCountCollector();
+        } else {
+            collector = TopScoreDocCollector.create(limit, docsScoredInOrder);
+        }
+        searcher.search(query, collector);
+        return tuple(
+                asAtom("ok"),
+                asList(
+                        tuple(asAtom("update_seq"), asOtp(updateSeq)),
+                        tuple(asAtom("total_hits"), asOtp(getTotalHits(collector))),
+                        tuple(asAtom("hits"), getHits(searcher, collector))));
+
+    }
+
+    private IndexSearcher getSearcher(boolean refresh) throws IOException {
+        if (forceRefresh || refresh) {
+            reopenIfChanged();
+        }
+        return new IndexSearcher(reader);
+    }
+
+    private void reopenIfChanged() throws IOException {
+        final DirectoryReader newReader = DirectoryReader.openIfChanged(reader);
+        if (newReader != null) {
+            this.reader.close();
+            this.reader = newReader;
+            this.forceRefresh = false;
         }
     }
 
