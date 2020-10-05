@@ -34,8 +34,16 @@ public final class ServiceRegistry {
         }
     }
 
+    public Service lookup(final String name) {
+        return registeredServices.get(name);
+    }
+
+    public Service lookup(final OtpErlangPid pid) {
+        return unregisteredServices.get(pid);
+    }
+
     public void setMessagePending(final String name) {
-        final Service service = registeredServices.get(name);
+        final Service service = lookup(name);
         if (service != null) {
             executor.execute(service);
         }

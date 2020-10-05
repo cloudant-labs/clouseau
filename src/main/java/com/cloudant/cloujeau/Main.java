@@ -81,6 +81,7 @@ public class Main {
 
         serviceRegistry.register(new IndexManagerService(state));
         serviceRegistry.register(new AnalyzerService(state));
+        serviceRegistry.register(new IndexCleanupService(state));
 
         logger.info("Clouseau running as " + name);
 

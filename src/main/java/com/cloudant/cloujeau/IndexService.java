@@ -13,6 +13,7 @@ import static com.cloudant.cloujeau.OtpUtils.asString;
 import static com.cloudant.cloujeau.OtpUtils.emptyList;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -188,6 +189,23 @@ public class IndexService extends Service {
         }
 
         return null;
+    }
+
+    @Override
+    public void handleInfo(final OtpErlangObject request) throws IOException {
+        idle = false;
+        if (request instanceof OtpErlangAtom) {
+            switch (asString(request)) {
+            case "delete": {
+                final Directory dir = writer.getDirectory();
+                writer.close();
+                for (String file : dir.listAll()) {
+                    dir.deleteFile(file);
+                }
+                exit(asAtom("deleted"));
+            }
+            }
+        }
     }
 
     @Override

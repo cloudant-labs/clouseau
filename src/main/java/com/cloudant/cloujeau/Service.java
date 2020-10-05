@@ -103,6 +103,7 @@ public abstract class Service implements Runnable {
                 }
                 terminate(e.reason());
                 mbox.close();
+                return;
             } catch (InterruptedException e) {
                 return;
             } finally {
@@ -135,6 +136,10 @@ public abstract class Service implements Runnable {
 
     public final void unlink(final OtpErlangPid pid) {
         mbox.unlink(pid);
+    }
+
+    public final void send(final OtpErlangPid to, final OtpErlangObject msg) {
+        mbox.send(to, msg);
     }
 
     public final void exit(final OtpErlangObject reason) throws IOException {
