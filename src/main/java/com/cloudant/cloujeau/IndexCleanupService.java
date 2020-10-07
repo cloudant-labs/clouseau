@@ -7,7 +7,10 @@ import java.io.File;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.TimeZone;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
@@ -37,9 +40,9 @@ public class IndexCleanupService extends Service {
             }
             if (asAtom("cleanup").equals(tuple.elementAt(0)) && tuple.arity() == 3) {
                 final OtpErlangList list = (OtpErlangList) tuple.elementAt(2);
-                final String[] activeSigs = new String[list.arity()];
-                for (int i = 0; i < activeSigs.length; i++) {
-                    activeSigs[i] = asString((OtpErlangBinary) list.elementAt(i));
+                final Set<String> activeSigs = new HashSet<String>(list.arity());
+                for (int i = 0; i < list.arity(); i++) {
+                    activeSigs,add(asString((OtpErlangBinary) list.elementAt(i)));
                 }
                 cleanupDb(asString(tuple.elementAt(1)), activeSigs);
             }
@@ -55,7 +58,7 @@ public class IndexCleanupService extends Service {
         recursivelyDelete(dir);
     }
 
-    private void cleanupDb(String dbName, String[] activeSigs) {
+    private void cleanupDb(String dbName, Set<String> activeSigs) {
         logger.info("Cleaning up " + dbName);
         final Pattern pattern = Pattern.compile("shards/[0-9a-f]+-[0-9a-f]+/" + dbName + "\\.[0-9]+/([0-9a-f]+)$");
         cleanup(rootDir, pattern, activeSigs);
@@ -85,7 +88,7 @@ public class IndexCleanupService extends Service {
         }
     }
 
-    private void cleanup(final File fileOrDir, final Pattern includePattern, final String[] activeSigs) {
+    private void cleanup(final File fileOrDir, final Pattern includePattern, final Set<String> activeSigs) {
         if (!fileOrDir.isDirectory()) {
           return;
         }
@@ -95,6 +98,8 @@ public class IndexCleanupService extends Service {
         Matcher m = includePattern.matcher(fileOrDir.getAbsolutePath());
         if (m.find() && !activeSigs.contains(m.group(1))) {
           logger.info("Removing unreachable index " + m.group());
+          final Service main = state.serviceRegistry.lookup("main");
+          main.handleCall(from, request);
           call('main, ('delete, m.group)) match {
             case 'ok =>
               'ok
@@ -107,10 +112,12 @@ public class IndexCleanupService extends Service {
 
     private void recursivelyDelete(final File fileOrDir) {
         if (fileOrDir.isDirectory()) {
-            for (File file : fileOrDir.listFiles())
+            for (File file : fileOrDir.listFiles()) {
                 recursivelyDelete(file);
-            if (fileOrDir.isFile())
+            }
+            if (fileOrDir.isFile()) {
                 fileOrDir.delete();
+            }
         }
     }
 

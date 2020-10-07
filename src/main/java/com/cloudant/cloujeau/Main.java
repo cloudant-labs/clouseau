@@ -86,6 +86,7 @@ public class Main {
         logger.info("Clouseau running as " + name);
 
         executor.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
+        node.close();
     }
 
 }

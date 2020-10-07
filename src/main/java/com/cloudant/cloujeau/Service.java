@@ -44,7 +44,7 @@ public abstract class Service implements Runnable {
     }
 
     // Process all messages in the mailbox (one thread maximum per service).
-    public void run() {
+    public final void run() {
         final String originalThreadName = Thread.currentThread().getName();
         Thread.currentThread().setName(toString());
         synchronized (mbox) {
@@ -126,7 +126,7 @@ public abstract class Service implements Runnable {
         state.serviceRegistry.unregister(this);
     }
 
-    protected void reply(final OtpErlangTuple from, final OtpErlangObject reply) throws IOException {
+    public final void reply(final OtpErlangTuple from, final OtpErlangObject reply) throws IOException {
         OtpUtils.reply(mbox, from, reply);
     }
 
@@ -138,6 +138,14 @@ public abstract class Service implements Runnable {
         mbox.unlink(pid);
     }
 
+    public final void send(final String name, final OtpErlangObject msg) {
+        mbox.send(name, msg);
+    }
+
+    public final void send(final String name, final String node, final OtpErlangObject msg) {
+        mbox.send(name, node, msg);
+    }
+
     public final void send(final OtpErlangPid to, final OtpErlangObject msg) {
         mbox.send(to, msg);
     }
@@ -147,11 +155,11 @@ public abstract class Service implements Runnable {
         terminate(reason);
     }
 
-    public String getName() {
+    public final String getName() {
         return mbox.getName();
     }
 
-    public OtpErlangPid self() {
+    public final OtpErlangPid self() {
         return mbox.self();
     }
 
