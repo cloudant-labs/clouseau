@@ -2,6 +2,7 @@ package com.cloudant.cloujeau;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -176,6 +177,24 @@ public final class OtpUtils {
             return new OtpErlangList(to);
         }
         throw new IllegalArgumentException(obj + " cannot be converted to otp");
+    }
+
+    public static List<String> asListOfStrings(final OtpErlangList list) {
+        if (list == null) {
+            return null;
+        }
+        final List<String> result = new ArrayList<String>();
+        for (final OtpErlangObject item : list) {
+            result.add(asString(item));
+        }
+        return result;
+    }
+
+    public static String[] asArrayOfStrings(final OtpErlangList list) {
+        if (list == null) {
+            return null;
+        }
+        return asListOfStrings(list).toArray(new String[list.arity()]);
     }
 
     public static void reply(final OtpMbox mbox, final OtpErlangTuple from, final OtpErlangObject reply)

@@ -14,6 +14,7 @@ package com.cloudant.cloujeau;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 
 import org.apache.commons.configuration.CompositeConfiguration;
 import org.apache.commons.configuration.FileConfiguration;
@@ -45,7 +46,14 @@ public class Main {
     }
 
     private static final int nThreads = Runtime.getRuntime().availableProcessors();
-    private static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(1);
+    private static final ScheduledExecutorService scheduledExecutor = Executors
+            .newScheduledThreadPool(1, new ThreadFactory() {
+
+                @Override
+                public Thread newThread(Runnable r) {
+                    throw new UnsupportedOperationException("newThread not supported.");
+                }
+            });
 
     public static void main(final String[] args) throws Exception {
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {

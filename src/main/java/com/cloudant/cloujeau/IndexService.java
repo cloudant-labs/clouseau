@@ -1,11 +1,13 @@
 package com.cloudant.cloujeau;
 
+import static com.cloudant.cloujeau.OtpUtils.asArrayOfStrings;
 import static com.cloudant.cloujeau.OtpUtils.asAtom;
 import static com.cloudant.cloujeau.OtpUtils.asBinary;
 import static com.cloudant.cloujeau.OtpUtils.asBoolean;
 import static com.cloudant.cloujeau.OtpUtils.asFloat;
 import static com.cloudant.cloujeau.OtpUtils.asInt;
 import static com.cloudant.cloujeau.OtpUtils.asList;
+import static com.cloudant.cloujeau.OtpUtils.asListOfStrings;
 import static com.cloudant.cloujeau.OtpUtils.asLong;
 import static com.cloudant.cloujeau.OtpUtils.asMap;
 import static com.cloudant.cloujeau.OtpUtils.asOtp;
@@ -22,9 +24,14 @@ import java.util.Map;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.facet.params.FacetIndexingParams;
+import org.apache.lucene.facet.search.DrillDownQuery;
+import org.apache.lucene.facet.taxonomy.CategoryPath;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
@@ -36,6 +43,8 @@ import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.search.TopScoreDocCollector;
@@ -47,11 +56,19 @@ import org.apache.lucene.store.Directory;
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Timer;
 import com.ericsson.otp.erlang.OtpErlangAtom;
+import com.ericsson.otp.erlang.OtpErlangBinary;
 import com.ericsson.otp.erlang.OtpErlangList;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangTuple;
 
 public class IndexService extends Service {
+
+    private static final SortField INVERSE_FIELD_SCORE = new SortField(null, SortField.Type.SCORE, true);
+    private static final SortField INVERSE_FIELD_DOC = new SortField(null, SortField.Type.DOC, true);
+    private static final Pattern SORT_FIELD_RE = Pattern.compile("^([-+])?([\\.\\w]+)(?:<(\\w+)>)?$");
+    private static final Pattern FP = Pattern.compile("([-+]?[0-9]+(?:\\.[0-9]+)?)");
+    private static final Pattern DISTANCE_RE = Pattern
+            .compile(String.format("^([-+])?<distance,([\\.\\w]+),([\\.\\w]+),%s,%s,(mi|km)>$", FP, FP));
 
     private static final Logger logger = Logger.getLogger("clouseau");
 
@@ -247,9 +264,13 @@ public class IndexService extends Service {
         final int limit = asInt(searchRequest.getOrDefault(asAtom("limit"), asInt(25)));
         final String partition = asString(searchRequest.get(asAtom("partition")));
 
-        final OtpErlangList counts = nilToNull(searchRequest.get(asAtom("counts")));
-        final OtpErlangList ranges = nilToNull(searchRequest.get(asAtom("ranges")));
-        final OtpErlangList includeFields = nilToNull(searchRequest.get(asAtom("include_fields")));
+        final List<String> counts = asListOfStrings(nilToNull(searchRequest.get(asAtom("counts"))));
+        final List<String> ranges = asListOfStrings(nilToNull(searchRequest.get(asAtom("ranges"))));
+
+        final List<String> includeFields = asListOfStrings(nilToNull(searchRequest.get(asAtom("include_fields"))));
+        if (includeFields != null) {
+            includeFields.add("_id");
+        }
 
         final Query baseQuery;
         try {
@@ -258,12 +279,35 @@ public class IndexService extends Service {
             return tuple(asAtom("error"), tuple(asAtom("bad_request"), asBinary(e.getMessage())));
         }
 
-        final Query query = baseQuery; // TODO add the other goop.
+        final Query query;
+        final OtpErlangList categories = nilToNull(searchRequest.get(asAtom("drilldown")));
+        if (categories == null) {
+            query = baseQuery;
+        } else {
+            final DrillDownQuery drilldownQuery = new DrillDownQuery(FacetIndexingParams.DEFAULT, baseQuery);
+            categories.forEach((category) -> {
+                final OtpErlangList category1 = (OtpErlangList) category;
+                if (category1.arity() < 3) {
+                    drilldownQuery.add(new CategoryPath(asArrayOfStrings(category1)));
+                } else {
+                    final String dim = asString(category1.elementAt(0));
+                    final CategoryPath[] categoryPaths = new CategoryPath[category1.arity() - 1];
+                    for (int i = 1; i < categoryPaths.length; i++) {
+                        categoryPaths[i - 1] = new CategoryPath(dim, asString(category1.elementAt(i)));
+                    }
+                    drilldownQuery.add(categoryPaths);
+                }
+            });
+            query = drilldownQuery;
+        }
 
         final IndexSearcher searcher = getSearcher(refresh);
 
         final Weight weight = searcher.createNormalizedWeight(query);
         final boolean docsScoredInOrder = !weight.scoresDocsOutOfOrder();
+
+        final Sort sort = parseSort(searchRequest.getOrDefault(asAtom("sort"), asAtom("relevance"))).rewrite(searcher);
+
         final Collector collector;
         if (limit == 0) {
             collector = new TotalHitCountCollector();
@@ -345,6 +389,55 @@ public class IndexService extends Service {
 
         final OtpErlangObject order = asList(asFloat(scoreDoc.score), asInt(scoreDoc.doc));
         return tuple(asAtom("hit"), order, asOtp(fields));
+    }
+
+    private Sort parseSort(final OtpErlangObject obj) throws ParseException {
+        if (asAtom("relevance").equals(obj)) {
+            return Sort.RELEVANCE;
+        }
+        if (obj instanceof OtpErlangBinary) {
+            return new Sort(toSortField(asString(obj)));
+        }
+        if (obj instanceof OtpErlangList) {
+            final OtpErlangList list = (OtpErlangList) obj;
+            final SortField[] fields = new SortField[list.arity()];
+            for (int i = 0; i < fields.length; i++) {
+                fields[i] = toSortField(asString(list.elementAt(i)));
+            }
+            return new Sort(fields);
+        }
+        throw new ParseException(obj + " is not a valid sort");
+    }
+
+    private SortField toSortField(final String field) throws ParseException {
+        switch (field) {
+        case "<score>":
+            return IndexService.INVERSE_FIELD_SCORE;
+        case "-<score>":
+            return SortField.FIELD_SCORE;
+        case "<doc>":
+            return SortField.FIELD_DOC;
+        case "-<doc>":
+            return IndexService.INVERSE_FIELD_DOC;
+        default:
+            final Matcher m = SORT_FIELD_RE.matcher(field);
+            if (m.matches()) {
+                final String fieldOrder = m.group(1);
+                final String fieldName = m.group(2);
+                final SortField.Type fieldType;
+                if ("string".equals(m.group(3))) {
+                    fieldType = SortField.Type.STRING;
+                } else if ("number".equals(m.group(3))) {
+                    fieldType = SortField.Type.DOUBLE;
+                } else if (null == m.group(3)) {
+                    fieldType = SortField.Type.DOUBLE;
+                } else {
+                    throw new ParseException("Unrecognized type: " + m.group(3));
+                }
+                return new SortField(fieldName, fieldType, fieldOrder == "-");
+            }
+            throw new ParseException("Unrecognized sort parameter: " + field);
+        }
     }
 
     private Query parseQuery(final String query, final String partition) throws ParseException {
