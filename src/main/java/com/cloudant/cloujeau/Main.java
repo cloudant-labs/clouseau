@@ -12,10 +12,8 @@
 
 package com.cloudant.cloujeau;
 
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.configuration.CompositeConfiguration;
 import org.apache.commons.configuration.FileConfiguration;
@@ -47,7 +45,6 @@ public class Main {
     }
 
     private static final int nThreads = Runtime.getRuntime().availableProcessors();
-    private static final ExecutorService executor = Executors.newFixedThreadPool(nThreads);
     private static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(1);
 
     public static void main(final String[] args) throws Exception {
@@ -75,7 +72,7 @@ public class Main {
                             idleTimeout));
         }
 
-        final ServiceRegistry serviceRegistry = new ServiceRegistry(executor);
+        final ServiceRegistry serviceRegistry = new ServiceRegistry();
         final ClouseauNode node = new ClouseauNode(name, cookie, serviceRegistry);
         final ServerState state = new ServerState(config, node, serviceRegistry, METRIC_REGISTRY, scheduledExecutor);
 
@@ -83,10 +80,47 @@ public class Main {
         serviceRegistry.register(new AnalyzerService(state));
         serviceRegistry.register(new IndexCleanupService(state));
 
+        final Thread[] workers = new Thread[nThreads];
+        for (int i = 0; i < nThreads; i++) {
+            workers[i] = new Thread(new Worker(state), "ClouseauWorker-" + i);
+            workers[i].start();
+        }
+
         logger.info("Clouseau running as " + name);
 
-        executor.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
+        for (int i = 0; i < nThreads; i++) {
+            workers[i].join();
+        }
+
         node.close();
+    }
+
+    private static class Worker implements Runnable {
+
+        private final ServerState state;
+
+        public Worker(final ServerState state) {
+            this.state = state;
+        }
+
+        @Override
+        public void run() {
+            while (!Thread.interrupted()) {
+                final Service service = state.serviceRegistry.takePending();
+
+                final Thread currentThread = Thread.currentThread();
+                final String originalThreadName = currentThread.getName();
+                currentThread.setName(service.toString());
+                try {
+                    service.processMessages();
+                } finally {
+                    currentThread.setName(originalThreadName);
+                }
+            }
+            logger.fatal("Worker thread was interrupted");
+            System.exit(1);
+        }
+
     }
 
 }

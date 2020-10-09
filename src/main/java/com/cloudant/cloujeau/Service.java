@@ -15,7 +15,7 @@ import com.ericsson.otp.erlang.OtpErlangTuple;
 import com.ericsson.otp.erlang.OtpMbox;
 import com.ericsson.otp.erlang.OtpMsg;
 
-public abstract class Service implements Runnable {
+public abstract class Service {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
 
@@ -43,72 +43,73 @@ public abstract class Service implements Runnable {
         this.mbox = mbox;
     }
 
-    // Process all messages in the mailbox (one thread maximum per service).
-    public final void run() {
+    public final void processMessages() {
         final String originalThreadName = Thread.currentThread().getName();
         Thread.currentThread().setName(toString());
-        synchronized (mbox) {
-            try {
-                do {
-                    final OtpMsg msg = mbox.receiveMsg(0L);
-                    if (msg == null) {
-                        break;
-                    }
-                    try {
-                        switch (msg.type()) {
-                        case OtpMsg.sendTag:
-                        case OtpMsg.regSendTag: {
-                            final OtpErlangObject obj = msg.getMsg();
-                            if (obj instanceof OtpErlangTuple) {
-                                final OtpErlangTuple tuple = (OtpErlangTuple) obj;
-                                final OtpErlangAtom atom = (OtpErlangAtom) tuple.elementAt(0);
-
-                                // gen_call
-                                if (asAtom("$gen_call").equals(atom)) {
-                                    final OtpErlangTuple from = (OtpErlangTuple) tuple.elementAt(1);
-                                    final OtpErlangObject request = tuple.elementAt(2);
-
-                                    final OtpErlangObject response = handleCall(from, request);
-                                    if (response != null) {
-                                        reply(from, response);
-                                    } else {
-                                        reply(from, INVALID_MSG);
-                                    }
-                                }
-                                // gen cast
-                                else if (asAtom("$gen_cast").equals(atom)) {
-                                    final OtpErlangObject request = tuple.elementAt(1);
-                                    handleCast(request);
-                                }
-                            } else {
-                                // handle info
-                                handleInfo(obj);
-                            }
-                        }
-                            break;
-
-                        default:
-                            logger.warn("received message of unknown type " + msg.type());
-                        }
-                    } catch (Error e) {
-                        logger.fatal(this + " encountered error", e);
-                        System.exit(1);
-                    } catch (Exception e) {
-                        logger.error(this + " encountered exception", e);
-                    }
-                } while (true);
-            } catch (OtpErlangExit e) {
-                if (!asAtom("normal").equals(e.reason())) {
-                    logger.error(String.format("%s exiting for reason %s", this, e.reason()));
+        try {
+            do {
+                final OtpMsg msg = mbox.receiveMsg(0L);
+                if (msg == null) {
+                    break;
                 }
-                terminate(e.reason());
-                mbox.close();
-                return;
-            } catch (InterruptedException e) {
-                return;
-            } finally {
-                Thread.currentThread().setName(originalThreadName);
+                handleMsg(msg);
+            } while (true);
+        } catch (OtpErlangExit e) {
+            if (!asAtom("normal").equals(e.reason())) {
+                logger.error(String.format("%s exiting for reason %s", this, e.reason()));
             }
+            terminate(e.reason());
+            mbox.close();
+            return;
+        } catch (InterruptedException e) {
+            return;
+        } finally {
+            Thread.currentThread().setName(originalThreadName);
+        }
+    }
+
+    private void handleMsg(final OtpMsg msg) {
+        try {
+            switch (msg.type()) {
+            case OtpMsg.sendTag:
+            case OtpMsg.regSendTag: {
+                final OtpErlangObject obj = msg.getMsg();
+                if (obj instanceof OtpErlangTuple) {
+                    final OtpErlangTuple tuple = (OtpErlangTuple) obj;
+                    final OtpErlangAtom atom = (OtpErlangAtom) tuple.elementAt(0);
+
+                    // gen_call
+                    if (asAtom("$gen_call").equals(atom)) {
+                        final OtpErlangTuple from = (OtpErlangTuple) tuple.elementAt(1);
+                        final OtpErlangObject request = tuple.elementAt(2);
+
+                        final OtpErlangObject response = handleCall(from, request);
+                        if (response != null) {
+                            reply(from, response);
+                        } else {
+                            reply(from, INVALID_MSG);
+                        }
+                    }
+                    // gen cast
+                    else if (asAtom("$gen_cast").equals(atom)) {
+                        final OtpErlangObject request = tuple.elementAt(1);
+                        handleCast(request);
+                    }
+                } else {
+                    // handle info
+                    handleInfo(obj);
+                }
+            }
+                break;
+
+            default:
+                logger.warn("received message of unknown type " + msg.type());
+            }
+        } catch (final Error e) {
+            logger.fatal(this + " encountered error", e);
+            System.exit(1);
+        } catch (final Exception e) {
+            logger.error(this + " encountered exception", e);
         }
     }
 

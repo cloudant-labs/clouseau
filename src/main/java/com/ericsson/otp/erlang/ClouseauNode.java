@@ -21,11 +21,11 @@ public class ClouseauNode extends OtpNode {
             if (t == OtpMsg.regSendTag) {
                 final String name = m.getRecipientName();
                 if (!name.equals("net_kernel")) {
-                    serviceRegistry.setMessagePending(m.getRecipientName());
+                    serviceRegistry.addPending(m.getRecipientName());
 
                 }
             } else {
-                serviceRegistry.setMessagePending(m.getRecipientPid());
+                serviceRegistry.addPending(m.getRecipientPid());
             }
         }
         return delivered;

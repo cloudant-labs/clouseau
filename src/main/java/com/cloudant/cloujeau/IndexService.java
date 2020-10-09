@@ -11,9 +11,9 @@ import static com.cloudant.cloujeau.OtpUtils.asMap;
 import static com.cloudant.cloujeau.OtpUtils.asOtp;
 import static com.cloudant.cloujeau.OtpUtils.asString;
 import static com.cloudant.cloujeau.OtpUtils.emptyList;
+import static com.cloudant.cloujeau.OtpUtils.nilToNull;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -47,7 +47,6 @@ import org.apache.lucene.store.Directory;
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Timer;
 import com.ericsson.otp.erlang.OtpErlangAtom;
-import com.ericsson.otp.erlang.OtpErlangBinary;
 import com.ericsson.otp.erlang.OtpErlangList;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangTuple;
@@ -170,17 +169,7 @@ public class IndexService extends Service {
                     return asAtom("ok");
                 }
                 case "update": {
-                    final Document doc = ClouseauTypeFactory.newDocument(tuple.elementAt(1), tuple.elementAt(2));
-                    debug("Updating " + doc.get("_id"));
-                    updateTimer.time(() -> {
-                        try {
-                            writer.updateDocument(new Term("_id", doc.get("_id")), doc);
-                        } catch (final IOException e) {
-                            error("I/O exception when updating docs", e);
-                            terminate(asBinary(e.getMessage()));
-                        }
-                    });
-                    return asAtom("ok");
+                    return handleUpdateCall(tuple);
                 }
                 case "search":
                     return handleSearchCall(from, asMap(tuple.elementAt(1)));
@@ -189,6 +178,21 @@ public class IndexService extends Service {
         }
 
         return null;
+    }
+
+    private OtpErlangObject handleUpdateCall(final OtpErlangTuple tuple) throws IOException {
+        final Document doc = ClouseauTypeFactory.newDocument(tuple.elementAt(1), tuple.elementAt(2));
+        debug("Updating " + doc.get("_id"));
+        debug(doc.toString());
+        updateTimer.time(() -> {
+            try {
+                writer.updateDocument(new Term("_id", doc.get("_id")), doc);
+            } catch (final IOException e) {
+                error("I/O exception when updating docs", e);
+                terminate(asBinary(e.getMessage()));
+            }
+        });
+        return asAtom("ok");
     }
 
     @Override
@@ -242,9 +246,9 @@ public class IndexService extends Service {
         final int limit = asInt(searchRequest.getOrDefault(asAtom("limit"), asInt(25)));
         final String partition = asString(searchRequest.get(asAtom("partition")));
 
-        final OtpErlangList counts = (OtpErlangList) searchRequest.get(asAtom("counts"));
-        final OtpErlangList ranges = (OtpErlangList) searchRequest.get(asAtom("ranges"));
-        final OtpErlangList includeFields = (OtpErlangList) searchRequest.get(asAtom("include_fields"));
+        final OtpErlangList counts = nilToNull(searchRequest.get(asAtom("counts")));
+        final OtpErlangList ranges = nilToNull(searchRequest.get(asAtom("ranges")));
+        final OtpErlangList includeFields = nilToNull(searchRequest.get(asAtom("include_fields")));
 
         final Query baseQuery;
         try {
@@ -254,6 +258,7 @@ public class IndexService extends Service {
         }
 
         final Query query = baseQuery; // TODO add the other goop.
+        System.err.println(query);
 
         final IndexSearcher searcher = getSearcher(refresh);
 
@@ -342,12 +347,12 @@ public class IndexService extends Service {
         return tuple(asAtom("hit"), order, asOtp(fields));
     }
 
-    private Query parseQuery(final String query, final Object partition) throws ParseException {
-        if (asAtom("nil").equals(partition)) {
+    private Query parseQuery(final String query, final String partition) throws ParseException {
+        if (partition == null) {
             return qp.parse(query);
         } else {
             final BooleanQuery result = new BooleanQuery();
-            result.add(new TermQuery(new Term("_partition", asString((OtpErlangBinary) partition))), Occur.MUST);
+            result.add(new TermQuery(new Term("_partition", partition)), Occur.MUST);
             result.add(qp.parse(query), Occur.MUST);
             return result;
         }

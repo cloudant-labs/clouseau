@@ -82,6 +82,9 @@ public final class OtpUtils {
         if (obj == null) {
             return null;
         }
+        if (isNil(obj)) {
+            return null;
+        }
         if (obj instanceof OtpErlangBinary) {
             try {
                 return new String(((OtpErlangBinary) obj).binaryValue(), "UTF-8");
@@ -180,6 +183,18 @@ public final class OtpUtils {
         final OtpErlangPid fromPid = (OtpErlangPid) from.elementAt(0);
         final OtpErlangRef fromRef = (OtpErlangRef) from.elementAt(1);
         mbox.send(fromPid, tuple(fromRef, reply));
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T extends OtpErlangObject> T nilToNull(final OtpErlangObject obj) {
+        if (isNil(obj)) {
+            return null;
+        }
+        return (T) obj;
+    }
+
+    private static boolean isNil(final OtpErlangObject obj) {
+        return asAtom("nil").equals(obj);
     }
 
 }

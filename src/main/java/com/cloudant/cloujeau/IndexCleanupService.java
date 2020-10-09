@@ -42,7 +42,7 @@ public class IndexCleanupService extends Service {
                 final OtpErlangList list = (OtpErlangList) tuple.elementAt(2);
                 final Set<String> activeSigs = new HashSet<String>(list.arity());
                 for (int i = 0; i < list.arity(); i++) {
-                    activeSigs,add(asString((OtpErlangBinary) list.elementAt(i)));
+                    activeSigs.add(asString((OtpErlangBinary) list.elementAt(i)));
                 }
                 cleanupDb(asString(tuple.elementAt(1)), activeSigs);
             }
@@ -99,14 +99,15 @@ public class IndexCleanupService extends Service {
         if (m.find() && !activeSigs.contains(m.group(1))) {
           logger.info("Removing unreachable index " + m.group());
           final Service main = state.serviceRegistry.lookup("main");
-          main.handleCall(from, request);
-          call('main, ('delete, m.group)) match {
-            case 'ok =>
-              'ok
-            case ('error, 'not_found) =>
-              recursivelyDelete(fileOrDir)
-              fileOrDir.delete
-          }
+
+          // main.handleCall(from, request);
+//          call('main, ('delete, m.group)) match {
+//            case 'ok =>
+//              'ok
+//            case ('error, 'not_found) =>
+//              recursivelyDelete(fileOrDir)
+//              fileOrDir.delete
+//          }
         }
       }
 

@@ -1,8 +1,9 @@
 package com.cloudant.cloujeau;
 
+import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingDeque;
 
 import com.ericsson.otp.erlang.OtpErlangPid;
 
@@ -10,10 +11,9 @@ public final class ServiceRegistry {
 
     private final ConcurrentMap<String, Service> registeredServices = new ConcurrentHashMap<String, Service>();
     private final ConcurrentMap<OtpErlangPid, Service> unregisteredServices = new ConcurrentHashMap<OtpErlangPid, Service>();
-    private final ExecutorService executor;
+    private final BlockingDeque<Service> pending = new LinkedBlockingDeque<Service>();
 
-    public ServiceRegistry(final ExecutorService executor) {
-        this.executor = executor;
+    public ServiceRegistry() {
     }
 
     public void register(final Service service) {
@@ -42,17 +42,27 @@ public final class ServiceRegistry {
         return unregisteredServices.get(pid);
     }
 
-    public void setMessagePending(final String name) {
+    public void addPending(final String name) {
         final Service service = lookup(name);
         if (service != null) {
-            executor.execute(service);
+            pending.addLast(service);
         }
     }
 
-    public void setMessagePending(final OtpErlangPid pid) {
+    public void addPending(final OtpErlangPid pid) {
         final Service service = unregisteredServices.get(pid);
         if (service != null) {
-            executor.execute(service);
+            pending.addLast(service);
+        }
+    }
+
+    public Service takePending() {
+        while (true) {
+            try {
+                return pending.takeFirst();
+            } catch (final InterruptedException e) {
+                // retry.
+            }
         }
     }
 
