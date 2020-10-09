@@ -182,8 +182,9 @@ public class IndexService extends Service {
 
     private OtpErlangObject handleUpdateCall(final OtpErlangTuple tuple) throws IOException {
         final Document doc = ClouseauTypeFactory.newDocument(tuple.elementAt(1), tuple.elementAt(2));
-        debug("Updating " + doc.get("_id"));
-        debug(doc.toString());
+        if (logger.isDebugEnabled()) {
+            debug("Updating " + doc.get("_id"));
+        }
         updateTimer.time(() -> {
             try {
                 writer.updateDocument(new Term("_id", doc.get("_id")), doc);
@@ -258,7 +259,6 @@ public class IndexService extends Service {
         }
 
         final Query query = baseQuery; // TODO add the other goop.
-        System.err.println(query);
 
         final IndexSearcher searcher = getSearcher(refresh);
 

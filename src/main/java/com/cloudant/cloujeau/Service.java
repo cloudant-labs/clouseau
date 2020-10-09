@@ -44,8 +44,6 @@ public abstract class Service {
     }
 
     public final void processMessages() {
-        final String originalThreadName = Thread.currentThread().getName();
-        Thread.currentThread().setName(toString());
         try {
             do {
                 final OtpMsg msg = mbox.receiveMsg(0L);
@@ -63,8 +61,6 @@ public abstract class Service {
             return;
         } catch (InterruptedException e) {
             return;
-        } finally {
-            Thread.currentThread().setName(originalThreadName);
         }
     }
 

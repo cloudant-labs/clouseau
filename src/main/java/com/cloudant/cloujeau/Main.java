@@ -82,7 +82,7 @@ public class Main {
 
         final Thread[] workers = new Thread[nThreads];
         for (int i = 0; i < nThreads; i++) {
-            workers[i] = new Thread(new Worker(state), "ClouseauWorker-" + i);
+            workers[i] = new Thread(new Worker(state), "IdleClouseauWorker-" + i);
             workers[i].start();
         }
 
@@ -107,7 +107,6 @@ public class Main {
         public void run() {
             while (!Thread.interrupted()) {
                 final Service service = state.serviceRegistry.takePending();
-
                 final Thread currentThread = Thread.currentThread();
                 final String originalThreadName = currentThread.getName();
                 currentThread.setName(service.toString());
