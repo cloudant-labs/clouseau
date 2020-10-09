@@ -130,7 +130,7 @@ public class IndexService extends Service {
     }
 
     @Override
-    public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws IOException {
+    public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws Exception {
         idle = false;
         if (request instanceof OtpErlangAtom) {
             switch (asString(request)) {
@@ -236,11 +236,15 @@ public class IndexService extends Service {
     }
 
     private OtpErlangObject handleSearchCall(final OtpErlangTuple from,
-            final Map<OtpErlangObject, OtpErlangObject> searchRequest) throws IOException {
+            final Map<OtpErlangObject, OtpErlangObject> searchRequest) throws Exception {
         final String queryString = asString(searchRequest.getOrDefault(asAtom("query"), asBinary("*:*")));
         final boolean refresh = asBoolean(searchRequest.getOrDefault(asAtom("refresh"), asAtom("true")));
         final int limit = asInt(searchRequest.getOrDefault(asAtom("limit"), asInt(25)));
-        final Object partition = searchRequest.get(asAtom("partition"));
+        final String partition = asString(searchRequest.get(asAtom("partition")));
+
+        final OtpErlangList counts = (OtpErlangList) searchRequest.get(asAtom("counts"));
+        final OtpErlangList ranges = (OtpErlangList) searchRequest.get(asAtom("ranges"));
+        final OtpErlangList includeFields = (OtpErlangList) searchRequest.get(asAtom("include_fields"));
 
         final Query baseQuery;
         try {
@@ -261,7 +265,10 @@ public class IndexService extends Service {
         } else {
             collector = TopScoreDocCollector.create(limit, docsScoredInOrder);
         }
-        searcher.search(query, collector);
+        searchTimer.time(() -> {
+            searcher.search(query, collector);
+            return null;
+        });
         return tuple(
                 asAtom("ok"),
                 asList(
