@@ -35,6 +35,7 @@ import org.apache.lucene.facet.taxonomy.CategoryPath;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.queries.function.ValueSource;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanClause.Occur;
@@ -60,6 +61,9 @@ import com.ericsson.otp.erlang.OtpErlangBinary;
 import com.ericsson.otp.erlang.OtpErlangList;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangTuple;
+import com.spatial4j.core.context.SpatialContext;
+import com.spatial4j.core.distance.DistanceUtils;
+import com.spatial4j.core.shape.Point;
 
 public class IndexService extends Service {
 
@@ -420,7 +424,35 @@ public class IndexService extends Service {
         case "-<doc>":
             return IndexService.INVERSE_FIELD_DOC;
         default:
-            final Matcher m = SORT_FIELD_RE.matcher(field);
+            Matcher m = DISTANCE_RE.matcher(field);
+            if (m.matches()) {
+                final String fieldOrder = m.group(1);
+                final String fieldLon = m.group(2);
+                final String fieldLat = m.group(3);
+                final String lon = m.group(4);
+                final String lat = m.group(5);
+                final String units = m.group(6);
+
+                final double radius;
+                if ("mi".equals(units)) {
+                    radius = DistanceUtils.EARTH_EQUATORIAL_RADIUS_MI;
+                } else if ("km".equals(units)) {
+                    radius = DistanceUtils.EARTH_EQUATORIAL_RADIUS_KM;
+                } else if (null == units) {
+                    radius = DistanceUtils.EARTH_EQUATORIAL_RADIUS_MI;
+                } else {
+                    throw new ParseException(units + " is not a recognized unit of measurement");
+                }
+
+                final SpatialContext ctx = SpatialContext.GEO;
+                final Point point = ctx.makePoint(Double.parseDouble(lon), Double.parseDouble(lat));
+                final double degToKm = DistanceUtils.degrees2Dist(1, radius);
+
+                final ValueSource valueSource = new DistanceValueSource(ctx, fieldLon, fieldLat, degToKm, point);
+                return valueSource.getSortField(fieldOrder == "-");
+            }
+
+            m = SORT_FIELD_RE.matcher(field);
             if (m.matches()) {
                 final String fieldOrder = m.group(1);
                 final String fieldName = m.group(2);
