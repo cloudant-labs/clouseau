@@ -1,7 +1,7 @@
 package com.cloudant.cloujeau;
 
 import static com.cloudant.cloujeau.OtpUtils.asArrayOfStrings;
-import static com.cloudant.cloujeau.OtpUtils.asAtom;
+import static com.cloudant.cloujeau.OtpUtils.atom;
 import static com.cloudant.cloujeau.OtpUtils.asBinary;
 import static com.cloudant.cloujeau.OtpUtils.asBoolean;
 import static com.cloudant.cloujeau.OtpUtils.asFloat;
@@ -155,9 +155,9 @@ public class IndexService extends Service {
         if (request instanceof OtpErlangAtom) {
             switch (asString(request)) {
             case "get_update_seq":
-                return tuple(asAtom("ok"), asLong(updateSeq));
+                return tuple(atom("ok"), asLong(updateSeq));
             case "get_purge_seq":
-                return tuple(asAtom("ok"), asLong(purgeSeq));
+                return tuple(atom("ok"), asLong(purgeSeq));
             }
         } else if (request instanceof OtpErlangTuple) {
             final OtpErlangTuple tuple = (OtpErlangTuple) request;
@@ -169,12 +169,12 @@ public class IndexService extends Service {
                 case "set_update_seq": {
                     pendingSeq = asLong(tuple.elementAt(1));
                     debug("Pending sequence is now " + pendingSeq);
-                    return asAtom("ok");
+                    return atom("ok");
                 }
                 case "set_purge_seq": {
                     pendingPurgeSeq = asLong(tuple.elementAt(1));
                     debug("purge sequence is now " + pendingPurgeSeq);
-                    return asAtom("ok");
+                    return atom("ok");
                 }
                 case "delete": {
                     final String id = asString(tuple.elementAt(1));
@@ -187,7 +187,7 @@ public class IndexService extends Service {
                             terminate(asBinary(e.getMessage()));
                         }
                     });
-                    return asAtom("ok");
+                    return atom("ok");
                 }
                 case "update": {
                     return handleUpdateCall(tuple);
@@ -214,7 +214,7 @@ public class IndexService extends Service {
                 terminate(asBinary(e.getMessage()));
             }
         });
-        return asAtom("ok");
+        return atom("ok");
     }
 
     @Override
@@ -228,7 +228,7 @@ public class IndexService extends Service {
                 for (String file : dir.listAll()) {
                     dir.deleteFile(file);
                 }
-                exit(asAtom("deleted"));
+                exit(atom("deleted"));
             }
             }
         }
@@ -263,15 +263,15 @@ public class IndexService extends Service {
 
     private OtpErlangObject handleSearchCall(final OtpErlangTuple from,
             final Map<OtpErlangObject, OtpErlangObject> searchRequest) throws Exception {
-        final String queryString = asString(searchRequest.getOrDefault(asAtom("query"), asBinary("*:*")));
-        final boolean refresh = asBoolean(searchRequest.getOrDefault(asAtom("refresh"), asAtom("true")));
-        final int limit = asInt(searchRequest.getOrDefault(asAtom("limit"), asInt(25)));
-        final String partition = asString(searchRequest.get(asAtom("partition")));
+        final String queryString = asString(searchRequest.getOrDefault(atom("query"), asBinary("*:*")));
+        final boolean refresh = asBoolean(searchRequest.getOrDefault(atom("refresh"), atom("true")));
+        final int limit = asInt(searchRequest.getOrDefault(atom("limit"), asInt(25)));
+        final String partition = asString(searchRequest.get(atom("partition")));
 
-        final List<String> counts = asListOfStrings(nilToNull(searchRequest.get(asAtom("counts"))));
-        final List<String> ranges = asListOfStrings(nilToNull(searchRequest.get(asAtom("ranges"))));
+        final List<String> counts = asListOfStrings(nilToNull(searchRequest.get(atom("counts"))));
+        final List<String> ranges = asListOfStrings(nilToNull(searchRequest.get(atom("ranges"))));
 
-        final List<String> includeFields = asListOfStrings(nilToNull(searchRequest.get(asAtom("include_fields"))));
+        final List<String> includeFields = asListOfStrings(nilToNull(searchRequest.get(atom("include_fields"))));
         if (includeFields != null) {
             includeFields.add("_id");
         }
@@ -280,11 +280,11 @@ public class IndexService extends Service {
         try {
             baseQuery = parseQuery(queryString, partition);
         } catch (final ParseException e) {
-            return tuple(asAtom("error"), tuple(asAtom("bad_request"), asBinary(e.getMessage())));
+            return tuple(atom("error"), tuple(atom("bad_request"), asBinary(e.getMessage())));
         }
 
         final Query query;
-        final OtpErlangList categories = nilToNull(searchRequest.get(asAtom("drilldown")));
+        final OtpErlangList categories = nilToNull(searchRequest.get(atom("drilldown")));
         if (categories == null) {
             query = baseQuery;
         } else {
@@ -310,7 +310,8 @@ public class IndexService extends Service {
         final Weight weight = searcher.createNormalizedWeight(query);
         final boolean docsScoredInOrder = !weight.scoresDocsOutOfOrder();
 
-        final Sort sort = parseSort(searchRequest.getOrDefault(asAtom("sort"), asAtom("relevance"))).rewrite(searcher);
+        final Sort sort = parseSort(searchRequest.getOrDefault(atom("sort"), atom("relevance"))).rewrite(searcher);
+        final ScoreDoc after = toScoreDoc(sort, nilToNull(searchRequest.get(atom("after"))));
 
         final Collector collector;
         if (limit == 0) {
@@ -323,11 +324,11 @@ public class IndexService extends Service {
             return null;
         });
         return tuple(
-                asAtom("ok"),
+                atom("ok"),
                 asList(
-                        tuple(asAtom("update_seq"), asOtp(updateSeq)),
-                        tuple(asAtom("total_hits"), asOtp(getTotalHits(collector))),
-                        tuple(asAtom("hits"), getHits(searcher, collector))));
+                        tuple(atom("update_seq"), asOtp(updateSeq)),
+                        tuple(atom("total_hits"), asOtp(getTotalHits(collector))),
+                        tuple(atom("hits"), getHits(searcher, collector))));
 
     }
 
@@ -392,11 +393,11 @@ public class IndexService extends Service {
         });
 
         final OtpErlangObject order = asList(asFloat(scoreDoc.score), asInt(scoreDoc.doc));
-        return tuple(asAtom("hit"), order, asOtp(fields));
+        return tuple(atom("hit"), order, asOtp(fields));
     }
 
     private Sort parseSort(final OtpErlangObject obj) throws ParseException {
-        if (asAtom("relevance").equals(obj)) {
+        if (atom("relevance").equals(obj)) {
             return Sort.RELEVANCE;
         }
         if (obj instanceof OtpErlangBinary) {
@@ -472,6 +473,63 @@ public class IndexService extends Service {
         }
     }
 
+    private ScoreDoc toScoreDoc(final Sort sort, final OtpErlangObject any) {
+        if (null == any) {
+            return null;
+        }
+        if (any instanceof OtpErlangTuple) {
+            final OtpErlangTuple tuple = (OtpErlangTuple) any;
+            if (tuple.arity() != 2) {
+                throw new IllegalArgumentException("wrong arity");
+            }
+            return new ScoreDoc(asInt(tuple.elementAt(0)), asFloat(tuple.elementAt(1)));
+        }
+        if (any instanceof OtpErlangList) {
+            final OtpErlangList list = (OtpErlangList) any;
+            final int doc = asInt(list.elementAt(list.arity() - 1));
+
+        }
+        throw new IllegalArgumentException(any + " cannot be converted to ScoreDoc");
+    }
+
+//    private def toScoreDoc(sort: Sort, after: Any): Option[ScoreDoc] = after match {
+//    case 'nil =>
+//      None
+//    case (score: Any, doc: Any) =>
+//      Some(new ScoreDoc(ClouseauTypeFactory.toInteger(doc),
+//        ClouseauTypeFactory.toFloat(score)))
+//    case list: List[Object] =>
+//      val doc = list.last
+//      sort.getSort match {
+//        case Array(SortField.FIELD_SCORE) =>
+//          Some(new ScoreDoc(ClouseauTypeFactory.toInteger(doc),
+//            ClouseauTypeFactory.toFloat(list.head)))
+//        case _ =>
+//          val fields = list dropRight 1
+//          val sortfields = sort.getSort.toList
+//          if (fields.length != sortfields.length) {
+//            throw new ParseException("sort order not compatible with given bookmark")
+//          }
+//          Some(new FieldDoc(ClouseauTypeFactory.toInteger(doc),
+//            Float.NaN, (sortfields zip fields) map {
+//              case (_, 'null) =>
+//                null
+//              case (_, str: String) =>
+//                Utils.stringToBytesRef(str)
+//              case (SortField.FIELD_SCORE, number: java.lang.Double) =>
+//                java.lang.Float.valueOf(number.floatValue())
+//              case (IndexService.INVERSE_FIELD_SCORE, number: java.lang.Double) =>
+//                java.lang.Float.valueOf(number.floatValue())
+//              case (SortField.FIELD_DOC, number: java.lang.Double) =>
+//                java.lang.Integer.valueOf(number.intValue())
+//              case (IndexService.INVERSE_FIELD_DOC, number: java.lang.Double) =>
+//                java.lang.Integer.valueOf(number.intValue())
+//              case (_, field) =>
+//                field
+//            } toArray))
+//      }
+//  }
+
     private Query parseQuery(final String query, final String partition) throws ParseException {
         if (partition == null) {
             return qp.parse(query);
@@ -488,10 +546,10 @@ public class IndexService extends Service {
             return s.get();
         } catch (final NumberFormatException e) {
             return tuple(
-                    asAtom("error"),
-                    tuple(asAtom("bad_request"), asBinary("cannot sort string field as numeric field")));
+                    atom("error"),
+                    tuple(atom("bad_request"), asBinary("cannot sort string field as numeric field")));
         } catch (final ClassCastException e) {
-            return tuple(asAtom("error"), tuple(asAtom("bad_request"), asBinary(e.getMessage())));
+            return tuple(atom("error"), tuple(atom("bad_request"), asBinary(e.getMessage())));
         }
     }
 

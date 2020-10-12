@@ -1,6 +1,6 @@
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.asAtom;
+import static com.cloudant.cloujeau.OtpUtils.atom;
 import static com.cloudant.cloujeau.OtpUtils.asString;
 
 import java.io.File;
@@ -35,10 +35,10 @@ public class IndexCleanupService extends Service {
     public void handleCast(final OtpErlangObject request) throws Exception {
         if (request instanceof OtpErlangTuple) {
             final OtpErlangTuple tuple = (OtpErlangTuple) request;
-            if (asAtom("cleanup").equals(tuple.elementAt(0)) && tuple.arity() == 2) {
+            if (atom("cleanup").equals(tuple.elementAt(0)) && tuple.arity() == 2) {
                 cleanupPath(asString(tuple.elementAt(1)));
             }
-            if (asAtom("cleanup").equals(tuple.elementAt(0)) && tuple.arity() == 3) {
+            if (atom("cleanup").equals(tuple.elementAt(0)) && tuple.arity() == 3) {
                 final OtpErlangList list = (OtpErlangList) tuple.elementAt(2);
                 final Set<String> activeSigs = new HashSet<String>(list.arity());
                 for (int i = 0; i < list.arity(); i++) {
@@ -46,7 +46,7 @@ public class IndexCleanupService extends Service {
                 }
                 cleanupDb(asString(tuple.elementAt(1)), activeSigs);
             }
-            if (asAtom("rename").equals(tuple.elementAt(0))) {
+            if (atom("rename").equals(tuple.elementAt(0))) {
                 renamePath(asString(tuple.elementAt(1)));
             }
         }

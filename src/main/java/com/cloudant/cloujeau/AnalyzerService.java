@@ -1,6 +1,6 @@
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.asAtom;
+import static com.cloudant.cloujeau.OtpUtils.atom;
 import static com.cloudant.cloujeau.OtpUtils.asBinary;
 import static com.cloudant.cloujeau.OtpUtils.asString;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
@@ -29,14 +29,14 @@ public final class AnalyzerService extends Service {
     public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws IOException {
         if (request instanceof OtpErlangTuple) {
             final OtpErlangTuple tuple = (OtpErlangTuple) request;
-            if (asAtom("analyze").equals(tuple.elementAt(0))) {
+            if (atom("analyze").equals(tuple.elementAt(0))) {
                 final OtpErlangObject analyzerConfig = tuple.elementAt(1);
                 final OtpErlangBinary text = (OtpErlangBinary) tuple.elementAt(2);
                 final Analyzer analyzer = SupportedAnalyzers.createAnalyzer(analyzerConfig);
                 if (analyzer != null) {
-                    return tuple(asAtom("ok"), tokenize(asString(text), analyzer));
+                    return tuple(atom("ok"), tokenize(asString(text), analyzer));
                 } else {
-                    return tuple(asAtom("error"), asAtom("no_such_analyzer"));
+                    return tuple(atom("error"), atom("no_such_analyzer"));
                 }
             }
         }

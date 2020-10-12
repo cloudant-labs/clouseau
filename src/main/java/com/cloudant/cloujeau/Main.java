@@ -46,14 +46,7 @@ public class Main {
     }
 
     private static final int nThreads = Runtime.getRuntime().availableProcessors();
-    private static final ScheduledExecutorService scheduledExecutor = Executors
-            .newScheduledThreadPool(1, new ThreadFactory() {
-
-                @Override
-                public Thread newThread(Runnable r) {
-                    throw new UnsupportedOperationException("newThread not supported.");
-                }
-            });
+    private static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(1);
 
     public static void main(final String[] args) throws Exception {
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {

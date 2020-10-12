@@ -1,6 +1,6 @@
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.asAtom;
+import static com.cloudant.cloujeau.OtpUtils.*;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
 
 import java.io.IOException;
@@ -8,6 +8,7 @@ import java.io.IOException;
 import org.apache.log4j.Logger;
 
 import com.ericsson.otp.erlang.OtpErlangAtom;
+import com.ericsson.otp.erlang.OtpErlangDecodeException;
 import com.ericsson.otp.erlang.OtpErlangExit;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangPid;
@@ -19,7 +20,7 @@ public abstract class Service {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
 
-    private static final OtpErlangObject INVALID_MSG = tuple(asAtom("error"), asAtom("invalid_msg"));
+    private static final OtpErlangObject INVALID_MSG = tuple(atom("error"), atom("invalid_msg"));
 
     protected final ServerState state;
     private final OtpMbox mbox;
@@ -53,7 +54,7 @@ public abstract class Service {
                 handleMsg(msg);
             } while (true);
         } catch (OtpErlangExit e) {
-            if (!asAtom("normal").equals(e.reason())) {
+            if (!atom("normal").equals(e.reason())) {
                 logger.error(String.format("%s exiting for reason %s", this, e.reason()));
             }
             terminate(e.reason());
@@ -74,26 +75,35 @@ public abstract class Service {
                     final OtpErlangTuple tuple = (OtpErlangTuple) obj;
                     final OtpErlangAtom atom = (OtpErlangAtom) tuple.elementAt(0);
 
-                    // gen_call
-                    if (asAtom("$gen_call").equals(atom)) {
+                    if (atom("$gen_call").equals(atom)) {
                         final OtpErlangTuple from = (OtpErlangTuple) tuple.elementAt(1);
                         final OtpErlangObject request = tuple.elementAt(2);
 
-                        final OtpErlangObject response = handleCall(from, request);
-                        if (response != null) {
-                            reply(from, response);
-                        } else {
-                            reply(from, INVALID_MSG);
+                        try {
+                            final OtpErlangObject response = handleCall(from, request);
+                            if (response != null) {
+                                reply(from, response);
+                            } else {
+                                reply(from, INVALID_MSG);
+                            }
+                        } catch (final Exception e) {
+                            reply(from, tuple(atom("error"), asBinary(e.getMessage())));
+                            logger.error(this + " encountered exception during handleCall", e);
+                        }
+                    } else if (atom("$gen_cast").equals(atom)) {
+                        final OtpErlangObject request = tuple.elementAt(1);
+                        try {
+                            handleCast(request);
+                        } catch (final Exception e) {
+                            logger.error(this + " encountered exception during handleCast", e);
                         }
                     }
-                    // gen cast
-                    else if (asAtom("$gen_cast").equals(atom)) {
-                        final OtpErlangObject request = tuple.elementAt(1);
-                        handleCast(request);
-                    }
                 } else {
-                    // handle info
-                    handleInfo(obj);
+                    try {
+                        handleInfo(obj);
+                    } catch (final Exception e) {
+                        logger.error(this + " encountered exception during handleInfo", e);
+                    }
                 }
             }
                 break;
@@ -101,11 +111,9 @@ public abstract class Service {
             default:
                 logger.warn("received message of unknown type " + msg.type());
             }
-        } catch (final Error e) {
-            logger.fatal(this + " encountered error", e);
+        } catch (final Error | IOException | OtpErlangDecodeException e) {
+            logger.fatal(this + " encountered fatal error", e);
             System.exit(1);
-        } catch (final Exception e) {
-            logger.error(this + " encountered exception", e);
         }
     }
 

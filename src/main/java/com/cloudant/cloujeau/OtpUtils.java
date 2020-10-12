@@ -29,20 +29,15 @@ public final class OtpUtils {
 
     private static final OtpErlangList EMPTY_LIST = new OtpErlangList();
 
-    public static OtpErlangTuple tuple(final OtpErlangObject... items) {
-        return new OtpErlangTuple(items);
+    public static String[] asArrayOfStrings(final OtpErlangList list) {
+        if (list == null) {
+            return null;
+        }
+        return asListOfStrings(list).toArray(new String[list.arity()]);
     }
 
-    public static OtpErlangAtom asAtom(final String val) {
-        return atoms.computeIfAbsent(val, (v) -> new OtpErlangAtom(v));
-    }
-
-    public static OtpErlangObject asLong(final long val) {
-        return new OtpErlangLong(val);
-    }
-
-    public static OtpErlangObject asFloat(final float val) {
-        return new OtpErlangFloat(val);
+    public static OtpErlangAtom atom(final String val) {
+        return atoms.computeIfAbsent(val, v -> new OtpErlangAtom(v));
     }
 
     public static OtpErlangBinary asBinary(final String str) {
@@ -51,6 +46,73 @@ public final class OtpUtils {
         } catch (final UnsupportedEncodingException e) {
             throw new Error("UTF-8 support missing");
         }
+    }
+
+    public static boolean asBoolean(final OtpErlangObject obj) {
+        if (obj instanceof OtpErlangAtom) {
+            if (atom("true").equals(obj)) {
+                return true;
+            }
+            if (atom("false").equals(obj)) {
+                return false;
+            }
+        }
+        throw new IllegalArgumentException(obj + " cannot be converted to boolean");
+    }
+
+    public static OtpErlangObject asFloat(final float val) {
+        return new OtpErlangFloat(val);
+    }
+
+    public static float asFloat(final OtpErlangObject obj) {
+        try {
+            if (obj instanceof OtpErlangFloat) {
+                return ((OtpErlangFloat) obj).floatValue();
+            }
+            if (obj instanceof OtpErlangDouble) {
+                return ((OtpErlangDouble) obj).floatValue();
+            }
+        } catch (final OtpErlangRangeException e) {
+            throw new IllegalArgumentException("out of range", e);
+        }
+        throw new IllegalArgumentException(obj + " cannot be converted to float");
+    }
+
+    public static OtpErlangInt asInt(final int val) {
+        return new OtpErlangInt(val);
+    }
+
+    public static int asInt(final OtpErlangObject obj) {
+        try {
+            if (obj instanceof OtpErlangLong) {
+                return ((OtpErlangLong) obj).intValue();
+            }
+            if (obj instanceof OtpErlangInt) {
+                return ((OtpErlangInt) obj).intValue();
+            }
+        } catch (final OtpErlangRangeException e) {
+            throw new IllegalArgumentException("out of range", e);
+        }
+        throw new IllegalArgumentException(obj + " cannot be converted to int");
+    }
+
+    public static OtpErlangList asList(final OtpErlangObject... objs) {
+        return new OtpErlangList(objs);
+    }
+
+    public static List<String> asListOfStrings(final OtpErlangList list) {
+        if (list == null) {
+            return null;
+        }
+        final List<String> result = new ArrayList<String>();
+        for (final OtpErlangObject item : list) {
+            result.add(asString(item));
+        }
+        return result;
+    }
+
+    public static OtpErlangObject asLong(final long val) {
+        return new OtpErlangLong(val);
     }
 
     public static long asLong(final OtpErlangObject obj) {
@@ -77,64 +139,6 @@ public final class OtpUtils {
         }
 
         throw new IllegalArgumentException(obj + " not an encoded JSON object");
-    }
-
-    public static String asString(final OtpErlangObject obj) {
-        if (obj == null) {
-            return null;
-        }
-        if (isNil(obj)) {
-            return null;
-        }
-        if (obj instanceof OtpErlangBinary) {
-            try {
-                return new String(((OtpErlangBinary) obj).binaryValue(), "UTF-8");
-            } catch (final UnsupportedEncodingException e) {
-                throw new Error("UTF-8 support missing");
-            }
-        }
-        if (obj instanceof OtpErlangAtom) {
-            return ((OtpErlangAtom) obj).atomValue();
-        }
-        throw new IllegalArgumentException(obj + " cannot be converted to string");
-    }
-
-    public static boolean asBoolean(final OtpErlangObject obj) {
-        if (obj instanceof OtpErlangAtom) {
-            if (asAtom("true").equals(obj)) {
-                return true;
-            }
-            if (asAtom("false").equals(obj)) {
-                return false;
-            }
-        }
-        throw new IllegalArgumentException(obj + " cannot be converted to boolean");
-    }
-
-    public static OtpErlangInt asInt(final int val) {
-        return new OtpErlangInt(val);
-    }
-
-    public static int asInt(OtpErlangObject obj) {
-        try {
-            if (obj instanceof OtpErlangLong) {
-                return ((OtpErlangLong) obj).intValue();
-            }
-            if (obj instanceof OtpErlangInt) {
-                return ((OtpErlangInt) obj).intValue();
-            }
-        } catch (OtpErlangRangeException e) {
-            throw new IllegalArgumentException("out of range", e);
-        }
-        throw new IllegalArgumentException(obj + " cannot be converted to int");
-    }
-
-    public static OtpErlangList asList(final OtpErlangObject... objs) {
-        return new OtpErlangList(objs);
-    }
-
-    public static OtpErlangList emptyList() {
-        return EMPTY_LIST;
     }
 
     public static OtpErlangObject asOtp(final Object obj) {
@@ -179,29 +183,32 @@ public final class OtpUtils {
         throw new IllegalArgumentException(obj + " cannot be converted to otp");
     }
 
-    public static List<String> asListOfStrings(final OtpErlangList list) {
-        if (list == null) {
+    public static String asString(final OtpErlangObject obj) {
+        if (obj == null) {
             return null;
         }
-        final List<String> result = new ArrayList<String>();
-        for (final OtpErlangObject item : list) {
-            result.add(asString(item));
-        }
-        return result;
-    }
-
-    public static String[] asArrayOfStrings(final OtpErlangList list) {
-        if (list == null) {
+        if (isNil(obj)) {
             return null;
         }
-        return asListOfStrings(list).toArray(new String[list.arity()]);
+        if (obj instanceof OtpErlangBinary) {
+            try {
+                return new String(((OtpErlangBinary) obj).binaryValue(), "UTF-8");
+            } catch (final UnsupportedEncodingException e) {
+                throw new Error("UTF-8 support missing");
+            }
+        }
+        if (obj instanceof OtpErlangAtom) {
+            return ((OtpErlangAtom) obj).atomValue();
+        }
+        throw new IllegalArgumentException(obj + " cannot be converted to string");
     }
 
-    public static void reply(final OtpMbox mbox, final OtpErlangTuple from, final OtpErlangObject reply)
-            throws IOException {
-        final OtpErlangPid fromPid = (OtpErlangPid) from.elementAt(0);
-        final OtpErlangRef fromRef = (OtpErlangRef) from.elementAt(1);
-        mbox.send(fromPid, tuple(fromRef, reply));
+    public static OtpErlangList emptyList() {
+        return EMPTY_LIST;
+    }
+
+    private static boolean isNil(final OtpErlangObject obj) {
+        return atom("nil").equals(obj);
     }
 
     @SuppressWarnings("unchecked")
@@ -212,8 +219,15 @@ public final class OtpUtils {
         return (T) obj;
     }
 
-    private static boolean isNil(final OtpErlangObject obj) {
-        return asAtom("nil").equals(obj);
+    public static void reply(final OtpMbox mbox, final OtpErlangTuple from, final OtpErlangObject reply)
+            throws IOException {
+        final OtpErlangPid fromPid = (OtpErlangPid) from.elementAt(0);
+        final OtpErlangRef fromRef = (OtpErlangRef) from.elementAt(1);
+        mbox.send(fromPid, tuple(fromRef, reply));
+    }
+
+    public static OtpErlangTuple tuple(final OtpErlangObject... items) {
+        return new OtpErlangTuple(items);
     }
 
 }

@@ -44,7 +44,7 @@ public class IndexManagerService extends Service {
             protected boolean removeEldestEntry(final Entry<String, OtpErlangPid> eldest) {
                 final boolean result = size() > state.config.getInt("clouseau.max_indexes_open", 100);
                 if (result) {
-                    send(eldest.getValue(), tuple(asAtom("close"), asAtom("lru")));
+                    send(eldest.getValue(), tuple(atom("close"), atom("lru")));
                 }
                 return result;
             }
@@ -86,7 +86,7 @@ public class IndexManagerService extends Service {
 
         private void close() {
             pidToPath.forEach((pid, path) -> {
-                send(pid, tuple(asAtom("close"), asAtom("closing")));
+                send(pid, tuple(atom("close"), atom("closing")));
             });
         }
 
@@ -94,7 +94,7 @@ public class IndexManagerService extends Service {
             pidToPath.forEach((pid, path) -> {
                 if (path.startsWith(pathPrefix)) {
                     logger.info("closing lru for " + path);
-                    send(pid, tuple(asAtom("close"), asAtom("closing")));
+                    send(pid, tuple(atom("close"), atom("closing")));
                 }
             });
         }
@@ -126,10 +126,10 @@ public class IndexManagerService extends Service {
         if (request instanceof OtpErlangAtom) {
             switch (asString(request)) {
             case "get_root_dir":
-                return tuple(asAtom("ok"), asBinary(rootDir().getAbsolutePath()));
+                return tuple(atom("ok"), asBinary(rootDir().getAbsolutePath()));
 
             case "version":
-                return tuple(asAtom("ok"), asBinary(getClass().getPackage().getImplementationVersion()));
+                return tuple(atom("ok"), asBinary(getClass().getPackage().getImplementationVersion()));
             }
         }
         return null;
@@ -155,7 +155,7 @@ public class IndexManagerService extends Service {
 
         final OtpErlangPid pid = lru.get(strPath);
         if (pid != null) {
-            return tuple(asAtom("ok"), pid);
+            return tuple(atom("ok"), pid);
         }
 
         logger.info(String.format("Opening index at %s", strPath));
@@ -168,10 +168,10 @@ public class IndexManagerService extends Service {
                 state.serviceRegistry.register(index);
                 index.link(peer);
                 lru.put(strPath, index.self());
-                return tuple(asAtom("ok"), index.self());
+                return tuple(atom("ok"), index.self());
             });
         } catch (final IOException e) {
-            return tuple(asAtom("error"), asBinary(e.getMessage()));
+            return tuple(atom("error"), asBinary(e.getMessage()));
         }
     }
 
@@ -184,7 +184,7 @@ public class IndexManagerService extends Service {
                 diskSize += new File(indexDir, file).length();
             }
         }
-        return tuple(asAtom("ok"), asList(tuple(asAtom("disk_size"), asOtp(diskSize))));
+        return tuple(atom("ok"), asList(tuple(atom("disk_size"), asOtp(diskSize))));
     }
 
     private File rootDir() {
