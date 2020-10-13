@@ -56,7 +56,7 @@ public final class ServiceRegistry {
         }
     }
 
-    public Service takePending() {
+    public Service takePending() throws InterruptedException {
         return pending.take();
     }
 

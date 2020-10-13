@@ -1,7 +1,9 @@
 package com.cloudant.cloujeau;
 
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.LinkedHashSet;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Keeps track of Services that have pending messages and allows threads to wait
@@ -10,22 +12,41 @@ import java.util.concurrent.LinkedBlockingDeque;
 
 public final class RunQueue<T> {
 
-    private final BlockingDeque<T> pending = new LinkedBlockingDeque<T>();
+    private final LinkedHashSet<T> set = new LinkedHashSet<T>();
+
+    private final Lock lock = new ReentrantLock();
+
+    private final Condition notEmpty = lock.newCondition();
 
     public void put(final T item) {
-        if (!pending.contains(item)) {
-            pending.addLast(item);
-        }
-    }
-
-    public T take() {
-        while (true) {
-            try {
-                return pending.takeFirst();
-            } catch (final InterruptedException e) {
-                // retry.
+        final Lock lock = this.lock;
+        lock.lock();
+        try {
+            if (set.add(item)) {
+                notEmpty.signal();
             }
+        } finally {
+            lock.unlock();
         }
     }
 
+    public T take() throws InterruptedException {
+        final Lock lock = this.lock;
+        lock.lock();
+        try {
+            while (set.isEmpty()) {
+                notEmpty.await();
+            }
+            final T result = set.iterator().next();
+            set.remove(result);
+            return result;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public String toString() {
+        return set.toString();
+    }
 }

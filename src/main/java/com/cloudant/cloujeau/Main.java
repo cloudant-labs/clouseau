@@ -14,7 +14,6 @@ package com.cloudant.cloujeau;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
 
 import org.apache.commons.configuration.CompositeConfiguration;
 import org.apache.commons.configuration.FileConfiguration;
@@ -106,21 +105,20 @@ public class Main {
 
         @Override
         public void run() {
-            while (!Thread.interrupted()) {
-                final Service service = state.serviceRegistry.takePending();
-                final Thread currentThread = Thread.currentThread();
-                final String originalThreadName = currentThread.getName();
-                currentThread.setName(service.toString());
+            while (true) {
                 try {
+                    final Service service = state.serviceRegistry.takePending();
+                    final Thread currentThread = Thread.currentThread();
+                    final String originalThreadName = currentThread.getName();
+                    currentThread.setName(service.toString());
                     service.processMessages();
-                } finally {
                     currentThread.setName(originalThreadName);
+                } catch (final InterruptedException e) {
+                    logger.fatal("Worker thread was interrupted");
+                    System.exit(1);
                 }
             }
-            logger.fatal("Worker thread was interrupted");
-            System.exit(1);
         }
 
     }
-
 }

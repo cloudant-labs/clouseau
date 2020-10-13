@@ -1,7 +1,6 @@
 package com.cloudant.cloujeau;
 
 import static com.cloudant.cloujeau.OtpUtils.asArrayOfStrings;
-import static com.cloudant.cloujeau.OtpUtils.atom;
 import static com.cloudant.cloujeau.OtpUtils.asBinary;
 import static com.cloudant.cloujeau.OtpUtils.asBoolean;
 import static com.cloudant.cloujeau.OtpUtils.asFloat;
@@ -12,6 +11,7 @@ import static com.cloudant.cloujeau.OtpUtils.asLong;
 import static com.cloudant.cloujeau.OtpUtils.asMap;
 import static com.cloudant.cloujeau.OtpUtils.asOtp;
 import static com.cloudant.cloujeau.OtpUtils.asString;
+import static com.cloudant.cloujeau.OtpUtils.atom;
 import static com.cloudant.cloujeau.OtpUtils.emptyList;
 import static com.cloudant.cloujeau.OtpUtils.nilToNull;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
@@ -318,6 +318,9 @@ public class IndexService extends Service {
             collector = new TotalHitCountCollector();
         } else {
             collector = TopScoreDocCollector.create(limit, docsScoredInOrder);
+        }
+        if (logger.isDebugEnabled()) {
+            debug("Searching for " + query);
         }
         searchTimer.time(() -> {
             searcher.search(query, collector);
