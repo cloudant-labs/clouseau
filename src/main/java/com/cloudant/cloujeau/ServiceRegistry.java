@@ -11,7 +11,7 @@ public final class ServiceRegistry {
 
     private final ConcurrentMap<String, Service> registeredServices = new ConcurrentHashMap<String, Service>();
     private final ConcurrentMap<OtpErlangPid, Service> unregisteredServices = new ConcurrentHashMap<OtpErlangPid, Service>();
-    private final BlockingDeque<Service> pending = new LinkedBlockingDeque<Service>();
+    private final RunQueue<Service> pending = new RunQueue<Service>();
 
     public ServiceRegistry() {
     }
@@ -45,25 +45,19 @@ public final class ServiceRegistry {
     public void addPending(final String name) {
         final Service service = lookup(name);
         if (service != null) {
-            pending.addLast(service);
+            pending.put(service);
         }
     }
 
     public void addPending(final OtpErlangPid pid) {
         final Service service = unregisteredServices.get(pid);
         if (service != null) {
-            pending.addLast(service);
+            pending.put(service);
         }
     }
 
     public Service takePending() {
-        while (true) {
-            try {
-                return pending.takeFirst();
-            } catch (final InterruptedException e) {
-                // retry.
-            }
-        }
+        return pending.take();
     }
 
 }

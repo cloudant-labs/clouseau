@@ -487,7 +487,7 @@ public class IndexService extends Service {
         if (any instanceof OtpErlangList) {
             final OtpErlangList list = (OtpErlangList) any;
             final int doc = asInt(list.elementAt(list.arity() - 1));
-
+            // TODO see below
         }
         throw new IllegalArgumentException(any + " cannot be converted to ScoreDoc");
     }
