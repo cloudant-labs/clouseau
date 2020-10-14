@@ -590,6 +590,7 @@ public class IndexService extends Service {
                 error("I/O exception while closing for idleness", e);
             }
         }
+        idle = true;
     }
 
     private long getCommittedSeq() {
