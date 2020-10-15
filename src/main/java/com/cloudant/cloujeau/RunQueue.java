@@ -45,6 +45,16 @@ public final class RunQueue<T> {
         }
     }
 
+    public int size() {
+        final Lock lock = this.lock;
+        lock.lock();
+        try {
+            return set.size();
+        } finally {
+            lock.unlock();
+        }
+    }
+
     @Override
     public String toString() {
         return set.toString();

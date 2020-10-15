@@ -130,13 +130,13 @@ public class IndexService extends Service {
         parSearchTimeOutCount = state.metricRegistry
                 .counter("com.cloudant.clouseau:type=IndexService,name=partition_search.timeout.count");
 
-        final int commitIntervalSecs = state.config.getInt("clouseau.commit_interval_secs", 30);
+        final int commitIntervalSecs = state.config.getInt("clouseau.commit_interval_secs", 60);
         commitFuture = state.scheduledExecutor.scheduleWithFixedDelay(() -> {
             commit();
         }, commitIntervalSecs, commitIntervalSecs, TimeUnit.SECONDS);
 
-        final boolean closeIfIdleEnabled = state.config.getBoolean("clouseau.close_if_idle", false);
-        final int idleTimeoutSecs = state.config.getInt("clouseau.idle_check_interval_secs", 300);
+        final boolean closeIfIdleEnabled = state.config.getBoolean("clouseau.close_if_idle", true);
+        final int idleTimeoutSecs = state.config.getInt("clouseau.idle_check_interval_secs", 30);
         if (closeIfIdleEnabled) {
             closeFuture = state.scheduledExecutor.scheduleWithFixedDelay(() -> {
                 closeIfIdle();
@@ -152,6 +152,7 @@ public class IndexService extends Service {
     @Override
     public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws Exception {
         idle = false;
+        info("call " + request);
         if (request instanceof OtpErlangAtom) {
             switch (asString(request)) {
             case "get_update_seq":
@@ -220,6 +221,7 @@ public class IndexService extends Service {
     @Override
     public void handleInfo(final OtpErlangObject request) throws IOException {
         idle = false;
+        info("info " + request);
         if (request instanceof OtpErlangAtom) {
             switch (asString(request)) {
             case "delete": {
@@ -569,10 +571,10 @@ public class IndexService extends Service {
                     writer.commit();
                 } catch (final AlreadyClosedException e) {
                     error("Commit failed to closed writer", e);
-                    IndexService.this.terminate(asBinary(e.getMessage()));
+                    IndexService.this.exit(asBinary(e.getMessage()));
                 } catch (IOException e) {
                     error("Failed to commit changes", e);
-                    IndexService.this.terminate(asBinary(e.getMessage()));
+                    IndexService.this.exit(asBinary(e.getMessage()));
                 }
             });
             updateSeq = newUpdateSeq;
@@ -584,11 +586,7 @@ public class IndexService extends Service {
 
     private void closeIfIdle() {
         if (idle) {
-            try {
-                exit(asBinary("Idle Timeout"));
-            } catch (final IOException e) {
-                error("I/O exception while closing for idleness", e);
-            }
+            exit(asBinary("Idle Timeout"));
         }
         idle = true;
     }

@@ -46,21 +46,15 @@ public abstract class Service {
 
     public final void processMessages() {
         try {
-            do {
-                final OtpMsg msg = mbox.receiveMsg(0L);
-                if (msg == null) {
-                    break;
-                }
+            OtpMsg msg;
+            while ((msg = mbox.receiveMsg(0L)) != null) {
                 handleMsg(msg);
-            } while (true);
-        } catch (OtpErlangExit e) {
-            if (!atom("normal").equals(e.reason())) {
-                logger.error(String.format("%s exiting for reason %s", this, e.reason()));
             }
-            terminate(e.reason());
-            mbox.close();
-            return;
-        } catch (InterruptedException e) {
+        } catch (final OtpErlangExit e) {
+            if (handleExit(e)) {
+                return;
+            }
+        } catch (final InterruptedException e) {
             return;
         }
     }
@@ -128,7 +122,14 @@ public abstract class Service {
     }
 
     public void terminate(final OtpErlangObject reason) {
-        state.serviceRegistry.unregister(this);
+
+    }
+
+    public boolean handleExit(final OtpErlangExit e) {
+        logger.error(String.format("%s exiting for reason %s", this, e.reason()));
+        mbox.close();
+        terminate(e.reason());
+        return true;
     }
 
     public final void reply(final OtpErlangTuple from, final OtpErlangObject reply) throws IOException {
@@ -155,8 +156,9 @@ public abstract class Service {
         mbox.send(to, msg);
     }
 
-    public final void exit(final OtpErlangObject reason) throws IOException {
+    public final void exit(final OtpErlangObject reason) {
         mbox.exit(reason);
+        state.serviceRegistry.unregister(this);
         terminate(reason);
     }
 

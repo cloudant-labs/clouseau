@@ -1,8 +1,10 @@
 package com.cloudant.cloujeau;
 
-import static com.cloudant.cloujeau.OtpUtils.*;
 import static com.cloudant.cloujeau.OtpUtils.asBinary;
+import static com.cloudant.cloujeau.OtpUtils.asList;
+import static com.cloudant.cloujeau.OtpUtils.asOtp;
 import static com.cloudant.cloujeau.OtpUtils.asString;
+import static com.cloudant.cloujeau.OtpUtils.atom;
 import static com.cloudant.cloujeau.OtpUtils.tuple;
 
 import java.io.File;
@@ -24,6 +26,7 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.Timer;
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
+import com.ericsson.otp.erlang.OtpErlangExit;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangPid;
 import com.ericsson.otp.erlang.OtpErlangTuple;
@@ -147,6 +150,12 @@ public class IndexManagerService extends Service {
         }
     }
 
+    @Override
+    public boolean handleExit(final OtpErlangExit e) {
+        lru.remove(e.pid());
+        return false;
+    }
+
     private OtpErlangObject open(final OtpErlangTuple from, final OtpErlangTuple request) throws Exception {
         final OtpErlangPid peer = (OtpErlangPid) request.elementAt(1);
         final OtpErlangBinary path = (OtpErlangBinary) request.elementAt(2);
@@ -166,7 +175,8 @@ public class IndexManagerService extends Service {
                 final QueryParser qp = new ClouseauQueryParser(LuceneUtils.VERSION, "default", analyzer);
                 final IndexService index = new IndexService(state, strPath, writer, qp);
                 state.serviceRegistry.register(index);
-                index.link(peer);
+                index.link(peer); // dreyfus
+                index.link(self());
                 lru.put(strPath, index.self());
                 return tuple(atom("ok"), index.self());
             });

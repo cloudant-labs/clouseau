@@ -98,8 +98,7 @@ public class IndexCleanupService extends Service {
         Matcher m = includePattern.matcher(fileOrDir.getAbsolutePath());
         if (m.find() && !activeSigs.contains(m.group(1))) {
           logger.info("Removing unreachable index " + m.group());
-          final Service main = state.serviceRegistry.lookup("main");
-
+          // final Service main = state.serviceRegistry.lookup("main");
           // main.handleCall(from, request);
 //          call('main, ('delete, m.group)) match {
 //            case 'ok =>

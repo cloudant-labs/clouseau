@@ -45,7 +45,7 @@ public class Main {
     }
 
     private static final int nThreads = Runtime.getRuntime().availableProcessors();
-    private static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(1);
+    private static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(2);
 
     public static void main(final String[] args) throws Exception {
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
