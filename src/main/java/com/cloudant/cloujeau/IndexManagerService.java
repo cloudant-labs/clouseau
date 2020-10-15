@@ -151,9 +151,9 @@ public class IndexManagerService extends Service {
     }
 
     @Override
-    public boolean handleExit(final OtpErlangExit e) {
+    public boolean trapExit(final OtpErlangExit e) {
         lru.remove(e.pid());
-        return false;
+        return true;
     }
 
     private OtpErlangObject open(final OtpErlangTuple from, final OtpErlangTuple request) throws Exception {
