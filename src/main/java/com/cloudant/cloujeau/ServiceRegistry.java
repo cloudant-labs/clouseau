@@ -123,7 +123,7 @@ public final class ServiceRegistry {
         return String.format(
                 "ServiceRegistry(numRegisteredServices=%d,numUnregisteredServices=%d,numPending=%d)",
                 byName.size(),
-                byPid.size(),
+                pidOnly.size(),
                 pending.size());
     }
 
