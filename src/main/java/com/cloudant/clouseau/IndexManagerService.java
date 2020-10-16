@@ -1,18 +1,14 @@
-package com.cloudant.cloujeau;
+package com.cloudant.clouseau;
 
-import static com.cloudant.cloujeau.OtpUtils.asBinary;
-import static com.cloudant.cloujeau.OtpUtils.asList;
-import static com.cloudant.cloujeau.OtpUtils.asOtp;
-import static com.cloudant.cloujeau.OtpUtils.asString;
-import static com.cloudant.cloujeau.OtpUtils.atom;
-import static com.cloudant.cloujeau.OtpUtils.tuple;
+import static com.cloudant.clouseau.OtpUtils.asBinary;
+import static com.cloudant.clouseau.OtpUtils.asList;
+import static com.cloudant.clouseau.OtpUtils.asOtp;
+import static com.cloudant.clouseau.OtpUtils.asString;
+import static com.cloudant.clouseau.OtpUtils.atom;
+import static com.cloudant.clouseau.OtpUtils.tuple;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Map.Entry;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
@@ -22,14 +18,13 @@ import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.LockFactory;
 
-import com.codahale.metrics.Counter;
-import com.codahale.metrics.Timer;
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
-import com.ericsson.otp.erlang.OtpErlangExit;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangPid;
 import com.ericsson.otp.erlang.OtpErlangTuple;
+import com.yammer.metrics.Metrics;
+import com.yammer.metrics.core.Timer;
 
 public class IndexManagerService extends Service {
 
@@ -39,7 +34,7 @@ public class IndexManagerService extends Service {
 
     public IndexManagerService(final ServerState state) {
         super(state, "main");
-        openTimer = state.metricRegistry.timer("com.cloudant.clouseau:type=IndexManagerService,name=opens");
+        openTimer = Metrics.newTimer(getClass(), "opens");
     }
 
     @Override
@@ -106,6 +101,7 @@ public class IndexManagerService extends Service {
     private IndexWriter newWriter(final OtpErlangBinary path, final Analyzer analyzer) throws Exception {
         final Directory dir = newDirectory(new File(rootDir(), asString(path)));
         final IndexWriterConfig writerConfig = new IndexWriterConfig(LuceneUtils.VERSION, analyzer);
+        writerConfig.setUseCompoundFile(false);
 
         return new IndexWriter(dir, writerConfig);
     }

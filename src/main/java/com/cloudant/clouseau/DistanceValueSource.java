@@ -1,4 +1,4 @@
-package com.cloudant.cloujeau;
+package com.cloudant.clouseau;
 
 import java.io.IOException;
 import java.util.Map;

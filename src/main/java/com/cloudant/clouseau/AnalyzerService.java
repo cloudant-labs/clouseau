@@ -1,9 +1,9 @@
-package com.cloudant.cloujeau;
+package com.cloudant.clouseau;
 
-import static com.cloudant.cloujeau.OtpUtils.atom;
-import static com.cloudant.cloujeau.OtpUtils.asBinary;
-import static com.cloudant.cloujeau.OtpUtils.asString;
-import static com.cloudant.cloujeau.OtpUtils.tuple;
+import static com.cloudant.clouseau.OtpUtils.asBinary;
+import static com.cloudant.clouseau.OtpUtils.asString;
+import static com.cloudant.clouseau.OtpUtils.atom;
+import static com.cloudant.clouseau.OtpUtils.tuple;
 
 import java.io.IOException;
 import java.util.ArrayList;

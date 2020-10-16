@@ -1,4 +1,4 @@
-package com.cloudant.cloujeau;
+package com.cloudant.clouseau;
 
 import java.util.LinkedHashSet;
 import java.util.concurrent.locks.Condition;

@@ -1,8 +1,8 @@
-package com.cloudant.cloujeau;
+package com.cloudant.clouseau;
 
-import static com.cloudant.cloujeau.OtpUtils.asBinary;
-import static com.cloudant.cloujeau.OtpUtils.asMap;
-import static com.cloudant.cloujeau.OtpUtils.asString;
+import static com.cloudant.clouseau.OtpUtils.asBinary;
+import static com.cloudant.clouseau.OtpUtils.asMap;
+import static com.cloudant.clouseau.OtpUtils.asString;
 
 import java.io.IOException;
 import java.util.Collections;

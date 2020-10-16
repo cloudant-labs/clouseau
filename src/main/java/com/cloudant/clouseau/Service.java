@@ -1,7 +1,6 @@
-package com.cloudant.cloujeau;
+package com.cloudant.clouseau;
 
-import static com.cloudant.cloujeau.OtpUtils.*;
-import static com.cloudant.cloujeau.OtpUtils.tuple;
+import static com.cloudant.clouseau.OtpUtils.*;
 
 import java.io.IOException;
 

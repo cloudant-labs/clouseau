@@ -10,7 +10,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-package com.cloudant.cloujeau;
+package com.cloudant.clouseau;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -22,27 +22,11 @@ import org.apache.commons.configuration.SystemConfiguration;
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy;
 import org.apache.log4j.Logger;
 
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.jmx.JmxReporter;
 import com.ericsson.otp.erlang.ClouseauNode;
 
 public class Main {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
-
-    private static final MetricRegistry METRIC_REGISTRY = new MetricRegistry();
-    private static final JmxReporter JMX_REPORTER = JmxReporter.forRegistry(METRIC_REGISTRY).build();
-
-    private static final Thread SHUTDOWN_HOOK = new Thread() {
-        public void run() {
-            JMX_REPORTER.stop();
-        }
-    };
-
-    static {
-        JMX_REPORTER.start();
-        Runtime.getRuntime().addShutdownHook(SHUTDOWN_HOOK);
-    }
 
     private static final int nThreads = Runtime.getRuntime().availableProcessors();
     private static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(2);
@@ -75,7 +59,7 @@ public class Main {
         final int serviceCapacity = config.getInt("clouseau.max_indexes_open", 100);
         final ServiceRegistry serviceRegistry = new ServiceRegistry(serviceCapacity);
         final ClouseauNode node = new ClouseauNode(name, cookie, serviceRegistry);
-        final ServerState state = new ServerState(config, node, serviceRegistry, METRIC_REGISTRY, scheduledExecutor);
+        final ServerState state = new ServerState(config, node, serviceRegistry, scheduledExecutor);
 
         serviceRegistry.register(new IndexManagerService(state));
         serviceRegistry.register(new AnalyzerService(state));

@@ -1,4 +1,4 @@
-package com.cloudant.cloujeau;
+package com.cloudant.clouseau;
 
 import org.apache.lucene.index.Term;
 import org.apache.lucene.util.BytesRef;

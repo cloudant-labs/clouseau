@@ -1,20 +1,20 @@
-package com.cloudant.cloujeau;
+package com.cloudant.clouseau;
 
-import static com.cloudant.cloujeau.OtpUtils.asArrayOfStrings;
-import static com.cloudant.cloujeau.OtpUtils.asBinary;
-import static com.cloudant.cloujeau.OtpUtils.asBoolean;
-import static com.cloudant.cloujeau.OtpUtils.asFloat;
-import static com.cloudant.cloujeau.OtpUtils.asInt;
-import static com.cloudant.cloujeau.OtpUtils.asList;
-import static com.cloudant.cloujeau.OtpUtils.asListOfStrings;
-import static com.cloudant.cloujeau.OtpUtils.asLong;
-import static com.cloudant.cloujeau.OtpUtils.asMap;
-import static com.cloudant.cloujeau.OtpUtils.asOtp;
-import static com.cloudant.cloujeau.OtpUtils.asString;
-import static com.cloudant.cloujeau.OtpUtils.atom;
-import static com.cloudant.cloujeau.OtpUtils.emptyList;
-import static com.cloudant.cloujeau.OtpUtils.nilToNull;
-import static com.cloudant.cloujeau.OtpUtils.tuple;
+import static com.cloudant.clouseau.OtpUtils.asArrayOfStrings;
+import static com.cloudant.clouseau.OtpUtils.asBinary;
+import static com.cloudant.clouseau.OtpUtils.asBoolean;
+import static com.cloudant.clouseau.OtpUtils.asFloat;
+import static com.cloudant.clouseau.OtpUtils.asInt;
+import static com.cloudant.clouseau.OtpUtils.asList;
+import static com.cloudant.clouseau.OtpUtils.asListOfStrings;
+import static com.cloudant.clouseau.OtpUtils.asLong;
+import static com.cloudant.clouseau.OtpUtils.asMap;
+import static com.cloudant.clouseau.OtpUtils.asOtp;
+import static com.cloudant.clouseau.OtpUtils.asString;
+import static com.cloudant.clouseau.OtpUtils.atom;
+import static com.cloudant.clouseau.OtpUtils.emptyList;
+import static com.cloudant.clouseau.OtpUtils.nilToNull;
+import static com.cloudant.clouseau.OtpUtils.tuple;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -54,8 +54,6 @@ import org.apache.lucene.search.Weight;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
 
-import com.codahale.metrics.Counter;
-import com.codahale.metrics.Timer;
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
 import com.ericsson.otp.erlang.OtpErlangList;
@@ -64,6 +62,9 @@ import com.ericsson.otp.erlang.OtpErlangTuple;
 import com.spatial4j.core.context.SpatialContext;
 import com.spatial4j.core.distance.DistanceUtils;
 import com.spatial4j.core.shape.Point;
+import com.yammer.metrics.Metrics;
+import com.yammer.metrics.core.Counter;
+import com.yammer.metrics.core.Timer;
 
 public class IndexService extends Service {
 
@@ -123,12 +124,11 @@ public class IndexService extends Service {
         this.reader = DirectoryReader.open(writer, true);
         this.qp = qp;
 
-        searchTimer = state.metricRegistry.timer("com.cloudant.clouseau:type=IndexService,name=searches");
-        updateTimer = state.metricRegistry.timer("com.cloudant.clouseau:type=IndexService,name=updates");
-        deleteTimer = state.metricRegistry.timer("com.cloudant.clouseau:type=IndexService,name=deletes");
-        commitTimer = state.metricRegistry.timer("com.cloudant.clouseau:type=IndexService,name=commits");
-        parSearchTimeOutCount = state.metricRegistry
-                .counter("com.cloudant.clouseau:type=IndexService,name=partition_search.timeout.count");
+        searchTimer = Metrics.newTimer(getClass(), "searches");
+        updateTimer = Metrics.newTimer(getClass(), "updates");
+        deleteTimer = Metrics.newTimer(getClass(), "deletes");
+        commitTimer = Metrics.newTimer(getClass(), "commits");
+        parSearchTimeOutCount = Metrics.newCounter(getClass(), "partition_search.timeout.count");
 
         final int commitIntervalSecs = state.config.getInt("clouseau.commit_interval_secs", 60);
         commitFuture = state.scheduledExecutor.scheduleWithFixedDelay(() -> {
@@ -179,6 +179,7 @@ public class IndexService extends Service {
                 case "delete": {
                     final String id = asString(tuple.elementAt(1));
                     debug(String.format("Deleting %s", id));
+
                     deleteTimer.time(() -> {
                         try {
                             writer.deleteDocuments(new Term("_id", id));
@@ -186,6 +187,7 @@ public class IndexService extends Service {
                             error("I/O exception when deleting docs", e);
                             terminate(asBinary(e.getMessage()));
                         }
+                        return null;
                     });
                     return atom("ok");
                 }
@@ -206,14 +208,15 @@ public class IndexService extends Service {
         if (logger.isDebugEnabled()) {
             debug("Updating " + doc.get("_id"));
         }
-        updateTimer.time(() -> {
-            try {
+        try {
+            updateTimer.time(() -> {
                 writer.updateDocument(new Term("_id", doc.get("_id")), doc);
-            } catch (final IOException e) {
-                error("I/O exception when updating docs", e);
-                terminate(asBinary(e.getMessage()));
-            }
-        });
+                return null;
+            });
+        } catch (final Exception e) {
+            error("exception when updating docs", e);
+            terminate(asBinary(e.getMessage()));
+        }
         return atom("ok");
     }
 
@@ -572,17 +575,18 @@ public class IndexService extends Service {
             writer.setCommitData(
                     Map.of("update_seq", Long.toString(newUpdateSeq), "purge_seq", Long.toString(newPurgeSeq)));
 
-            commitTimer.time(() -> {
-                try {
+            try {
+                commitTimer.time(() -> {
                     writer.commit();
-                } catch (final AlreadyClosedException e) {
-                    error("Commit failed to closed writer", e);
-                    IndexService.this.exit(asBinary(e.getMessage()));
-                } catch (IOException e) {
-                    error("Failed to commit changes", e);
-                    IndexService.this.exit(asBinary(e.getMessage()));
-                }
-            });
+                    return null;
+                });
+            } catch (final AlreadyClosedException e) {
+                error("Commit failed to closed writer", e);
+                IndexService.this.exit(asBinary(e.getMessage()));
+            } catch (Exception e) {
+                error("Failed to commit changes", e);
+                IndexService.this.exit(asBinary(e.getMessage()));
+            }
             updateSeq = newUpdateSeq;
             purgeSeq = newPurgeSeq;
             forceRefresh = true;

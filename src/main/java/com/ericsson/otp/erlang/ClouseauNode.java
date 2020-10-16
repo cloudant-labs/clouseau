@@ -2,7 +2,7 @@ package com.ericsson.otp.erlang;
 
 import java.io.IOException;
 
-import com.cloudant.cloujeau.ServiceRegistry;
+import com.cloudant.clouseau.ServiceRegistry;
 
 public class ClouseauNode extends OtpNode {
 
