@@ -28,7 +28,6 @@ public final class ServiceRegistry {
         @Override
         protected boolean removeEldestEntry(final Entry<OtpErlangPid, Service> eldest) {
             if (size() > capacity) {
-                logger.warn(eldest.getValue() + " ejected from LRU");
                 eldest.getValue().send(eldest.getKey(), tuple(atom("close"), atom("lru")));
             }
             return false;

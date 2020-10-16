@@ -232,7 +232,7 @@ public class IndexService extends Service {
             }
             }
         }
-        if (request instanceof OtpErlangAtom) {
+        if (request instanceof OtpErlangTuple) {
             final OtpErlangTuple tuple = (OtpErlangTuple) request;
             final OtpErlangObject cmd = tuple.elementAt(0);
             switch (asString(cmd)) {
