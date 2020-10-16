@@ -72,7 +72,8 @@ public class Main {
                             idleTimeout));
         }
 
-        final ServiceRegistry serviceRegistry = new ServiceRegistry();
+        final int serviceCapacity = config.getInt("clouseau.max_indexes_open", 10);
+        final ServiceRegistry serviceRegistry = new ServiceRegistry(serviceCapacity);
         final ClouseauNode node = new ClouseauNode(name, cookie, serviceRegistry);
         final ServerState state = new ServerState(config, node, serviceRegistry, METRIC_REGISTRY, scheduledExecutor);
 

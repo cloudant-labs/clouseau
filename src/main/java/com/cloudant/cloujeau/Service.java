@@ -63,8 +63,9 @@ public abstract class Service {
         try {
             switch (msg.type()) {
             case OtpMsg.sendTag:
-            case OtpMsg.regSendTag: {
+            case OtpMsg.regSendTag:
                 final OtpErlangObject obj = msg.getMsg();
+
                 if (obj instanceof OtpErlangTuple) {
                     final OtpErlangTuple tuple = (OtpErlangTuple) obj;
                     final OtpErlangAtom atom = (OtpErlangAtom) tuple.elementAt(0);
@@ -84,22 +85,24 @@ public abstract class Service {
                             reply(from, tuple(atom("error"), asBinary(e.getMessage())));
                             logger.error(this + " encountered exception during handleCall", e);
                         }
-                    } else if (atom("$gen_cast").equals(atom)) {
+                        return;
+                    }
+
+                    if (atom("$gen_cast").equals(atom)) {
                         final OtpErlangObject request = tuple.elementAt(1);
                         try {
                             handleCast(request);
                         } catch (final Exception e) {
                             logger.error(this + " encountered exception during handleCast", e);
                         }
-                    }
-                } else {
-                    try {
-                        handleInfo(obj);
-                    } catch (final Exception e) {
-                        logger.error(this + " encountered exception during handleInfo", e);
+                        return;
                     }
                 }
-            }
+                try {
+                    handleInfo(obj);
+                } catch (final Exception e) {
+                    logger.error(this + " encountered exception during handleInfo", e);
+                }
                 break;
 
             default:

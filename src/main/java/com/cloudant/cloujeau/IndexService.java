@@ -152,7 +152,6 @@ public class IndexService extends Service {
     @Override
     public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws Exception {
         idle = false;
-        info("call " + request);
         if (request instanceof OtpErlangAtom) {
             switch (asString(request)) {
             case "get_update_seq":
@@ -221,7 +220,6 @@ public class IndexService extends Service {
     @Override
     public void handleInfo(final OtpErlangObject request) throws IOException {
         idle = false;
-        info("info " + request);
         if (request instanceof OtpErlangAtom) {
             switch (asString(request)) {
             case "delete": {
@@ -234,10 +232,19 @@ public class IndexService extends Service {
             }
             }
         }
+        if (request instanceof OtpErlangAtom) {
+            final OtpErlangTuple tuple = (OtpErlangTuple) request;
+            final OtpErlangObject cmd = tuple.elementAt(0);
+            switch (asString(cmd)) {
+            case "close":
+                exit(tuple.elementAt(1));
+            }
+        }
     }
 
     @Override
     public void terminate(final OtpErlangObject reason) {
+        info("Terminating for reason " + asString(reason));
         commitFuture.cancel(false);
         if (closeFuture != null) {
             closeFuture.cancel(false);
@@ -579,7 +586,7 @@ public class IndexService extends Service {
             updateSeq = newUpdateSeq;
             purgeSeq = newPurgeSeq;
             forceRefresh = true;
-            debug(String.format("Committed update sequence %d and purge sequence %d", newUpdateSeq, newPurgeSeq));
+            info(String.format("Committed update sequence %d and purge sequence %d", newUpdateSeq, newPurgeSeq));
         }
     }
 

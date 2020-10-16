@@ -200,7 +200,7 @@ public final class OtpUtils {
         if (obj instanceof OtpErlangAtom) {
             return ((OtpErlangAtom) obj).atomValue();
         }
-        throw new IllegalArgumentException(obj + " cannot be converted to string");
+        return obj.toString();
     }
 
     public static OtpErlangList emptyList() {
