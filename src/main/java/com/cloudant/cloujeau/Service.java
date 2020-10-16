@@ -162,6 +162,10 @@ public abstract class Service {
         mbox.send(to, msg);
     }
 
+    public final void exit(final OtpErlangPid to, final OtpErlangObject msg) {
+        mbox.exit(to, msg);
+    }
+
     public final void exit(final OtpErlangObject reason) {
         mbox.exit(reason);
         state.serviceRegistry.unregister(this);
