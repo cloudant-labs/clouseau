@@ -61,6 +61,15 @@ public final class OtpUtils {
     }
 
     public static OtpErlangObject asFloat(final float val) {
+        if (Float.isNaN(val)) {
+            return atom("nan");
+        }
+        if (val == Float.POSITIVE_INFINITY) {
+            return atom("infinity");
+        }
+        if (val == Float.NEGATIVE_INFINITY) {
+            return atom("-infinity");
+        }
         return new OtpErlangFloat(val);
     }
 

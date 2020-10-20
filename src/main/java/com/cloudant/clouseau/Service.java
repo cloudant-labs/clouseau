@@ -124,7 +124,6 @@ public abstract class Service {
     }
 
     public void terminate(final OtpErlangObject reason) {
-
     }
 
     /**

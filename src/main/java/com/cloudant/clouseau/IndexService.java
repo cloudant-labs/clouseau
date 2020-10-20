@@ -146,13 +146,13 @@ public class IndexService extends Service {
         commitTimer = Metrics.newTimer(getClass(), "commits");
         parSearchTimeOutCount = Metrics.newCounter(getClass(), "partition_search.timeout.count");
 
-        final int commitIntervalSecs = state.config.getInt("clouseau.commit_interval_secs", 60);
+        final int commitIntervalSecs = state.config.getInt("clouseau.commit_interval_secs", 30);
         commitFuture = state.scheduledExecutor.scheduleWithFixedDelay(() -> {
             commit();
         }, commitIntervalSecs, commitIntervalSecs, TimeUnit.SECONDS);
 
         final boolean closeIfIdleEnabled = state.config.getBoolean("clouseau.close_if_idle", true);
-        final int idleTimeoutSecs = state.config.getInt("clouseau.idle_check_interval_secs", 30);
+        final int idleTimeoutSecs = state.config.getInt("clouseau.idle_check_interval_secs", 300);
         if (closeIfIdleEnabled) {
             closeFuture = state.scheduledExecutor.scheduleWithFixedDelay(() -> {
                 closeIfIdle();
@@ -367,12 +367,13 @@ public class IndexService extends Service {
             searcher.search(query, collector);
             return null;
         });
+
         return tuple(
                 atom("ok"),
                 asList(
                         tuple(atom("update_seq"), asOtp(updateSeq)),
-                        tuple(atom("total_hits"), asOtp(getTotalHits(collector))),
-                        tuple(atom("hits"), getHits(searcher, collector))));
+                        tuple(atom("total_hits"), asOtp(getTotalHits(hitsCollector))),
+                        tuple(atom("hits"), getHits(searcher, hitsCollector))));
 
     }
 
@@ -490,6 +491,7 @@ public class IndexService extends Service {
 
         final Map<String, Object> fields = new HashMap<String, Object>();
         doc.getFields().forEach((field) -> {
+
             final Object value = field.numericValue() == null ? field.stringValue() : field.numericValue();
             final Object current = fields.get(field.name());
             if (current == null) {
