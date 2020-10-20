@@ -17,6 +17,7 @@ import static com.cloudant.clouseau.OtpUtils.nilToNull;
 import static com.cloudant.clouseau.OtpUtils.tuple;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -30,7 +31,17 @@ import java.util.regex.Pattern;
 import org.apache.log4j.Logger;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.facet.params.FacetIndexingParams;
+import org.apache.lucene.facet.params.FacetSearchParams;
+import org.apache.lucene.facet.range.DoubleRange;
+import org.apache.lucene.facet.range.RangeAccumulator;
+import org.apache.lucene.facet.range.RangeFacetRequest;
+import org.apache.lucene.facet.search.CountFacetRequest;
 import org.apache.lucene.facet.search.DrillDownQuery;
+import org.apache.lucene.facet.search.FacetRequest;
+import org.apache.lucene.facet.search.FacetsAccumulator;
+import org.apache.lucene.facet.search.FacetsCollector;
+import org.apache.lucene.facet.sortedset.SortedSetDocValuesAccumulator;
+import org.apache.lucene.facet.sortedset.SortedSetDocValuesReaderState;
 import org.apache.lucene.facet.taxonomy.CategoryPath;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
@@ -41,18 +52,23 @@ import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.Collector;
+import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.MultiCollector;
+import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocsCollector;
+import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.search.TotalHitCountCollector;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.util.BytesRef;
 
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
@@ -280,7 +296,7 @@ public class IndexService extends Service {
         final String partition = asString(searchRequest.get(atom("partition")));
 
         final List<String> counts = asListOfStrings(nilToNull(searchRequest.get(atom("counts"))));
-        final List<String> ranges = asListOfStrings(nilToNull(searchRequest.get(atom("ranges"))));
+        final OtpErlangObject ranges = nilToNull(searchRequest.get(atom("ranges")));
 
         final List<String> includeFields = asListOfStrings(nilToNull(searchRequest.get(atom("include_fields"))));
         if (includeFields != null) {
@@ -317,19 +333,33 @@ public class IndexService extends Service {
         }
 
         final IndexSearcher searcher = getSearcher(refresh);
-
         final Weight weight = searcher.createNormalizedWeight(query);
         final boolean docsScoredInOrder = !weight.scoresDocsOutOfOrder();
 
         final Sort sort = parseSort(searchRequest.getOrDefault(atom("sort"), atom("relevance"))).rewrite(searcher);
         final ScoreDoc after = toScoreDoc(sort, nilToNull(searchRequest.get(atom("after"))));
 
-        final Collector collector;
+        final Collector hitsCollector;
         if (limit == 0) {
-            collector = new TotalHitCountCollector();
+            hitsCollector = new TotalHitCountCollector();
+        } else if (after == null && Sort.RELEVANCE.equals(sort)) {
+            hitsCollector = TopScoreDocCollector.create(limit, docsScoredInOrder);
+        } else if (after != null && Sort.RELEVANCE.equals(sort)) {
+            hitsCollector = TopScoreDocCollector.create(limit, after, docsScoredInOrder);
+        } else if (after == null && sort != null) {
+            hitsCollector = TopFieldCollector.create(sort, limit, true, false, false, docsScoredInOrder);
+        } else if (after instanceof FieldDoc && sort != null) {
+            hitsCollector = TopFieldCollector
+                    .create(sort, limit, (FieldDoc) after, true, false, false, docsScoredInOrder);
         } else {
-            collector = TopScoreDocCollector.create(limit, docsScoredInOrder);
+            throw new IllegalArgumentException();
         }
+
+        final Collector countsCollector = createCountsCollector(counts);
+        final Collector rangesCollector = createRangesCollector(ranges);
+
+        final Collector collector = MultiCollector.wrap(hitsCollector, countsCollector, rangesCollector);
+
         if (logger.isDebugEnabled()) {
             debug("Searching for " + query);
         }
@@ -344,6 +374,74 @@ public class IndexService extends Service {
                         tuple(atom("total_hits"), asOtp(getTotalHits(collector))),
                         tuple(atom("hits"), getHits(searcher, collector))));
 
+    }
+
+    private Collector createCountsCollector(final List<String> counts) throws IOException, ParseException {
+        if (counts == null) {
+            return null;
+        }
+        final SortedSetDocValuesReaderState state;
+        try {
+            state = new SortedSetDocValuesReaderState(reader);
+        } catch (final IllegalArgumentException e) {
+            if (e.getMessage().contains("was not indexed with SortedSetDocValues")) {
+                return null;
+            }
+            throw e;
+        }
+
+        final List<FacetRequest> countFacetRequests = new ArrayList<FacetRequest>(counts.size());
+        for (int i = 0; i < countFacetRequests.size(); i++) {
+            countFacetRequests.add(new CountFacetRequest(new CategoryPath(counts.get(i)), Integer.MAX_VALUE));
+        }
+        final FacetSearchParams facetSearchParams = new FacetSearchParams(countFacetRequests);
+        final FacetsAccumulator acc;
+        try {
+            acc = new SortedSetDocValuesAccumulator(state, facetSearchParams);
+        } catch (final IllegalArgumentException e) {
+            throw new ParseException(e.getMessage());
+        }
+
+        return FacetsCollector.create(acc);
+    }
+
+    private Collector createRangesCollector(final OtpErlangObject ranges) throws ParseException {
+        if (ranges == null) {
+            return null;
+        }
+
+        if (ranges instanceof OtpErlangList) {
+            final OtpErlangList rangeList = (OtpErlangList) ranges;
+            final List<FacetRequest> rangeFacetRequests = new ArrayList<FacetRequest>(rangeList.arity());
+            for (int i = 0; i < rangeFacetRequests.size(); i++) {
+                final OtpErlangObject item = rangeList.elementAt(i);
+                if (item instanceof OtpErlangTuple && ((OtpErlangTuple) item).arity() == 2) {
+                    final String name = asString(((OtpErlangTuple) item).elementAt(0));
+                    final OtpErlangList list = (OtpErlangList) ((OtpErlangTuple) item).elementAt(1);
+                    final List<DoubleRange> ranges1 = new ArrayList<DoubleRange>(list.arity());
+                    for (final OtpErlangObject row : list) {
+                        final String label = asString(((OtpErlangTuple) row).elementAt(0));
+                        final String rangeQuery = asString(((OtpErlangTuple) row).elementAt(1));
+                        final Query q = qp.parse(rangeQuery);
+                        if (q instanceof NumericRangeQuery) {
+                            final NumericRangeQuery<?> nq = (NumericRangeQuery<?>) q;
+                            ranges1.add(
+                                    new DoubleRange(label, nq.getMin().doubleValue(), nq.includesMin(),
+                                            nq.getMax().doubleValue(), nq.includesMax()));
+                        } else {
+                            throw new ParseException(rangeQuery + " was not a well-formed range specification");
+                        }
+                    }
+                    rangeFacetRequests.add(new RangeFacetRequest<DoubleRange>(name, ranges1));
+                } else {
+                    throw new ParseException("invalid ranges query");
+                }
+            }
+
+            final FacetsAccumulator acc = new RangeAccumulator(rangeFacetRequests);
+            return FacetsCollector.create(acc);
+        }
+        throw new ParseException(ranges + " is not a valid ranges query");
     }
 
     private IndexSearcher getSearcher(boolean refresh) throws IOException {
@@ -487,62 +585,50 @@ public class IndexService extends Service {
         }
     }
 
-    private ScoreDoc toScoreDoc(final Sort sort, final OtpErlangObject any) {
-        if (null == any) {
+    private ScoreDoc toScoreDoc(final Sort sort, final OtpErlangObject after) throws ParseException {
+        if (null == after) {
             return null;
         }
-        if (any instanceof OtpErlangTuple) {
-            final OtpErlangTuple tuple = (OtpErlangTuple) any;
+        if (after instanceof OtpErlangTuple) {
+            final OtpErlangTuple tuple = (OtpErlangTuple) after;
             if (tuple.arity() != 2) {
                 throw new IllegalArgumentException("wrong arity");
             }
             return new ScoreDoc(asInt(tuple.elementAt(0)), asFloat(tuple.elementAt(1)));
         }
-        if (any instanceof OtpErlangList) {
-            final OtpErlangList list = (OtpErlangList) any;
+        if (after instanceof OtpErlangList) {
+            final OtpErlangList list = (OtpErlangList) after;
             final int doc = asInt(list.elementAt(list.arity() - 1));
-            // TODO see below
+            final SortField[] sortFields = sort.getSort();
+            if (sortFields.length == 1 && SortField.FIELD_SCORE.equals(sortFields[0])) {
+                return new ScoreDoc(doc, asFloat(list.elementAt(0)));
+            }
+            if (list.arity() - 1 != sortFields.length) {
+                throw new ParseException("sort order not compatible with given bookmark");
+            }
+            final Object[] fields = new Object[sortFields.length - 1];
+            for (int i = 0; i < fields.length; i++) {
+                if (atom("null").equals(list.elementAt(i))) {
+                    fields[i] = null;
+                } else if (list.elementAt(i) instanceof OtpErlangBinary) {
+                    fields[i] = new BytesRef(asString(list.elementAt(i)));
+                } else if (SortField.FIELD_SCORE.equals(sortFields[i])) {
+                    fields[i] = asFloat(list.elementAt(i));
+                } else if (INVERSE_FIELD_SCORE.equals(sortFields[i])) {
+                    fields[i] = asFloat(list.elementAt(i));
+                } else if (SortField.FIELD_DOC.equals(sortFields[i])) {
+                    fields[i] = asInt(list.elementAt(i));
+                } else if (INVERSE_FIELD_DOC.equals(sortFields[i])) {
+                    fields[i] = asInt(list.elementAt(i));
+                } else {
+                    logger.error("conversion failure: " + list.elementAt(i));
+                    fields[i] = list.elementAt(i); // missing scalang conversions here :(
+                }
+            }
+            return new FieldDoc(doc, Float.NaN, fields);
         }
-        throw new IllegalArgumentException(any + " cannot be converted to ScoreDoc");
+        throw new IllegalArgumentException(after + " cannot be converted to ScoreDoc");
     }
-
-//    private def toScoreDoc(sort: Sort, after: Any): Option[ScoreDoc] = after match {
-//    case 'nil =>
-//      None
-//    case (score: Any, doc: Any) =>
-//      Some(new ScoreDoc(ClouseauTypeFactory.toInteger(doc),
-//        ClouseauTypeFactory.toFloat(score)))
-//    case list: List[Object] =>
-//      val doc = list.last
-//      sort.getSort match {
-//        case Array(SortField.FIELD_SCORE) =>
-//          Some(new ScoreDoc(ClouseauTypeFactory.toInteger(doc),
-//            ClouseauTypeFactory.toFloat(list.head)))
-//        case _ =>
-//          val fields = list dropRight 1
-//          val sortfields = sort.getSort.toList
-//          if (fields.length != sortfields.length) {
-//            throw new ParseException("sort order not compatible with given bookmark")
-//          }
-//          Some(new FieldDoc(ClouseauTypeFactory.toInteger(doc),
-//            Float.NaN, (sortfields zip fields) map {
-//              case (_, 'null) =>
-//                null
-//              case (_, str: String) =>
-//                Utils.stringToBytesRef(str)
-//              case (SortField.FIELD_SCORE, number: java.lang.Double) =>
-//                java.lang.Float.valueOf(number.floatValue())
-//              case (IndexService.INVERSE_FIELD_SCORE, number: java.lang.Double) =>
-//                java.lang.Float.valueOf(number.floatValue())
-//              case (SortField.FIELD_DOC, number: java.lang.Double) =>
-//                java.lang.Integer.valueOf(number.intValue())
-//              case (IndexService.INVERSE_FIELD_DOC, number: java.lang.Double) =>
-//                java.lang.Integer.valueOf(number.intValue())
-//              case (_, field) =>
-//                field
-//            } toArray))
-//      }
-//  }
 
     private Query parseQuery(final String query, final String partition) throws ParseException {
         if (partition == null) {

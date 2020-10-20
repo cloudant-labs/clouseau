@@ -76,6 +76,37 @@ public final class ServiceRegistry {
         }
     }
 
+    public Service lookup(final String name) {
+        final Lock lock = this.lock.readLock();
+        lock.lock();
+        try {
+            return byName.get(name);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public Service lookup(final OtpErlangPid pid) {
+        Lock lock = this.lock.readLock();
+        lock.lock();
+        try {
+            final Service service = byPid.get(pid);
+            if (service != null) {
+                return service;
+            }
+        } finally {
+            lock.unlock();
+        }
+
+        lock = this.lock.writeLock(); // write lock because pidOnly is updated on access.
+        lock.lock();
+        try {
+            return pidOnly.get(pid);
+        } finally {
+            lock.unlock();
+        }
+    }
+
     public void addPending(final String name) {
         final Lock lock = this.lock.readLock();
         lock.lock();
