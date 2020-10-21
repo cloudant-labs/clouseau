@@ -10,6 +10,7 @@ import static com.cloudant.clouseau.OtpUtils.asListOfStrings;
 import static com.cloudant.clouseau.OtpUtils.asLong;
 import static com.cloudant.clouseau.OtpUtils.asMap;
 import static com.cloudant.clouseau.OtpUtils.asOtp;
+import static com.cloudant.clouseau.OtpUtils.asSetOfStrings;
 import static com.cloudant.clouseau.OtpUtils.asString;
 import static com.cloudant.clouseau.OtpUtils.atom;
 import static com.cloudant.clouseau.OtpUtils.emptyList;
@@ -22,6 +23,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -298,7 +300,7 @@ public class IndexService extends Service {
         final List<String> counts = asListOfStrings(nilToNull(searchRequest.get(atom("counts"))));
         final OtpErlangObject ranges = nilToNull(searchRequest.get(atom("ranges")));
 
-        final List<String> includeFields = asListOfStrings(nilToNull(searchRequest.get(atom("include_fields"))));
+        final Set<String> includeFields = asSetOfStrings(nilToNull(searchRequest.get(atom("include_fields"))));
         if (includeFields != null) {
             includeFields.add("_id");
         }
@@ -373,7 +375,7 @@ public class IndexService extends Service {
                 asList(
                         tuple(atom("update_seq"), asOtp(updateSeq)),
                         tuple(atom("total_hits"), asOtp(getTotalHits(hitsCollector))),
-                        tuple(atom("hits"), getHits(searcher, hitsCollector))));
+                        tuple(atom("hits"), getHits(hitsCollector, searcher, includeFields))));
 
     }
 
@@ -471,12 +473,13 @@ public class IndexService extends Service {
         throw new IllegalArgumentException("Can't get total hits for " + collector);
     }
 
-    private OtpErlangList getHits(final IndexSearcher searcher, final Collector collector) throws IOException {
+    private OtpErlangList getHits(final Collector collector, final IndexSearcher searcher,
+            final Set<String> includeFields) throws IOException {
         if (collector instanceof TopDocsCollector) {
             final ScoreDoc[] scoreDocs = ((TopDocsCollector<?>) collector).topDocs().scoreDocs;
             final OtpErlangObject[] objs = new OtpErlangObject[scoreDocs.length];
             for (int i = 0; i < scoreDocs.length; i++) {
-                objs[i] = docToHit(searcher, scoreDocs[i]);
+                objs[i] = docToHit(searcher, scoreDocs[i], includeFields);
             }
             return asList(objs);
         }
@@ -486,12 +489,17 @@ public class IndexService extends Service {
         throw new IllegalArgumentException("Can't get hits for " + collector);
     }
 
-    private OtpErlangTuple docToHit(final IndexSearcher searcher, final ScoreDoc scoreDoc) throws IOException {
-        final Document doc = searcher.doc(scoreDoc.doc);
+    private OtpErlangTuple docToHit(final IndexSearcher searcher, final ScoreDoc scoreDoc,
+            final Set<String> includeFields) throws IOException {
+        final Document doc;
+        if (includeFields == null) {
+            doc = searcher.doc(scoreDoc.doc);
+        } else {
+            doc = searcher.doc(scoreDoc.doc, includeFields);
+        }
 
         final Map<String, Object> fields = new HashMap<String, Object>();
         doc.getFields().forEach((field) -> {
-
             final Object value = field.numericValue() == null ? field.stringValue() : field.numericValue();
             final Object current = fields.get(field.name());
             if (current == null) {
@@ -505,9 +513,29 @@ public class IndexService extends Service {
                 fields.put(field.name(), list);
             }
         });
+        final List<OtpErlangObject> order;
+        if (scoreDoc instanceof FieldDoc) {
+            order = convertOrder(((FieldDoc) scoreDoc).fields);
+            order.add(asOtp(scoreDoc.doc));
+        } else {
+            order = new ArrayList<OtpErlangObject>(2);
+            order.add(asFloat(scoreDoc.score));
+            order.add(asInt(scoreDoc.doc));
+        }
 
-        final OtpErlangObject order = asList(asFloat(scoreDoc.score), asInt(scoreDoc.doc));
-        return tuple(atom("hit"), order, asOtp(fields));
+        return tuple(atom("hit"), asOtp(order), asOtp(fields));
+    }
+
+    private List<OtpErlangObject> convertOrder(final Object... fields) {
+        final List<OtpErlangObject> result = new ArrayList<OtpErlangObject>(fields.length);
+        for (int i = 0; i < fields.length; i++) {
+            if (fields[i] == null) {
+                result.add(atom("null"));
+            } else {
+                result.add(asOtp(fields[i]));
+            }
+        }
+        return result;
     }
 
     private Sort parseSort(final OtpErlangObject obj) throws ParseException {

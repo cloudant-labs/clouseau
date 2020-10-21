@@ -4,9 +4,13 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.lucene.util.BytesRef;
 
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
@@ -120,6 +124,17 @@ public final class OtpUtils {
         return result;
     }
 
+    public static Set<String> asSetOfStrings(final OtpErlangList list) {
+        if (list == null) {
+            return null;
+        }
+        final Set<String> result = new HashSet<String>();
+        for (final OtpErlangObject item : list) {
+            result.add(asString(item));
+        }
+        return result;
+    }
+
     public static OtpErlangObject asLong(final long val) {
         return new OtpErlangLong(val);
     }
@@ -172,6 +187,16 @@ public final class OtpUtils {
         if (obj instanceof String) {
             return asBinary((String) obj);
         }
+        if (obj instanceof BytesRef) {
+            final BytesRef bytesRef1 = (BytesRef) obj;
+            final BytesRef bytesRef2;
+            if (bytesRef1.offset > 0) {
+                bytesRef2 = BytesRef.deepCopyOf(bytesRef1);
+            } else {
+                bytesRef2 = bytesRef1;
+            }
+            return new OtpErlangBinary(bytesRef2.bytes);
+        }
         if (obj instanceof List) {
             final List<?> from = (List<?>) obj;
             final OtpErlangObject[] to = new OtpErlangObject[from.size()];
@@ -189,7 +214,7 @@ public final class OtpUtils {
             }
             return new OtpErlangList(to);
         }
-        throw new IllegalArgumentException(obj + " cannot be converted to otp");
+        throw new IllegalArgumentException(obj.getClass() + " cannot be converted to otp");
     }
 
     public static String asString(final OtpErlangObject obj) {
