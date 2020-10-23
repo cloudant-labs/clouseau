@@ -1,6 +1,6 @@
 package com.cloudant.clouseau;
 
-import static com.cloudant.clouseau.OtpUtils.*;
+import static com.cloudant.clouseau.OtpUtils.asArrayOfStrings;
 import static com.cloudant.clouseau.OtpUtils.asBinary;
 import static com.cloudant.clouseau.OtpUtils.asBoolean;
 import static com.cloudant.clouseau.OtpUtils.asFloat;
@@ -15,6 +15,7 @@ import static com.cloudant.clouseau.OtpUtils.asString;
 import static com.cloudant.clouseau.OtpUtils.atom;
 import static com.cloudant.clouseau.OtpUtils.emptyList;
 import static com.cloudant.clouseau.OtpUtils.nilToNull;
+import static com.cloudant.clouseau.OtpUtils.props;
 import static com.cloudant.clouseau.OtpUtils.tuple;
 
 import java.io.IOException;
@@ -40,6 +41,8 @@ import org.apache.lucene.facet.range.RangeFacetRequest;
 import org.apache.lucene.facet.search.CountFacetRequest;
 import org.apache.lucene.facet.search.DrillDownQuery;
 import org.apache.lucene.facet.search.FacetRequest;
+import org.apache.lucene.facet.search.FacetResult;
+import org.apache.lucene.facet.search.FacetResultNode;
 import org.apache.lucene.facet.search.FacetsAccumulator;
 import org.apache.lucene.facet.search.FacetsCollector;
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesAccumulator;
@@ -74,6 +77,7 @@ import org.apache.lucene.util.BytesRef;
 
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
+import com.ericsson.otp.erlang.OtpErlangDouble;
 import com.ericsson.otp.erlang.OtpErlangList;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangTuple;
@@ -370,13 +374,20 @@ public class IndexService extends Service {
             return null;
         });
 
-        return tuple(
-                atom("ok"),
-                asList(
-                        tuple(atom("update_seq"), asOtp(updateSeq)),
-                        tuple(atom("total_hits"), asOtp(getTotalHits(hitsCollector))),
-                        tuple(atom("hits"), getHits(hitsCollector, searcher, includeFields))));
+        final List<OtpErlangObject> elems = new ArrayList<OtpErlangObject>(5);
+        elems.add(tuple(atom("update_seq"), asOtp(updateSeq)));
+        elems.add(tuple(atom("total_hits"), asOtp(getTotalHits(hitsCollector))));
+        elems.add(tuple(atom("hits"), getHits(hitsCollector, searcher, includeFields)));
+        final OtpErlangObject countsOtp = convertFacets((FacetsCollector) countsCollector);
+        if (countsOtp != null) {
+            elems.add(tuple(atom("counts"), countsOtp));
+        }
+        final OtpErlangObject rangesOtp = convertFacets((FacetsCollector) rangesCollector);
+        if (rangesOtp != null) {
+            elems.add(tuple(atom("ranges"), rangesOtp));
+        }
 
+        return tuple(atom("ok"), asList(elems));
     }
 
     private Collector createCountsCollector(final List<String> counts) throws IOException, ParseException {
@@ -444,6 +455,37 @@ public class IndexService extends Service {
             return FacetsCollector.create(acc);
         }
         throw new ParseException(ranges + " is not a valid ranges query");
+    }
+
+    private OtpErlangObject convertFacets(final FacetsCollector c) throws IOException {
+        if (c == null) {
+            return null;
+        }
+        OtpErlangObject[] elems = new OtpErlangObject[c.getFacetResults().size()];
+        for (int i = 0; i < elems.length; i++) {
+            elems[i] = convertFacet(c.getFacetResults().get(i));
+        }
+        return new OtpErlangList(elems);
+    }
+
+    private OtpErlangObject convertFacet(final FacetResult facet) {
+        return convertFacetNode(facet.getFacetResultNode());
+    }
+
+    private OtpErlangObject convertFacetNode(final FacetResultNode node) {
+        OtpErlangObject[] elems = new OtpErlangObject[node.label.components.length];
+        for (int i = 0; i < elems.length; i++) {
+            elems[i] = asBinary(node.label.components[i]);
+        }
+        final OtpErlangObject label = new OtpErlangList(elems);
+
+        elems = new OtpErlangObject[node.subResults.size()];
+        for (int i = 0; i < elems.length; i++) {
+            elems[i] = convertFacetNode(node.subResults.get(i));
+        }
+        final OtpErlangList children = new OtpErlangList(elems);
+
+        return new OtpErlangTuple(new OtpErlangObject[] { label, new OtpErlangDouble(node.value), children });
     }
 
     private IndexSearcher getSearcher(boolean refresh) throws IOException {

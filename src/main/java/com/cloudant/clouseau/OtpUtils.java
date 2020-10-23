@@ -113,6 +113,10 @@ public final class OtpUtils {
         return new OtpErlangList(objs);
     }
 
+    public static OtpErlangList asList(final List<OtpErlangObject> list) {
+        return new OtpErlangList(list.toArray(new OtpErlangObject[list.size()]));
+    }
+
     public static List<String> asListOfStrings(final OtpErlangList list) {
         if (list == null) {
             return null;
