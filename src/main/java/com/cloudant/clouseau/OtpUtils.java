@@ -241,6 +241,16 @@ public final class OtpUtils {
         return EMPTY_LIST;
     }
 
+    public static OtpErlangList props(final OtpErlangObject obj) {
+        if (obj instanceof OtpErlangTuple && ((OtpErlangTuple) obj).arity() == 1) {
+            final OtpErlangObject props = ((OtpErlangTuple) obj).elementAt(0);
+            if (props instanceof OtpErlangList) {
+                return (OtpErlangList) props;
+            }
+        }
+        return null;
+    }
+
     private static boolean isNil(final OtpErlangObject obj) {
         return atom("nil").equals(obj);
     }

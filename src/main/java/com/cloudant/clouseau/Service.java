@@ -81,7 +81,8 @@ public abstract class Service {
                                 reply(from, INVALID_MSG);
                             }
                         } catch (final Exception e) {
-                            reply(from, tuple(atom("error"), asBinary(e.getMessage())));
+                            final String err = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
+                            reply(from, tuple(atom("error"), asBinary(err)));
                             logger.error(this + " encountered exception during handleCall", e);
                         }
                         return;

@@ -1,6 +1,6 @@
 package com.cloudant.clouseau;
 
-import static com.cloudant.clouseau.OtpUtils.asArrayOfStrings;
+import static com.cloudant.clouseau.OtpUtils.*;
 import static com.cloudant.clouseau.OtpUtils.asBinary;
 import static com.cloudant.clouseau.OtpUtils.asBoolean;
 import static com.cloudant.clouseau.OtpUtils.asFloat;
@@ -394,7 +394,7 @@ public class IndexService extends Service {
         }
 
         final List<FacetRequest> countFacetRequests = new ArrayList<FacetRequest>(counts.size());
-        for (int i = 0; i < countFacetRequests.size(); i++) {
+        for (int i = 0; i < counts.size(); i++) {
             countFacetRequests.add(new CountFacetRequest(new CategoryPath(counts.get(i)), Integer.MAX_VALUE));
         }
         final FacetSearchParams facetSearchParams = new FacetSearchParams(countFacetRequests);
@@ -412,15 +412,14 @@ public class IndexService extends Service {
         if (ranges == null) {
             return null;
         }
-
-        if (ranges instanceof OtpErlangList) {
-            final OtpErlangList rangeList = (OtpErlangList) ranges;
+        final OtpErlangList rangeList = props(ranges);
+        if (rangeList != null) {
             final List<FacetRequest> rangeFacetRequests = new ArrayList<FacetRequest>(rangeList.arity());
-            for (int i = 0; i < rangeFacetRequests.size(); i++) {
+            for (int i = 0; i < rangeList.arity(); i++) {
                 final OtpErlangObject item = rangeList.elementAt(i);
                 if (item instanceof OtpErlangTuple && ((OtpErlangTuple) item).arity() == 2) {
                     final String name = asString(((OtpErlangTuple) item).elementAt(0));
-                    final OtpErlangList list = (OtpErlangList) ((OtpErlangTuple) item).elementAt(1);
+                    final OtpErlangList list = props(((OtpErlangTuple) item).elementAt(1));
                     final List<DoubleRange> ranges1 = new ArrayList<DoubleRange>(list.arity());
                     for (final OtpErlangObject row : list) {
                         final String label = asString(((OtpErlangTuple) row).elementAt(0));
