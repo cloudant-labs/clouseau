@@ -20,16 +20,19 @@ import static com.cloudant.clouseau.OtpUtils.tuple;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.document.Document;
@@ -71,6 +74,8 @@ import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.search.TotalHitCountCollector;
 import org.apache.lucene.search.Weight;
+import org.apache.lucene.search.grouping.SearchGroup;
+import org.apache.lucene.search.grouping.term.TermFirstPassGroupingCollector;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.BytesRef;
@@ -216,8 +221,15 @@ public class IndexService extends Service {
                 case "update": {
                     return handleUpdateCall(tuple);
                 }
-                case "search":
+                case "search": {
                     return handleSearchCall(from, asMap(tuple.elementAt(1)));
+                }
+                case "group1": {
+                    return handleGroup1Call(tuple);
+                }
+                case "group2": {
+                    return handleGroup2Call(tuple);
+                }
                 }
             }
         }
@@ -295,7 +307,7 @@ public class IndexService extends Service {
     }
 
     private OtpErlangObject handleSearchCall(final OtpErlangTuple from,
-            final Map<OtpErlangObject, OtpErlangObject> searchRequest) throws Exception {
+            final Map<OtpErlangObject, OtpErlangObject> searchRequest) throws IOException {
         final String queryString = asString(searchRequest.getOrDefault(atom("query"), asBinary("*:*")));
         final boolean refresh = asBoolean(searchRequest.getOrDefault(atom("refresh"), atom("true")));
         final int limit = asInt(searchRequest.getOrDefault(atom("limit"), asInt(25)));
@@ -342,52 +354,54 @@ public class IndexService extends Service {
         final Weight weight = searcher.createNormalizedWeight(query);
         final boolean docsScoredInOrder = !weight.scoresDocsOutOfOrder();
 
-        final Sort sort = parseSort(searchRequest.getOrDefault(atom("sort"), atom("relevance"))).rewrite(searcher);
-        final ScoreDoc after = toScoreDoc(sort, nilToNull(searchRequest.get(atom("after"))));
+        return safeSearch(() -> {
+            final Sort sort = parseSort(searchRequest.getOrDefault(atom("sort"), atom("relevance"))).rewrite(searcher);
+            final ScoreDoc after = toScoreDoc(sort, nilToNull(searchRequest.get(atom("after"))));
 
-        final Collector hitsCollector;
-        if (limit == 0) {
-            hitsCollector = new TotalHitCountCollector();
-        } else if (after == null && Sort.RELEVANCE.equals(sort)) {
-            hitsCollector = TopScoreDocCollector.create(limit, docsScoredInOrder);
-        } else if (after != null && Sort.RELEVANCE.equals(sort)) {
-            hitsCollector = TopScoreDocCollector.create(limit, after, docsScoredInOrder);
-        } else if (after == null && sort != null) {
-            hitsCollector = TopFieldCollector.create(sort, limit, true, false, false, docsScoredInOrder);
-        } else if (after instanceof FieldDoc && sort != null) {
-            hitsCollector = TopFieldCollector
-                    .create(sort, limit, (FieldDoc) after, true, false, false, docsScoredInOrder);
-        } else {
-            throw new IllegalArgumentException();
-        }
+            final Collector hitsCollector;
+            if (limit == 0) {
+                hitsCollector = new TotalHitCountCollector();
+            } else if (after == null && Sort.RELEVANCE.equals(sort)) {
+                hitsCollector = TopScoreDocCollector.create(limit, docsScoredInOrder);
+            } else if (after != null && Sort.RELEVANCE.equals(sort)) {
+                hitsCollector = TopScoreDocCollector.create(limit, after, docsScoredInOrder);
+            } else if (after == null && sort != null) {
+                hitsCollector = TopFieldCollector.create(sort, limit, true, false, false, docsScoredInOrder);
+            } else if (after instanceof FieldDoc && sort != null) {
+                hitsCollector = TopFieldCollector
+                        .create(sort, limit, (FieldDoc) after, true, false, false, docsScoredInOrder);
+            } else {
+                throw new IllegalArgumentException();
+            }
 
-        final Collector countsCollector = createCountsCollector(counts);
-        final Collector rangesCollector = createRangesCollector(ranges);
+            final Collector countsCollector = createCountsCollector(counts);
+            final Collector rangesCollector = createRangesCollector(ranges);
 
-        final Collector collector = MultiCollector.wrap(hitsCollector, countsCollector, rangesCollector);
+            final Collector collector = MultiCollector.wrap(hitsCollector, countsCollector, rangesCollector);
 
-        if (logger.isDebugEnabled()) {
-            debug("Searching for " + query);
-        }
-        searchTimer.time(() -> {
-            searcher.search(query, collector);
-            return null;
+            if (logger.isDebugEnabled()) {
+                debug("Searching for " + query);
+            }
+            searchTimer.time(() -> {
+                searcher.search(query, collector);
+                return null;
+            });
+
+            final List<OtpErlangObject> elems = new ArrayList<OtpErlangObject>(5);
+            elems.add(tuple(atom("update_seq"), asOtp(updateSeq)));
+            elems.add(tuple(atom("total_hits"), asOtp(getTotalHits(hitsCollector))));
+            elems.add(tuple(atom("hits"), getHits(hitsCollector, searcher, includeFields)));
+            final OtpErlangObject countsOtp = convertFacets((FacetsCollector) countsCollector);
+            if (countsOtp != null) {
+                elems.add(tuple(atom("counts"), countsOtp));
+            }
+            final OtpErlangObject rangesOtp = convertFacets((FacetsCollector) rangesCollector);
+            if (rangesOtp != null) {
+                elems.add(tuple(atom("ranges"), rangesOtp));
+            }
+
+            return tuple(atom("ok"), asList(elems));
         });
-
-        final List<OtpErlangObject> elems = new ArrayList<OtpErlangObject>(5);
-        elems.add(tuple(atom("update_seq"), asOtp(updateSeq)));
-        elems.add(tuple(atom("total_hits"), asOtp(getTotalHits(hitsCollector))));
-        elems.add(tuple(atom("hits"), getHits(hitsCollector, searcher, includeFields)));
-        final OtpErlangObject countsOtp = convertFacets((FacetsCollector) countsCollector);
-        if (countsOtp != null) {
-            elems.add(tuple(atom("counts"), countsOtp));
-        }
-        final OtpErlangObject rangesOtp = convertFacets((FacetsCollector) rangesCollector);
-        if (rangesOtp != null) {
-            elems.add(tuple(atom("ranges"), rangesOtp));
-        }
-
-        return tuple(atom("ok"), asList(elems));
     }
 
     private Collector createCountsCollector(final List<String> counts) throws IOException, ParseException {
@@ -486,6 +500,41 @@ public class IndexService extends Service {
         final OtpErlangList children = new OtpErlangList(elems);
 
         return new OtpErlangTuple(new OtpErlangObject[] { label, new OtpErlangDouble(node.value), children });
+    }
+
+    private OtpErlangObject handleGroup1Call(final OtpErlangTuple tuple) throws IOException, ParseException {
+        final String queryString = asString(tuple.elementAt(1));
+        final String field = asString(tuple.elementAt(2));
+        final boolean refresh = asBoolean(tuple.elementAt(3));
+        final OtpErlangObject groupSort = tuple.elementAt(4);
+        final int groupOffset = asInt(tuple.elementAt(5));
+        final int groupLimit = asInt(tuple.elementAt(6));
+
+        return safeSearch(() -> {
+            final Query query = parseQuery(queryString, null);
+            final IndexSearcher searcher = getSearcher(refresh);
+            final String fieldName = validateGroupField(field);
+            final TermFirstPassGroupingCollector collector = new TermFirstPassGroupingCollector(fieldName,
+                    parseSort(groupSort).rewrite(searcher), groupLimit);
+            return searchTimer.time(() -> {
+                searcher.search(query, collector);
+                final Collection<SearchGroup<BytesRef>> topGroups = collector.getTopGroups(groupOffset, true);
+                if (topGroups == null) {
+                    return tuple(atom("ok"), emptyList());
+                }
+                final OtpErlangObject[] elems = new OtpErlangObject[topGroups.size()];
+                final Iterator<SearchGroup<BytesRef>> it = topGroups.iterator();
+                for (int i = 0; i < elems.length; i++) {
+                    final SearchGroup<BytesRef> g = it.next();
+                    elems[i] = tuple(asOtp(g.groupValue), asList(convertOrder(g.sortValues)));
+                }
+                return tuple(atom("ok"), asList(elems));
+            });
+        });
+    }
+
+    private OtpErlangObject handleGroup2Call(final OtpErlangTuple tuple) throws IOException {
+        return null;
     }
 
     private IndexSearcher getSearcher(boolean refresh) throws IOException {
@@ -712,16 +761,33 @@ public class IndexService extends Service {
         }
     }
 
-    private OtpErlangObject safeSearch(final Supplier<OtpErlangObject> s) {
+    private OtpErlangObject safeSearch(final SafeSearch<OtpErlangObject> s) {
         try {
-            return s.get();
+            return s.search();
         } catch (final NumberFormatException e) {
             return tuple(
                     atom("error"),
                     tuple(atom("bad_request"), asBinary("cannot sort string field as numeric field")));
         } catch (final ClassCastException e) {
+            return tuple(atom("error"), tuple(atom("bad_request"), asBinary("Malformed query syntax")));
+        } catch (final ParseException e) {
             return tuple(atom("error"), tuple(atom("bad_request"), asBinary(e.getMessage())));
+        } catch (final Exception e) {
+            return tuple(atom("error"), asBinary(e.getMessage()));
         }
+    }
+
+    private String validateGroupField(final String field) throws ParseException {
+        final Matcher m = SORT_FIELD_RE.matcher(field);
+        if (m.find()) {
+            final String fieldName = m.group(2);
+            final String fieldType = m.group(3);
+            if (fieldType == null || "string".equals(fieldType)) {
+                return fieldName;
+            }
+            throw new ParseException("Group by number not supported. Group by string terms only.");
+        }
+        throw new ParseException("Unrecognized group_field parameter: " + field);
     }
 
     private void commit() {
