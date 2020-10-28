@@ -93,12 +93,16 @@ public class Main {
         public void run() {
             while (true) {
                 try {
-                    final Service service = state.serviceRegistry.takePending();
-                    final Thread currentThread = Thread.currentThread();
-                    final String originalThreadName = currentThread.getName();
-                    currentThread.setName(service.toString());
-                    service.processMessages();
-                    currentThread.setName(originalThreadName);
+                    final Service service = state.serviceRegistry.borrowPending();
+                    try {
+                        final Thread currentThread = Thread.currentThread();
+                        final String originalThreadName = currentThread.getName();
+                        currentThread.setName(service.toString());
+                        service.processMessages();
+                        currentThread.setName(originalThreadName);
+                    } finally {
+                        state.serviceRegistry.returnPending(service);
+                    }
                 } catch (final InterruptedException e) {
                     logger.fatal("Worker thread was interrupted");
                     System.exit(1);

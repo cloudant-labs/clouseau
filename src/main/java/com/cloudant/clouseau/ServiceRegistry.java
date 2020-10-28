@@ -1,14 +1,19 @@
 package com.cloudant.clouseau;
 
-import static com.cloudant.clouseau.OtpUtils.*;
+import static com.cloudant.clouseau.OtpUtils.atom;
+import static com.cloudant.clouseau.OtpUtils.tuple;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.log4j.Logger;
 
@@ -34,9 +39,11 @@ public final class ServiceRegistry {
         }
 
     };
-    private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    private final RunQueue<Service> pending = new RunQueue<Service>();
+    private final Lock lock = new ReentrantLock();
+    private final LinkedHashSet<Service> pending = new LinkedHashSet<Service>();
+    private final Set<Service> running = new HashSet<Service>();
+    private final Condition pendingUpdated = lock.newCondition();
 
     private final int capacity;
 
@@ -46,7 +53,7 @@ public final class ServiceRegistry {
 
     public void register(final Service service) {
         final String name = service.getName();
-        final Lock lock = this.lock.writeLock();
+        final Lock lock = this.lock;
         lock.lock();
         try {
             if (name != null) {
@@ -62,7 +69,7 @@ public final class ServiceRegistry {
 
     public void unregister(final Service service) {
         final String name = service.getName();
-        final Lock lock = this.lock.writeLock();
+        final Lock lock = this.lock;
         lock.lock();
         try {
             if (name != null) {
@@ -77,7 +84,7 @@ public final class ServiceRegistry {
     }
 
     public Service lookup(final String name) {
-        final Lock lock = this.lock.readLock();
+        final Lock lock = this.lock;
         lock.lock();
         try {
             return byName.get(name);
@@ -87,20 +94,13 @@ public final class ServiceRegistry {
     }
 
     public Service lookup(final OtpErlangPid pid) {
-        Lock lock = this.lock.readLock();
+        final Lock lock = this.lock;
         lock.lock();
         try {
             final Service service = byPid.get(pid);
             if (service != null) {
                 return service;
             }
-        } finally {
-            lock.unlock();
-        }
-
-        lock = this.lock.writeLock(); // write lock because pidOnly is updated on access.
-        lock.lock();
-        try {
             return pidOnly.get(pid);
         } finally {
             lock.unlock();
@@ -108,12 +108,13 @@ public final class ServiceRegistry {
     }
 
     public void addPending(final String name) {
-        final Lock lock = this.lock.readLock();
+        final Lock lock = this.lock;
         lock.lock();
         try {
             final Service service = byName.get(name);
             if (service != null) {
-                pending.put(service);
+                pending.add(service);
+                pendingUpdated.signal();
             }
         } finally {
             lock.unlock();
@@ -121,24 +122,19 @@ public final class ServiceRegistry {
     }
 
     public void addPending(final OtpErlangPid pid) {
-        Lock lock = this.lock.readLock();
+        Lock lock = this.lock;
         lock.lock();
         try {
-            final Service service = byPid.get(pid);
+            Service service = byPid.get(pid);
             if (service != null) {
-                pending.put(service);
+                pending.add(service);
+                pendingUpdated.signal();
                 return;
             }
-        } finally {
-            lock.unlock();
-        }
-
-        lock = this.lock.writeLock(); // write lock because pidOnly is updated on access.
-        lock.lock();
-        try {
-            final Service service = pidOnly.get(pid);
+            service = pidOnly.get(pid);
             if (service != null) {
-                pending.put(service);
+                pending.add(service);
+                pendingUpdated.signal();
                 return;
             }
         } finally {
@@ -146,8 +142,40 @@ public final class ServiceRegistry {
         }
     }
 
-    public Service takePending() throws InterruptedException {
-        return pending.take();
+    public Service borrowPending() throws InterruptedException {
+        final Lock lock = this.lock;
+
+        while (true) {
+            lock.lock();
+            try {
+                while (pending.isEmpty()) {
+                    pendingUpdated.await();
+                }
+                final Iterator<Service> it = pending.iterator();
+                while (it.hasNext()) {
+                    final Service result = it.next();
+                    if (!running.contains(result)) {
+                        pending.remove(result);
+                        running.add(result);
+                        return result;
+                    }
+                }
+                pendingUpdated.await();
+            } finally {
+                lock.unlock();
+            }
+        }
+    }
+
+    public void returnPending(final Service service) throws InterruptedException {
+        final Lock lock = this.lock;
+        lock.lock();
+        try {
+            running.remove(service);
+            pendingUpdated.signal();
+        } finally {
+            lock.unlock();
+        }
     }
 
     public String toString() {
