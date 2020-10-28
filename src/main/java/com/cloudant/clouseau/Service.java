@@ -1,11 +1,15 @@
 package com.cloudant.clouseau;
 
-import static com.cloudant.clouseau.OtpUtils.*;
+import static com.cloudant.clouseau.OtpUtils.asBinary;
+import static com.cloudant.clouseau.OtpUtils.atom;
+import static com.cloudant.clouseau.OtpUtils.tuple;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 
 import org.apache.log4j.Logger;
 
+import com.ericsson.otp.erlang.GenericQueue;
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangDecodeException;
 import com.ericsson.otp.erlang.OtpErlangExit;
@@ -80,6 +84,8 @@ public abstract class Service {
                             } else {
                                 reply(from, INVALID_MSG);
                             }
+                        } catch (final OtpReplyException e) {
+                            reply(from, e.getReply());
                         } catch (final Exception e) {
                             final String err = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
                             reply(from, tuple(atom("error"), asBinary(err)));

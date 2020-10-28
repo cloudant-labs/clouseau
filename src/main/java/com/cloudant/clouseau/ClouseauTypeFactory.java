@@ -42,7 +42,6 @@ public class ClouseauTypeFactory {
         for (final OtpErlangObject field : (OtpErlangList) fields) {
             addFields(result, (OtpErlangTuple) field);
         }
-        System.err.println(result);
         return result;
     }
 

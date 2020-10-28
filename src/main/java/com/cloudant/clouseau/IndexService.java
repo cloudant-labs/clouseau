@@ -3,8 +3,10 @@ package com.cloudant.clouseau;
 import static com.cloudant.clouseau.OtpUtils.asArrayOfStrings;
 import static com.cloudant.clouseau.OtpUtils.asBinary;
 import static com.cloudant.clouseau.OtpUtils.asBoolean;
+import static com.cloudant.clouseau.OtpUtils.asBytesRef;
 import static com.cloudant.clouseau.OtpUtils.asFloat;
 import static com.cloudant.clouseau.OtpUtils.asInt;
+import static com.cloudant.clouseau.OtpUtils.asJava;
 import static com.cloudant.clouseau.OtpUtils.asList;
 import static com.cloudant.clouseau.OtpUtils.asListOfStrings;
 import static com.cloudant.clouseau.OtpUtils.asLong;
@@ -20,7 +22,6 @@ import static com.cloudant.clouseau.OtpUtils.tuple;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -32,7 +33,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.document.Document;
@@ -74,8 +74,11 @@ import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.search.TotalHitCountCollector;
 import org.apache.lucene.search.Weight;
+import org.apache.lucene.search.grouping.GroupDocs;
 import org.apache.lucene.search.grouping.SearchGroup;
+import org.apache.lucene.search.grouping.TopGroups;
 import org.apache.lucene.search.grouping.term.TermFirstPassGroupingCollector;
+import org.apache.lucene.search.grouping.term.TermSecondPassGroupingCollector;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.BytesRef;
@@ -222,13 +225,13 @@ public class IndexService extends Service {
                     return handleUpdateCall(tuple);
                 }
                 case "search": {
-                    return handleSearchCall(from, asMap(tuple.elementAt(1)));
+                    return handleSearchCall(asMap(tuple.elementAt(1)));
                 }
                 case "group1": {
                     return handleGroup1Call(tuple);
                 }
                 case "group2": {
-                    return handleGroup2Call(tuple);
+                    return handleGroup2Call(asMap(tuple.elementAt(1)));
                 }
                 }
             }
@@ -306,8 +309,8 @@ public class IndexService extends Service {
         }
     }
 
-    private OtpErlangObject handleSearchCall(final OtpErlangTuple from,
-            final Map<OtpErlangObject, OtpErlangObject> searchRequest) throws IOException {
+    private OtpErlangObject handleSearchCall(final Map<OtpErlangObject, OtpErlangObject> searchRequest)
+            throws IOException {
         final String queryString = asString(searchRequest.getOrDefault(atom("query"), asBinary("*:*")));
         final boolean refresh = asBoolean(searchRequest.getOrDefault(atom("refresh"), atom("true")));
         final int limit = asInt(searchRequest.getOrDefault(atom("limit"), asInt(25)));
@@ -321,12 +324,7 @@ public class IndexService extends Service {
             includeFields.add("_id");
         }
 
-        final Query baseQuery;
-        try {
-            baseQuery = parseQuery(queryString, partition);
-        } catch (final ParseException e) {
-            return tuple(atom("error"), tuple(atom("bad_request"), asBinary(e.getMessage())));
-        }
+        final Query baseQuery = parseQuery(queryString, partition);
 
         final Query query;
         final OtpErlangList categories = nilToNull(searchRequest.get(atom("drilldown")));
@@ -533,8 +531,53 @@ public class IndexService extends Service {
         });
     }
 
-    private OtpErlangObject handleGroup2Call(final OtpErlangTuple tuple) throws IOException {
-        return null;
+    private OtpErlangObject handleGroup2Call(final Map<OtpErlangObject, OtpErlangObject> options) throws IOException {
+        final String queryString = asString(options.getOrDefault(atom("query"), asBinary("*:*")));
+        final String field = asString(options.get(atom("field")));
+        final boolean refresh = asBoolean(options.getOrDefault(atom("refresh"), atom("true")));
+        final OtpErlangList groups = (OtpErlangList) options.get(atom("groups"));
+        final OtpErlangObject groupSort = options.get(atom("group_sort"));
+        final OtpErlangObject docSort = options.get(atom("sort"));
+        final int docLimit = asInt(options.getOrDefault(atom("limit"), asInt(25)));
+        final Set<String> includeFields = asSetOfStrings(nilToNull(options.get(atom("include_fields"))));
+        if (includeFields != null) {
+            includeFields.add("_id");
+        }
+
+        final Query query = parseQuery(queryString, null);
+        final IndexSearcher searcher = getSearcher(refresh);
+        final Collection<SearchGroup<BytesRef>> groups1 = new ArrayList<SearchGroup<BytesRef>>(groups.arity());
+        for (int i = 0; i < groups.arity(); i++) {
+            groups1.add(makeSearchGroup(groups.elementAt(i)));
+        }
+        return safeSearch(() -> {
+            final String fieldName = validateGroupField(field);
+            final TermSecondPassGroupingCollector collector = new TermSecondPassGroupingCollector(fieldName, groups1,
+                    parseSort(groupSort).rewrite(searcher), parseSort(docSort).rewrite(searcher), docLimit, true, false,
+                    true);
+            searchTimer.time(() -> {
+                searcher.search(query, collector);
+                return null;
+            });
+            final TopGroups<BytesRef> topGroups = collector.getTopGroups(0);
+            if (topGroups == null) {
+                return tuple(atom("ok"), asInt(0), asInt(0), emptyList());
+            }
+            final OtpErlangObject[] elems = new OtpErlangObject[topGroups.groups.length];
+            for (int i = 0; i < elems.length; i++) {
+                final GroupDocs<BytesRef> g = topGroups.groups[i];
+                final OtpErlangObject[] docs = new OtpErlangObject[g.scoreDocs.length];
+                for (int j = 0; j < docs.length; j++) {
+                    docs[j] = docToHit(searcher, g.scoreDocs[j], includeFields);
+                }
+                elems[i] = tuple(asOtp(g.groupValue), asOtp(g.totalHits), new OtpErlangList(docs));
+            }
+            return tuple(
+                    atom("ok"),
+                    asInt(topGroups.totalHitCount),
+                    asInt(topGroups.totalGroupedHitCount),
+                    new OtpErlangList(elems));
+        });
     }
 
     private IndexSearcher getSearcher(boolean refresh) throws IOException {
@@ -750,30 +793,46 @@ public class IndexService extends Service {
         throw new IllegalArgumentException(after + " cannot be converted to ScoreDoc");
     }
 
-    private Query parseQuery(final String query, final String partition) throws ParseException {
-        if (partition == null) {
-            return qp.parse(query);
-        } else {
-            final BooleanQuery result = new BooleanQuery();
-            result.add(new TermQuery(new Term("_partition", partition)), Occur.MUST);
-            result.add(qp.parse(query), Occur.MUST);
-            return result;
+    private SearchGroup<BytesRef> makeSearchGroup(final OtpErlangObject any) {
+        final OtpErlangTuple tuple = (OtpErlangTuple) any;
+        final SearchGroup<BytesRef> result = new SearchGroup<BytesRef>();
+        if (tuple.elementAt(0) instanceof OtpErlangBinary) {
+            result.groupValue = asBytesRef(tuple.elementAt(0));
         }
+        final OtpErlangList order = (OtpErlangList) tuple.elementAt(1);
+        result.sortValues = new Object[order.arity()];
+        for (int i = 0; i < order.arity(); i++) {
+            result.sortValues[i] = asJava(order.elementAt(i));
+        }
+        return result;
     }
 
-    private OtpErlangObject safeSearch(final SafeSearch<OtpErlangObject> s) {
+    private Query parseQuery(final String query, final String partition) {
+        return safeSearch(() -> {
+            if (partition == null) {
+                return qp.parse(query);
+            } else {
+                final BooleanQuery result = new BooleanQuery();
+                result.add(new TermQuery(new Term("_partition", partition)), Occur.MUST);
+                result.add(qp.parse(query), Occur.MUST);
+                return result;
+            }
+        });
+    }
+
+    private <T> T safeSearch(final SafeSearch<T> s) throws OtpReplyException {
         try {
             return s.search();
         } catch (final NumberFormatException e) {
-            return tuple(
-                    atom("error"),
-                    tuple(atom("bad_request"), asBinary("cannot sort string field as numeric field")));
+            throw new OtpReplyException(
+                    tuple(atom("bad_request"), asBinary("cannot sort string field as numeric field")), e);
         } catch (final ClassCastException e) {
-            return tuple(atom("error"), tuple(atom("bad_request"), asBinary("Malformed query syntax")));
+            throw new OtpReplyException(tuple(atom("bad_request"), asBinary("Malformed query syntax")), e);
         } catch (final ParseException e) {
-            return tuple(atom("error"), tuple(atom("bad_request"), asBinary(e.getMessage())));
+            throw new OtpReplyException(tuple(atom("bad_request"), asBinary(e.getMessage())), e);
         } catch (final Exception e) {
-            return tuple(atom("error"), asBinary(e.getMessage()));
+            final String err = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
+            throw new OtpReplyException(asBinary(err), e);
         }
     }
 

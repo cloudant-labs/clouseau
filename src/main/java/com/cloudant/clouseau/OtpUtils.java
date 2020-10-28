@@ -24,6 +24,7 @@ import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangPid;
 import com.ericsson.otp.erlang.OtpErlangRangeException;
 import com.ericsson.otp.erlang.OtpErlangRef;
+import com.ericsson.otp.erlang.OtpErlangShort;
 import com.ericsson.otp.erlang.OtpErlangTuple;
 import com.ericsson.otp.erlang.OtpMbox;
 
@@ -169,6 +170,57 @@ public final class OtpUtils {
         throw new IllegalArgumentException(obj + " not an encoded JSON object");
     }
 
+    public static Object asJava(final OtpErlangObject obj) {
+        if (obj == null) {
+            return null;
+        }
+        if (isAtomNil(obj)) {
+            return null;
+        }
+        if (obj instanceof OtpErlangAtom) {
+            return ((OtpErlangAtom) obj).atomValue();
+        }
+        if (obj instanceof OtpErlangBinary) {
+            return asString((OtpErlangBinary) obj);
+        }
+        if (obj instanceof OtpErlangDouble) {
+            return ((OtpErlangDouble) obj).doubleValue();
+        }
+        if (obj instanceof OtpErlangFloat) {
+            try {
+                return ((OtpErlangFloat) obj).floatValue();
+            } catch (final OtpErlangRangeException e) {
+                throw new Error("cannot happen", e);
+            }
+        }
+        if (obj instanceof OtpErlangInt) {
+            try {
+                return ((OtpErlangInt) obj).intValue();
+            } catch (final OtpErlangRangeException e) {
+                throw new Error("cannot happen", e);
+            }
+        }
+        if (obj instanceof OtpErlangLong) {
+            return ((OtpErlangLong) obj).longValue();
+        }
+        if (obj instanceof OtpErlangShort) {
+            try {
+                return ((OtpErlangShort) obj).shortValue();
+            } catch (final OtpErlangRangeException e) {
+                throw new Error("cannot happen", e);
+            }
+        }
+        if (obj instanceof OtpErlangList) {
+            final OtpErlangList list = (OtpErlangList) obj;
+            final List<Object> result = new ArrayList<Object>(list.arity());
+            for (int i = 0; i < list.arity(); i++) {
+                result.add(asJava(list.elementAt(i)));
+            }
+            return result;
+        }
+        throw new IllegalArgumentException(obj.getClass() + " cannot be converted to Java primitive");
+    }
+
     public static OtpErlangObject asOtp(final Object obj) {
         if (obj instanceof OtpErlangObject) {
             return (OtpErlangObject) obj;
@@ -225,7 +277,7 @@ public final class OtpUtils {
         if (obj == null) {
             return null;
         }
-        if (isNil(obj)) {
+        if (isAtomNil(obj)) {
             return null;
         }
         if (obj instanceof OtpErlangBinary) {
@@ -239,6 +291,17 @@ public final class OtpUtils {
             return ((OtpErlangAtom) obj).atomValue();
         }
         return obj.toString();
+    }
+
+    public static BytesRef asBytesRef(final OtpErlangObject obj) {
+        if (obj == null) {
+            return null;
+        }
+        if (obj instanceof OtpErlangBinary) {
+            final OtpErlangBinary bin = (OtpErlangBinary) obj;
+            return new BytesRef(bin.binaryValue());
+        }
+        throw new IllegalArgumentException(obj.getClass() + " cannot be converted to BytesRef");
     }
 
     public static OtpErlangList emptyList() {
@@ -255,13 +318,13 @@ public final class OtpUtils {
         return null;
     }
 
-    private static boolean isNil(final OtpErlangObject obj) {
+    private static boolean isAtomNil(final OtpErlangObject obj) {
         return atom("nil").equals(obj);
     }
 
     @SuppressWarnings("unchecked")
     public static <T extends OtpErlangObject> T nilToNull(final OtpErlangObject obj) {
-        if (isNil(obj)) {
+        if (isAtomNil(obj)) {
             return null;
         }
         return (T) obj;
