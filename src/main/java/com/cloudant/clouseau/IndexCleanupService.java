@@ -90,16 +90,16 @@ public class IndexCleanupService extends Service {
 
     private void cleanup(final File fileOrDir, final Pattern includePattern, final Set<String> activeSigs) {
         if (!fileOrDir.isDirectory()) {
-          return;
+            return;
         }
         for (File file : fileOrDir.listFiles()) {
-          cleanup(file, includePattern, activeSigs);
+            cleanup(file, includePattern, activeSigs);
         }
         Matcher m = includePattern.matcher(fileOrDir.getAbsolutePath());
         if (m.find() && !activeSigs.contains(m.group(1))) {
-          logger.info("Removing unreachable index " + m.group());
-          // final Service main = state.serviceRegistry.lookup("main");
-          // main.handleCall(from, request);
+            logger.info("Removing unreachable index " + m.group());
+            // final Service main = state.serviceRegistry.lookup("main");
+            // main.handleCall(from, request);
 //          call('main, ('delete, m.group)) match {
 //            case 'ok =>
 //              'ok
@@ -108,7 +108,7 @@ public class IndexCleanupService extends Service {
 //              fileOrDir.delete
 //          }
         }
-      }
+    }
 
     private void recursivelyDelete(final File fileOrDir) {
         if (fileOrDir.isDirectory()) {

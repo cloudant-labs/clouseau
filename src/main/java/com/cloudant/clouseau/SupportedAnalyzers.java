@@ -314,8 +314,8 @@ public class SupportedAnalyzers {
                 final Map<String, Analyzer> fieldMap;
                 if (options.containsKey(asBinary("fields"))) {
                     fieldMap = new HashMap<String, Analyzer>();
-                    final OtpErlangList fields = (OtpErlangList) ((OtpErlangTuple) options
-                            .get(asBinary("fields"))).elementAt(0);
+                    final OtpErlangList fields = (OtpErlangList) ((OtpErlangTuple) options.get(asBinary("fields")))
+                            .elementAt(0);
                     for (OtpErlangObject o : fields) {
                         final OtpErlangTuple t = (OtpErlangTuple) o;
                         final String fieldName = asString(t.elementAt(0));
