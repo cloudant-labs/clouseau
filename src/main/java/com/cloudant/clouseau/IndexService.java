@@ -824,15 +824,14 @@ public class IndexService extends Service {
         try {
             return s.search();
         } catch (final NumberFormatException e) {
-            throw new OtpReplyException(
-                    tuple(atom("bad_request"), asBinary("cannot sort string field as numeric field")), e);
+            throw new OtpReplyException("bad_request", "cannot sort string field as numeric field", e);
         } catch (final ClassCastException e) {
-            throw new OtpReplyException(tuple(atom("bad_request"), asBinary("Malformed query syntax")), e);
+            throw new OtpReplyException("bad_request", "Malformed query syntax", e);
         } catch (final ParseException e) {
-            throw new OtpReplyException(tuple(atom("bad_request"), asBinary(e.getMessage())), e);
+            throw new OtpReplyException("bad_request", e.getMessage(), e);
         } catch (final Exception e) {
             final String err = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
-            throw new OtpReplyException(asBinary(err), e);
+            throw new OtpReplyException(err, e);
         }
     }
 
