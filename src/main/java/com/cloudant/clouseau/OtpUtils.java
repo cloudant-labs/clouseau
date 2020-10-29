@@ -261,6 +261,14 @@ public final class OtpUtils {
             }
             return new OtpErlangList(to);
         }
+        if (obj instanceof Object[]) {
+            final Object[] from = (Object[]) obj;
+            final OtpErlangObject[] to = new OtpErlangObject[from.length];
+            for (int i = 0; i < to.length; i++) {
+                to[i] = asOtp(from[i]);
+            }
+            return new OtpErlangList(to);
+        }
         if (obj instanceof Map) {
             final Map<?, ?> from = (Map<?, ?>) obj;
             final OtpErlangObject[] to = new OtpErlangObject[from.size()];

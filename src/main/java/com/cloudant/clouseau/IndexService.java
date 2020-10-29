@@ -35,6 +35,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
+import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.facet.params.FacetIndexingParams;
 import org.apache.lucene.facet.params.FacetSearchParams;
@@ -96,7 +97,25 @@ import com.yammer.metrics.Metrics;
 import com.yammer.metrics.core.Counter;
 import com.yammer.metrics.core.Timer;
 
+import org.apache.lucene.search.highlight.*;
+
 public class IndexService extends Service {
+
+    private static class HighlightParameters {
+        private final Highlighter highlighter;
+        private final List<String> highlightFields;
+        private final int highlightNumber;
+        private final List<Analyzer> analyzers;
+
+        public HighlightParameters(Highlighter highlighter, List<String> highlightFields, int highlightNumber,
+                List<Analyzer> analyzers) {
+            this.highlighter = highlighter;
+            this.highlightFields = highlightFields;
+            this.highlightNumber = highlightNumber;
+            this.analyzers = analyzers;
+        }
+
+    }
 
     private static final SortField INVERSE_FIELD_SCORE = new SortField(null, SortField.Type.SCORE, true);
     private static final SortField INVERSE_FIELD_DOC = new SortField(null, SortField.Type.DOC, true);
@@ -385,10 +404,12 @@ public class IndexService extends Service {
                 return null;
             });
 
+            final HighlightParameters HPs = getHighlightParameters(searchRequest, query);
+
             final List<OtpErlangObject> elems = new ArrayList<OtpErlangObject>(5);
             elems.add(tuple(atom("update_seq"), asOtp(updateSeq)));
             elems.add(tuple(atom("total_hits"), asOtp(getTotalHits(hitsCollector))));
-            elems.add(tuple(atom("hits"), getHits(hitsCollector, searcher, includeFields)));
+            elems.add(tuple(atom("hits"), getHits(hitsCollector, searcher, includeFields, HPs)));
             final OtpErlangObject countsOtp = convertFacets((FacetsCollector) countsCollector);
             if (countsOtp != null) {
                 elems.add(tuple(atom("counts"), countsOtp));
@@ -563,12 +584,13 @@ public class IndexService extends Service {
             if (topGroups == null) {
                 return tuple(atom("ok"), asInt(0), asInt(0), emptyList());
             }
+            final HighlightParameters HPs = getHighlightParameters(options, query);
             final OtpErlangObject[] elems = new OtpErlangObject[topGroups.groups.length];
             for (int i = 0; i < elems.length; i++) {
                 final GroupDocs<BytesRef> g = topGroups.groups[i];
                 final OtpErlangObject[] docs = new OtpErlangObject[g.scoreDocs.length];
                 for (int j = 0; j < docs.length; j++) {
-                    docs[j] = docToHit(searcher, g.scoreDocs[j], includeFields);
+                    docs[j] = docToHit(searcher, g.scoreDocs[j], includeFields, HPs);
                 }
                 elems[i] = tuple(asOtp(g.groupValue), asOtp(g.totalHits), new OtpErlangList(docs));
             }
@@ -607,12 +629,13 @@ public class IndexService extends Service {
     }
 
     private OtpErlangList getHits(final Collector collector, final IndexSearcher searcher,
-            final Set<String> includeFields) throws IOException {
+            final Set<String> includeFields, final HighlightParameters HPs)
+            throws IOException, InvalidTokenOffsetsException {
         if (collector instanceof TopDocsCollector) {
             final ScoreDoc[] scoreDocs = ((TopDocsCollector<?>) collector).topDocs().scoreDocs;
             final OtpErlangObject[] objs = new OtpErlangObject[scoreDocs.length];
             for (int i = 0; i < scoreDocs.length; i++) {
-                objs[i] = docToHit(searcher, scoreDocs[i], includeFields);
+                objs[i] = docToHit(searcher, scoreDocs[i], includeFields, HPs);
             }
             return asList(objs);
         }
@@ -623,7 +646,8 @@ public class IndexService extends Service {
     }
 
     private OtpErlangTuple docToHit(final IndexSearcher searcher, final ScoreDoc scoreDoc,
-            final Set<String> includeFields) throws IOException {
+            final Set<String> includeFields, final HighlightParameters HPs)
+            throws IOException, InvalidTokenOffsetsException {
         final Document doc;
         if (includeFields == null) {
             doc = searcher.doc(scoreDoc.doc);
@@ -654,6 +678,17 @@ public class IndexService extends Service {
             order = new ArrayList<OtpErlangObject>(2);
             order.add(asFloat(scoreDoc.score));
             order.add(asInt(scoreDoc.doc));
+        }
+        if (HPs != null) {
+            final OtpErlangObject[] elems = new OtpErlangObject[HPs.highlightFields.size()];
+            for (int i = 0; i < HPs.highlightFields.size(); i++) {
+                final String field = HPs.highlightFields.get(i);
+                final Analyzer analyzer = HPs.analyzers.get(i);
+                final String[] frags = HPs.highlighter
+                        .getBestFragments(analyzer, field, doc.get(field), HPs.highlightNumber);
+                elems[i] = tuple(asBinary(field), asOtp(frags));
+            }
+            fields.put("_highlights", new OtpErlangList(elems));
         }
 
         return tuple(atom("hit"), asOtp(order), asOtp(fields));
@@ -833,6 +868,39 @@ public class IndexService extends Service {
             final String err = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
             throw new OtpReplyException(err, e);
         }
+    }
+
+    private HighlightParameters getHighlightParameters(final Map<OtpErlangObject, OtpErlangObject> options,
+            final Query query) throws ParseException {
+        final OtpErlangObject highlightFields = nilToNull(options.get(atom("highlight_fields")));
+        if (highlightFields == null) {
+            return null;
+        }
+
+        if (highlightFields instanceof OtpErlangList) {
+            final List<String> highlightFieldsList = asListOfStrings((OtpErlangList) highlightFields);
+            final String preTag = asString(options.getOrDefault(atom("highlight_pre_tag"), asBinary("<em>")));
+            final String postTag = asString(options.getOrDefault(atom("highlight_post_tag"), asBinary("</em>")));
+            final int highlightNumber = asInt(options.getOrDefault(atom("highlight_number"), asInt(1)));
+            final int highlightSize = asInt(options.getOrDefault(atom("highlight_size"), asInt(0)));
+            final Formatter htmlFormatter = new SimpleHTMLFormatter(preTag, postTag);
+            final Highlighter highlighter = new Highlighter(htmlFormatter, new QueryScorer(query));
+            if (highlightSize > 0) {
+                highlighter.setTextFragmenter(new SimpleFragmenter(highlightSize));
+            }
+            final List<Analyzer> analyzers = new ArrayList<Analyzer>();
+            for (int i = 0; i < highlightFieldsList.size(); i++) {
+                final String field = highlightFieldsList.get(i);
+                if (qp.getAnalyzer() instanceof PerFieldAnalyzer) {
+                    analyzers.add(((PerFieldAnalyzer) qp.getAnalyzer()).getWrappedAnalyzer(field));
+                } else {
+                    analyzers.add(qp.getAnalyzer());
+                }
+            }
+            return new HighlightParameters(highlighter, highlightFieldsList, highlightNumber, analyzers);
+        }
+
+        throw new ParseException(highlightFields + " is not a valid highlight_fields query");
     }
 
     private String validateGroupField(final String field) throws ParseException {
