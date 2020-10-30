@@ -70,13 +70,13 @@ public class SupportedAnalyzers {
         }
 
         return new PerFieldAnalyzer(analyzer,
-                Map.of("_id", new KeywordAnalyzer(), "_partition", new KeywordAnalyzer()));
+                JDKUtils.mapOf("_id", new KeywordAnalyzer(), "_partition", new KeywordAnalyzer()));
     }
 
     private static Analyzer createAnalyzerInt(final Object analyzerConfig) {
 
         if (analyzerConfig instanceof OtpErlangBinary) {
-            return createAnalyzerInt(Map.of(asBinary("name"), analyzerConfig));
+            return createAnalyzerInt(JDKUtils.mapOf(asBinary("name"), analyzerConfig));
         }
 
         if (analyzerConfig instanceof OtpErlangTuple) {

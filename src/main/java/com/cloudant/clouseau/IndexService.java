@@ -922,7 +922,7 @@ public class IndexService extends Service {
 
         if (newUpdateSeq > updateSeq || newPurgeSeq > purgeSeq) {
             writer.setCommitData(
-                    Map.of("update_seq", Long.toString(newUpdateSeq), "purge_seq", Long.toString(newPurgeSeq)));
+                    JDKUtils.mapOf("update_seq", Long.toString(newUpdateSeq), "purge_seq", Long.toString(newPurgeSeq)));
 
             try {
                 commitTimer.time(() -> {
