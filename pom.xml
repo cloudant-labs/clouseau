@@ -125,7 +125,7 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.0.0</version>
         <configuration>
-          <mainClass>com.cloudant.cloujeau.Main</mainClass>
+          <mainClass>com.cloudant.clouseau.Main</mainClass>
           <classpathScope>test</classpathScope>
           <systemProperties>
             <systemProperty>
@@ -139,10 +139,6 @@
             <systemProperty>
               <key>clouseau.dir</key>
               <value>${basedir}/target/clouseau1</value>
-            </systemProperty>
-            <systemProperty>
-              <key>OtpConnection.trace</key>
-              <value>4</value>
             </systemProperty>
             <systemProperty>
               <key>OtpConnection.trace</key>
