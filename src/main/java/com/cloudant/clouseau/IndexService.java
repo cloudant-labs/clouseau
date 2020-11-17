@@ -792,7 +792,7 @@ public class IndexService extends Service {
             if (tuple.arity() != 2) {
                 throw new IllegalArgumentException("wrong arity");
             }
-            return new ScoreDoc(asInt(tuple.elementAt(0)), asFloat(tuple.elementAt(1)));
+            return new ScoreDoc(asInt(tuple.elementAt(1)), asFloat(tuple.elementAt(0)));
         }
         if (after instanceof OtpErlangList) {
             final OtpErlangList list = (OtpErlangList) after;
