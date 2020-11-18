@@ -804,7 +804,7 @@ public class IndexService extends Service {
             if (list.arity() - 1 != sortFields.length) {
                 throw new ParseException("sort order not compatible with given bookmark");
             }
-            final Object[] fields = new Object[sortFields.length - 1];
+            final Object[] fields = new Object[sortFields.length];
             for (int i = 0; i < fields.length; i++) {
                 if (atom("null").equals(list.elementAt(i))) {
                     fields[i] = null;
