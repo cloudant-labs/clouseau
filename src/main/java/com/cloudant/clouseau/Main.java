@@ -105,6 +105,9 @@ public class Main {
                 } catch (final InterruptedException e) {
                     logger.fatal("Worker thread was interrupted");
                     System.exit(1);
+                } catch (final RuntimeException e) {
+                    logger.fatal("Worker thread encountered runtime exception", e);
+                    System.exit(1);
                 }
             }
         }
