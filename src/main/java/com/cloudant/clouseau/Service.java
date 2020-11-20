@@ -140,7 +140,9 @@ public abstract class Service {
      * @return true if exit was trapped, false if not.
      */
     public boolean trapExit(final OtpErlangExit e) {
-        logger.error(String.format("%s exiting for reason %s", this, e.reason()));
+        if (!atom("normal").equals(e.reason())) {
+            logger.error(String.format("%s exiting for reason %s", this, e.reason()));
+        }
         mbox.close();
         terminate(e.reason());
         return false;
