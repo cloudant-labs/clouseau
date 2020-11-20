@@ -865,6 +865,7 @@ public class IndexService extends Service {
             throw new OtpReplyException("bad_request", e.getMessage(), e);
         } catch (final Exception e) {
             final String err = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
+            error("Error during safeSearch", e);
             throw new OtpReplyException(err, e);
         }
     }
