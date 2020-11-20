@@ -54,9 +54,12 @@ public abstract class Service {
                 handleMsg(msg);
             }
         } catch (final OtpErlangExit e) {
-            if (!trapExit(e)) {
-                return;
+            if (!atom("normal").equals(e.reason())) {
+                logger.error(String.format("%s exiting for reason %s", this, e.reason()));
             }
+            mbox.close();
+            terminate(e.reason());
+            return;
         } catch (final InterruptedException e) {
             return;
         }
@@ -131,21 +134,6 @@ public abstract class Service {
     }
 
     public void terminate(final OtpErlangObject reason) {
-    }
-
-    /**
-     * Subclasses can trap exits of linked processes.
-     *
-     * @param e
-     * @return true if exit was trapped, false if not.
-     */
-    public boolean trapExit(final OtpErlangExit e) {
-        if (!atom("normal").equals(e.reason())) {
-            logger.error(String.format("%s exiting for reason %s", this, e.reason()));
-        }
-        mbox.close();
-        terminate(e.reason());
-        return false;
     }
 
     public final void reply(final OtpErlangTuple from, final OtpErlangObject reply) throws IOException {
