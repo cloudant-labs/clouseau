@@ -818,7 +818,7 @@ public class IndexService extends Service {
                 } else if (INVERSE_FIELD_DOC.equals(sortFields[i])) {
                     fields[i] = asInt(list.elementAt(i));
                 } else {
-                    logger.error("conversion failure: " + list.elementAt(i));
+                    error("conversion failure: " + list.elementAt(i));
                     fields[i] = list.elementAt(i); // missing scalang conversions here :(
                 }
             }
