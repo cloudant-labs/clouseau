@@ -2,7 +2,7 @@ package com.cloudant.clouseau;
 
 import static com.cloudant.clouseau.OtpUtils.asBinary;
 import static com.cloudant.clouseau.OtpUtils.asMap;
-import static com.cloudant.clouseau.OtpUtils.asString;
+import static com.cloudant.clouseau.OtpUtils.*;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -108,22 +108,21 @@ public class ClouseauTypeFactory {
         if (store == null) {
             return Store.NO;
         }
-        if (store instanceof OtpErlangAtom) {
-            String str = asString(store);
-            switch (str) {
-            case "true":
-                return Store.YES;
-            case "false":
-                return Store.NO;
-            default:
-                try {
-                    return Store.valueOf(str.toUpperCase());
-                } catch (IllegalArgumentException e) {
-                    return Store.NO;
-                }
-            }
+
+        final String str = asString(store);
+
+        if ("true".equals(store)) {
+            return Store.YES;
         }
-        return Store.NO;
+        if ("false".equals(store)) {
+            return Store.NO;
+        }
+
+        try {
+            return Store.valueOf(str.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return Store.NO;
+        }
     }
 
     private static Index toIndex(Map<OtpErlangObject, OtpErlangObject> options) {
@@ -131,22 +130,21 @@ public class ClouseauTypeFactory {
         if (index == null) {
             return Index.ANALYZED;
         }
-        if (index instanceof OtpErlangAtom) {
-            String str = asString(index);
-            switch (str) {
-            case "true":
-                return Index.ANALYZED;
-            case "false":
-                return Index.NO;
-            default:
-                try {
-                    return Index.valueOf(str.toUpperCase());
-                } catch (IllegalArgumentException e) {
-                    return Index.ANALYZED;
-                }
-            }
+
+        String str = asString(index);
+
+        if ("true".equals(index)) {
+            return Index.ANALYZED;
         }
-        return Index.ANALYZED;
+        if ("false".equals(index)) {
+            return Index.NO;
+        }
+
+        try {
+            return Index.valueOf(str.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return Index.ANALYZED;
+        }
     }
 
     private static TermVector toTermVector(Map<OtpErlangObject, OtpErlangObject> options) {
