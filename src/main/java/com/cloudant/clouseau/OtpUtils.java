@@ -222,6 +222,9 @@ public final class OtpUtils {
     }
 
     public static OtpErlangObject asOtp(final Object obj) {
+        if (obj == null) {
+            return atom("null");
+        }
         if (obj instanceof OtpErlangObject) {
             return (OtpErlangObject) obj;
         }
