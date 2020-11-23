@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -52,7 +53,9 @@ import org.apache.lucene.facet.search.FacetsCollector;
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesAccumulator;
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesReaderState;
 import org.apache.lucene.facet.taxonomy.CategoryPath;
+import org.apache.lucene.index.AtomicReaderContext;
 import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queries.function.ValueSource;
@@ -157,6 +160,7 @@ public class IndexService extends Service {
     private final Timer commitTimer;
     private final Counter parSearchTimeOutCount;
     private final long timeAllowed;
+    private final boolean countFieldsEnabled;
 
     private ScheduledFuture<?> commitFuture;
 
@@ -187,6 +191,7 @@ public class IndexService extends Service {
 
         final int commitIntervalSecs = state.config.getInt("clouseau.commit_interval_secs", 30);
         timeAllowed = state.config.getLong("clouseau.search_allowed_timeout_msecs", 5000);
+        countFieldsEnabled = state.config.getBoolean("clouseau.count_fields", false);
 
         commitFuture = state.scheduledExecutor.scheduleWithFixedDelay(() -> {
             commit();
@@ -297,6 +302,8 @@ public class IndexService extends Service {
                 }
                 exit(atom("deleted"));
             }
+            case "count_fields":
+                countFields();
             }
         }
         if (request instanceof OtpErlangTuple) {
@@ -977,6 +984,26 @@ public class IndexService extends Service {
 
     private long getCommittedPurgeSeq() {
         return getLong("purge_seq");
+    }
+
+    private void countFields() {
+        if (countFieldsEnabled) {
+            final int warningThreshold = state.config.getInt("clouseau.field_count_warn_threshold", 5000);
+            final Set<String> fields = new HashSet<String>();
+            final Iterator<AtomicReaderContext> leaves = reader.leaves().iterator();
+            while (leaves.hasNext() && fields.size() <= warningThreshold) {
+                final Iterator<FieldInfo> fieldInfoIter = leaves.next().reader().getFieldInfos().iterator();
+                while (fieldInfoIter.hasNext() && fields.size() <= warningThreshold) {
+                    fields.add(fieldInfoIter.next().name);
+                }
+            }
+            if (fields.size() > warningThreshold) {
+                warn(
+                        String.format(
+                                "Index has more than %d fields, too many fields will lead to heap exhaustion",
+                                warningThreshold));
+            }
+        }
     }
 
     private long getLong(final String name) {
