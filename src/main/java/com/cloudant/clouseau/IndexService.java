@@ -70,6 +70,7 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TimeLimitingCollector;
 import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.search.TopFieldCollector;
 import org.apache.lucene.search.TopScoreDocCollector;
@@ -151,6 +152,7 @@ public class IndexService extends Service {
     private final Timer deleteTimer;
     private final Timer commitTimer;
     private final Counter parSearchTimeOutCount;
+    private final long timeAllowed;
 
     private ScheduledFuture<?> commitFuture;
 
@@ -180,6 +182,8 @@ public class IndexService extends Service {
         parSearchTimeOutCount = Metrics.newCounter(getClass(), "partition_search.timeout.count");
 
         final int commitIntervalSecs = state.config.getInt("clouseau.commit_interval_secs", 30);
+        timeAllowed = state.config.getLong("clouseau.search_allowed_timeout_msecs", 5000);
+
         commitFuture = state.scheduledExecutor.scheduleWithFixedDelay(() -> {
             commit();
         }, commitIntervalSecs, commitIntervalSecs, TimeUnit.SECONDS);
@@ -400,7 +404,19 @@ public class IndexService extends Service {
                 debug("Searching for " + query);
             }
             searchTimer.time(() -> {
-                searcher.search(query, collector);
+                if (partition == null) {
+                    searcher.search(query, collector);
+                } else {
+                    try {
+                        searcher.search(
+                                query,
+                                new TimeLimitingCollector(collector, TimeLimitingCollector.getGlobalCounter(),
+                                        timeAllowed));
+                    } catch (final TimeLimitingCollector.TimeExceededException e) {
+                        parSearchTimeOutCount.inc();
+                        throw new OtpReplyException("Query exceeded allowed time: " + timeAllowed + "ms.", e);
+                    }
+                }
                 return null;
             });
 
