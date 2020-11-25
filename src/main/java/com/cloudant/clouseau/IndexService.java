@@ -850,8 +850,7 @@ public class IndexService extends Service {
                 } else if (INVERSE_FIELD_DOC.equals(sortFields[i])) {
                     fields[i] = asInt(list.elementAt(i));
                 } else {
-                    error("conversion failure: " + list.elementAt(i));
-                    fields[i] = list.elementAt(i); // missing scalang conversions here :(
+                    fields[i] = asJava(list.elementAt(i));
                 }
             }
             return new FieldDoc(doc, Float.NaN, fields);
