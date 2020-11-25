@@ -5,7 +5,7 @@ import static com.cloudant.clouseau.OtpUtils.asBinary;
 import static com.cloudant.clouseau.OtpUtils.asBoolean;
 import static com.cloudant.clouseau.OtpUtils.asBytesRef;
 import static com.cloudant.clouseau.OtpUtils.asFloat;
-import static com.cloudant.clouseau.OtpUtils.asInt;
+import static com.cloudant.clouseau.OtpUtils.*;
 import static com.cloudant.clouseau.OtpUtils.asJava;
 import static com.cloudant.clouseau.OtpUtils.asList;
 import static com.cloudant.clouseau.OtpUtils.asListOfStrings;
@@ -98,6 +98,7 @@ import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
 import com.ericsson.otp.erlang.OtpErlangDouble;
 import com.ericsson.otp.erlang.OtpErlangList;
+import com.ericsson.otp.erlang.OtpErlangLong;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangTuple;
 import com.spatial4j.core.context.SpatialContext;
@@ -220,6 +221,8 @@ public class IndexService extends Service {
                 return tuple(atom("ok"), asLong(updateSeq));
             case "get_purge_seq":
                 return tuple(atom("ok"), asLong(purgeSeq));
+            case "info":
+                return tuple(atom("ok"), getInfo());
             }
         } else if (request instanceof OtpErlangTuple) {
             final OtpErlangTuple tuple = (OtpErlangTuple) request;
@@ -1004,6 +1007,25 @@ public class IndexService extends Service {
                                 warningThreshold));
             }
         }
+    }
+
+    private OtpErlangObject getInfo() throws IOException {
+        reopenIfChanged();
+        return asList(
+                tuple(atom("disk_size"), getDiskSize()),
+                tuple(atom("doc_count"), asInt(reader.numDocs())),
+                tuple(atom("doc_del_count"), asInt(reader.numDeletedDocs())),
+                tuple(atom("pending_seq"), asLong(pendingSeq)),
+                tuple(atom("committed_seq"), asLong(getCommittedSeq())),
+                tuple(atom("purge_seq"), asLong(purgeSeq)));
+    }
+
+    private OtpErlangLong getDiskSize() throws IOException {
+        long sum = 0;
+        for (String name : reader.directory().listAll()) {
+            sum += reader.directory().fileLength(name);
+        }
+        return asLong(sum);
     }
 
     private long getLong(final String name) {

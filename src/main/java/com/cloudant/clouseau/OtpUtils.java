@@ -140,7 +140,7 @@ public final class OtpUtils {
         return result;
     }
 
-    public static OtpErlangObject asLong(final long val) {
+    public static OtpErlangLong asLong(final long val) {
         return new OtpErlangLong(val);
     }
 
