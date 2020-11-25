@@ -18,10 +18,13 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.log4j.Logger;
 
 import com.ericsson.otp.erlang.OtpErlangPid;
+import com.yammer.metrics.Metrics;
+import com.yammer.metrics.core.Counter;
 
 public final class ServiceRegistry {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
+    private final Counter lruEvictions = Metrics.newCounter(IndexManagerService.class, "lru.evictions");
 
     private final Map<String, Service> byName = new HashMap<String, Service>();
     private final Map<OtpErlangPid, Service> byPid = new HashMap<OtpErlangPid, Service>();
@@ -34,6 +37,7 @@ public final class ServiceRegistry {
         protected boolean removeEldestEntry(final Entry<OtpErlangPid, Service> eldest) {
             if (size() > capacity) {
                 eldest.getValue().send(eldest.getKey(), tuple(atom("close"), atom("lru")));
+                lruEvictions.inc();
             }
             return false;
         }
