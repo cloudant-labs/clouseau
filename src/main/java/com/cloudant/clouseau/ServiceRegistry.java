@@ -171,11 +171,14 @@ public final class ServiceRegistry {
         }
     }
 
-    public void returnPending(final Service service) throws InterruptedException {
+    public void returnPending(final Service service, final boolean readd) throws InterruptedException {
         final Lock lock = this.lock;
         lock.lock();
         try {
             running.remove(service);
+            if (readd) {
+                pending.add(service);
+            }
             pendingUpdated.signal();
         } finally {
             lock.unlock();

@@ -93,14 +93,15 @@ public class Main {
             while (true) {
                 try {
                     final Service service = state.serviceRegistry.borrowPending();
+                    boolean hasMoreMessages = false;
                     try {
                         final Thread currentThread = Thread.currentThread();
                         final String originalThreadName = currentThread.getName();
                         currentThread.setName(service.toString());
-                        service.processMessages();
+                        hasMoreMessages = service.processMessages();
                         currentThread.setName(originalThreadName);
                     } finally {
-                        state.serviceRegistry.returnPending(service);
+                        state.serviceRegistry.returnPending(service, hasMoreMessages);
                     }
                 } catch (final InterruptedException e) {
                     logger.fatal("Worker thread was interrupted");

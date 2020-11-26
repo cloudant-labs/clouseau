@@ -46,22 +46,24 @@ public abstract class Service {
         this.mbox = mbox;
     }
 
-    public final void processMessages() {
-        try {
-            OtpMsg msg;
-            while ((msg = mbox.receiveMsg(0L)) != null) {
-                handleMsg(msg);
+    public final boolean processMessages() {
+        for (int i = 0; i < 100; i++) {
+            final OtpMsg msg;
+            try {
+                msg = mbox.receiveMsg(0L);
+            } catch (final OtpErlangExit e) {
+                if (!atom("normal").equals(e.reason())) {
+                    logger.error(String.format("%s exiting for reason %s", this, e.reason()));
+                }
+                mbox.close();
+                terminate(e.reason());
+                return false;
+            } catch (final InterruptedException e) {
+                return false;
             }
-        } catch (final OtpErlangExit e) {
-            if (!atom("normal").equals(e.reason())) {
-                logger.error(String.format("%s exiting for reason %s", this, e.reason()));
-            }
-            mbox.close();
-            terminate(e.reason());
-            return;
-        } catch (final InterruptedException e) {
-            return;
+            handleMsg(msg);
         }
+        return true;
     }
 
     private void handleMsg(final OtpMsg msg) {
