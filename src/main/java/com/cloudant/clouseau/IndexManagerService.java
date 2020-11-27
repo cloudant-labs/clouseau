@@ -101,7 +101,6 @@ public class IndexManagerService extends Service {
     private IndexWriter newWriter(final OtpErlangBinary path, final Analyzer analyzer) throws Exception {
         final Directory dir = newDirectory(new File(rootDir(), asString(path)));
         final IndexWriterConfig writerConfig = new IndexWriterConfig(LuceneUtils.VERSION, analyzer);
-        writerConfig.setUseCompoundFile(false);
 
         return new IndexWriter(dir, writerConfig);
     }
