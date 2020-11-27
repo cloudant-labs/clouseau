@@ -26,6 +26,7 @@ public abstract class Service {
 
     protected final ServerState state;
     private final OtpMbox mbox;
+    private final int loopMax;
 
     public Service(final ServerState state, final String serviceName) {
         this(state, state.node.createMbox(serviceName));
@@ -44,10 +45,11 @@ public abstract class Service {
         }
         this.state = state;
         this.mbox = mbox;
+        loopMax = state.config.getInt("clouseau.loop_max", 100);
     }
 
     public final boolean processMessages() {
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < loopMax; i++) {
             final OtpMsg msg;
             try {
                 msg = mbox.receiveMsg(0L);
