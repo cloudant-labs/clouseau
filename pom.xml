@@ -142,7 +142,7 @@
             </systemProperty>
             <systemProperty>
               <key>OtpConnection.trace</key>
-              <value>4</value>
+              <value>0</value>
             </systemProperty>
           </systemProperties>
         </configuration>
