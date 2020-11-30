@@ -28,7 +28,6 @@ public class Main {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
 
-    private static final int nThreads = Runtime.getRuntime().availableProcessors();
     private static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(2);
 
     public static void main(final String[] args) throws Exception {
@@ -45,6 +44,7 @@ public class Main {
         reloadableConfig.setReloadingStrategy(new FileChangedReloadingStrategy());
         config.addConfiguration(reloadableConfig);
 
+        final int nThreads = config.getInt("clouseau.num_threads", Runtime.getRuntime().availableProcessors());
         final String name = config.getString("clouseau.name", "clouseau@127.0.0.1");
         final String cookie = config.getString("clouseau.cookie", "monster");
         final boolean closeIfIdleEnabled = config.getBoolean("clouseau.close_if_idle", false);
