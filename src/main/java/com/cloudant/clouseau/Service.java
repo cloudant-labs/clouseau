@@ -57,7 +57,8 @@ public abstract class Service {
                 if (!atom("normal").equals(e.reason())) {
                     logger.error(String.format("%s exiting for reason %s", this, e.reason()));
                 }
-                mbox.close();
+                mbox.exit(e.reason());
+                state.serviceRegistry.unregister(this);
                 terminate(e.reason());
                 return false;
             } catch (final InterruptedException e) {
@@ -126,7 +127,8 @@ public abstract class Service {
         }
     }
 
-    public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws Exception {
+    public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request)
+            throws Exception {
         return null;
     }
 
@@ -165,12 +167,6 @@ public abstract class Service {
 
     public final void exit(final OtpErlangPid to, final OtpErlangObject msg) {
         mbox.exit(to, msg);
-    }
-
-    public final void exit(final OtpErlangObject reason) {
-        mbox.exit(reason);
-        state.serviceRegistry.unregister(this);
-        terminate(reason);
     }
 
     public final String getName() {

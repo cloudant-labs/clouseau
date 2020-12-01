@@ -5,7 +5,7 @@ import static com.cloudant.clouseau.OtpUtils.asBinary;
 import static com.cloudant.clouseau.OtpUtils.asBoolean;
 import static com.cloudant.clouseau.OtpUtils.asBytesRef;
 import static com.cloudant.clouseau.OtpUtils.asFloat;
-import static com.cloudant.clouseau.OtpUtils.*;
+import static com.cloudant.clouseau.OtpUtils.asInt;
 import static com.cloudant.clouseau.OtpUtils.asJava;
 import static com.cloudant.clouseau.OtpUtils.asList;
 import static com.cloudant.clouseau.OtpUtils.asListOfStrings;
@@ -97,9 +97,11 @@ import org.apache.lucene.util.BytesRef;
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
 import com.ericsson.otp.erlang.OtpErlangDouble;
+import com.ericsson.otp.erlang.OtpErlangExit;
 import com.ericsson.otp.erlang.OtpErlangList;
 import com.ericsson.otp.erlang.OtpErlangLong;
 import com.ericsson.otp.erlang.OtpErlangObject;
+import com.ericsson.otp.erlang.OtpErlangPid;
 import com.ericsson.otp.erlang.OtpErlangTuple;
 import com.spatial4j.core.context.SpatialContext;
 import com.spatial4j.core.distance.DistanceUtils;
@@ -107,6 +109,7 @@ import com.spatial4j.core.shape.Point;
 import com.yammer.metrics.Metrics;
 import com.yammer.metrics.core.Counter;
 import com.yammer.metrics.core.Timer;
+import com.yammer.metrics.core.TimerContext;
 
 public class IndexService extends Service {
 
@@ -152,7 +155,7 @@ public class IndexService extends Service {
     private long pendingPurgeSeq;
 
     private boolean forceRefresh = false;
-
+    private boolean committing = false;
     private boolean idle = true;
 
     private final Timer searchTimer;
@@ -195,14 +198,14 @@ public class IndexService extends Service {
         countFieldsEnabled = state.config.getBoolean("clouseau.count_fields", false);
 
         commitFuture = state.scheduledExecutor.scheduleWithFixedDelay(() -> {
-            commit();
+            send(self(), atom("maybe_commit"));
         }, commitIntervalSecs, commitIntervalSecs, TimeUnit.SECONDS);
 
         final boolean closeIfIdleEnabled = state.config.getBoolean("clouseau.close_if_idle", true);
         final int idleTimeoutSecs = state.config.getInt("clouseau.idle_check_interval_secs", 300);
         if (closeIfIdleEnabled) {
             closeFuture = state.scheduledExecutor.scheduleWithFixedDelay(() -> {
-                closeIfIdle();
+                send(self(), atom("close_if_idle"));
             }, idleTimeoutSecs, idleTimeoutSecs, TimeUnit.SECONDS);
         }
 
@@ -245,15 +248,9 @@ public class IndexService extends Service {
                     final String id = asString(tuple.elementAt(1));
                     debug(String.format("Deleting %s", id));
 
-                    deleteTimer.time(() -> {
-                        try {
-                            writer.deleteDocuments(new Term("_id", id));
-                        } catch (final IOException e) {
-                            error("I/O exception when deleting docs", e);
-                            terminate(asBinary(e.getMessage()));
-                        }
-                        return null;
-                    });
+                    final TimerContext tc = deleteTimer.time();
+                    writer.deleteDocuments(new Term("_id", id));
+                    tc.stop();
                     return atom("ok");
                 }
                 case "update": {
@@ -280,21 +277,14 @@ public class IndexService extends Service {
         if (logger.isDebugEnabled()) {
             debug("Updating " + doc.get("_id"));
         }
-        try {
-            updateTimer.time(() -> {
-                writer.updateDocument(new Term("_id", doc.get("_id")), doc);
-                return null;
-            });
-        } catch (final Exception e) {
-            error("exception when updating docs", e);
-            terminate(asBinary(e.getMessage()));
-        }
+        final TimerContext tc = updateTimer.time();
+        writer.updateDocument(new Term("_id", doc.get("_id")), doc);
+        tc.stop();
         return atom("ok");
     }
 
     @Override
-    public void handleInfo(final OtpErlangObject request) throws IOException {
-        idle = false;
+    public void handleInfo(final OtpErlangObject request) throws IOException, OtpErlangExit {
         if (request instanceof OtpErlangAtom) {
             switch (asString(request)) {
             case "delete": {
@@ -303,10 +293,24 @@ public class IndexService extends Service {
                 for (String file : dir.listAll()) {
                     dir.deleteFile(file);
                 }
-                exit(atom("deleted"));
+                throw new OtpErlangExit("deleted");
             }
             case "count_fields":
                 countFields();
+                break;
+            case "close_if_idle": {
+                if (idle) {
+                    throw new OtpErlangExit(asBinary("Idle Timeout"));
+                }
+                idle = true;
+                break;
+            }
+            case "maybe_commit":
+                commit(pendingSeq, pendingPurgeSeq);
+                break;
+            case "commit_failed":
+                committing = false;
+                break;
             }
         }
         if (request instanceof OtpErlangTuple) {
@@ -314,7 +318,16 @@ public class IndexService extends Service {
             final OtpErlangObject cmd = tuple.elementAt(0);
             switch (asString(cmd)) {
             case "close":
-                exit(tuple.elementAt(1));
+                throw new OtpErlangExit(tuple.elementAt(1));
+            case "committed":
+                final long newUpdateSeq = asLong(tuple.elementAt(1));
+                final long newPurgeSeq = asLong(tuple.elementAt(2));
+                updateSeq = newUpdateSeq;
+                purgeSeq = newPurgeSeq;
+                forceRefresh = true;
+                committing = false;
+                info(String.format("Committed update sequence %d and purge sequence %d", newUpdateSeq, newPurgeSeq));
+                break;
             }
         }
     }
@@ -947,38 +960,33 @@ public class IndexService extends Service {
         throw new ParseException("Unrecognized group_field parameter: " + field);
     }
 
-    private void commit() {
-        final long newUpdateSeq = pendingSeq;
-        final long newPurgeSeq = pendingPurgeSeq;
+    private void commit(final long newUpdateSeq, final long newPurgeSeq) {
+        if (!committing && (newUpdateSeq > updateSeq || newPurgeSeq > purgeSeq)) {
+            committing = true;
+            final OtpErlangPid self = self();
 
-        if (newUpdateSeq > updateSeq || newPurgeSeq > purgeSeq) {
-            writer.setCommitData(
-                    JDKUtils.mapOf("update_seq", Long.toString(newUpdateSeq), "purge_seq", Long.toString(newPurgeSeq)));
+            state.scheduledExecutor.execute(() -> {
+                writer.setCommitData(
+                        JDKUtils.mapOf(
+                                "update_seq",
+                                Long.toString(newUpdateSeq),
+                                "purge_seq",
+                                Long.toString(newPurgeSeq)));
 
-            try {
-                commitTimer.time(() -> {
+                try {
+                    final TimerContext tc = commitTimer.time();
                     writer.commit();
-                    return null;
-                });
-            } catch (final AlreadyClosedException e) {
-                error("Commit failed to closed writer", e);
-                IndexService.this.exit(asBinary(e.getMessage()));
-            } catch (Exception e) {
-                error("Failed to commit changes", e);
-                IndexService.this.exit(asBinary(e.getMessage()));
-            }
-            updateSeq = newUpdateSeq;
-            purgeSeq = newPurgeSeq;
-            forceRefresh = true;
-            info(String.format("Committed update sequence %d and purge sequence %d", newUpdateSeq, newPurgeSeq));
+                    tc.stop();
+                    send(self, tuple(atom("committed"), asLong(newUpdateSeq), asLong(newPurgeSeq)));
+                } catch (final AlreadyClosedException e) {
+                    error("Commit failed to closed writer", e);
+                    send(self, atom("commit_failed"));
+                } catch (final IOException e) {
+                    error("Failed to commit changes", e);
+                    send(self, atom("commit_failed"));
+                }
+            });
         }
-    }
-
-    private void closeIfIdle() {
-        if (idle) {
-            exit(asBinary("Idle Timeout"));
-        }
-        idle = true;
     }
 
     private long getCommittedSeq() {

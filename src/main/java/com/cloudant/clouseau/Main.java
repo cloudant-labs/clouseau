@@ -14,6 +14,7 @@ package com.cloudant.clouseau;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.configuration.CompositeConfiguration;
 import org.apache.commons.configuration.FileConfiguration;
@@ -28,7 +29,7 @@ public class Main {
 
     private static final Logger logger = Logger.getLogger("clouseau.main");
 
-    private static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(2);
+    private static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(1);
 
     public static void main(final String[] args) throws Exception {
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
@@ -64,7 +65,7 @@ public class Main {
         serviceRegistry.register(new IndexManagerService(state));
         serviceRegistry.register(new AnalyzerService(state));
         serviceRegistry.register(new IndexCleanupService(state));
-
+        
         final Thread[] workers = new Thread[nThreads];
         for (int i = 0; i < nThreads; i++) {
             workers[i] = new Thread(new Worker(state), "IdleClouseauWorker-" + i);

@@ -4,6 +4,7 @@ import static com.cloudant.clouseau.OtpUtils.asString;
 import static com.cloudant.clouseau.OtpUtils.atom;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -32,7 +33,7 @@ public class IndexCleanupService extends Service {
     }
 
     @Override
-    public void handleCast(final OtpErlangObject request) throws Exception {
+    public void handleCast(final OtpErlangObject request) throws IOException {
         if (request instanceof OtpErlangTuple) {
             final OtpErlangTuple tuple = (OtpErlangTuple) request;
             if (atom("cleanup").equals(tuple.elementAt(0)) && tuple.arity() == 2) {

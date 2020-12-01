@@ -20,11 +20,13 @@ import org.apache.lucene.store.LockFactory;
 
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
+import com.ericsson.otp.erlang.OtpErlangExit;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangPid;
 import com.ericsson.otp.erlang.OtpErlangTuple;
 import com.yammer.metrics.Metrics;
 import com.yammer.metrics.core.Timer;
+import com.yammer.metrics.core.TimerContext;
 
 public class IndexManagerService extends Service {
 
@@ -67,19 +69,15 @@ public class IndexManagerService extends Service {
         final String strPath = asString(path);
 
         logger.info(String.format("Opening index at %s", strPath));
-        try {
-            return openTimer.time(() -> {
-                final Analyzer analyzer = SupportedAnalyzers.createAnalyzer(analyzerConfig);
-                final IndexWriter writer = newWriter(path, analyzer);
-                final QueryParser qp = new ClouseauQueryParser(LuceneUtils.VERSION, "default", analyzer);
-                final IndexService index = new IndexService(state, strPath, writer, qp);
-                state.serviceRegistry.register(index);
-                index.link(peer);
-                return tuple(atom("ok"), index.self());
-            });
-        } catch (final IOException e) {
-            return tuple(atom("error"), asBinary(e.getMessage()));
-        }
+        final TimerContext tc = openTimer.time();
+        final Analyzer analyzer = SupportedAnalyzers.createAnalyzer(analyzerConfig);
+        final IndexWriter writer = newWriter(path, analyzer);
+        final QueryParser qp = new ClouseauQueryParser(LuceneUtils.VERSION, "default", analyzer);
+        final IndexService index = new IndexService(state, strPath, writer, qp);
+        state.serviceRegistry.register(index);
+        index.link(peer);
+        tc.stop();
+        return tuple(atom("ok"), index.self());
     }
 
     private OtpErlangObject getDiskSize(final String path) {
@@ -101,7 +99,6 @@ public class IndexManagerService extends Service {
     private IndexWriter newWriter(final OtpErlangBinary path, final Analyzer analyzer) throws Exception {
         final Directory dir = newDirectory(new File(rootDir(), asString(path)));
         final IndexWriterConfig writerConfig = new IndexWriterConfig(LuceneUtils.VERSION, analyzer);
-
         return new IndexWriter(dir, writerConfig);
     }
 

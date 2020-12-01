@@ -15,15 +15,12 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.log4j.Logger;
-
 import com.ericsson.otp.erlang.OtpErlangPid;
 import com.yammer.metrics.Metrics;
 import com.yammer.metrics.core.Counter;
 
 public final class ServiceRegistry {
 
-    private static final Logger logger = Logger.getLogger("clouseau.main");
     private final Counter lruEvictions = Metrics.newCounter(IndexManagerService.class, "lru.evictions");
 
     private final Map<String, Service> byName = new HashMap<String, Service>();
