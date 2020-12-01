@@ -53,10 +53,9 @@ public abstract class Service {
             final OtpMsg msg;
             try {
                 msg = mbox.receiveMsg(0L);
+                handleMsg(msg);
             } catch (final OtpErlangExit e) {
-                if (!atom("normal").equals(e.reason())) {
-                    logger.error(String.format("%s exiting for reason %s", this, e.reason()));
-                }
+                logger.info(String.format("%s exiting for reason %s", this, e.reason()));
                 mbox.exit(e.reason());
                 state.serviceRegistry.unregister(this);
                 terminate(e.reason());
@@ -64,12 +63,11 @@ public abstract class Service {
             } catch (final InterruptedException e) {
                 return false;
             }
-            handleMsg(msg);
         }
         return true;
     }
 
-    private void handleMsg(final OtpMsg msg) {
+    private void handleMsg(final OtpMsg msg) throws OtpErlangExit {
         try {
             switch (msg.type()) {
             case OtpMsg.sendTag:
@@ -93,6 +91,8 @@ public abstract class Service {
                             }
                         } catch (final OtpReplyException e) {
                             reply(from, e.getReply());
+                        } catch (final OtpErlangExit e) {
+                            throw e;
                         } catch (final Exception e) {
                             final String err = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
                             reply(from, tuple(atom("error"), asBinary(err)));
@@ -105,6 +105,8 @@ public abstract class Service {
                         final OtpErlangObject request = tuple.elementAt(1);
                         try {
                             handleCast(request);
+                        } catch (final OtpErlangExit e) {
+                            throw e;
                         } catch (final Exception e) {
                             logger.error(this + " encountered exception during handleCast", e);
                         }
@@ -113,6 +115,8 @@ public abstract class Service {
                 }
                 try {
                     handleInfo(obj);
+                } catch (final OtpErlangExit e) {
+                    throw e;
                 } catch (final Exception e) {
                     logger.error(this + " encountered exception during handleInfo", e);
                 }
@@ -127,8 +131,7 @@ public abstract class Service {
         }
     }
 
-    public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request)
-            throws Exception {
+    public OtpErlangObject handleCall(final OtpErlangTuple from, final OtpErlangObject request) throws Exception {
         return null;
     }
 
