@@ -1,6 +1,7 @@
 package com.cloudant.clouseau;
 
 import static com.cloudant.clouseau.OtpUtils.asBinary;
+import static com.cloudant.clouseau.OtpUtils.asString;
 import static com.cloudant.clouseau.OtpUtils.atom;
 import static com.cloudant.clouseau.OtpUtils.tuple;
 
@@ -9,11 +10,11 @@ import java.io.IOException;
 import org.apache.log4j.Logger;
 
 import com.ericsson.otp.erlang.OtpErlangAtom;
+import com.ericsson.otp.erlang.OtpErlangBinary;
 import com.ericsson.otp.erlang.OtpErlangDecodeException;
 import com.ericsson.otp.erlang.OtpErlangExit;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangPid;
-import com.ericsson.otp.erlang.OtpErlangRef;
 import com.ericsson.otp.erlang.OtpErlangTuple;
 import com.ericsson.otp.erlang.OtpMbox;
 import com.ericsson.otp.erlang.OtpMsg;
@@ -55,7 +56,9 @@ public abstract class Service {
                 msg = mbox.receiveMsg(0L);
                 handleMsg(msg);
             } catch (final OtpErlangExit e) {
-                logger.info(String.format("%s exiting for reason %s", this, e.reason()));
+                final String strReason = e.reason() instanceof OtpErlangBinary ? asString(e.reason())
+                        : e.reason().toString();
+                logger.info(String.format("%s exiting for reason %s", this, strReason));
                 mbox.exit(e.reason());
                 state.serviceRegistry.unregister(this);
                 terminate(e.reason());
