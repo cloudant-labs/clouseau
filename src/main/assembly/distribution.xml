@@ -22,6 +22,10 @@ the License.
   <dependencySets>
     <dependencySet>
       <scope>runtime</scope>
+      <excludes>
+        <exclude>org.jboss.netty</exclude>
+        <exclude>log4j:log4j</exclude>
+      </excludes>
     </dependencySet>
   </dependencySets>
 </assembly>
