@@ -277,7 +277,7 @@
                 <filter>
                   <artifact>log4j</artifact>
                   <excludes>
-                    <exclude>org/apache/log4j/net/</exclude>
+                    <exclude>org/apache/log4j/net/SocketServer.class</exclude>
                   </excludes>
                 </filter>
               </filters>
