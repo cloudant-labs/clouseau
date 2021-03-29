@@ -262,10 +262,12 @@
             </goals>
             <configuration>
               <minimizeJar>false</minimizeJar>
-              <includes>
-                <include>org.jboss.netty</include>
-                <include>log4j</include>
-              </includes>
+              <artifactSet>
+                <includes>
+                  <include>org.jboss.netty</include>
+                  <include>log4j</include>
+                </includes>
+              </artifactSet>
               <filters>
                 <filter>
                   <artifact>org.jboss.netty</artifact>
