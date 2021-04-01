@@ -8,7 +8,6 @@ import static com.cloudant.clouseau.OtpUtils.atom;
 import static com.cloudant.clouseau.OtpUtils.tuple;
 
 import java.io.File;
-import java.io.IOException;
 
 import org.apache.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
@@ -20,7 +19,6 @@ import org.apache.lucene.store.LockFactory;
 
 import com.ericsson.otp.erlang.OtpErlangAtom;
 import com.ericsson.otp.erlang.OtpErlangBinary;
-import com.ericsson.otp.erlang.OtpErlangExit;
 import com.ericsson.otp.erlang.OtpErlangObject;
 import com.ericsson.otp.erlang.OtpErlangPid;
 import com.ericsson.otp.erlang.OtpErlangTuple;

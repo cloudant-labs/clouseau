@@ -1,6 +1,7 @@
 package com.cloudant.clouseau;
 
-import static com.cloudant.clouseau.OtpUtils.*;
+import static com.cloudant.clouseau.OtpUtils.asBinary;
+import static com.cloudant.clouseau.OtpUtils.atom;
 import static com.cloudant.clouseau.OtpUtils.tuple;
 
 import com.ericsson.otp.erlang.OtpErlangObject;
