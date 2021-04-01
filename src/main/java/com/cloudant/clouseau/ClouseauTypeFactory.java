@@ -111,10 +111,10 @@ public class ClouseauTypeFactory {
 
         final String str = asString(store);
 
-        if ("true".equals(store)) {
+        if ("true".equals(str)) {
             return Store.YES;
         }
-        if ("false".equals(store)) {
+        if ("false".equals(str)) {
             return Store.NO;
         }
 
@@ -133,10 +133,10 @@ public class ClouseauTypeFactory {
 
         String str = asString(index);
 
-        if ("true".equals(index)) {
+        if ("true".equals(str)) {
             return Index.ANALYZED;
         }
-        if ("false".equals(index)) {
+        if ("false".equals(str)) {
             return Index.NO;
         }
 
