@@ -30,6 +30,10 @@ class AnalyzerServiceSpec extends SpecificationWithJUnit {
     "demonstrate simple_asciifolding tokenization" in new analyzer_service {
       service.handleCall(null, ('analyze, "simple_asciifolding", "Ayşegül Özbayır")) must be equalTo (('ok, List("aysegul", "ozbayir")))
     }
+
+    "demonstrate simple_icufolding tokenization" in new analyzer_service {
+      service.handleCall(null, ('analyze, "simple_icufolding", "Ayşegül Özbayır")) must be equalTo (('ok, List("aysegul", "ozbayir")))
+    }
   }
 }
 

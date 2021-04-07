@@ -66,6 +66,7 @@ import org.apache.lucene.analysis.tr.TurkishAnalyzer
 // Extras
 import org.apache.lucene.analysis.ja.JapaneseTokenizer
 import org.apache.lucene.analysis.miscellaneous.ASCIIFoldingFilter
+import org.apache.lucene.analysis.icu.ICUFoldingFilter
 import org.apache.lucene.analysis.core.LowerCaseFilter
 import org.apache.lucene.analysis.core.LetterTokenizer
 
@@ -118,6 +119,13 @@ object SupportedAnalyzers {
          def createComponents(fieldName: String, reader: Reader): TokenStreamComponents = {
             val tokenizer: Tokenizer = new LetterTokenizer(IndexService.version, reader);
             new TokenStreamComponents(tokenizer, new ASCIIFoldingFilter(new LowerCaseFilter(IndexService.version, tokenizer)))
+         }
+       })
+    case "simple_icufolding" =>
+      Some(new Analyzer() {
+         def createComponents(fieldName: String, reader: Reader): TokenStreamComponents = {
+            val tokenizer: Tokenizer = new LetterTokenizer(IndexService.version, reader);
+            new TokenStreamComponents(tokenizer, new ICUFoldingFilter(tokenizer))
          }
        })
     case "arabic" =>

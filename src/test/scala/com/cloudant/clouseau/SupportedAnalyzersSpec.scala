@@ -78,6 +78,9 @@ class SupportedAnalyzersSpec extends SpecificationWithJUnit {
     "simple_asciifolding" in {
       createAnalyzer("simple_asciifolding") must haveClass[Some[Analyzer]]
     }
+    "simple_icufolding" in {
+      createAnalyzer("simple_icufolding") must haveClass[Some[Analyzer]]
+    }
     "email" in {
       createAnalyzer("email") must haveClass[Some[UAX29URLEmailAnalyzer]]
     }
