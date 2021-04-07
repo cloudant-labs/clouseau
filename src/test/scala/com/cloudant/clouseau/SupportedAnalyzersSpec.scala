@@ -12,6 +12,7 @@
 
 package com.cloudant.clouseau
 
+import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.analysis.core.KeywordAnalyzer
 import org.apache.lucene.analysis.core.SimpleAnalyzer
 import org.apache.lucene.analysis.core.WhitespaceAnalyzer
@@ -73,6 +74,9 @@ class SupportedAnalyzersSpec extends SpecificationWithJUnit {
     }
     "whitespace" in {
       createAnalyzer("whitespace") must haveClass[Some[WhitespaceAnalyzer]]
+    }
+    "simple_asciifolding" in {
+      createAnalyzer("simple_asciifolding") must haveClass[Some[Analyzer]]
     }
     "email" in {
       createAnalyzer("email") must haveClass[Some[UAX29URLEmailAnalyzer]]

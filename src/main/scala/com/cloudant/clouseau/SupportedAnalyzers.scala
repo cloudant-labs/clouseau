@@ -12,9 +12,13 @@
 
 package com.cloudant.clouseau
 
+import java.io.Reader
 import java.util.{ Set => JSet }
 import org.apache.log4j.Logger
 import org.apache.lucene.analysis.Analyzer
+import org.apache.lucene.analysis.Tokenizer
+import org.apache.lucene.analysis.TokenStream
+import org.apache.lucene.analysis.Analyzer.TokenStreamComponents
 import org.apache.lucene.analysis.util.CharArraySet
 import scala.collection.JavaConversions._
 
@@ -61,6 +65,9 @@ import org.apache.lucene.analysis.tr.TurkishAnalyzer
 
 // Extras
 import org.apache.lucene.analysis.ja.JapaneseTokenizer
+import org.apache.lucene.analysis.miscellaneous.ASCIIFoldingFilter
+import org.apache.lucene.analysis.core.LowerCaseFilter
+import org.apache.lucene.analysis.core.LetterTokenizer
 
 object SupportedAnalyzers {
 
@@ -106,6 +113,13 @@ object SupportedAnalyzers {
       Some(new SimpleAnalyzer(IndexService.version))
     case "whitespace" =>
       Some(new WhitespaceAnalyzer(IndexService.version))
+    case "simple_asciifolding" =>
+      Some(new Analyzer() {
+         def createComponents(fieldName: String, reader: Reader): TokenStreamComponents = {
+            val tokenizer: Tokenizer = new LetterTokenizer(IndexService.version, reader);
+            new TokenStreamComponents(tokenizer, new ASCIIFoldingFilter(new LowerCaseFilter(IndexService.version, tokenizer)))
+         }
+       })
     case "arabic" =>
       options.get("stopwords") match {
         case Some(stopwords: List[String]) =>
