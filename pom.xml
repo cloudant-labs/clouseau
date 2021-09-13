@@ -31,13 +31,13 @@
 
   <dependencies>
     <!-- JInterface -->
-<!--    <dependency>-->
-<!--      <groupId>org.erlang.otp</groupId>-->
-<!--      <artifactId>jinterface</artifactId>-->
-<!--      <version>1.11</version>-->
-<!--      <scope>system</scope>-->
+    <dependency>
+      <groupId>org.erlang.otp</groupId>
+      <artifactId>jinterface</artifactId>
+      <version>1.11</version>
+      <!-- <scope>system</scope> -->
 <!--      <systemPath>${project.basedir}/deps/jinterface-1.11.jar</systemPath>-->
-<!--    </dependency>-->
+    </dependency>
     <!-- Lucene -->
     <dependency>
       <groupId>org.apache.lucene</groupId>

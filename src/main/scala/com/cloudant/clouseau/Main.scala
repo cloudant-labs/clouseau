@@ -18,6 +18,8 @@ import org.apache.log4j.Logger
 
 import scalang._
 
+import com.cloudant.clouseau.node._
+
 object Main extends App {
 
   val logger = Logger.getLogger("clouseau.main")
@@ -55,4 +57,6 @@ object Main extends App {
 
   ClouseauSupervisor.start(node, config)
   logger.info("Clouseau running as " + name)
+
+  val clouseauNode = new ClouseauNode(name, cookie)
 }
