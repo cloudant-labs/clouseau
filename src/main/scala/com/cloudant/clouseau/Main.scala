@@ -55,8 +55,13 @@ object Main extends App {
     typeDecoder = ClouseauTypeDecoder)
   val node = Node(name, cookie, nodeconfig)
 
-  ClouseauSupervisor.start(node, config)
+  //  ClouseauSupervisor.start(node, config)
   logger.info("Clouseau running as " + name)
 
   val clouseauNode = new ClouseauNode(name, cookie)
+  val mbox = clouseauNode.node.createMbox("cleanup");
+
+  val cleanup = new IndexCleanupService(mbox, config)
+
+  cleanup.processMailbox()
 }

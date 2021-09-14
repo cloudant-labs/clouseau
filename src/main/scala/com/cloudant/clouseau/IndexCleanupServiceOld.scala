@@ -13,7 +13,6 @@
 package com.cloudant.clouseau
 
 import com.yammer.metrics.scala._
-
 import java.io.File
 import java.util.regex.Pattern
 import java.text.SimpleDateFormat
@@ -21,26 +20,13 @@ import java.util.Calendar
 import java.util.TimeZone
 import org.apache.log4j.Logger
 import scalang._
-import com.cloudant.clouseau.node._
-import com.ericsson.otp.erlang.OtpMbox
-import org.apache.commons.configuration.Configuration
 
-class IndexCleanupService(mbox: OtpMbox, cfg: Configuration) extends GenServer with Instrumented {
+class IndexCleanupServiceOld(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
 
-  val mailbox = mbox
-  val config = cfg
   val logger = Logger.getLogger("clouseau.cleanup")
-  val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
+  val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
 
-  def handleCall(msg: Any): Unit = {
-
-  }
-
-  def handleInfo(msg: Any): Unit = {
-
-  }
-
-  def handleCast(msg: Any) = msg match {
+  override def handleCast(msg: Any) = msg match {
     case CleanupPathMsg(path: String) =>
       val dir = new File(rootDir, path)
       logger.info("Removing %s".format(path))
