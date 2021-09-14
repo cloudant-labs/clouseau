@@ -6,9 +6,9 @@ build:
 
 setup:
 	mvn install:install-file \
-      -Dfile=./deps/jinterface-1.11.jar \
+      -Dfile=./deps/OtpErlang.jar \
       -DgroupId=org.erlang.otp\
       -DartifactId=jinterface \
-      -Dversion=1.11 \
+      -Dversion=1.12 \
       -Dpackaging=jar \
       -DgeneratePom=true

@@ -34,7 +34,7 @@
     <dependency>
       <groupId>org.erlang.otp</groupId>
       <artifactId>jinterface</artifactId>
-      <version>1.11</version>
+      <version>1.12</version>
       <!-- <scope>system</scope> -->
 <!--      <systemPath>${project.basedir}/deps/jinterface-1.11.jar</systemPath>-->
     </dependency>
