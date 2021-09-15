@@ -46,22 +46,26 @@ class IndexCleanupService(mbox: OtpMbox, cfg: Configuration) extends GenServer w
       logger.info("Removing %s".format(path))
       recursivelyDelete(dir)
     case RenamePathMsg(dbName: String) =>
-      val srcDir = new File(rootDir, dbName)
-      val sdf = new SimpleDateFormat("yyyyMMdd'.'HHmmss")
-      sdf.setTimeZone(TimeZone.getTimeZone("UTC"))
-      val sdfNow = sdf.format(Calendar.getInstance().getTime())
-      // move timestamp information in dbName to end of destination path
-      // for example, from foo.1234567890 to foo.20170912.092828.deleted.1234567890
-      val destPath = dbName.dropRight(10) + sdfNow + ".deleted." + dbName.takeRight(10)
-      val destDir = new File(rootDir, destPath)
-      logger.info("Renaming '%s' to '%s'".format(
-        srcDir.getAbsolutePath, destDir.getAbsolutePath)
-      )
-      rename(srcDir, destDir)
+      renamePath(dbName)
     case CleanupDbMsg(dbName: String, activeSigs: List[String]) =>
       logger.info("Cleaning up " + dbName)
       val pattern = Pattern.compile("shards/[0-9a-f]+-[0-9a-f]+/" + dbName + "\\.[0-9]+/([0-9a-f]+)$")
       cleanup(rootDir, pattern, activeSigs)
+  }
+
+  private def renamePath(dbName: String) = {
+    val srcDir = new File(rootDir, dbName)
+    val sdf = new SimpleDateFormat("yyyyMMdd'.'HHmmss")
+    sdf.setTimeZone(TimeZone.getTimeZone("UTC"))
+    val sdfNow = sdf.format(Calendar.getInstance().getTime())
+    // move timestamp information in dbName to end of destination path
+    // for example, from foo.1234567890 to foo.20170912.092828.deleted.1234567890
+    val destPath = dbName.dropRight(10) + sdfNow + ".deleted." + dbName.takeRight(10)
+    val destDir = new File(rootDir, destPath)
+    logger.info("Renaming '%s' to '%s'".format(
+      srcDir.getAbsolutePath, destDir.getAbsolutePath)
+    )
+    rename(srcDir, destDir)
   }
 
   private def cleanup(fileOrDir: File, includePattern: Pattern, activeSigs: List[String]) {

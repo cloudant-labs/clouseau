@@ -12,6 +12,7 @@
 
 package com.cloudant.clouseau
 
+import com.cloudant.clouseau.node.ClouseauNode
 import scalang.Node
 import org.specs2.mutable.BeforeAfter
 
@@ -37,4 +38,19 @@ object EpmdCmd {
     val builder = new ProcessBuilder("epmd")
     builder.start
   }
+}
+
+trait RunningNode2 extends BeforeAfter {
+  val cookie = "test"
+  val node = new ClouseauNode("test-node", cookie)
+
+  def before = {
+
+  }
+
+  def after = {
+    node.node.close()
+
+  }
+
 }

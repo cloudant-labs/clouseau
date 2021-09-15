@@ -2,6 +2,10 @@
 
 Expose Lucene features to erlang RPC.
 
+## TODO:
+
+* Increase code coverage by adding more tests
+
 ## Dev setup
 
 Run:
@@ -11,6 +15,10 @@ $ make setup
 ```
 
 to install the otp jar file into your local maven repository
+
+## Run tests
+
+`make test` to run the full test suite. Or `mvn test -Dtest=NAME_OF_FILE` to run a specific test
 
 ## Configuration options
 

@@ -14,6 +14,7 @@ package com.cloudant.clouseau
 
 import org.apache.commons.configuration.SystemConfiguration
 import org.specs2.mutable.SpecificationWithJUnit
+
 import java.io.File
 import concurrent._
 
@@ -23,7 +24,7 @@ class IndexCleanupServiceSpec extends SpecificationWithJUnit {
   "the index clean-up service" should {
 
     "rename index when database is deleted" in new cleanup_service {
-      node.cast(service, RenamePathMsg("foo.1234567890")) must be equalTo 'ok
+      service.handleCast(RenamePathMsg("foo.1234567890")) must be equalTo 'ok
       Thread.sleep(1000)
       val indexdir = new File("target", "indexes")
       var subdirlist = List[String]()
@@ -33,16 +34,16 @@ class IndexCleanupServiceSpec extends SpecificationWithJUnit {
       }
       subdirlist.length > 0 must be equalTo true
     }
-
   }
 
 }
 
-trait cleanup_service extends RunningNode {
+trait cleanup_service extends RunningNode2 {
   val config = new SystemConfiguration()
   val args = new ConfigurationArgs(config)
-  val service = node.spawnService[IndexCleanupService, ConfigurationArgs](args)
-  val mbox = node.spawnMbox
+
+  val mbox = node.node.createMbox("cleanup");
+  val service = new IndexCleanupService(mbox, config)
 
   val dir = new File("target", "indexes")
   if (dir.exists) {

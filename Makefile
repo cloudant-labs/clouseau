@@ -1,5 +1,7 @@
-.PHONY: build setup
+.PHONY: build setup test
 
+test:
+	mvn test
 
 build:
 	mvn scala:compile
