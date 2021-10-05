@@ -84,5 +84,133 @@ This variation (instead of fixed) in the index closing due to inactivity is a re
       ```
       rsync -avz db<X>.<CLUSTER>.cloudant.com:/srv/heap.bin .
       ```
-      
+
 7. Analyze the heap dump using `visualVM` tool or Eclipse memory analyzer tool(http://www.eclipse.org/mat/downloads.php).
+
+# Development environment
+
+We use a combination of [`direnv`](https://github.com/direnv/direnv) and [`asdf`](https://github.com/asdf-vm/asdf) to manage development environment.
+The minimal set of tools you need to install manually is (the rest would be installed from Makefile):
+
+- xcode
+- brew
+- asdf
+- git
+
+## Installing
+
+1. install asdf itself
+```
+brew install asdf
+```
+2. integrate asdf with your shell
+  - fish
+   ```
+   echo -e "\nsource $(brew --prefix asdf)/libexec/asdf.fish" >>  ~/.config/fish/config.fish
+   ```
+  - bash
+   ```
+   echo -e "\n. $(brew --prefix asdf)/libexec/asdf.sh" >> ~/.bash_profile
+   ```
+  - zsh
+   ```
+   echo -e "\n. $(brew --prefix asdf)/libexec/asdf.sh" >> ${ZDOTDIR:-~}/.zshrc
+   ```
+3. install direnv plugin
+```
+asdf plugin-add direnv
+asdf install direnv latest
+asdf global direnv latest
+```
+4. integrate direnv plugin with your shell
+  - fish
+   ```
+   printf "\
+   # Hook direnv into your shell.
+   asdf exec direnv hook fish | source
+
+   # A shortcut for asdf managed direnv.
+   function direnv
+     asdf exec direnv \"\$argv\"
+   end
+   " >> ~/.config/fish/config.fish
+   ```
+  - bash
+   ```
+   cat << EOF >> ~/.bashrc
+   # Hook direnv into your shell.
+   eval "$(asdf exec direnv hook bash)"
+
+   # A shortcut for asdf managed direnv.
+   direnv() { asdf exec direnv "$@"; }
+   EOF
+   ```
+  - zsh
+   ```
+   cat << EOF >>  ~/.zshrc
+   # Hook direnv into your shell.
+   eval "$(asdf exec direnv hook zsh)"
+
+   # A shortcut for asdf managed direnv.
+   direnv() { asdf exec direnv "$@"; }
+   EOF
+   ```
+5. enable `use asdf` feature
+```
+echo 'source "$(asdf direnv hook asdf)"' >> ~/.config/direnv/direnvrc
+```
+
+## Custom Java
+
+In some cases version of Java is not available in asdf-java.
+There is a trick which makes globally available version recognized by
+asdf.
+
+```
+ln -s /Library/Java/JavaVirtualMachines/jdk1.7.0_80.jdk/Contents/Home ~/.asdf/installs/java/oracle-1.7.0
+asdf reshim java
+```
+
+# Specifying dependencies
+
+## Host dependencies for MacOS
+
+Host dependencies for MacOS are specified in `.brew-versions` file.
+The file cannot contain comments or empty lines. The changes to file would apply automatically on the next `make` run. You can force an update by calling:
+
+```
+make .brew
+```
+
+Here is an example of `.brew-versions` file.
+
+```
+coreutils
+automake
+yq 2.4.0
+```
+
+## asdf managed dependencies
+
+Versions of Java and scala and some other tools for which there is a corespondent are specified in `.tool-versions` file. This file cannot contain comments or empty lines. The changes to file would apply automatically on the next `make` run. You can force an update by calling:
+
+```
+rm .asdf ; make .asdf
+```
+
+Here is an example of `.tool-versions` file.
+
+```
+maven 3.8.2
+java zulu-7.48.0.11
+gradle 4.0
+scala 2.9.1.final
+sbt 1.5.5
+```
+
+When you update the `.tool-versions` file make sure that the versions you specify do exist. You can use `asdf list all <tool>` (i.e. `asdf list all java`).
+
+# Customizations
+
+You can define your own environment variables or modify PATH via `.envrc.local` file. This file is automatically included in direnv configuration if present. The syntax of `.envrc.local` is the same as for `.envrc` (see [`direnv-stdlib` documentation](https://github.com/direnv/direnv/blob/master/man/direnv-stdlib.1.md)).
+

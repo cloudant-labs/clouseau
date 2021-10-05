@@ -37,7 +37,25 @@ build.log
 #  syntax: regexp
 #  ^\.pc/
 
+# gradle files
+.gradle
+**/build/
+!src/**/build/
+# Ignore Gradle GUI config
+gradle-app.setting
+# Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
+!gradle-wrapper.jar
+# Cache of project
+.gradletasknamecache
+# Files we build from Makefile
+gradle
+gradlew
+gradlew.bat
+
 #SHITTY output not in target directory
 build.log
 .cache
 clouseau.iml
+
+.asdf
+.envrc.local
