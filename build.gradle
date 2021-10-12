@@ -110,7 +110,7 @@ test {
 }
 
 task downloadDependencies {
-   doLast {
+    doLast {
        configurations.findAll{it.canBeResolved}.each{it.resolve()}
-   }
+    }
 }
