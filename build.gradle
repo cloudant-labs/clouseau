@@ -15,8 +15,7 @@ compileJava {
 }
 
 configurations {
-    compileClasspath {
-    }
+    deps // dummy configuration to resolve zinc
 }
 
 repositories {
@@ -30,6 +29,9 @@ repositories {
 
 dependencies {
     // scala
+    compileOnly 'org.scala-lang:scala-compiler:2.9.1'
+    // zinc cannot be used for clouseau so we use dummy configuration
+    deps 'com.typesafe.zinc:zinc:0.3.13'
     implementation 'org.scala-lang:scala-library:2.9.1'
     testImplementation 'org.scala-lang:scala-library:2.9.1'
     implementation 'commons-configuration:commons-configuration:1.8'
