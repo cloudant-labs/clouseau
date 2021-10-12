@@ -48,7 +48,7 @@ clean:
 # target: clean-all - Clean up the project to start afresh
 clean-all:
 	@rm -rf gradlew gradlew.bat .gradle .gradletasknamecache \
-		build test/app/build target
+		build test/app/build target deps
 	@echo '==> keep in mind that some state is stored in ~/.gradle/caches/'
 
 # target: build - Build the project
