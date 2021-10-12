@@ -58,4 +58,6 @@ build.log
 clouseau.iml
 
 .asdf
+.brew
 .envrc.local
+deps
