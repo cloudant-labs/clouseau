@@ -97,7 +97,16 @@ Just run `make` to get `target/clouseau-{version}-SNAPSHOT.zip` file.
 
 ## Running locally
 
-`make run`
+To run single node instance use `make clouseau1`.
+
+Usually for testing all three nodes might be needed. In such case run following
+from separate terminals:
+
+```
+make clouseau1
+make clouseau2
+make clouseau3
+```
 
 ## Changing tools version
 

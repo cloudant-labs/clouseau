@@ -8,10 +8,20 @@ PHONY: tools
 tools: .asdf
 	@touch .envrc
 
-.PHONY: run
-# target: run - Start local inistance of clouseau
-run: .asdf
-	@mvn scala:run -Dlauncher=clouseau1
+.PHONY: clouseau1
+# target: clouseau1 - Start local inistance of clouseau1 node
+clouseau1: .asdf
+	@mvn scala:run -Dlauncher=$<
+
+.PHONY: clouseau2
+# target: clouseau2 - Start local inistance of clouseau2 node
+clouseau2: .asdf
+	@mvn scala:run -Dlauncher=$<
+
+.PHONY: clouseau3
+# target: clouseau3 - Start local inistance of clouseau3 node
+clouseau3: .asdf
+	@mvn scala:run -Dlauncher=$<
 
 .PHONY: help
 # target: help - Print this help
