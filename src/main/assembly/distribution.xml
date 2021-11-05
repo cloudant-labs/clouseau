@@ -25,6 +25,7 @@ the License.
       <excludes>
         <exclude>org.jboss.netty</exclude>
         <exclude>log4j:log4j</exclude>
+        <exclude>org.apache.lucene:lucene-queryparser</exclude>
       </excludes>
     </dependencySet>
   </dependencySets>
