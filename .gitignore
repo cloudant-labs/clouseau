@@ -41,3 +41,7 @@ build.log
 build.log
 .cache
 clouseau.iml
+
+# direnv & asdf
+.asdf
+.envrc.local
