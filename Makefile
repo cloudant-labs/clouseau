@@ -11,17 +11,17 @@ tools: .asdf
 .PHONY: clouseau1
 # target: clouseau1 - Start local inistance of clouseau1 node
 clouseau1: .asdf
-	@mvn scala:run -Dlauncher=$<
+	@mvn scala:run -Dlauncher=$@
 
 .PHONY: clouseau2
 # target: clouseau2 - Start local inistance of clouseau2 node
 clouseau2: .asdf
-	@mvn scala:run -Dlauncher=$<
+	@mvn scala:run -Dlauncher=$@
 
 .PHONY: clouseau3
 # target: clouseau3 - Start local inistance of clouseau3 node
 clouseau3: .asdf
-	@mvn scala:run -Dlauncher=$<
+	@mvn scala:run -Dlauncher=$@
 
 .PHONY: clean
 # target: clean - Remove build artifacts
