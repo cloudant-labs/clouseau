@@ -23,6 +23,11 @@ clouseau2: .asdf
 clouseau3: .asdf
 	@mvn scala:run -Dlauncher=$<
 
+.PHONY: clean
+# target: clean - Remove build artifacts
+clean:
+	@mvn clean
+
 .PHONY: help
 # target: help - Print this help
 help:
