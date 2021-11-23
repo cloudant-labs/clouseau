@@ -1,0 +1,8 @@
+.asdf
+.envrc.local
+.gradle/
+gradle/
+**/.gradle/
+**/build/
+gradlew
+gradlew.bat
