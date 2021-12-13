@@ -14,7 +14,8 @@ package com.cloudant.clouseau
 
 import java.io.Reader
 import java.util.{ Set => JSet }
-import org.apache.log4j.Logger
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.analysis.Tokenizer
 import org.apache.lucene.analysis.TokenStream
@@ -71,7 +72,7 @@ import org.apache.lucene.analysis.core.LetterTokenizer
 
 object SupportedAnalyzers {
 
-  val logger = Logger.getLogger("clouseau.analyzers")
+  val logger = LoggerFactory.getLogger("clouseau.analyzers")
 
   def createAnalyzer(options: Any): Option[Analyzer] = {
     createAnalyzerInt(options) match {

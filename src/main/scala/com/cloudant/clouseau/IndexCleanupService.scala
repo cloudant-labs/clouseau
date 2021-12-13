@@ -18,12 +18,13 @@ import java.util.regex.Pattern
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.TimeZone
-import org.apache.log4j.Logger
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import scalang._
 
 class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
 
-  val logger = Logger.getLogger("clouseau.cleanup")
+  val logger = LoggerFactory.getLogger("clouseau.cleanup")
   val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
 
   override def handleCast(msg: Any) = msg match {

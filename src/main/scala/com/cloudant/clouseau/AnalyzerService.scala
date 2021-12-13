@@ -13,7 +13,8 @@
 package com.cloudant.clouseau
 
 import com.yammer.metrics.scala._
-import org.apache.log4j.Logger
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.apache.lucene.analysis.tokenattributes._
 import scala.collection.immutable.List
 import scalang._
@@ -21,7 +22,7 @@ import org.apache.lucene.analysis.Analyzer
 
 class AnalyzerService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
 
-  val logger = Logger.getLogger("clouseau.analyzer")
+  val logger = LoggerFactory.getLogger("clouseau.analyzer")
 
   override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
     case ('analyze, analyzerConfig: Any, text: String) =>

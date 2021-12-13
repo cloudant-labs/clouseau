@@ -12,7 +12,8 @@
 
 package com.cloudant.clouseau
 
-import org.apache.log4j.Logger
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.apache.lucene.document.Field._
 import org.apache.lucene.document._
 import org.apache.lucene.search._
@@ -48,7 +49,7 @@ case class SetPurgeSeqMsg(seq: Long)
 
 object ClouseauTypeFactory extends TypeFactory {
 
-  val logger = Logger.getLogger("clouseau.tf")
+  val logger = LoggerFactory.getLogger("clouseau.tf")
 
   def createType(name: Symbol, arity: Int, reader: TermReader): Option[Any] = (name, arity) match {
     case ('open, 4) =>

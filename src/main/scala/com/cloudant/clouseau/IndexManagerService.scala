@@ -18,7 +18,8 @@ import java.util.LinkedHashMap
 import java.util.{ Map => JMap }
 import java.util.Map.Entry
 import scala.collection.mutable.Map
-import org.apache.log4j.Logger
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import scalang._
 import com.yammer.metrics.scala._
 import scala.collection.JavaConversions._
@@ -87,7 +88,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     }
   }
 
-  val logger = Logger.getLogger("clouseau.main")
+  val logger = LoggerFactory.getLogger("clouseau.main")
   val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
   val openTimer = metrics.timer("opens")
   val lru = new LRU()
