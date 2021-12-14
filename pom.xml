@@ -272,7 +272,6 @@
               <artifactSet>
                 <includes>
                   <include>org.jboss.netty</include>
-                  <include>log4j</include>
                   <include>org.apache.lucene:lucene-queryparser</include>
                 </includes>
               </artifactSet>
@@ -282,12 +281,6 @@
                   <excludes>
                     <exclude>org/jboss/netty/channel/socket/http/</exclude>
                     <exclude>org/jboss/netty/handler/codec/http/</exclude>
-                  </excludes>
-                </filter>
-                <filter>
-                  <artifact>log4j</artifact>
-                  <excludes>
-                    <exclude>org/apache/log4j/net/SocketServer.class</exclude>
                   </excludes>
                 </filter>
                 <filter>
