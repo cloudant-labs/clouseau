@@ -19,6 +19,7 @@
     <scala.version>2.9.1</scala.version>
     <scala.plugin.version>3.1.0</scala.plugin.version>
     <tika-version>1.0</tika-version>
+    <slf4j.version>1.7.32</slf4j.version>
   </properties>
 
   <repositories>
@@ -104,8 +105,8 @@
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
-      <version>1.5.6</version>
+      <artifactId>slf4j-api</artifactId>
+      <version>${slf4j.version}</version>
     </dependency>
 
     <!-- Scala -->
@@ -133,6 +134,12 @@
       <groupId>org.specs2</groupId>
       <artifactId>specs2_${scala.version}</artifactId>
       <version>1.12.4</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>${slf4j.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

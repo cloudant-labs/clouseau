@@ -14,18 +14,19 @@ package com.cloudant.clouseau
 
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy
 import org.apache.commons.configuration._
-import org.apache.log4j.Logger
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 import scalang._
 
 object Main extends App {
 
-  val logger = Logger.getLogger("clouseau.main")
+  val logger = LoggerFactory.getLogger("clouseau.main")
 
   Thread.setDefaultUncaughtExceptionHandler(
     new Thread.UncaughtExceptionHandler {
       def uncaughtException(t: Thread, e: Throwable) {
-        logger.fatal("Uncaught exception: " + e.getMessage)
+        logger.error("Uncaught exception: " + e.getMessage)
         System.exit(1)
       }
     }

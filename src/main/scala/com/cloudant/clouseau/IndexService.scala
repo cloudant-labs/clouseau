@@ -14,7 +14,8 @@ package com.cloudant.clouseau
 
 import java.io.File
 import java.io.IOException
-import org.apache.log4j.Logger
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.apache.lucene.document._
 import org.apache.lucene.index._
 import org.apache.lucene.store._
@@ -872,7 +873,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
 object IndexService {
 
-  val logger = Logger.getLogger("clouseau")
+  val logger = LoggerFactory.getLogger("clouseau")
   val version = Version.LUCENE_46
   val INVERSE_FIELD_SCORE = new SortField(null, SortField.Type.SCORE, true)
   val INVERSE_FIELD_DOC = new SortField(null, SortField.Type.DOC, true)

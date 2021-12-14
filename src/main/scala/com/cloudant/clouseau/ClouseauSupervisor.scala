@@ -12,7 +12,8 @@
 
 package com.cloudant.clouseau
 
-import org.apache.log4j.Logger
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import scalang._
 import org.apache.commons.configuration.Configuration
 
@@ -20,7 +21,7 @@ case class ConfigurationArgs(config: Configuration)
 
 class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) {
 
-  val logger = Logger.getLogger("clouseau.supervisor")
+  val logger = LoggerFactory.getLogger("clouseau.supervisor")
   var manager = spawnAndMonitorService[IndexManagerService, ConfigurationArgs]('main, ctx.args)
   var cleanup = spawnAndMonitorService[IndexCleanupService, ConfigurationArgs]('cleanup, ctx.args)
   var analyzer = spawnAndMonitorService[AnalyzerService, ConfigurationArgs]('analyzer, ctx.args)
