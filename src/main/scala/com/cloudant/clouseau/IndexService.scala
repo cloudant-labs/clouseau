@@ -145,6 +145,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       'ok
     case 'info =>
       ('ok, getInfo)
+    case CreateSnapshotMsg(snapshotDir: File) =>
+      createSnapshot(snapshotDir)
   }
 
   override def handleCast(msg: Any) = msg match {
@@ -841,6 +843,20 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       }
   }
 
+  private def createSnapshot(snapshotDir: File) = {
+    try {
+      getSnapshotDeletionPolicy().snapshot(snapshotDir)
+      'ok
+    } catch {
+      case e: IllegalStateException =>
+        ('error, e.getMessage)
+    }
+  }
+
+  private def getSnapshotDeletionPolicy(): ExternalSnapshotDeletionPolicy = {
+    ctx.args.writer.getConfig().getIndexDeletionPolicy().asInstanceOf[ExternalSnapshotDeletionPolicy]
+  }
+
   private def debug(str: String) {
     IndexService.logger.debug(prefix_name(str))
   }
@@ -889,6 +905,7 @@ object IndexService {
         case Some(analyzer) =>
           val queryParser = new ClouseauQueryParser(version, "default", analyzer)
           val writerConfig = new IndexWriterConfig(version, analyzer)
+          writerConfig.setIndexDeletionPolicy(new ExternalSnapshotDeletionPolicy(dir))
           val writer = new IndexWriter(dir, writerConfig)
           ('ok, node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(config, path, queryParser, writer)))
         case None =>
@@ -900,7 +917,7 @@ object IndexService {
     }
   }
 
-  private def newDirectory(config: Configuration, path: File): Directory = {
+  private def newDirectory(config: Configuration, path: File): FSDirectory = {
     val lockClassName = config.getString("clouseau.lock_class",
       "org.apache.lucene.store.NativeFSLockFactory")
     val lockClass = Class.forName(lockClassName)
@@ -910,7 +927,7 @@ object IndexService {
       "org.apache.lucene.store.NIOFSDirectory")
     val dirClass = Class.forName(dirClassName)
     val dirCtor = dirClass.getConstructor(classOf[File], classOf[LockFactory])
-    dirCtor.newInstance(path, lockFactory).asInstanceOf[Directory]
+    dirCtor.newInstance(path, lockFactory).asInstanceOf[FSDirectory]
   }
 
 }
