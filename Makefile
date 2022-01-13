@@ -68,3 +68,8 @@ help:
 		|| asdf plugin-add {}'
 	@asdf install
 	@touch $@
+
+.PHONY: tree
+# target: tree - Print project source tree
+tree:
+	@tree -I '.gradle' -I 'build' --matchdirs
