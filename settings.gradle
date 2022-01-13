@@ -17,6 +17,7 @@ dependencyResolutionManagement {
     versionCatalogs {
         libs {
             version('zio', '2.0.0-M6-2')
+            version('jinterface', "${System.env.JINTERFACE_VSN}")
 
             alias('scala-library').to("org.scala-lang:scala-library:$scalaVersion")
 
