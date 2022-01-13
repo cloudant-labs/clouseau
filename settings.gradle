@@ -1,5 +1,49 @@
-includeBuild('build-logic')
-includeBuild('domain')
-// includeBuild('search')
-// includeBuild('testing')
+pluginManagement {
+    includeBuild('build-logic')
+}
 
+enableFeaturePreview "VERSION_CATALOGS"
+enableFeaturePreview "TYPESAFE_PROJECT_ACCESSORS"
+
+def scalaVersion = "2.13"
+
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+        flatDir {
+            dirs 'deps'
+        }
+    }
+    versionCatalogs {
+        libs {
+            version('zio', '2.0.0-M6-2')
+
+            alias('scala-library').to("org.scala-lang:scala-library:$scalaVersion")
+
+            // This dependency is used by the application.
+            alias('guava').to('com.google.guava:guava:30.1.1-jre')
+            alias('zio').to('dev.zio' , "zio_$scalaVersion").versionRef('zio')
+            alias('jinterface').to('com.ericsson.otp.erlang', 'jinterface').versionRef('jinterface')
+
+            // linter and codeformatter
+            alias('scala-fmt').to("org.scalameta:scalafmt-core_$scalaVersion:3.0.8")
+
+            // logger
+            alias('slf4j-api').to('org.slf4j:slf4j-api:1.7.32')
+            alias('slf4j-log4j12').to('org.slf4j:slf4j-log4j12:1.7.32')
+            alias('zio-logging').to("dev.zio:zio-logging_$scalaVersion:0.5.13")
+
+            // metrics
+            alias('zio-zmx').to('dev.zio:zio-zmx_3:0.0.11')
+
+            // testing
+            alias('junit').to('junit:junit:4.13.2')
+            alias('zio-test').to('dev.zio', "zio-test_$scalaVersion").versionRef('zio')
+            alias('zio-test-junit').to('dev.zio', "zio-test-junit_$scalaVersion").versionRef('zio')
+
+        }
+    }
+}
+
+rootProject.name = 'ziose'
+include ':domain'
