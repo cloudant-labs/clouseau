@@ -456,6 +456,21 @@ class IndexServiceSpec extends SpecificationWithJUnit {
         })
     }
 
+    "can make a snapshot" in new index_service {
+      val doc1 = new Document()
+      val id1 = "foo:hello"
+      doc1.add(new StringField("_id", id1, Field.Store.YES))
+      node.call(service, UpdateDocMsg(id1, doc1)) must be equalTo 'ok
+      node.call(service, SetUpdateSeqMsg(10)) must be equalTo 'ok
+      node.send(service, 'maybe_commit)
+      Thread.sleep(1000)
+      val snapshotDir = new File(new File("target", "indexes"), System.currentTimeMillis().toString)
+      snapshotDir.exists must beFalse
+      node.call(service, CreateSnapshotMsg(snapshotDir)) must be equalTo 'ok
+      snapshotDir.exists must beTrue
+      snapshotDir.list.sorted must be equalTo Array("_0.cfe", "_0.cfs", "_0.si", "segments_1")
+    }
+
   }
 
   private def isSearchable(node: Node, service: Pid,

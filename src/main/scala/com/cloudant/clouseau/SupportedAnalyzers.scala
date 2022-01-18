@@ -116,11 +116,11 @@ object SupportedAnalyzers {
       Some(new WhitespaceAnalyzer(IndexService.version))
     case "simple_asciifolding" =>
       Some(new Analyzer() {
-         def createComponents(fieldName: String, reader: Reader): TokenStreamComponents = {
-            val tokenizer: Tokenizer = new LetterTokenizer(IndexService.version, reader);
-            new TokenStreamComponents(tokenizer, new ASCIIFoldingFilter(new LowerCaseFilter(IndexService.version, tokenizer)))
-         }
-       })
+        def createComponents(fieldName: String, reader: Reader): TokenStreamComponents = {
+          val tokenizer: Tokenizer = new LetterTokenizer(IndexService.version, reader);
+          new TokenStreamComponents(tokenizer, new ASCIIFoldingFilter(new LowerCaseFilter(IndexService.version, tokenizer)))
+        }
+      })
     case "arabic" =>
       options.get("stopwords") match {
         case Some(stopwords: List[String]) =>
