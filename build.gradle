@@ -1,10 +1,6 @@
-tasks.register('checkAll') {
-    group = 'verification'
-    description = 'Run all tests'
-    // dependsOn(gradle.includedBuild('domain').task(':config:check'))
+plugins {
+    id 'java-library'
+    id 'com.cloudant.scala-library'
+    id 'application'
 }
 
-tasks.register('deps') {
-    description = 'Download dependencies'
-    dependsOn(gradle.includedBuild('domain').task(':config:deps'))
-}

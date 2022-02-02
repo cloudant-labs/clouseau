@@ -1,0 +1,85 @@
+#!/bin/bash
+SELF_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ZIOSE_CLI_DBG=1
+
+requirements=()
+. ${SELF_DIR}/console.sh
+. ${SELF_DIR}/tools.sh
+requirements=(
+    $(console::requires)
+    $(tools::requires)
+    "awk"
+)
+
+if [ "$#" -eq 0 ]; then
+    command='help'
+else
+    command=$1
+    shift
+fi
+
+die() {
+    echo -e "\n$(console::red)$(console::bold)FATAL: ${*}$(console::reset)" >&2
+    return 1
+}
+
+function help_message() {
+    cat ${SELF_DIR}/cli.md
+}
+
+function short_help() {
+    help_message | awk "/# CLI/,/---/ {print}" -
+}
+
+function help_topic() {
+    help_message | awk "/###.*\`${1}\`:.*/,/---/ {print}" -
+}
+
+function list() {
+    help_message | sed -n 's/###/*/p' | sort
+}
+
+function help_cmd() {
+    if [ "$#" -eq 0 ]; then
+        console::markdown short_help
+    else
+        console::markdown "help_topic $1"
+    fi
+}
+
+function deps_cmd() {
+    if [ "$#" -lt 1 ]; then
+        echo -e "\n$(console::red)ERROR: Missing mandatory arguments$(console::reset)\n"
+        console::markdown "help_topic deps"
+        exit 1
+    fi
+    local command=${1}
+    case "${command}" in
+    tree)
+        echo "not yet implemented"
+        ;;
+    esac
+}
+
+case "${command}" in
+    verify)
+        tools::verify "${requirements[@]}"
+        ;;
+    commands)
+        console::markdown list
+        ;;
+    help)
+        help_cmd "$@"
+        ;;
+    deps)
+        deps_cmd "$@"
+        ;;
+    bootstrap)
+        tools::bootstrap $(basename $SHELL)
+        ;;
+    *)
+        console::errorLn "Unknown command '${command}'"
+        console::infoLn "List of supported commands"
+        console::markdown list
+        ;;
+esac
