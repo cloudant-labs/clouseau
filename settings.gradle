@@ -16,7 +16,8 @@ dependencyResolutionManagement {
     }
     versionCatalogs {
         libs {
-            version('zio', '2.0.0-M6-2')
+            version('zio', '2.0.0-RC2')
+            version('zio-nio', '2.0.0-RC1')
             version('jinterface', "${System.env.JINTERFACE_VSN}")
 
             alias('scala-library').to("org.scala-lang:scala-library:$scalaVersion")
@@ -24,6 +25,7 @@ dependencyResolutionManagement {
             // This dependency is used by the application.
             alias('guava').to('com.google.guava:guava:30.1.1-jre')
             alias('zio').to('dev.zio' , "zio_$scalaVersion").versionRef('zio')
+            alias('zio-nio').to('dev.zio' , "zio-nio_$scalaVersion").versionRef('zio-nio')
             alias('jinterface').to('com.ericsson.otp.erlang', 'jinterface').versionRef('jinterface')
 
             // linter and codeformatter
@@ -47,4 +49,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = 'ziose'
-include ':domain'
+include ':domain', ':experiments'

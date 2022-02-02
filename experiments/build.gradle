@@ -1,0 +1,18 @@
+plugins {
+    id 'java-library'
+    id 'com.cloudant.scala-library'
+    id 'application'
+}
+
+group = "com.cloudant.ziose.experiments"
+
+dependencies {
+    implementation(libs.zio)
+    implementation(libs.zio.nio)
+    implementation(libs.scala.library)
+    implementation(libs.scala.fmt)
+    implementation(libs.jinterface)
+    testImplementation(libs.zio.test)
+    testImplementation(libs.junit)
+    testImplementation(libs.zio.test.junit)
+}
