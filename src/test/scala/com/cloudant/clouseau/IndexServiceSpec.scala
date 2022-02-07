@@ -466,7 +466,7 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       Thread.sleep(1000)
       val snapshotDir = new File(new File("target", "indexes"), System.currentTimeMillis().toString)
       snapshotDir.exists must beFalse
-      node.call(service, CreateSnapshotMsg(snapshotDir)) must be equalTo 'ok
+      node.call(service, ('create_snapshot, snapshotDir.getAbsolutePath)) must be equalTo 'ok
       snapshotDir.exists must beTrue
       snapshotDir.list.sorted must be equalTo Array("_0.cfe", "_0.cfs", "_0.si", "segments_1")
     }

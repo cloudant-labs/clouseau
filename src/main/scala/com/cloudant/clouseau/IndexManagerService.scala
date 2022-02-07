@@ -13,6 +13,7 @@
 package com.cloudant.clouseau
 
 import java.io.File
+import java.io.IOException
 import java.util.HashMap
 import java.util.LinkedHashMap
 import java.util.{ Map => JMap }
@@ -139,6 +140,13 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       'ok
     case 'version =>
       ('ok, getClass.getPackage.getImplementationVersion)
+    case ('create_snapshot, indexName: String, snapshotDir: String) =>
+      lru.get(indexName) match {
+        case null =>
+          createSnapshot(indexName, snapshotDir)
+        case pid: Pid =>
+          call(pid, ('create_snapshot, snapshotDir))
+      }
   }
 
   override def handleInfo(msg: Any) = msg match {
@@ -172,6 +180,21 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       ('ok, List(('disk_size, size)))
     } else {
       ('ok, List(('disk_size, 0)))
+    }
+  }
+
+  private def createSnapshot(indexName: String, snapshotDir: String): Any = {
+    val originDir = new File(rootDir, indexName)
+    // As the index is closed, we snapshot every file.
+    val files = originDir.list
+    try {
+      ExternalSnapshotDeletionPolicy.snapshot(originDir, new File(snapshotDir), files)
+      'ok
+    } catch {
+      case e: IllegalStateException =>
+        ('error, e.getMessage)
+      case e: IOException =>
+        ('error, e.getMessage)
     }
   }
 

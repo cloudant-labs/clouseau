@@ -145,7 +145,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       'ok
     case 'info =>
       ('ok, getInfo)
-    case CreateSnapshotMsg(snapshotDir: File) =>
+    case ('create_snapshot, snapshotDir: String) =>
       createSnapshot(snapshotDir)
   }
 
@@ -843,12 +843,14 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       }
   }
 
-  private def createSnapshot(snapshotDir: File) = {
+  private def createSnapshot(snapshotDir: String) = {
     try {
-      getSnapshotDeletionPolicy().snapshot(snapshotDir)
+      getSnapshotDeletionPolicy().snapshot(new File(snapshotDir))
       'ok
     } catch {
       case e: IllegalStateException =>
+        ('error, e.getMessage)
+      case e: IOException =>
         ('error, e.getMessage)
     }
   }
