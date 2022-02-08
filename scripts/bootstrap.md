@@ -18,7 +18,7 @@ Once you install `asdf` you can either continue following the steps outlined in 
 Add following line to `~/.bash_profile`
 
 ```
-source $(brew --prefix asdf)/libexec/asdf.sh'
+source $(brew --prefix asdf)/libexec/asdf.sh
 ```
 
 You can do it by copy/paste of the following line
@@ -88,7 +88,7 @@ Once you install `asdf` you can either continue following the steps outlined in 
 Add following line to `~/.config/fish/config.fish`
 
 ```
-source $(brew --prefix asdf)/libexec/asdf.fish'
+source (brew --prefix asdf)/libexec/asdf.fish
 ```
 
 You can do it by copy/paste of the following line
@@ -161,7 +161,7 @@ Once you install `asdf` you can either continue following the steps outlined in 
 Add following line to `~/.zshrc` (or `${ZDOTDIR}/.zshrc` if you use custom location).
 
 ```
-source $(brew --prefix asdf)/libexec/asdf.sh'
+source $(brew --prefix asdf)/libexec/asdf.sh
 ```
 
 You can do it by copy/paste of the following line
