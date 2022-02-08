@@ -24,8 +24,8 @@ dependencyResolutionManagement {
 
             // This dependency is used by the application.
             alias('guava').to('com.google.guava:guava:30.1.1-jre')
-            alias('zio').to('dev.zio' , "zio_$scalaVersion").versionRef('zio')
-            alias('zio-nio').to('dev.zio' , "zio-nio_$scalaVersion").versionRef('zio-nio')
+            alias('zio').to('dev.zio', "zio_$scalaVersion").versionRef('zio')
+            alias('zio-nio').to('dev.zio', "zio-nio_$scalaVersion").versionRef('zio-nio')
             alias('jinterface').to('com.ericsson.otp.erlang', 'jinterface').versionRef('jinterface')
 
             // linter and codeformatter
