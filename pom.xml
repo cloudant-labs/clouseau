@@ -122,11 +122,6 @@
       <version>2.2.0</version>
     </dependency>
     <dependency>
-      <groupId>com.yammer.metrics</groupId>
-      <artifactId>metrics-scala_${scala.version}</artifactId>
-      <version>2.2.0</version>
-    </dependency>
-    <dependency>
       <groupId>com.boundary</groupId>
       <artifactId>high-scale-lib</artifactId>
       <version>1.0.6</version>
