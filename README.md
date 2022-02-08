@@ -73,3 +73,22 @@ The plan is to implement things like
 * `run exp <Class>`
 
 All the above are just examples and not a firm commitment.
+
+# Some commands
+
+## Running an experiment
+
+*Note*: this would be replaced by `cli run exp Hello`)
+
+```
+gradle :experiments:run -PmainClass=Hello
+```
+
+
+## Running test case for experiment
+
+*Note*: this would be replaced by `cli test exp HelloSpec`)
+
+```
+gradle :experiments:test --tests 'com.cloudant.ziose.experiments.HelloSpec'
+```

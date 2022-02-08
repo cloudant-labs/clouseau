@@ -6,6 +6,18 @@ plugins {
 
 group = "com.cloudant.ziose.experiments"
 
+/*
+ gradle run -PmainClass=Hello
+*/
+application {
+    // Define the main class for the application.
+    if (project.hasProperty('mainClass')) {
+        mainClass = group + "." + project.findProperty("mainClass").toString()
+    } else {
+        throw new GradleException("please specify `-PmainClass <class>`")
+    }
+}
+
 dependencies {
     implementation(libs.zio)
     implementation(libs.zio.nio)
