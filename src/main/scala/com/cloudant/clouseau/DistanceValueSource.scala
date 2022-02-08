@@ -25,11 +25,11 @@ import java.util.Map
 This is lucene spatial's DistanceValueSource but with configurable
 x and y field names to better suit our existing API.
  */
-class DistanceValueSource(ctx: SpatialContext,
-                          lon: String,
-                          lat: String,
-                          multiplier: Double,
-                          from: Point)
+class DistanceValueSource(val ctx: SpatialContext,
+                          val lon: String,
+                          val lat: String,
+                          val multiplier: Double,
+                          val from: Point)
     extends ValueSource {
 
   def description() = "DistanceValueSource(%s)".format(from)
@@ -68,6 +68,21 @@ class DistanceValueSource(ctx: SpatialContext,
       private final val nullValue = if (ctx.isGeo) 180 * multiplier else
         Double.MaxValue
     }
+  }
+
+  override def equals(that: Any): Boolean = that match {
+    case that: DistanceValueSource =>
+      this.ctx.equals(that.ctx) &&
+        this.lon == that.lon &&
+        this.lat == that.lat &&
+        this.multiplier == that.multiplier &&
+        this.from.equals(that.from)
+    case _ =>
+      false
+  }
+
+  override def hashCode(): Int = {
+    return from.hashCode
   }
 
 }

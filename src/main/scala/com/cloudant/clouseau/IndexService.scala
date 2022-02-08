@@ -36,7 +36,7 @@ import org.apache.lucene.search.highlight.{
 }
 import org.apache.lucene.analysis.Analyzer
 import scalang._
-import collection.JavaConversions._
+import collection.convert.ImplicitConversions._
 import com.yammer.metrics.scala._
 import com.cloudant.clouseau.Utils._
 import org.apache.commons.configuration.Configuration

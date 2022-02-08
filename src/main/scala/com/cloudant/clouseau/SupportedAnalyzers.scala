@@ -21,7 +21,7 @@ import org.apache.lucene.analysis.Tokenizer
 import org.apache.lucene.analysis.TokenStream
 import org.apache.lucene.analysis.Analyzer.TokenStreamComponents
 import org.apache.lucene.analysis.util.CharArraySet
-import scala.collection.JavaConversions._
+import collection.convert.ImplicitConversions._
 
 import org.apache.lucene.analysis.core.KeywordAnalyzer
 import org.apache.lucene.analysis.core.SimpleAnalyzer

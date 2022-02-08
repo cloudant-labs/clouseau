@@ -7,6 +7,7 @@ import java.util.List
 import java.util.UUID
 import org.apache.lucene.index.IndexCommit
 import org.apache.lucene.index.IndexDeletionPolicy
+import org.apache.lucene.index.KeepOnlyLastCommitDeletionPolicy
 import org.apache.lucene.store.FSDirectory
 import scala.collection.JavaConversions._
 
@@ -14,6 +15,7 @@ class ExternalSnapshotDeletionPolicy(dir: FSDirectory) extends IndexDeletionPoli
 
   val originDir: File = dir.getDirectory
   var lastCommit: Option[IndexCommit] = None
+  val delegate: IndexDeletionPolicy = new KeepOnlyLastCommitDeletionPolicy()
 
   def snapshot(snapshotDir: File): Unit = {
     synchronized {
@@ -51,20 +53,11 @@ class ExternalSnapshotDeletionPolicy(dir: FSDirectory) extends IndexDeletionPoli
   }
 
   def onInit(commits: List[_ <: IndexCommit]): Unit = {
-    keepOnlyLastCommit(commits)
+    delegate.onInit(commits)
   }
 
   def onCommit(commits: List[_ <: IndexCommit]): Unit = {
-    keepOnlyLastCommit(commits)
-  }
-
-  private def keepOnlyLastCommit(commits: List[_ <: IndexCommit]): Unit = {
-    synchronized {
-      for (commit <- commits.reverse.drop(1)) {
-        commit.delete
-      }
-      lastCommit = commits.lastOption
-    }
+    delegate.onInit(commits)
   }
 
 }

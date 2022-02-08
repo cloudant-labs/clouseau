@@ -16,7 +16,6 @@
     <lucene-version>4.6.1</lucene-version>
     <maven.compiler.source>1.6</maven.compiler.source>
     <maven.compiler.target>1.6</maven.compiler.target>
-    <scala.version>2.9.1</scala.version>
     <scala.plugin.version>3.1.0</scala.plugin.version>
     <tika-version>1.0</tika-version>
     <slf4j.version>1.7.32</slf4j.version>
@@ -110,7 +109,7 @@
     </dependency>
     <dependency>
       <groupId>org.scala-tools.testing</groupId>
-      <artifactId>specs_${scala.version}</artifactId>
+      <artifactId>specs_2.9.1</artifactId>
       <version>1.6.9</version>
       <scope>test</scope>
     </dependency>
@@ -138,7 +137,7 @@
     <dependency>
       <groupId>org.scala-lang</groupId>
       <artifactId>scala-library</artifactId>
-      <version>${scala.version}</version>
+      <version>2.12.15</version>
     </dependency>
 
     <!-- Misc -->
@@ -157,7 +156,7 @@
     </dependency>
     <dependency>
       <groupId>org.specs2</groupId>
-      <artifactId>specs2_${scala.version}</artifactId>
+      <artifactId>specs2_2.9.1</artifactId>
       <version>1.12.4</version>
       <scope>test</scope>
     </dependency>
@@ -179,6 +178,10 @@
         <artifactId>scala-maven-plugin</artifactId>
         <version>${scala.plugin.version}</version>
         <configuration>
+          <args>
+            <arg>-language:postfixOps</arg>
+            <arg>-opt:l:none</arg>
+          </args>
           <launchers>
             <launcher>
               <id>clouseau1</id>
