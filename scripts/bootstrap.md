@@ -94,7 +94,7 @@ source (brew --prefix asdf)/libexec/asdf.fish
 You can do it by copy/paste of the following line
 
 ```
-echo -e "\nsource $(brew --prefix asdf)/libexec/asdf.fish" >>  ~/.config/fish/config.fish
+echo -e "\nsource (brew --prefix asdf)/libexec/asdf.fish" >>  ~/.config/fish/config.fish
 ```
 
 Please restart shell and re-run `scripts/cli bootstrap` once you do it
