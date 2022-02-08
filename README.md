@@ -58,7 +58,7 @@ Currently, `cli` provides following commands:
 * `verify`    - verify developer setup
 * `bootstrap` - a step-by-step guide to help set up environment
 
-You can find detailed documentation here [scripts/cli.md](./scripts/cli.md.
+You can find detailed documentation here [scripts/cli.md](./scripts/cli.md).
 
 The plan is to implement things like
 
