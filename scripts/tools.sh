@@ -121,7 +121,7 @@ function tools::bootstrap() {
             ;;
     esac
     (console::info "checking asdf setup ... ")
-    if ! cat ${config_file} 2>/dev/null | grep 'asdf.fish' >>/dev/null 2>&1 ; then
+    if ! cat ${config_file} 2>/dev/null | grep 'asdf.[f]*[i]*sh' >>/dev/null 2>&1 ; then
         console::warnLn "Action required!!!"
         console::markdown "tools::bootstrap_topic ${shell}-asdf"
         exit 1
