@@ -18,7 +18,7 @@ package scalang.node
 import scalang._
 import org.cliffc.high_scale_lib.NonBlockingHashSet
 import org.cliffc.high_scale_lib.NonBlockingHashMap
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 
 class ServiceLauncher[A <: Product, T <: Process](clazz: Class[T], ctx: ServiceContext[A]) extends ProcessHolder(ctx) {
   val referenceCounter = ctx.referenceCounter

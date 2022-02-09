@@ -2,7 +2,7 @@ package overlock.atomicmap
 
 import org.specs._
 import scala.collection.mutable.ConcurrentMap
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 import java.util.concurrent.atomic._
 
 abstract class AtomicMapSpec extends SpecificationWithJUnit {

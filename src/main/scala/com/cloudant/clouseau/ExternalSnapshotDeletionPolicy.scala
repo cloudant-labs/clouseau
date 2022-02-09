@@ -9,7 +9,7 @@ import org.apache.lucene.index.IndexCommit
 import org.apache.lucene.index.IndexDeletionPolicy
 import org.apache.lucene.index.KeepOnlyLastCommitDeletionPolicy
 import org.apache.lucene.store.FSDirectory
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 
 class ExternalSnapshotDeletionPolicy(dir: FSDirectory) extends IndexDeletionPolicy {
 
@@ -34,7 +34,7 @@ class ExternalSnapshotDeletionPolicy(dir: FSDirectory) extends IndexDeletionPoli
           }
           var success = false
           try {
-            for (filename <- commit.getFileNames) {
+            for (filename <- commit.getFileNames.asScala) {
               Files.createLink(new File(tmpDir, filename).toPath, new File(originDir, filename).toPath);
             }
             Files.move(tmpDir.toPath, snapshotDir.toPath, ATOMIC_MOVE)

@@ -3,7 +3,7 @@ package scalang
 import java.lang.ProcessBuilder
 import java.lang.{ Process => SysProcess }
 import java.io._
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 import scala.collection.mutable.StringBuilder
 
 object ErlangVM {

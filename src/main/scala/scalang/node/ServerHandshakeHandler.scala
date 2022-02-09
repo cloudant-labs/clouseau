@@ -27,7 +27,7 @@ import util._
 import java.util.ArrayDeque
 import scala.annotation._
 import scala.math._
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 import java.security.{ SecureRandom, MessageDigest }
 
 class ServerHandshakeHandler(name: Symbol, cookie: String, posthandshake: (Symbol, ChannelPipeline) => Unit) extends HandshakeHandler(posthandshake) {

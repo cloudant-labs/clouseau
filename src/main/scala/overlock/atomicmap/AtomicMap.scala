@@ -109,12 +109,12 @@ class AtomicMap[A, B](u: => JConcurrentMap[A, Any]) extends Map[A, B] {
     }
   }
 
-  def -=(key: A): this.type = {
+  override def subtractOne(key: A): this.type = {
     under.remove(key)
     this
   }
 
-  def +=(kv: (A, B)): this.type = {
+  override def addOne(kv: (A, B)): this.type = {
     val (key, value) = kv
     under.put(key, value)
     this

@@ -63,7 +63,7 @@ abstract class Service[A <: Product](ctx: ServiceContext[A]) extends Process(ctx
         case ('reply, reply) =>
           from ! (ref, reply)
         case 'noreply =>
-          Unit
+          ()
         case reply =>
           from ! (ref, reply)
       }

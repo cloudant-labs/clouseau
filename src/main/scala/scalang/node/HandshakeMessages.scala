@@ -31,7 +31,7 @@ case class ChallengeReplyMessage(challenge: Int, digest: Array[Byte]) {
     val b = new StringBuilder("ChallengeReplyMessage(")
     b ++= challenge.toString
     b ++= ", "
-    b ++= digest.deep.toString
+    b ++= digest.toString
     b ++= ")"
     b.toString
   }
@@ -40,7 +40,7 @@ case class ChallengeReplyMessage(challenge: Int, digest: Array[Byte]) {
 case class ChallengeAckMessage(digest: Array[Byte]) {
   override def toString: String = {
     val b = new StringBuilder("ChallengeAckMessage(")
-    b ++= digest.deep.toString
+    b ++= digest.toString
     b ++= ")"
     b.toString
   }

@@ -5,7 +5,7 @@ import org.specs.runner._
 import scalang.node._
 import java.lang.{ Process => JProc }
 import java.io._
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 
 class NodeSpec extends SpecificationWithJUnit {
   "Node" should {

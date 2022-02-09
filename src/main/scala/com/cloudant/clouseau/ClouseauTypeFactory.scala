@@ -19,7 +19,7 @@ import org.apache.lucene.document.Field._
 import org.apache.lucene.document._
 import org.apache.lucene.search._
 import scala.collection.immutable.Map
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 import scalang._
 import org.jboss.netty.buffer.ChannelBuffer
 import org.apache.lucene.util.BytesRef
@@ -136,7 +136,7 @@ object ClouseauTypeFactory extends TypeFactory {
             val delim = fp.getFacetDelimChar
             if (!name.contains(delim) && !value.contains(delim)) {
               val facets = new SortedSetDocValuesFacetFields(fp)
-              facets.addFields(doc, List(new CategoryPath(name, value)))
+              facets.addFields(doc, List(new CategoryPath(name, value)).asJava)
             }
           }
         case None =>

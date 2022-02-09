@@ -16,7 +16,7 @@
     <lucene-version>4.6.1</lucene-version>
     <maven.compiler.source>1.6</maven.compiler.source>
     <maven.compiler.target>1.6</maven.compiler.target>
-    <scala.plugin.version>3.1.0</scala.plugin.version>
+    <scala.plugin.version>4.5.6</scala.plugin.version>
     <tika-version>1.0</tika-version>
     <slf4j.version>1.7.32</slf4j.version>
   </properties>
@@ -113,7 +113,6 @@
       <version>1.6.9</version>
       <scope>test</scope>
     </dependency>
-
     <!-- Overlock dependencies -->
     <dependency>
       <groupId>com.yammer.metrics</groupId>
@@ -137,7 +136,7 @@
     <dependency>
       <groupId>org.scala-lang</groupId>
       <artifactId>scala-library</artifactId>
-      <version>2.12.15</version>
+      <version>2.13.8</version>
     </dependency>
 
     <!-- Misc -->
@@ -180,7 +179,6 @@
         <configuration>
           <args>
             <arg>-language:postfixOps</arg>
-            <arg>-opt:l:none</arg>
           </args>
           <launchers>
             <launcher>

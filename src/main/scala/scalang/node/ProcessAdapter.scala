@@ -23,7 +23,7 @@ import org.jetlang.core._
 import java.util.concurrent.TimeUnit
 import org.cliffc.high_scale_lib.NonBlockingHashSet
 import org.cliffc.high_scale_lib.NonBlockingHashMap
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 import com.boundary.logula.Logging
 
 abstract class ProcessHolder(ctx: ProcessContext) extends ProcessAdapter {
@@ -118,10 +118,10 @@ trait ProcessAdapter extends ExitListenable with SendListenable with LinkListena
     for (e <- exitListeners) {
       e.handleExit(self, reason)
     }
-    for (link <- links) {
+    for (link <- links.asScala) {
       link.break(reason)
     }
-    for (m <- monitors.values) {
+    for (m <- monitors.values.asScala) {
       m.monitorExit(reason)
     }
     cleanup

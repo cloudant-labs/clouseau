@@ -26,7 +26,7 @@ import org.jetlang._
 import core._
 import java.io._
 import netty.handler.execution.ExecutionHandler
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 import scalang.epmd._
 import scalang.util._
 import java.security.SecureRandom
@@ -211,7 +211,7 @@ class ErlangNode(val name: Symbol, val cookie: String, config: NodeConfig) exten
     for ((node, channel) <- channels) {
       channel.close
     }
-    for ((pid, process) <- processes) {
+    for ((pid, process) <- processes.asScala) {
       process.exit('node_shutdown)
     }
   }
@@ -435,7 +435,7 @@ class ErlangNode(val name: Symbol, val cookie: String, config: NodeConfig) exten
   }
 
   def getNames: Set[Symbol] = {
-    registeredNames.keySet.toSet.asInstanceOf[Set[Symbol]]
+    registeredNames.keySet.asScala.toSet.asInstanceOf[Set[Symbol]]
   }
 
   def registerConnection(name: Symbol, channel: Channel) {
@@ -590,7 +590,7 @@ class ErlangNode(val name: Symbol, val cookie: String, config: NodeConfig) exten
       return
     }
 
-    log.debug("pids %s", processes.keys.toList)
+    log.debug("pids %s", processes.keys.asScala.toList)
     process(monitored) match {
       case Some(p) =>
         log.debug("adding monitor for %s", p)
@@ -750,7 +750,7 @@ class ErlangNode(val name: Symbol, val cookie: String, config: NodeConfig) exten
         val fiber = pf.fiber
         fiber.dispose
       case _ =>
-        Unit
+        ()
     }
     processes.remove(from)
   }
@@ -833,26 +833,26 @@ class ErlangNode(val name: Symbol, val cookie: String, config: NodeConfig) exten
   }
 
   def disconnected(peer: Symbol, channel: Channel) {
-    if (channels.containsKey(peer)) {
+    if (channels.asJava.containsKey(peer)) {
       channels.remove(peer)
       //must break all links here
       if (links.contains(channel)) {
         val setOption = links.remove(channel)
-        for (set <- setOption; link <- set) {
+        for (set <- setOption; link <- set.asScala) {
           remoteBreak(link, 'noconnection)
         }
       }
       //must send all monitor exits too
       if (monitors.contains(channel)) {
         val setOption = monitors.remove(channel)
-        for (set <- setOption; monitor <- set) {
+        for (set <- setOption; monitor <- set.asScala) {
           remoteMonitorExit(monitor, 'noconnection)
         }
       }
     }
   }
 
-  def getOrConnectAndSend(peer: Symbol, msg: Any, afterHandshake: Channel => Unit = { channel => Unit }) {
+  def getOrConnectAndSend(peer: Symbol, msg: Any, afterHandshake: Channel => Unit = { channel => () }) {
     log.debug("node %s sending %s", this, msg)
     val channel = channels.getOrElseUpdate(peer, {
       connectAndSend(peer, None)
@@ -870,7 +870,7 @@ class ErlangNode(val name: Symbol, val cookie: String, config: NodeConfig) exten
     afterHandshake(channel)
   }
 
-  def connectAndSend(peer: Symbol, msg: Option[Any] = None, afterHandshake: Channel => Unit = { _ => Unit }): Channel = {
+  def connectAndSend(peer: Symbol, msg: Option[Any] = None, afterHandshake: Channel => Unit = { _ => () }): Channel = {
     val hostname = splitHostname(peer).getOrElse(throw new ErlangNodeException("Cannot resolve peer with no hostname: " + peer.name))
     val peerName = splitNodename(peer)
     val port = Epmd(hostname).lookupPort(peerName).getOrElse(throw new ErlangNodeException("Cannot lookup peer: " + peer.name))

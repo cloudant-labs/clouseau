@@ -91,7 +91,7 @@ class CaseClassFactory(searchPrefixes: Seq[String], typeMappings: Map[String, Cl
           } catch {
             case e: Exception =>
               e.printStackTrace
-              Unit
+              ()
           }
         }
         None

@@ -22,7 +22,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import scalang._
 import com.yammer.metrics.scala._
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 
 class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
 
@@ -72,13 +72,13 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     }
 
     def close() {
-      pidToPath foreach {
+      pidToPath.asScala foreach {
         kv => kv._1 ! ('close, 'closing)
       }
     }
 
     def closeByPath(path: String) {
-      pidToPath foreach {
+      pidToPath.asScala foreach {
         kv =>
           if (kv._2.startsWith(path)) {
             logger.info("closing lru for " + path)

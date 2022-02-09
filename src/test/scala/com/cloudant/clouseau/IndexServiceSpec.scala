@@ -24,7 +24,7 @@ import org.apache.lucene.facet.taxonomy.CategoryPath
 import scalang.Pid
 import scala.Some
 import java.io.File
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 
 class IndexServiceSpec extends SpecificationWithJUnit {
   sequential

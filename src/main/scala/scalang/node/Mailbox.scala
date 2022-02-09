@@ -17,7 +17,7 @@ package scalang.node
 
 import scalang._
 import java.util.concurrent.TimeUnit
-import concurrent.forkjoin.LinkedTransferQueue
+import java.util.concurrent.LinkedTransferQueue
 
 trait Mailbox {
   def self: Pid

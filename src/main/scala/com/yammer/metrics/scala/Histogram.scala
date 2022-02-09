@@ -1,6 +1,6 @@
 package com.yammer.metrics.scala
 
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 import java.io.File
 
 /**
