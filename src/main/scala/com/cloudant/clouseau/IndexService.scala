@@ -769,7 +769,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         case null => DistanceUtils.EARTH_EQUATORIAL_RADIUS_KM
       }
       val ctx = SpatialContext.GEO
-      val point = ctx.makePoint(lon toDouble, lat toDouble)
+      val point = ctx.makePoint(lon.toDouble, lat.toDouble)
       val degToKm = DistanceUtils.degrees2Dist(1, radius)
       val valueSource = new DistanceValueSource(ctx, fieldLon, fieldLat, degToKm, point)
       valueSource.getSortField(fieldOrder == "-")
@@ -824,7 +824,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
             throw new ParseException("sort order not compatible with given bookmark")
           }
           Some(new FieldDoc(ClouseauTypeFactory.toInteger(doc),
-            Float.NaN, (sortfields zip fields) map {
+            Float.NaN, (sortfields.zip(fields)).map {
               case (_, 'null) =>
                 null
               case (_, str: String) =>
@@ -839,7 +839,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
                 java.lang.Integer.valueOf(number.intValue())
               case (_, field) =>
                 field
-            } toArray))
+            }.toArray))
       }
   }
 

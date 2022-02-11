@@ -374,14 +374,14 @@ object SupportedAnalyzers {
       }
       var fieldMap: Map[String, Analyzer] = options.get("fields") match {
         case Some(fields: List[(String, Any)]) =>
-          fields map { kv =>
+          fields.map { kv =>
             createAnalyzerInt(kv._2) match {
               case Some(fieldAnalyzer) =>
                 (kv._1, fieldAnalyzer)
               case None =>
                 (kv._1, defaultAnalyzer)
             }
-          } toMap
+          }.toMap
         case _ =>
           Map.empty
       }

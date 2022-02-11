@@ -177,9 +177,6 @@
         <artifactId>scala-maven-plugin</artifactId>
         <version>${scala.plugin.version}</version>
         <configuration>
-          <args>
-            <arg>-language:postfixOps</arg>
-          </args>
           <launchers>
             <launcher>
               <id>clouseau1</id>
