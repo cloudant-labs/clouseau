@@ -6,3 +6,10 @@ gradle/
 **/build/
 gradlew
 gradlew.bat
+
+# idea
+.idea
+*.iml
+
+# vscode
+.vscode

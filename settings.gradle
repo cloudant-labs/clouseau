@@ -16,7 +16,7 @@ dependencyResolutionManagement {
     }
     versionCatalogs {
         libs {
-            version('zio', '2.0.0-RC2')
+            version('zio-vsn', '2.0.0-RC2')
             version('zio-nio', '2.0.0-RC1')
             version('jinterface', "${System.env.JINTERFACE_VSN}")
 
@@ -24,7 +24,7 @@ dependencyResolutionManagement {
 
             // This dependency is used by the application.
             alias('guava').to('com.google.guava:guava:30.1.1-jre')
-            alias('zio').to('dev.zio', "zio_$scalaVersion").versionRef('zio')
+            alias('zio-lib').to('dev.zio', "zio_$scalaVersion").versionRef('zio-vsn')
             alias('zio-nio').to('dev.zio', "zio-nio_$scalaVersion").versionRef('zio-nio')
             alias('jinterface').to('com.ericsson.otp.erlang', 'jinterface').versionRef('jinterface')
 
@@ -41,9 +41,8 @@ dependencyResolutionManagement {
 
             // testing
             alias('junit').to('junit:junit:4.13.2')
-            alias('zio-test').to('dev.zio', "zio-test_$scalaVersion").versionRef('zio')
-            alias('zio-test-junit').to('dev.zio', "zio-test-junit_$scalaVersion").versionRef('zio')
-
+            alias('zio-tests').to('dev.zio', "zio-test_$scalaVersion").versionRef('zio-vsn')
+            alias('zio-test-junit').to('dev.zio', "zio-test-junit_$scalaVersion").versionRef('zio-vsn')
         }
     }
 }

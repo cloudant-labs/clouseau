@@ -3,4 +3,3 @@ plugins {
     id 'com.cloudant.scala-library'
     id 'application'
 }
-

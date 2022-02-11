@@ -3,7 +3,6 @@ package com.cloudant.ziose.experiments
 import zio._
 
 object Hello extends ZIOAppDefault {
-
   def run =
     for {
       _ <- Console.printLine("Hello! What is your name?")

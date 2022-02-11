@@ -15,6 +15,12 @@ test: build
 	@epmd &
 	@./gradlew checkAll -i --offline
 
+.PHONY: fmt
+# target: fmt - Format scala code for experiments project
+fmt: gradle/wrapper/gradle-wrapper.jar
+	@echo "==> formatting scala code..."
+	@./gradlew scalafmtAll
+
 .PHONY: gradle/wrapper/gradle-wrapper.jar
 gradle/wrapper/gradle-wrapper.jar: .tool-versions
 	@gradle wrapper --gradle-version \

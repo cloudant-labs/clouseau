@@ -2,6 +2,7 @@ plugins {
     id 'java-library'
     id 'com.cloudant.scala-library'
     id 'application'
+    id "cz.alenkacz.gradle.scalafmt" version "1.16.2"
 }
 
 group = "com.cloudant.ziose.experiments"
@@ -11,20 +12,18 @@ group = "com.cloudant.ziose.experiments"
 */
 application {
     // Define the main class for the application.
-    if (project.hasProperty('mainClass')) {
-        mainClass = group + "." + project.findProperty("mainClass").toString()
-    } else {
-        throw new GradleException("please specify `-PmainClass <class>`")
-    }
+    mainClass = group + "." + project.findProperty("mainClass").toString()
 }
 
 dependencies {
-    implementation(libs.zio)
+    implementation(libs.zio.lib)
     implementation(libs.zio.nio)
     implementation(libs.scala.library)
     implementation(libs.scala.fmt)
     implementation(libs.jinterface)
-    testImplementation(libs.zio.test)
+    testImplementation(libs.zio.tests)
     testImplementation(libs.junit)
     testImplementation(libs.zio.test.junit)
 }
+
+apply plugin: 'scalafmt'
