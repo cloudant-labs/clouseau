@@ -11,6 +11,7 @@ Use `cli help <command>` to get more help.
 * `verify`    - verify developer setup
 * `deps`      - group of dependency management commands
 * `bootstrap` - a step-by-step guide to help set up environment
+* `fmt`       - reformat scala code
 * `gh`        - GitHub related commands
 * `issue`     - Issues management
 
@@ -41,6 +42,12 @@ Execute set of check which would verify the environment and print out hints what
 ### `bootstrap`: A step-by-step guide to help set up environment
 
 * `cli bootstrap` - provide shell dependent guidance to do setup
+
+---
+
+### `fmt`: Reformat scala code
+
+* `cli fmt` - Format all scala code which specified in the `.scalafmt.conf` file.
 
 ---
 

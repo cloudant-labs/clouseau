@@ -1,0 +1,23 @@
+#!/bin/bash
+GIT_HOOKS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+PROJECT_DIR=${GIT_HOOKS_DIR%/*/*}
+. "${PROJECT_DIR}"/scripts/console.sh
+
+console::infoLn "\nRunning pre-commit hook ..."
+console::info "(you can omit this with "
+console::warn "--no-verify"
+console::infoLn " but don't)"
+
+scalafmt --reportError
+formatted=$?
+
+console::info "* Properly formatted? * "
+if [ ${formatted} -eq 0 ]; then
+  echo "$(console::green)YES"
+  console::infoLn "Proceeding with commit."
+else
+  console::error "NO\n"
+  console::infoLn "CANCELLING commit due to FORMATTING ERROR."
+fi
+
+exit ${formatted}

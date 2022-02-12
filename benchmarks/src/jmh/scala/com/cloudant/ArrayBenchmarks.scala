@@ -22,7 +22,7 @@ class ArrayBenchmarks {
   @Benchmark
   def foldOptimized(): Int = {
     var sum = 0
-    var i = 0
+    var i   = 0
 
     while (i < size) {
       sum += array(i)
@@ -38,7 +38,7 @@ class ArrayBenchmarks {
   @Benchmark
   def mapOptimized(): Array[Int] = {
     val mapped = Array.ofDim[Int](size)
-    var i = 0
+    var i      = 0
 
     while (i < size) {
       mapped(i) = array(i) * 2
@@ -69,8 +69,8 @@ class ArrayBenchmarks {
   @Benchmark
   def flatMapOptimized(): Array[Int] = {
     var mappings = List.empty[Array[Int]]
-    var i = 0
-    var total = 0
+    var i        = 0
+    var total    = 0
 
     while (i < size) {
 
@@ -83,7 +83,7 @@ class ArrayBenchmarks {
 
     val dest = Array.ofDim[Int](total)
 
-    var n = total
+    var n  = total
     val it = mappings.iterator
     while (it.hasNext) {
       val mapped = it.next()

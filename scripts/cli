@@ -176,6 +176,10 @@ case "${command}" in
         gh_cmd "$@"
         exit $?
         ;;
+    fmt)
+        console::infoLn "Reformat scala code"
+        scalafmt
+        ;;
     *)
         console::errorLn "Unknown command '${command}'"
         console::infoLn "List of supported commands"

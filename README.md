@@ -65,6 +65,7 @@ Currently, `cli` provides following commands:
 * `commands`  - list all commands
 * `verify`    - verify developer setup
 * `bootstrap` - a step-by-step guide to help set up environment
+* `fmt`       - reformat scala code
 
 You can find detailed documentation here [scripts/cli.md](./scripts/cli.md).
 
@@ -75,7 +76,6 @@ The plan is to implement things like
 * `git tree` - to display commit history as a tree
 * `deps update` - to update all Java/Scala dependencies
 * `deps fetch` - to fetch all Java/Scala to work offline
-* `check format` - run configured linters
 * `check all`
 * `check <spec>`
 * `run exp <Class>`
@@ -99,11 +99,3 @@ gradle :experiments:run -PmainClass=Hello
 ```
 gradle :experiments:test --tests 'com.cloudant.ziose.experiments.HelloSpec'
 ```
-
-# Change Logs:
-
-1. Add blank lines at the end of the files.
-2. Add the scala formatter to `experiments` project. `gradle scalafmtAll` or `make fmt` will modify the code. If we want
-   to add more rules, please change the `.scalafmt.conf` file.
-3. experiments/build.gradle: removed `throw new GradleException("please specify `-PmainClass <class>`")`. After removing
-   this line, `make build` and `make test` work now. However, there are some errors on `make deps`.
