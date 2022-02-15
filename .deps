@@ -1,4 +1,4 @@
-pkgutil:com.apple.pkg.CLTools_Executables::Open the App Store on the Mac, and search for Xcode.
+type:brew::Please install https://brew.sh/
 brew:coreutils::brew install coreutils
 asdf::brew install asdf
 brew::/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"

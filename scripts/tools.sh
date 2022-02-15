@@ -39,6 +39,10 @@ tools::has() {
             tools::in_pkgutil ${1#"pkgutil:"}
             return
             ;;
+        type:*)
+            type "${1#"type:"}" &>/dev/null
+            return
+            ;;
         *)
             type "$1" &>/dev/null
             return
