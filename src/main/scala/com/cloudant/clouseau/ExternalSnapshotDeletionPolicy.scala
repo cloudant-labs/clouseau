@@ -1,6 +1,7 @@
 package com.cloudant.clouseau
 
 import java.io.File
+import java.io.IOException
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.Files
 import java.util.List
@@ -21,31 +22,7 @@ class ExternalSnapshotDeletionPolicy(dir: FSDirectory) extends IndexDeletionPoli
         case None =>
           throw new IllegalStateException("No index commit to snapshot");
         case Some(commit) =>
-          if (snapshotDir.exists) {
-            throw new IllegalStateException("Snapshot directory already exists")
-          }
-          /* Prepare the snapshot directory in a temporary location so we can atomically
-          rename it into place at successful completion. */
-          val tmpDir = new File(snapshotDir.getParentFile, UUID.randomUUID.toString)
-          if (!tmpDir.mkdir) {
-            throw new IllegalStateException("Failed to make temporary directory for snapshot")
-          }
-          var success = false
-          try {
-            for (filename <- commit.getFileNames) {
-              Files.createLink(new File(tmpDir, filename).toPath, new File(originDir, filename).toPath);
-            }
-            Files.move(tmpDir.toPath, snapshotDir.toPath, ATOMIC_MOVE)
-            success = true
-          } finally {
-            // Try to clean up
-            if (!success) {
-              for (file <- tmpDir.listFiles) {
-                file.delete
-              }
-              tmpDir.delete
-            }
-          }
+          ExternalSnapshotDeletionPolicy.snapshot(originDir, snapshotDir, commit.getFileNames)
       }
     }
   }
@@ -64,6 +41,50 @@ class ExternalSnapshotDeletionPolicy(dir: FSDirectory) extends IndexDeletionPoli
         commit.delete
       }
       lastCommit = commits.lastOption
+    }
+  }
+
+}
+
+object ExternalSnapshotDeletionPolicy {
+
+  def snapshot(originDir: File, snapshotDir: File, files: Collection[String]) {
+    if (!originDir.isAbsolute) {
+      throw new IOException(originDir + " is not an absolute path")
+    }
+    if (!snapshotDir.isAbsolute) {
+      throw new IOException(snapshotDir + " is not an absolute path")
+    }
+    if (!originDir.isDirectory) {
+      throw new IOException(originDir + " is not a directory")
+    }
+    if (snapshotDir.exists) {
+      throw new IllegalStateException("Snapshot directory already exists")
+    }
+    if (files == null) {
+      throw new IOException("No files selected for snapshot")
+    }
+    /* Prepare the snapshot directory in a temporary location so we can atomically
+     rename it into place at successful completion. */
+    val tmpDir = new File(snapshotDir.getParentFile, UUID.randomUUID.toString)
+    if (!tmpDir.mkdir) {
+      throw new IOException("Failed to make temporary directory for snapshot")
+    }
+    var success = false
+    try {
+      for (filename <- files) {
+        Files.createLink(new File(tmpDir, filename).toPath, new File(originDir, filename).toPath);
+      }
+      Files.move(tmpDir.toPath, snapshotDir.toPath, ATOMIC_MOVE)
+      success = true
+    } finally {
+      // Try to clean up if unsuccessful
+      if (!success) {
+        for (file <- tmpDir.listFiles) {
+          file.delete
+        }
+        tmpDir.delete
+      }
     }
   }
 

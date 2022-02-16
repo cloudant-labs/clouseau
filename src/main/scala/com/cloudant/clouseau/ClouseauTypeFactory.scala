@@ -47,7 +47,6 @@ case class DeleteDocMsg(id: String)
 case class CommitMsg(seq: Long)
 case class SetUpdateSeqMsg(seq: Long)
 case class SetPurgeSeqMsg(seq: Long)
-case class CreateSnapshotMsg(snapshotDir: File)
 
 object ClouseauTypeFactory extends TypeFactory {
 
@@ -104,8 +103,6 @@ object ClouseauTypeFactory extends TypeFactory {
       Some(SetUpdateSeqMsg(toLong(reader.readTerm)))
     case ('set_purge_seq, 2) =>
       Some(SetPurgeSeqMsg(toLong(reader.readTerm)))
-    case ('create_snapshot, 2) =>
-      Some(CreateSnapshotMsg(new File(reader.readAs[String])))
     case _ =>
       None
   }
