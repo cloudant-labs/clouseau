@@ -7,17 +7,16 @@
 set -Eeuo pipefail
 
 SELF_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ZIOSE_CLI_DBG=1
 GHE=github.ibm.com
 ISSUES_REPO=https://${GHE}/cloudant/dbcore
 PROJECT_LABEL=area:Search
 
 requirements=()
-. ${SELF_DIR}/console.sh
-. ${SELF_DIR}/tools.sh
+. "${SELF_DIR}"/console.sh
+. "${SELF_DIR}"/tools.sh
 requirements=(
-    $(console::requires)
-    $(tools::requires)
+    "$(console::requires)"
+    "$(tools::requires)"
     "awk"
 )
 
@@ -34,7 +33,7 @@ die() {
 }
 
 function help_message() {
-    cat ${SELF_DIR}/cli.md
+    cat "${SELF_DIR}"/cli.md
 }
 
 function short_help() {
@@ -165,7 +164,7 @@ case "${command}" in
         exit $?
         ;;
     bootstrap)
-        tools::bootstrap $(basename $SHELL)
+        tools::bootstrap "$(basename "${SHELL}")"
         exit $?
         ;;
     issue)

@@ -1,23 +1,22 @@
 plugins {
-    id 'java-library'
     id 'com.cloudant.scala-library'
     id 'application'
 }
 
-group = "com.cloudant.ziose.experiments"
+def group = "com.cloudant.ziose.experiments"
 
 /*
  gradle run -PmainClass=Hello
 */
 application {
     // Define the main class for the application.
-    mainClass = group + "." + project.findProperty("mainClass").toString()
+    // mainClass = group + "." + project.findProperty("mainClass").toString()
+    mainClass = "${group}.Hello"
 }
 
 dependencies {
     implementation(libs.zio.lib)
     implementation(libs.zio.nio)
-    implementation(libs.scala.library)
     implementation(libs.jinterface)
     testImplementation(libs.zio.tests)
     testImplementation(libs.junit)

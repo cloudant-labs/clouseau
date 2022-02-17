@@ -1,19 +1,16 @@
 plugins {
-    id 'java-library'
     id 'com.cloudant.scala-library'
     id "me.champeau.jmh" version "0.6.6"
-}
-
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    implementation(libs.scala.library)
 }
 
 jmh {
     warmupIterations = 2
     iterations = 5
     fork = 1
+}
+
+configurations.all {
+    if (name.startsWith("incrementalScalaAnalysis")) {
+        extendsFrom = []
+    }
 }

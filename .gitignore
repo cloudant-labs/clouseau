@@ -4,6 +4,7 @@
 gradle/
 **/.gradle/
 **/build/
+*.orig
 gradlew
 gradlew.bat
 
@@ -13,3 +14,4 @@ gradlew.bat
 
 # vscode
 .vscode
+.metals

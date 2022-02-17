@@ -1,7 +1,7 @@
 .PHONY: build
 # target: build - Build package, run tests and create distribution
 build: gradle/wrapper/gradle-wrapper.jar
-	@./gradlew build --offline -Pskip_tests=trues
+	@./gradlew build --offline -x test
 
 .PHONY: deps
 # target: deps - Download all dependencies for offline development
@@ -13,7 +13,7 @@ deps: gradle/wrapper/gradle-wrapper.jar
 # target: test - Run all tests
 test: build
 	@epmd &
-	@./gradlew checkAll -i --offline
+	@./gradlew check -i --offline
 
 .PHONY: gradle/wrapper/gradle-wrapper.jar
 gradle/wrapper/gradle-wrapper.jar: .tool-versions
@@ -32,17 +32,17 @@ clean-all:
 	@echo '==> keep in mind that some state is stored in ~/.gradle/caches/'
 
 .PHONY: clouseau1
-# target: clouseau1 - Start local inistance of clouseau1 node
+# target: clouseau1 - Start local instance of clouseau1 node
 clouseau1:
 	@./gradlew run -Pnode=$@
 
 .PHONY: clouseau2
-# target: clouseau2 - Start local inistance of clouseau2 node
+# target: clouseau2 - Start local instance of clouseau2 node
 clouseau2:
 	@./gradlew run -Pnode=$@
 
 .PHONY: clouseau3
-# target: clouseau3 - Start local inistance of clouseau3 node
+# target: clouseau3 - Start local instance of clouseau3 node
 clouseau3:
 	@./gradlew run -Pnode=$@
 

@@ -1,5 +1,1 @@
-plugins {
-    id 'java-library'
-    id 'com.cloudant.scala-library'
-    id 'application'
-}
+defaultTasks 'run'

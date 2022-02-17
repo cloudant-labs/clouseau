@@ -9,23 +9,23 @@ console::requires() {
 }
 
 console::bold() {
-    echo $(tput bold)
+    tput bold
 }
 
 console::red() {
-    echo $(tput setaf 1)
+    tput setaf 1
 }
 
 console::green() {
-    echo $(tput setaf 2)
+    tput setaf 2
 }
 
 console::yellow() {
-    echo $(tput setaf 3)
+    tput setaf 3
 }
 
 console::reset() {
-    echo $(tput sgr0)
+    tput sgr0
 }
 
 console::init() {
@@ -83,7 +83,6 @@ function console::markdown() {
         $1
     fi
 }
-
 
 if [[ "$(basename -- "$0")" == "console.sh" ]]; then
     echo "Don't run $0, source it" >&2

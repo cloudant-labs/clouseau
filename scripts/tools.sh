@@ -3,7 +3,6 @@ SELF_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 BIN_DIR=${SELF_DIR}/../bin
 
-. ${SELF_DIR}/console.sh
 
 # call it as
 # result=( $(tools::requires) )
@@ -22,24 +21,24 @@ tools::requires() {
 tools::read_global_deps() {
     local deps=()
     while IFS= read -r line; do
-        deps+=(${line%'::'*})
+        deps+=("${line%'::'*}")
     done < <(cat "$1" | grep -v '\#')
     echo "${deps[@]}"
 }
 
 tools::hint() {
-    line=$(cat $1 | grep "^$2::*")
+    line=$(cat "$1" | grep "^$2::*")
     echo "${line#*'::'}"
 }
 
 tools::has() {
     case "$1" in
         brew:*)
-            tools::in_brew ${1#"brew:"}
+            tools::in_brew "${1#"brew:"}"
             return
             ;;
         pkgutil:*)
-            tools::in_pkgutil ${1#"pkgutil:"}
+            tools::in_pkgutil "${1#"pkgutil:"}"
             return
             ;;
         type:*)
@@ -63,12 +62,12 @@ tools::in_pkgutil() {
 
 # This should be called as
 # tools=("brew" "coreutils")
-# misssing=( $(tools::missing "${tools[@]}") )
+# missing=( $(tools::missing "${tools[@]}") )
 tools::missing() {
     local tools=("$@")
     local missing=()
-    for tool in ${tools[@]}; do
-        if ! tools::has ${tool} ; then missing+=(${tool}); fi
+    for tool in "${tools[@]}"; do
+        if ! tools::has ${tool}; then missing+=(${tool}); fi
     done
     echo ${missing[@]+"${missing[@]}"}
 }
@@ -111,7 +110,7 @@ function tools::bootstrap_topic() {
 
 function tools::bootstrap() {
     local shell=${1}
-    (console::info "detected shell '${shell}'")
+    (console::infoLn "detected shell '${shell}'")
     case "${shell}" in
         bash)
             local config_file=~/.bash_profile

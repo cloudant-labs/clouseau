@@ -1,13 +1,23 @@
 plugins {
     // id('com.cloudant.commons')
-    id('scala')
+    id 'scala'
+}
+
+dependencies {
+    implementation(libs.scala.library)
 }
 
 task deps {
     doLast {
-       configurations.findAll{it.canBeResolved}.each{
+        configurations.findAll { it.canBeResolved }.each {
             println(it)
             it.resolve()
-       }
+        }
+    }
+}
+
+configurations.all {
+    if (name.startsWith("incrementalScalaAnalysis")) {
+        extendsFrom = []
     }
 }

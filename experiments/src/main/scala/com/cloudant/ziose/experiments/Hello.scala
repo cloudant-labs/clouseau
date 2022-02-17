@@ -3,7 +3,7 @@ package com.cloudant.ziose.experiments
 import zio._
 
 object Hello extends ZIOAppDefault {
-  def run =
+  def run: ZIO[ZEnv with ZIOAppArgs, Throwable, Unit] =
     for {
       _ <- Console.printLine("Hello! What is your name?")
       n <- divide(4, 2)

@@ -1,6 +1,6 @@
 # Settings things up for `bash`
 
-There are two steps which need to be done to setup environment.
+There are two steps which need to be done to set up environment.
 
 1. The `asdf` tool manager would need to be installed
 2. The `direnv` plugin for `asdf` manager would need to be installed
@@ -70,7 +70,7 @@ EOF
 
 # Settings things up for `fish`
 
-There are two steps which need to be done to setup environment.
+There are two steps which need to be done to set up environment.
 
 1. The `asdf` tool manager would need to be installed
 2. The `direnv` plugin for `asdf` manager would need to be installed
@@ -143,7 +143,7 @@ end
 
 # Settings things up for `zsh`
 
-There are two steps which need to be done to setup environment.
+There are two steps which need to be done to set up environment.
 
 1. The `asdf` tool manager would need to be installed
 2. The `direnv` plugin for `asdf` manager would need to be installed

@@ -1,4 +1,4 @@
-package com.cloudant
+package com.cloudant.ziose.benchmarks
 
 import org.openjdk.jmh.annotations._
 import java.util.concurrent.TimeUnit

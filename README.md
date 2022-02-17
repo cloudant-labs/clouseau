@@ -38,7 +38,7 @@ brew::/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/inst
 The format of the lines in the file is `{tool}::{hint_how_to_install}`. The `tool` field can be in the one of the
 following forms:
 
-* `pkgutil:{package}`: for MacOS packages, where `package` is the package id.
+* `pkgutil:{package}`: for macOS packages, where `package` is the package id.
 * `brew:{package}`: for [`brew`](https://brew.sh/) packages.
 * `{binary}`: for a given binary tool present in the path (we use `type "${binary}"` to check it).
 
@@ -88,7 +88,10 @@ All the above are just examples and not a firm commitment.
 
 *Note*: this would be replaced by `cli run exp Hello`)
 
-```
+```bash
+gradle
+gradle run
+gradle run -PmainClass=Hello
 gradle :experiments:run -PmainClass=Hello
 ```
 
@@ -96,6 +99,8 @@ gradle :experiments:run -PmainClass=Hello
 
 *Note*: this would be replaced by `cli test exp HelloSpec`)
 
-```
+```bash
+gradle test
+gradle :experiments:test --tests HelloSpec
 gradle :experiments:test --tests 'com.cloudant.ziose.experiments.HelloSpec'
 ```
