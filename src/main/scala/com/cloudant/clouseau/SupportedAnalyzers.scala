@@ -100,7 +100,7 @@ object SupportedAnalyzers {
       map.get("name") match {
         case Some(name: String) =>
           createAnalyzerInt(name, map)
-        case None =>
+        case _ =>
           None
       }
     case _ =>
@@ -379,7 +379,7 @@ object SupportedAnalyzers {
               case Some(fieldAnalyzer) =>
                 (kv._1, fieldAnalyzer)
               case None =>
-                (kv._1, defaultAnalyzer)
+                throw new IllegalArgumentException("no_such_analyzer")
             }
           } toMap
         case _ =>
