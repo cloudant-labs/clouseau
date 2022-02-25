@@ -1,5 +1,8 @@
 #!/bin/bash
 SELF_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+BIN_DIR=${SELF_DIR}/../bin
+
 . ${SELF_DIR}/console.sh
 
 # call it as
@@ -15,8 +18,8 @@ tools::requires() {
 }
 
 # call it as
-# result=( $(tools::read_deps <file_name>) )
-tools::read_deps() {
+# result=( $(tools::read_global_deps <file_name>) )
+tools::read_global_deps() {
     local deps=()
     while IFS= read -r line; do
         deps+=(${line%'::'*})
@@ -67,7 +70,7 @@ tools::missing() {
     for tool in ${tools[@]}; do
         if ! tools::has ${tool} ; then missing+=(${tool}); fi
     done
-    echo "${missing[@]}"
+    echo ${missing[@]+"${missing[@]}"}
 }
 
 # This should be called as
@@ -84,7 +87,7 @@ function tools::verify() {
     fi
     (console::infoLn "OK")
 
-    local tools=( $(tools::read_deps ${SELF_DIR}/../.deps) )
+    local tools=( $(tools::read_global_deps ${SELF_DIR}/../.global-deps) )
     (console::info "checking tools: '${tools[@]}' ... ")
     local missing=$(tools::missing "${tools[@]}")
     if [ -n "${missing}" ]; then
@@ -144,6 +147,90 @@ function tools::bootstrap() {
     fi
     (console::infoLn "OK")
     (console::infoLn "Congratulations!!! Your system is ready.")
+}
+
+function tools::deps() {
+    local class="${1}"
+    class=${class} \
+        yq '.[env(class)][] | key' deps.yaml
+}
+
+function tools::deps_classes() {
+    yq '. | keys' deps.yaml
+}
+
+function tools::get_dep() {
+    local class=""
+    local tool=""
+    IFS=":" read class tool <<< "${1}"
+    local field="${2}"
+    class=${class} tool=${tool} field=${field} \
+        yq '.[env(class)].[env(tool)].[env(field)]' deps.yaml
+}
+
+function tools::has_version() {
+    local binary="${1}"
+    local version="${2}"
+    [ -x "${BIN_DIR}/${binary}-${version}" ]
+}
+
+function tools::activate_tools() {
+    local class=""
+    local tool=""
+    local version=""
+    for class in $(tools::deps_classes); do
+        for tool in $(tools::deps "${class}"); do
+            version=$(tools::get_dep "${class}:${tool}" "version")
+            if ! $(tools::has_version "${tool}" "${version}"); then
+                tools::install_tool "${class}:${tool}"
+            else
+                (console::infoLn "${tool} ${version} is already installed")
+            fi
+            tools::activate_tool "${class}:${tool}"
+        done
+    done
+}
+
+function tools::activate_tool() {
+    local class=""
+    local tool=""
+    IFS=":" read class binary <<< "${1}"
+    [ -L "${BIN_DIR}/${binary}" ] && rm "${BIN_DIR}/${binary}"
+    (console::infoLn "activating '${class}:${binary}' ${version}")
+    ln -s "${BIN_DIR}/${binary}-${version}" "${BIN_DIR}/${binary}"
+}
+
+function tools::install_with_coursier() {
+    local class=""
+    local tool=""
+    IFS=":" read class binary <<< "${1}"
+    local version=$(tools::get_dep "${1}" "version")
+    local install_args=$(tools::get_dep "${1}" "install_args")
+    local id=$(tools::get_dep "${1}" "id")
+    (console::infoLn "installing '${1}'... ")
+    status=$(coursier bootstrap ${id}:${version} \
+        ${install_args} --standalone -o "${BIN_DIR}/${binary}-${version}")
+    if [[ $status -eq 0 ]]; then
+        (console::infoLn "'${1}' is installed")
+    else
+        (console::infoLn "there was a failure while installing '${1}'")
+        exit 1
+    fi
+}
+
+function tools::install_tool() {
+    local class=""
+    local tool=""
+    IFS=":" read class _binary <<< "${1}"
+    case "${class}" in
+        coursier)
+            tools::install_with_coursier "${1}" || exit $?
+            ;;
+        *)
+            console::warnLn "Unsupported tool class '${class}'"
+            exit 1
+            ;;
+    esac
 }
 
 if [[ "$(basename -- "$0")" == "tools.sh" ]]; then

@@ -3,6 +3,10 @@ java openjdk-17
 gradle 7.2
 scala 2.13.7
 erlang 23.3.2
+coursier 2.1.0-M5
 
-# auxiliary tools
+# required tools
+yq 4.20.2
+
+# optional auxiliary tools
 bat 0.19.0
