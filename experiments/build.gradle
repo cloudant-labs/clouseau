@@ -1,0 +1,29 @@
+plugins {
+    id 'java-library'
+    id 'com.cloudant.scala-library'
+    id 'application'
+    id "cz.alenkacz.gradle.scalafmt" version "1.16.2"
+}
+
+group = "com.cloudant.ziose.experiments"
+
+/*
+ gradle run -PmainClass=Hello
+*/
+application {
+    // Define the main class for the application.
+    mainClass = group + "." + project.findProperty("mainClass").toString()
+}
+
+dependencies {
+    implementation(libs.zio.lib)
+    implementation(libs.zio.nio)
+    implementation(libs.scala.library)
+    implementation(libs.scala.fmt)
+    implementation(libs.jinterface)
+    testImplementation(libs.zio.tests)
+    testImplementation(libs.junit)
+    testImplementation(libs.zio.test.junit)
+}
+
+apply plugin: 'scalafmt'

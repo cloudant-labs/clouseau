@@ -1,0 +1,4 @@
+plugins {
+    id('com.cloudant.scala-library')
+}
+group = '${group}.domain'
