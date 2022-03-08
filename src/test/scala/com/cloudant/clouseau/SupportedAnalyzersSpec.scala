@@ -93,9 +93,9 @@ class SupportedAnalyzersSpec extends SpecificationWithJUnit {
       createAnalyzer(Map("name" -> "perfield", "fields" -> List("foo" -> "english"))).toString must
         contain("foo -> org.apache.lucene.analysis.en.EnglishAnalyzer")
 
-      // unrecognized per-field becomes default
-      createAnalyzer(Map("name" -> "perfield", "default" -> "english", "fields" -> List("foo" -> "foo"))).toString must
-        contain("foo -> org.apache.lucene.analysis.en.EnglishAnalyzer")
+      // unrecognized per-field throws an IllegalArgumentException("no_such_analyzer")
+      createAnalyzer(Map("name" -> "perfield", "default" -> "english", "fields" -> List("foo" -> "foo"))) must
+        throwAn[IllegalArgumentException]
     }
     "arabic" in {
       createAnalyzer("arabic") must haveClass[Some[ArabicAnalyzer]]
