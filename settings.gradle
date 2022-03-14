@@ -5,7 +5,8 @@ pluginManagement {
 enableFeaturePreview "VERSION_CATALOGS"
 enableFeaturePreview "TYPESAFE_PROJECT_ACCESSORS"
 
-def scalaVersion = "2.13"
+def scalaLongVersion = "2.13.7"
+def scalaShortVersion = scalaLongVersion.tokenize('.').dropRight(1).join('.')
 
 dependencyResolutionManagement {
     repositories {
@@ -20,32 +21,32 @@ dependencyResolutionManagement {
             version('zio-nio', '2.0.0-RC1')
             version('jinterface', "${System.env.JINTERFACE_VSN}")
 
-            alias('scala-library').to("org.scala-lang:scala-library:$scalaVersion")
+            alias('scala-library').to("org.scala-lang:scala-library:$scalaLongVersion")
 
             // This dependency is used by the application.
             alias('guava').to('com.google.guava:guava:30.1.1-jre')
-            alias('zio-lib').to('dev.zio', "zio_$scalaVersion").versionRef('zio-vsn')
-            alias('zio-nio').to('dev.zio', "zio-nio_$scalaVersion").versionRef('zio-nio')
+            alias('zio-lib').to('dev.zio', "zio_$scalaShortVersion").versionRef('zio-vsn')
+            alias('zio-nio').to('dev.zio', "zio-nio_$scalaShortVersion").versionRef('zio-nio')
             alias('jinterface').to('com.ericsson.otp.erlang', 'jinterface').versionRef('jinterface')
 
             // linter and codeformatter
-            alias('scala-fmt').to("org.scalameta:scalafmt-core_$scalaVersion:3.0.8")
+            alias('scala-fmt').to("org.scalameta:scalafmt-core_$scalaShortVersion:3.0.8")
 
             // logger
             alias('slf4j-api').to('org.slf4j:slf4j-api:1.7.32')
             alias('slf4j-log4j12').to('org.slf4j:slf4j-log4j12:1.7.32')
-            alias('zio-logging').to("dev.zio:zio-logging_$scalaVersion:0.5.13")
+            alias('zio-logging').to("dev.zio:zio-logging_$scalaShortVersion:0.5.13")
 
             // metrics
             alias('zio-zmx').to('dev.zio:zio-zmx_3:0.0.11')
 
             // testing
             alias('junit').to('junit:junit:4.13.2')
-            alias('zio-tests').to('dev.zio', "zio-test_$scalaVersion").versionRef('zio-vsn')
-            alias('zio-test-junit').to('dev.zio', "zio-test-junit_$scalaVersion").versionRef('zio-vsn')
+            alias('zio-tests').to('dev.zio', "zio-test_$scalaShortVersion").versionRef('zio-vsn')
+            alias('zio-test-junit').to('dev.zio', "zio-test-junit_$scalaShortVersion").versionRef('zio-vsn')
         }
     }
 }
 
 rootProject.name = 'ziose'
-include ':domain', ':experiments'
+include 'domain', 'experiments', 'benchmarks'
