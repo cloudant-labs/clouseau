@@ -1,0 +1,5 @@
+coursier:
+  scalafmt:
+    id: org.scalameta:scalafmt-cli_2.13
+    version: 3.4.3
+    install_args: "-r sonatype:snapshots --main org.scalafmt.cli.Cli"

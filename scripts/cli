@@ -1,4 +1,11 @@
 #!/bin/bash
+## -*- mode: shell -*-
+## vim: set filetype=shell
+## sublimeconf: filetype=shell
+
+# https://vaneyckt.io/posts/safer_bash_scripts_with_set_euxo_pipefail/
+set -Eeuo pipefail
+
 SELF_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ZIOSE_CLI_DBG=1
 
@@ -64,22 +71,32 @@ function deps_cmd() {
 case "${command}" in
     verify)
         tools::verify "${requirements[@]}"
+        exit $?
+        ;;
+    activate)
+        tools::activate_tools
+        exit $?
         ;;
     commands)
         console::markdown list
+        exit $?
         ;;
     help)
         help_cmd "$@"
+        exit $?
         ;;
     deps)
         deps_cmd "$@"
+        exit $?
         ;;
     bootstrap)
         tools::bootstrap $(basename $SHELL)
+        exit $?
         ;;
     *)
         console::errorLn "Unknown command '${command}'"
         console::infoLn "List of supported commands"
         console::markdown list
+        exit $?
         ;;
 esac
