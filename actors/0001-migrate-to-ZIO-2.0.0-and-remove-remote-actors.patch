@@ -1,0 +1,389 @@
+From c06f6e7dcaf5f83c4e72e7cf2a3ad7ec55fe3f18 Mon Sep 17 00:00:00 2001
+From: ILYA Khlopotov <iilyak@apache.org>
+Date: Tue, 22 Mar 2022 05:49:14 -0700
+Subject: [PATCH] migrate to ZIO 2.0.0 and remove remote actors.
+
+---
+ actors/src/main/scala/zio/actors/Actor.scala  |  18 ++-
+ .../src/main/scala/zio/actors/ActorRef.scala  |  57 +------
+ .../main/scala/zio/actors/ActorSystem.scala   | 141 ++++--------------
+ .../main/scala/zio/actors/ActorsConfig.scala  |  34 +----
+ .../main/scala/zio/actors/Supervisor.scala    |   2 +-
+ 5 files changed, 46 insertions(+), 206 deletions(-)
+
+diff --git a/actors/src/main/scala/zio/actors/Actor.scala b/actors/src/main/scala/zio/actors/Actor.scala
+index e2a5d70..060b8a2 100644
+--- a/actors/src/main/scala/zio/actors/Actor.scala
++++ b/actors/src/main/scala/zio/actors/Actor.scala
+@@ -1,7 +1,7 @@
+ package zio.actors
+ 
+ import zio.actors.Actor.PendingMessage
+-import zio.clock.Clock
++import zio.Clock
+ import zio.{ Supervisor => _, _ }
+ 
+ object Actor {
+@@ -104,10 +104,16 @@ private[actors] final class Actor[-F[+_]](
+         this.stop
+     }
+ 
++  // val stop: Task[List[_]] =
++  //   for {
++  //     tall <- queue.takeAll
++  //     _    <- queue.shutdown
++  //     _    <- optOutActorSystem()
++  //   } yield tall
+   val stop: Task[List[_]] =
+-    for {
+-      tall <- queue.takeAll
+-      _    <- queue.shutdown
+-      _    <- optOutActorSystem()
+-    } yield tall
++      for {
++        tall <- queue.takeAll
++        _    <- queue.shutdown
++        _    <- optOutActorSystem()
++      } yield Nil
+ }
+diff --git a/actors/src/main/scala/zio/actors/ActorRef.scala b/actors/src/main/scala/zio/actors/ActorRef.scala
+index f528864..9d2245c 100644
+--- a/actors/src/main/scala/zio/actors/ActorRef.scala
++++ b/actors/src/main/scala/zio/actors/ActorRef.scala
+@@ -2,8 +2,8 @@ package zio.actors
+ 
+ import java.io.{ IOException, ObjectInputStream, ObjectOutputStream, ObjectStreamException }
+ 
+-import zio.nio.core.{ InetAddress, InetSocketAddress, SocketAddress }
+-import zio.nio.core.channels.AsynchronousSocketChannel
++import zio.nio.{ InetAddress, InetSocketAddress, SocketAddress }
++import zio.nio.channels.AsynchronousSocketChannel
+ import zio.{ IO, Runtime, Task, UIO }
+ 
+ /**
+@@ -66,19 +66,6 @@ private[actors] sealed abstract class ActorRefSerial[-F[+_]](private var actorPa
+     actorPath = rawActorPath.asInstanceOf[String]
+   }
+ 
+-  @throws[ObjectStreamException]
+-  protected def readResolve1(): Object = {
+-    val remoteRef = for {
+-      resolved          <- resolvePath(actorPath)
+-      (_, addr, port, _) = resolved
+-      address           <- InetAddress
+-                             .byName(addr.value)
+-                             .flatMap(iAddr => SocketAddress.inetSocketAddress(iAddr, port.value))
+-    } yield new ActorRefRemote[F](actorPath, address)
+-
+-    ActorRefSerial.runtimeForResolve.unsafeRun(remoteRef)
+-  }
+-
+   override val path: UIO[String] = UIO(actorPath)
+ }
+ 
+@@ -100,44 +87,4 @@ private[actors] final class ActorRefLocal[-F[+_]](
+   private def readObject(in: ObjectInputStream): Unit =
+     super.readObject1(in)
+ 
+-  @throws[ObjectStreamException]
+-  private def readResolve(): Object =
+-    super.readResolve1()
+-}
+-
+-private[actors] final class ActorRefRemote[-F[+_]](
+-  private val actorName: String,
+-  address: InetSocketAddress
+-) extends ActorRefSerial[F](actorName) {
+-  import ActorSystemUtils._
+-
+-  override def ?[A](fa: F[A]): Task[A] = sendEnvelope(Command.Ask(fa))
+-
+-  override def !(fa: F[_]): Task[Unit] = sendEnvelope[Unit](Command.Tell(fa))
+-
+-  override val stop: Task[List[_]] = sendEnvelope(Command.Stop)
+-
+-  private def sendEnvelope[A](command: Command): Task[A] =
+-    for {
+-      client   <- AsynchronousSocketChannel()
+-      response <- for {
+-                    _         <- client.connect(address)
+-                    actorPath <- path
+-                    _         <- writeToWire(client, new Envelope(command, actorPath))
+-                    response  <- readFromWire(client)
+-                  } yield response.asInstanceOf[Either[Throwable, A]]
+-      result   <- IO.fromEither(response)
+-    } yield result
+-
+-  @throws[IOException]
+-  private def writeObject(out: ObjectOutputStream): Unit =
+-    super.writeObject1(out)
+-
+-  @throws[IOException]
+-  private def readObject(in: ObjectInputStream): Unit =
+-    super.readObject1(in)
+-
+-  @throws[ObjectStreamException]
+-  private def readResolve(): Object =
+-    super.readResolve1()
+ }
+diff --git a/actors/src/main/scala/zio/actors/ActorSystem.scala b/actors/src/main/scala/zio/actors/ActorSystem.scala
+index ab218bb..4126843 100644
+--- a/actors/src/main/scala/zio/actors/ActorSystem.scala
++++ b/actors/src/main/scala/zio/actors/ActorSystem.scala
+@@ -7,9 +7,9 @@ import zio.{ Chunk, IO, Promise, RIO, Ref, Task, UIO, ZIO }
+ import zio.actors.Actor.{ AbstractStateful, Stateful }
+ import zio.actors.ActorSystemUtils._
+ import zio.actors.ActorsConfig._
+-import zio.clock.Clock
+-import zio.nio.core.{ Buffer, InetAddress, SocketAddress }
+-import zio.nio.core.channels.{ AsynchronousServerSocketChannel, AsynchronousSocketChannel }
++import zio.Clock
++import zio.nio.{ Buffer, InetAddress, SocketAddress }
++import zio.nio.channels.{ AsynchronousServerSocketChannel, AsynchronousSocketChannel }
+ 
+ import scala.io.Source
+ 
+@@ -32,10 +32,7 @@ object ActorSystem {
+       initActorRefMap <- Ref.make(Map.empty[String, Any])
+       config          <- retrieveConfig(configFile)
+       remoteConfig    <- retrieveRemoteConfig(sysName, config)
+-      actorSystem     <- IO.effect(new ActorSystem(sysName, config, remoteConfig, initActorRefMap, parentActor = None))
+-      _               <- IO
+-                           .effectTotal(remoteConfig)
+-                           .flatMap(_.fold[Task[Unit]](IO.unit)(c => actorSystem.receiveLoop(c.addr, c.port)))
++      actorSystem     <- IO.attempt(new ActorSystem(sysName, config, remoteConfig, initActorRefMap, parentActor = None))
+     } yield actorSystem
+ }
+ 
+@@ -160,23 +157,17 @@ final class ActorSystem private[actors] (
+ 
+       actorMap <- refActorMap.get
+ 
+-      actorRef <- if (pathActSysName == actorSystemName)
+-                    for {
+-                      actorRef <- actorMap.get(actorName) match {
+-                                    case Some(value) =>
+-                                      for {
+-                                        actor <- IO.effectTotal(value.asInstanceOf[Actor[F]])
+-                                      } yield new ActorRefLocal(path, actor)
+-                                    case None        =>
+-                                      IO.fail(new Exception(s"No such actor $actorName in local ActorSystem."))
+-                                  }
+-                    } yield actorRef
+-                  else
+-                    for {
+-                      address  <- InetAddress
+-                                    .byName(addr.value)
+-                                    .flatMap(iAddr => SocketAddress.inetSocketAddress(iAddr, port.value))
+-                    } yield new ActorRefRemote[F](path, address)
++      actorRef <-
++        for {
++          actorRef <- actorMap.get(actorName) match {
++            case Some(value) =>
++              for {
++                actor <- IO.succeed(value.asInstanceOf[Actor[F]])
++              } yield new ActorRefLocal(path, actor)
++            case None        =>
++              IO.fail(new Exception(s"No such actor $actorName in local ActorSystem."))
++          }
++        } yield actorRef
+     } yield actorRef
+ 
+   /**
+@@ -198,61 +189,9 @@ final class ActorSystem private[actors] (
+       (_, _, _, actorName) = solvedPath
+       _                   <- refActorMap.update(_ - actorName)
+       children            <- childrenRef.get
+-      _                   <- ZIO.foreach_(children)(_.stop)
++      _                   <- ZIO.foreachDiscard(children)(_.stop)
+       _                   <- childrenRef.set(Set.empty)
+     } yield ()
+-
+-  private def receiveLoop(address: ActorsConfig.Addr, port: ActorsConfig.Port): Task[Unit] =
+-    for {
+-      addr      <- InetAddress.byName(address.value)
+-      address   <- SocketAddress.inetSocketAddress(addr, port.value)
+-      p         <- Promise.make[Nothing, Unit]
+-      channel   <- AsynchronousServerSocketChannel()
+-      loopEffect = for {
+-                     _ <- channel.bind(address)
+-
+-                     _ <- p.succeed(())
+-
+-                     loop = for {
+-                              worker          <- channel.accept
+-                              obj             <- readFromWire(worker)
+-                              envelope         = obj.asInstanceOf[Envelope]
+-                              actorMap        <- refActorMap.get
+-                              remoteActorPath <- resolvePath(envelope.recipient).map(_._4)
+-                              _               <- actorMap.get(remoteActorPath) match {
+-                                                   case Some(value) =>
+-                                                     for {
+-                                                       actor    <-
+-                                                         IO
+-                                                           .effect(value.asInstanceOf[Actor[Any]])
+-                                                           .mapError(throwable =>
+-                                                             new Exception(s"System internal exception - ${throwable.getMessage}")
+-                                                           )
+-                                                       response <- actor.unsafeOp(envelope.command).either
+-                                                       _        <- response match {
+-                                                                     case Right(
+-                                                                           stream: zio.stream.ZStream[
+-                                                                             Any @unchecked,
+-                                                                             Throwable @unchecked,
+-                                                                             Any @unchecked
+-                                                                           ]
+-                                                                         ) =>
+-                                                                       stream.foreach(writeToWire(worker, _))
+-                                                                     case _ => writeToWire(worker, response)
+-                                                                   }
+-                                                     } yield ()
+-                                                   case None        =>
+-                                                     for {
+-                                                       responseError <- IO.fail(new Exception("No such remote actor")).either
+-                                                       _             <- writeToWire(worker, responseError)
+-                                                     } yield ()
+-                                                 }
+-                            } yield ()
+-                     _   <- loop.forever
+-                   } yield ()
+-      _         <- loopEffect.onTermination(_ => channel.close.catchAll(_ => ZIO.unit)).fork
+-      _         <- p.await
+-    } yield ()
+ }
+ 
+ /* INTERNAL API */
+@@ -272,6 +211,12 @@ private[actors] object ActorSystemUtils {
+         val port            = Port(value.group(3).toInt)
+         val actorName       = "/" + value.group(4)
+         IO.succeed((actorSystemName, address, port, actorName))
++      case Some(value) =>
++        IO.fail(
++          new Exception(
++            s"Unexpected value ${value}"
++          )
++        )
+       case None                                 =>
+         IO.fail(
+           new Exception(
+@@ -284,7 +229,7 @@ private[actors] object ActorSystemUtils {
+     actorName match {
+       case ""            => IO.fail(new Exception("Actor actor must not be empty"))
+       case null          => IO.fail(new Exception("Actor actor must not be null"))
+-      case RegexName(_*) => UIO.effectTotal(parentActorName + "/" + actorName)
++      case RegexName(_*) => UIO.succeed(parentActorName + "/" + actorName)
+       case _             => IO.fail(new Exception(s"Invalid actor name provided $actorName. Valid symbols are -_.*$$+:@&=,!~';"))
+     }
+ 
+@@ -292,41 +237,11 @@ private[actors] object ActorSystemUtils {
+     s"zio://$actorSystemName@${remoteConfig.map(c => c.addr.value + ":" + c.port.value).getOrElse("0.0.0.0:0000")}$actorPath"
+ 
+   def retrieveConfig(configFile: Option[File]): Task[Option[String]] =
+-    configFile.fold[Task[Option[String]]](Task.none) { file =>
+-      IO(Source.fromFile(file)).toManaged(f => UIO(f.close())).use(s => IO.some(s.mkString))
+-    }
++    // configFile.fold[Task[Option[String]]](Task.none) { file =>
++    //   IO(Source.fromFile(file)).toManaged(f => UIO(f.close())).use(s => IO.some(s.mkString))
++    // }
++    Task.none
+ 
+   def retrieveRemoteConfig(sysName: String, configStr: Option[String]): Task[Option[RemoteConfig]] =
+-    configStr.fold[Task[Option[RemoteConfig]]](Task.none)(file => ActorsConfig.getRemoteConfig(sysName, file))
+-
+-  def objFromByteArray(bytes: Array[Byte]): Task[Any] =
+-    Task(new ObjectInputStream(new ByteArrayInputStream(bytes))).toManaged(s => UIO(s.close())).use { s =>
+-      Task(s.readObject())
+-    }
+-
+-  def readFromWire(socket: AsynchronousSocketChannel): Task[Any] =
+-    for {
+-      size      <- socket.read(4)
+-      buffer    <- Buffer.byte(size)
+-      intBuffer <- buffer.asIntBuffer
+-      toRead    <- intBuffer.get(0)
+-      content   <- socket.read(toRead)
+-      bytes      = content.toArray
+-      obj       <- objFromByteArray(bytes)
+-    } yield obj
+-
+-  def objToByteArray(obj: Any): Task[Array[Byte]] =
+-    for {
+-      stream <- UIO(new ByteArrayOutputStream())
+-      bytes  <- Task(new ObjectOutputStream(stream)).toManaged(s => UIO(s.close())).use { s =>
+-                  Task(s.writeObject(obj)) *> UIO(stream.toByteArray)
+-                }
+-    } yield bytes
+-
+-  def writeToWire(socket: AsynchronousSocketChannel, obj: Any): Task[Unit] =
+-    for {
+-      bytes <- objToByteArray(obj)
+-      _     <- socket.write(Chunk.fromArray(ByteBuffer.allocate(4).putInt(bytes.size).array()))
+-      _     <- socket.write(Chunk.fromArray(bytes))
+-    } yield ()
++    Task.none
+ }
+diff --git a/actors/src/main/scala/zio/actors/ActorsConfig.scala b/actors/src/main/scala/zio/actors/ActorsConfig.scala
+index 1ff47dc..c076b91 100644
+--- a/actors/src/main/scala/zio/actors/ActorsConfig.scala
++++ b/actors/src/main/scala/zio/actors/ActorsConfig.scala
+@@ -1,42 +1,14 @@
+ package zio.actors
+ 
+ import zio.{ Task, ZIO }
+-import zio.config.{ ConfigDescriptor, ZConfig }
++import zio.config._
+ import zio.config.ConfigDescriptor._
+-import zio.config.typesafe.TypesafeConfig
++//import zio.config.typesafe.TypesafeConfig
++import zio.config.typesafe._
+ import zio.Tag
+ 
+ private[actors] object ActorsConfig {
+-
+   final case class Addr(value: String) extends AnyVal
+   final case class Port(value: Int)    extends AnyVal
+   final case class RemoteConfig(addr: Addr, port: Port)
+-
+-  val remoteConfig: ConfigDescriptor[Option[RemoteConfig]] =
+-    nested("remoting") {
+-      (string("hostname").xmap[Addr](Addr, _.value) |@|
+-        int("port").xmap[Port](Port, _.value))(RemoteConfig.apply, RemoteConfig.unapply)
+-    }.optional
+-
+-  private def selectiveSystemConfig[T](systemName: String, configT: ConfigDescriptor[T]) =
+-    nested(systemName) {
+-      nested("zio") {
+-        nested("actors") {
+-          configT
+-        }
+-      }
+-    }
+-
+-  def getConfig[T](
+-    systemName: String,
+-    configStr: String,
+-    configDescriptor: ConfigDescriptor[T]
+-  )(implicit tag: Tag[T]): Task[T] =
+-    ZIO
+-      .access[ZConfig[T]](_.get)
+-      .provideLayer(TypesafeConfig.fromHoconString[T](configStr, selectiveSystemConfig(systemName, configDescriptor)))
+-
+-  def getRemoteConfig(systemName: String, configStr: String): Task[Option[RemoteConfig]] =
+-    getConfig(systemName, configStr, remoteConfig)
+-
+ }
+diff --git a/actors/src/main/scala/zio/actors/Supervisor.scala b/actors/src/main/scala/zio/actors/Supervisor.scala
+index cd94dde..5527115 100644
+--- a/actors/src/main/scala/zio/actors/Supervisor.scala
++++ b/actors/src/main/scala/zio/actors/Supervisor.scala
+@@ -1,6 +1,6 @@
+ package zio.actors
+ 
+-import zio.clock.Clock
++import zio.Clock
+ import zio.{ IO, RIO, Schedule, URIO, ZIO }
+ 
+ private[actors] trait Supervisor[-R] {
+-- 
+2.34.1
+

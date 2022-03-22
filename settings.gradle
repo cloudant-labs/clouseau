@@ -31,6 +31,7 @@ dependencyResolutionManagement {
             library('zio-lib', 'dev.zio', "zio_$scalaShortVersion").versionRef('zio-vsn')
             library('zio-nio', 'dev.zio', "zio-nio_$scalaShortVersion").versionRef('zio-nio')
             library('jinterface', 'com.ericsson.otp.erlang', 'jinterface').versionRef('jinterface')
+            library('zio-actors', 'dev.zio', "zio-actors_$scalaVersion").versionRef('zio-actors')
 
             // logger
             library('slf4j-api', 'org.slf4j:slf4j-api:1.7.32')
@@ -49,4 +50,6 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = 'ziose'
-include 'domain', 'experiments', 'benchmarks'
+
+include 'domain', 'experiments', 'benchmarks', 'actors'
+project(':zio-actors').projectDir = file("zio-actors/actors")

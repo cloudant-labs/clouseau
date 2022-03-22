@@ -21,6 +21,7 @@ dependencies {
     implementation(libs.zio.lib)
     implementation(libs.zio.logging)
     implementation(libs.zio.nio)
+    implementation(project(':actors'))
     implementation(libs.jinterface)
     testImplementation(libs.zio.tests)
     testImplementation(libs.junit)
