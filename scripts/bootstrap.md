@@ -7,7 +7,7 @@ There are two steps which need to be done to set up environment.
 
 You can install `asdf` from [brew](https://brew.sh/) by following command.
 
-```shell
+```bash
 brew install asdf
 ```
 
@@ -17,13 +17,13 @@ Once you install `asdf` you can either continue following the steps outlined in 
 
 Add following line to `~/.bash_profile`
 
-```
+```bash
 source $(brew --prefix asdf)/libexec/asdf.sh
 ```
 
 You can do it by copy/paste of the following line
 
-```
+```bash
 echo -e "\n. $(brew --prefix asdf)/libexec/asdf.sh" >> ~/.bash_profile
 ```
 
@@ -37,7 +37,7 @@ Please restart shell and re-run `scripts/cli bootstrap` once you do it
 
 Run following commands to install `direnv` plugin
 
-```shell
+```bash
 asdf plugin-add direnv
 asdf install direnv latest
 asdf global direnv latest
@@ -45,7 +45,7 @@ asdf global direnv latest
 
 Once you have done with above commands add following to the `~/.bash_profile`
 
-```
+```bash
 
 # Hook direnv into your shell.
 eval "$(asdf exec direnv hook bash)"
@@ -56,7 +56,7 @@ direnv() { asdf exec direnv "$@"; }
 
 You can do it by copy/paste of the following
 
-```
+```bash
 cat << EOF >> ~/.bashrc
 # Hook direnv into your shell.
 eval "$(asdf exec direnv hook bash)"
@@ -77,7 +77,7 @@ There are two steps which need to be done to set up environment.
 
 You can install `asdf` from [brew](https://brew.sh/) by following command.
 
-```shell
+```bash
 brew install asdf
 ```
 
@@ -87,13 +87,13 @@ Once you install `asdf` you can either continue following the steps outlined in 
 
 Add following line to `~/.config/fish/config.fish`
 
-```
+```bash
 source (brew --prefix asdf)/libexec/asdf.fish
 ```
 
 You can do it by copy/paste of the following line
 
-```
+```bash
 echo -e "\nsource (brew --prefix asdf)/libexec/asdf.fish" >>  ~/.config/fish/config.fish
 ```
 
@@ -107,7 +107,7 @@ Please restart shell and re-run `scripts/cli bootstrap` once you do it
 
 Run following commands to install `direnv` plugin
 
-```shell
+```bash
 asdf plugin-add direnv
 asdf install direnv latest
 asdf global direnv latest
@@ -115,7 +115,7 @@ asdf global direnv latest
 
 Once you have done with above commands add following to the `~/.config/fish/config.fish`
 
-```
+```bash
 # Hook direnv into your shell.
 asdf exec direnv hook fish | source
 
@@ -127,7 +127,7 @@ end
 
 You can do it by copy/paste of the following
 
-```
+```bash
 printf "\
 # Hook direnv into your shell.
 asdf exec direnv hook fish | source
@@ -150,7 +150,7 @@ There are two steps which need to be done to set up environment.
 
 You can install `asdf` from [brew](https://brew.sh/) by following command.
 
-```shell
+```bash
 brew install asdf
 ```
 
@@ -160,13 +160,13 @@ Once you install `asdf` you can either continue following the steps outlined in 
 
 Add following line to `~/.zshrc` (or `${ZDOTDIR}/.zshrc` if you use custom location).
 
-```
+```bash
 source $(brew --prefix asdf)/libexec/asdf.sh
 ```
 
 You can do it by copy/paste of the following line
 
-```
+```bash
 echo -e "\n. $(brew --prefix asdf)/libexec/asdf.sh" >> ${ZDOTDIR:-~}/.zshrc
 ```
 
@@ -180,7 +180,7 @@ Please restart shell and re-run `scripts/cli bootstrap` once you do it
 
 Run following commands to install `direnv` plugin
 
-```shell
+```bash
 asdf plugin-add direnv
 asdf install direnv latest
 asdf global direnv latest
@@ -188,7 +188,7 @@ asdf global direnv latest
 
 Once you have done with above commands add following to the  `~/.zshrc` (or `${ZDOTDIR}/.zshrc` if you use custom location).
 
-```
+```bash
 # Hook direnv into your shell.
 eval "$(asdf exec direnv hook zsh)"
 
@@ -198,7 +198,7 @@ direnv() { asdf exec direnv "$@"; }
 
 You can do it by copy/paste of the following
 
-```
+```bash
 cat << EOF >>  ~/.zshrc
 # Hook direnv into your shell.
 eval "$(asdf exec direnv hook zsh)"
@@ -214,14 +214,9 @@ EOF
 
 ## `direnv`: enable `use asdf` feature
 
-Finally, when both `asdf` and `direnv` are configured you need to tell `direnv` where to find `asdf` provided helpers. This can be done by adding the following line to `~/.config/direnv/direnvrc`.
+Finally, when both `asdf` and `direnv` are configured you need to run the following command to set them up. Once set, close and open your terminal.
 
-```
-source "$(asdf direnv hook asdf)"
-```
-
-You can also do it by copy/paste of the following
-
-```
-echo 'source "$(asdf direnv hook asdf)"' >> ~/.config/direnv/direnvrc
+```bash
+# asdf direnv setup --shell <bash/fish/zsh> --version latest
+asdf direnv setup --shell bash --version latest
 ```

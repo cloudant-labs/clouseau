@@ -126,26 +126,11 @@ function tools::bootstrap() {
             exit 1
             ;;
     esac
-    (console::info "checking asdf setup ... ")
-    if ! cat ${config_file} 2>/dev/null | grep 'asdf.[f]*[i]*sh' >>/dev/null 2>&1 ; then
-        console::warnLn "Action required!!!"
-        console::markdown "tools::bootstrap_topic ${shell}-asdf"
-        exit 1
+    asdf direnv setup --shell ${shell} --version latest
+    if [ $? -eq 0 ]; then
+        (console::infoLn "OK")
+        (console::infoLn "Congratulations!!! Your system is ready.")
     fi
-    (console::infoLn "OK")
-    (console::info "checking direnv setup ... ")
-    if ! asdf current direnv >>/dev/null 2>&1; then
-        console::warnLn "Action required!!!"
-        console::markdown "tools::bootstrap_topic ${shell}-direnv"
-        exit 1
-    fi
-    if ! cat ~/.config/direnv/direnvrc 2>/dev/null | grep 'asdf direnv hook asdf' >>/dev/null 2>&1 ; then
-        console::warnLn "Action required!!!"
-        console::markdown "tools::bootstrap_topic direnv"
-        exit 1
-    fi
-    (console::infoLn "OK")
-    (console::infoLn "Congratulations!!! Your system is ready.")
 }
 
 function tools::deps() {
