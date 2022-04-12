@@ -8,6 +8,9 @@ set -Eeuo pipefail
 
 SELF_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ZIOSE_CLI_DBG=1
+GHE=github.ibm.com
+ISSUES_REPO=https://${GHE}/cloudant/dbcore
+PROJECT_LABEL=area:Search
 
 requirements=()
 . ${SELF_DIR}/console.sh
@@ -46,6 +49,18 @@ function list() {
     help_message | sed -n 's/###/*/p' | sort
 }
 
+ensure_args() {
+    local expected=${1}
+    local help=${2}
+    shift
+    shift
+    if [ "$#" -lt ${expected} ]; then
+        echo -e "\n$(console::red)ERROR: Missing mandatory arguments$(console::reset)\n"
+        console::markdown "${help}"
+        exit 1
+    fi
+}
+
 function help_cmd() {
     if [ "$#" -eq 0 ]; then
         console::markdown short_help
@@ -55,15 +70,75 @@ function help_cmd() {
 }
 
 function deps_cmd() {
-    if [ "$#" -lt 1 ]; then
-        echo -e "\n$(console::red)ERROR: Missing mandatory arguments$(console::reset)\n"
-        console::markdown "help_topic deps"
-        exit 1
-    fi
+    ensure_args 1 "help_topic deps" $@
     local command=${1}
     case "${command}" in
     tree)
         echo "not yet implemented"
+        ;;
+    esac
+}
+
+is_ghe_authenticated() {
+    gh auth status --hostname ${GHE} >>/dev/null 2>&1
+    return
+}
+
+function gh_cmd() {
+    ensure_args 1 "help_topic gh" $@
+    local command=${1}
+    case "${command}" in
+    login)
+        gh auth login --hostname ${GHE} -w --git-protocol https
+        return
+        ;;
+    *)
+        console::errorLn "Unknown command '${command}'"
+        console::markdown "help_topic gh"
+        exit 1
+        ;;
+    esac
+}
+
+function issue_cmd() {
+    ensure_args 1 "help_topic issue" $@
+    if ! is_ghe_authenticated; then
+        echo -e "\n$(console::red)ERROR: Not authenticated with ${GHE}$(console::reset)\n"
+        echo -e "  Please run $(console::bold)cli gh login$(console::reset)\n"
+        exit 1
+    fi
+    local command=${1}
+    shift
+    case "${command}" in
+    create)
+        ensure_args 1 "echo <title>" $@
+        local title="${1}"
+        shift
+        local candidate_parent="${title%:*}"
+        local parent=""
+        if [[ "${candidate_parent}" =~ ^[0-9]+$ ]]; then
+            #if title starts with number use it as parent
+            local parent="Parent: ${ISSUES_REPO}/issues/${candidate_parent}"
+            local title="${title#*:}"
+            gh issue create --repo ${ISSUES_REPO} --title "${title}" --body "${parent}" --label "${PROJECT_LABEL}" $@
+        else
+            gh issue create --repo ${ISSUES_REPO} --title "${title}" --label "${PROJECT_LABEL}" $@
+        fi
+        ;;
+    list)
+        gh issue list --repo ${ISSUES_REPO} --label="${PROJECT_LABEL}"
+        ;;
+    view)
+        ensure_args 1 "echo <issue_id>" $@
+        local issue_id=${1}
+        shift
+        gh issue view --repo ${ISSUES_REPO} ${issue_id} $@
+        ;;
+    comment)
+        ensure_args 1 "echo <issue_id>" $@
+        local issue_id=${1}
+        shift
+        gh issue comment --repo ${ISSUES_REPO} ${issue_id} $@
         ;;
     esac
 }
@@ -91,6 +166,14 @@ case "${command}" in
         ;;
     bootstrap)
         tools::bootstrap $(basename $SHELL)
+        exit $?
+        ;;
+    issue)
+        issue_cmd "$@"
+        exit $?
+        ;;
+    gh)
+        gh_cmd "$@"
         exit $?
         ;;
     *)

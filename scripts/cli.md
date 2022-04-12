@@ -11,6 +11,9 @@ Use `cli help <command>` to get more help.
 * `verify`    - verify developer setup
 * `deps`      - group of dependency management commands
 * `bootstrap` - a step-by-step guide to help set up environment
+* `gh`        - GitHub related commands
+* `issue`     - Issues management
+
 ---
 
 ### `help`: Show help for all commands
@@ -38,5 +41,22 @@ Execute set of check which would verify the environment and print out hints what
 ### `bootstrap`: A step-by-step guide to help set up environment
 
 * `cli bootstrap` - provide shell dependent guidance to do setup
+
+---
+
+### `gh`: Low level access to GitHub related commands
+
+* `cli gh login`         - Login to GitHub
+* `cli gh browse`        - Open the GitHub repository in the web browser
+* `cli gh pr`            - Work with GitHub PRs
+
+---
+
+### `issue`: Issue management
+
+* `cli issue create`  - Create new issue
+* `cli issue list`    - List all issues of the project
+* `cli issue view`    - View given issue
+* `cli issue comment` - Comment on issue
 
 ---
