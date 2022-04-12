@@ -3,7 +3,7 @@ plugins {
     id 'application'
 }
 
-def group = "com.cloudant.ziose.experiments"
+def group = 'com.cloudant.ziose.experiments'
 
 /*
  gradle run -PmainClass=Hello
@@ -21,4 +21,18 @@ dependencies {
     testImplementation(libs.zio.tests)
     testImplementation(libs.junit)
     testImplementation(libs.zio.test.junit)
+}
+
+jar {
+    archivesBaseName = "ziose-${project.hasProperty('type') ? 'test' : 'prod'}-${project.ext.version}"
+    destinationDirectory = project.ext.outputDir
+
+    from configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    if (project.hasProperty('type')) {
+        from sourceSets.toSet().output
+    }
+
+    manifest {
+        attributes 'Main-Class': 'com.cloudant.ziose.experiments.Hello'
+    }
 }

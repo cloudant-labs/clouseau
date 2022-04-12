@@ -1,1 +1,5 @@
 defaultTasks 'run'
+allprojects {
+    project.ext.version = '1.0'
+    project.ext.outputDir = file("${rootDir}/build/jar-files")
+}

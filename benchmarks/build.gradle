@@ -14,3 +14,14 @@ configurations.all {
         extendsFrom = []
     }
 }
+
+jar {
+    archivesBaseName = "ziose-benchmarks-${project.ext.version}"
+    destinationDirectory = project.ext.outputDir
+
+    from configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+
+    manifest {
+        attributes('mainClassName': 'com.cloudant.ziose.benchmarks.ArrayBenchmarks')
+    }
+}
