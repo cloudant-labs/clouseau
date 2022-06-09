@@ -6,17 +6,21 @@ import org.junit.runner.RunWith
 //import zio.test.DefaultRunnableSpec
 import zio.test._
 import zio.test.Assertion._
+import zio.ZIO
 
 @RunWith(classOf[ZTestJUnitRunner])
 class HelloSpec extends JUnitRunnableSpec {
-  def spec: Spec[Any, TestFailure[Throwable], TestSuccess] =
-    suite("Population Exercise")(
+  def spec = suite("Population Exercise")(
       test("successful divide") {
-        assertM(Hello.divide(4, 2))(equalTo(2))
+        for {
+          result <- Hello.divide(4, 2)
+        } yield {
+          assert(result)(equalTo(2))
+        }
       },
       test("failed divide") {
-        assertM(Hello.divide(4, 0).exit)(
-          fails(isSubtype[ArithmeticException](anything))
+        assert(Hello.divide(4, 0))(
+          throws(isSubtype[ArithmeticException](anything))
         )
       }
     )

@@ -15,6 +15,8 @@ application {
 }
 
 dependencies {
+    implementation(libs.scala.compiler)
+    implementation(libs.scala.library)
     implementation(libs.zio.lib)
     implementation(libs.zio.nio)
     implementation(libs.jinterface)
@@ -26,6 +28,7 @@ dependencies {
 jar {
     archivesBaseName = "ziose-${project.hasProperty('type') ? 'test' : 'prod'}-${project.ext.version}"
     destinationDirectory = project.ext.outputDir
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
     from configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     if (project.hasProperty('type')) {
@@ -36,3 +39,4 @@ jar {
         attributes 'Main-Class': 'com.cloudant.ziose.experiments.Hello'
     }
 }
+
