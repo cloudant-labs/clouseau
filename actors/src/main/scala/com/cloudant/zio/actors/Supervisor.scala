@@ -1,4 +1,4 @@
-package zio.actors
+package com.cloudant.zio.actors
 
 import zio.Clock
 import zio.{ IO, RIO, Schedule, URIO, ZIO }

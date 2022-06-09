@@ -1,6 +1,6 @@
-package zio.actors
+package com.cloudant.zio.actors
 
-import zio.actors.Actor.PendingMessage
+import Actor.PendingMessage
 import zio.Clock
 import zio.{ Supervisor => _, _ }
 

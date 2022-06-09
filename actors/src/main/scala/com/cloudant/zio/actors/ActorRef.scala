@@ -1,4 +1,4 @@
-package zio.actors
+package com.cloudant.zio.actors
 
 import java.io.{ IOException, ObjectInputStream, ObjectOutputStream, ObjectStreamException }
 

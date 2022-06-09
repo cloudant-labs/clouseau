@@ -1,8 +1,8 @@
-package zio.actors
+package com.cloudant.zio.actors
 
 import java.util.concurrent.atomic.AtomicBoolean
 
-import zio.actors.Actor.Stateful
+import Actor.Stateful
 import zio.stream.Stream
 import zio.{ Chunk, IO, Ref, Schedule, Task, UIO }
 import zio.test._

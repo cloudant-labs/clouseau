@@ -1,4 +1,4 @@
-package zio.actors
+package com.cloudant.zio.actors
 
 import zio.{ Task, ZIO }
 import zio.config._

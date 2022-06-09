@@ -1,4 +1,4 @@
-package zio.actors
+package com.cloudant.zio.actors
 
 private[actors] final class Envelope(val command: Command, val recipient: String) extends Serializable
 

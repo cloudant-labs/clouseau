@@ -1,9 +1,9 @@
-package zio.actors
+package com.cloudant.zio.actors
 
 import java.io.File
 import java.net.ConnectException
 
-import zio.actors.Actor.Stateful
+import Actor.Stateful
 import zio.{ clock, console, IO }
 import zio.test.DefaultRunnableSpec
 import zio.test._

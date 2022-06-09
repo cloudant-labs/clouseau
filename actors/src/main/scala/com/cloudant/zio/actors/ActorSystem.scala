@@ -1,12 +1,12 @@
-package zio.actors
+package com.cloudant.zio.actors
 
 import java.io.{ ByteArrayInputStream, ByteArrayOutputStream, File, ObjectInputStream, ObjectOutputStream }
 import java.nio.ByteBuffer
 
 import zio.{ Chunk, IO, Promise, RIO, Ref, Task, UIO, ZIO }
-import zio.actors.Actor.{ AbstractStateful, Stateful }
-import zio.actors.ActorSystemUtils._
-import zio.actors.ActorsConfig._
+import Actor.{ AbstractStateful, Stateful }
+import ActorSystemUtils._
+import ActorsConfig._
 import zio.Clock
 import zio.nio.{ Buffer, InetAddress, SocketAddress }
 import zio.nio.channels.{ AsynchronousServerSocketChannel, AsynchronousSocketChannel }
