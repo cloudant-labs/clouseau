@@ -66,7 +66,7 @@ private[actors] sealed abstract class ActorRefSerial[-F[+_]](private var actorPa
     actorPath = rawActorPath.asInstanceOf[String]
   }
 
-  override val path: UIO[String] = UIO(actorPath)
+  override val path: UIO[String] = ZIO.succeed(actorPath)
 }
 
 private[actors] final class ActorRefLocal[-F[+_]](

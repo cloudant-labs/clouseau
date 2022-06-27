@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import Actor.Stateful
 import zio.stream.Stream
-import zio.{ Chunk, IO, Ref, Schedule, Task, UIO }
+import zio.{ Chunk, ZIO, Ref, Schedule, Task, UIO }
 import zio.test._
 import zio.test.Assertion._
 
@@ -39,10 +39,10 @@ object ActorsSpec extends DefaultRunnableSpec {
             context: Context
           ): UIO[(Int, A)] =
             msg match {
-              case Reset               => UIO((0, ()))
-              case Increase            => UIO((state + 1, ()))
-              case Get                 => UIO((state, state))
-              case IncreaseUpTo(upper) => UIO((upper, Stream.fromIterable(state until upper)))
+              case Reset               => ZIO.succeed((0, ()))
+              case Increase            => ZIO.succeed((state + 1, ()))
+              case Get                 => ZIO.succeed((state, state))
+              case IncreaseUpTo(upper) => ZIO.succeed((upper, Stream.fromIterable(state until upper)))
             }
         }
 
@@ -79,8 +79,8 @@ object ActorsSpec extends DefaultRunnableSpec {
                   ref
                     .updateAndGet(_ + 1)
                     .flatMap { v =>
-                      if (v < maxRetries) IO.fail(new Exception("fail"))
-                      else IO.succeed((state, state))
+                      if (v < maxRetries) ZIO.fail(new Exception("fail"))
+                      else ZIO.succeed((state, state))
                     }
               }
           }
@@ -106,7 +106,7 @@ object ActorsSpec extends DefaultRunnableSpec {
             context: Context
           ): IO[Throwable, (Unit, A)] =
             msg match {
-              case Tick => IO.fail(new Exception("fail"))
+              case Tick => ZIO.fail(new Exception("fail"))
             }
         }
 
@@ -136,7 +136,7 @@ object ActorsSpec extends DefaultRunnableSpec {
             context: Context
           ): IO[Throwable, (Unit, A)] =
             msg match {
-              case Letter => IO.succeed(((), ()))
+              case Letter => ZIO.succeed(((), ()))
             }
         }
         for {
@@ -160,7 +160,7 @@ object ActorsSpec extends DefaultRunnableSpec {
             context: Context
           ): IO[Throwable, (Unit, A)] =
             msg match {
-              case Tick => IO.succeed(((), ()))
+              case Tick => ZIO.succeed(((), ()))
             }
         }
         for {
@@ -181,7 +181,7 @@ object ActorsSpec extends DefaultRunnableSpec {
             context: Context
           ): IO[Throwable, (Unit, A)] =
             msg match {
-              case Tick => IO.succeed(((), ()))
+              case Tick => ZIO.succeed(((), ()))
             }
         }
 

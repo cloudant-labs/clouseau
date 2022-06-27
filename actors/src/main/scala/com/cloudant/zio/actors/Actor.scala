@@ -43,11 +43,11 @@ object Actor {
           (fa, promise) = msg
           receiver      = receive(s, fa, context)
           completer     = ((s: S, a: A) => state.set(s) *> promise.succeed(a)).tupled
-          _            <- receiver.foldM(
+          _            <- receiver.foldZIO(
                             e =>
                               supervisor
                                 .supervise(receiver, e)
-                                .foldM(_ => promise.fail(e), completer),
+                                .foldZIO(_ => promise.fail(e), completer),
                             completer
                           )
         } yield ()

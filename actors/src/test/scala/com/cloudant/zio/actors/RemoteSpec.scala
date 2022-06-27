@@ -53,7 +53,7 @@ object SpecUtils {
         case Pong         =>
           (for {
             _ <- console.putStrLn("Received pong")
-            _ <- IO.succeed(1)
+            _ <- ZIO.succeed(1)
           } yield ((), ())).asInstanceOf[IO[Throwable, (Unit, A)]]
 
         case GameInit(to) =>
@@ -75,7 +75,7 @@ object SpecUtils {
       context: Context
     ): IO[Throwable, (Unit, A)] =
       msg match {
-        case UnsafeMessage => IO.fail(new Exception("Error on remote side"))
+        case UnsafeMessage => ZIO.fail(new Exception("Error on remote side"))
       }
   }
 

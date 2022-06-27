@@ -15,7 +15,7 @@ object Supervisor {
   final def none: Supervisor[Any] = retry(Schedule.once)
 
   final def retry[R, A](policy: Schedule[R, Throwable, A]): Supervisor[R] =
-    retryOrElse(policy, (_: Throwable, _: A) => IO.unit)
+    retryOrElse(policy, (_: Throwable, _: A) => ZIO.unit)
 
   final def retryOrElse[R, A](
     policy: Schedule[R, Throwable, A],

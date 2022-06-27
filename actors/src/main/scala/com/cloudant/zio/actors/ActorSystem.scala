@@ -3,7 +3,7 @@ package com.cloudant.zio.actors
 import java.io.{ ByteArrayInputStream, ByteArrayOutputStream, File, ObjectInputStream, ObjectOutputStream }
 import java.nio.ByteBuffer
 
-import zio.{ Chunk, IO, Promise, RIO, Ref, Task, UIO, ZIO }
+import zio.{ Chunk, ZIO, Promise, RIO, Ref, Task, UIO, ZIO }
 import Actor.{ AbstractStateful, Stateful }
 import ActorSystemUtils._
 import ActorsConfig._
@@ -32,7 +32,7 @@ object ActorSystem {
       initActorRefMap <- Ref.make(Map.empty[String, Any])
       config          <- retrieveConfig(configFile)
       remoteConfig    <- retrieveRemoteConfig(sysName, config)
-      actorSystem     <- IO.attempt(new ActorSystem(sysName, config, remoteConfig, initActorRefMap, parentActor = None))
+      actorSystem     <- ZIO.attempt(new ActorSystem(sysName, config, remoteConfig, initActorRefMap, parentActor = None))
     } yield actorSystem
 }
 
@@ -128,7 +128,7 @@ final class ActorSystem private[actors] (
     for {
       map          <- refActorMap.get
       finalName    <- buildFinalName(parentActor.getOrElse(""), actorName)
-      _            <- if (map.contains(finalName)) IO.fail(new Exception(s"Actor $finalName already exists")) else IO.unit
+      _            <- if (map.contains(finalName)) ZIO.fail(new Exception(s"Actor $finalName already exists")) else ZIO.unit
       path          = buildPath(actorSystemName, finalName, remoteConfig)
       derivedSystem = new ActorSystem(actorSystemName, config, remoteConfig, refActorMap, Some(finalName))
       childrenSet  <- Ref.make(Set.empty[ActorRef[Any]])
@@ -162,10 +162,9 @@ final class ActorSystem private[actors] (
           actorRef <- actorMap.get(actorName) match {
             case Some(value) =>
               for {
-                actor <- IO.succeed(value.asInstanceOf[Actor[F]])
+                actor <- ZIO.succeed(value.asInstanceOf[Actor[F]])
               } yield new ActorRefLocal(path, actor)
-            case None        =>
-              IO.fail(new Exception(s"No such actor $actorName in local ActorSystem."))
+            case None        => ZIO.fail(new Exception(s"No such actor $actorName in local ActorSystem."))
           }
         } yield actorRef
     } yield actorRef
@@ -210,15 +209,13 @@ private[actors] object ActorSystemUtils {
         val address         = Addr(value.group(2))
         val port            = Port(value.group(3).toInt)
         val actorName       = "/" + value.group(4)
-        IO.succeed((actorSystemName, address, port, actorName))
-      case Some(value) =>
-        IO.fail(
+        ZIO.succeed((actorSystemName, address, port, actorName))
+      case Some(value) => ZIO.fail(
           new Exception(
             s"Unexpected value ${value}"
           )
         )
-      case None                                 =>
-        IO.fail(
+      case None                                 => ZIO.fail(
           new Exception(
             "Invalid path provided. The pattern is zio://YOUR_ACTOR_SYSTEM_NAME@ADDRES:PORT/RELATIVE_ACTOR_PATH"
           )
@@ -227,10 +224,10 @@ private[actors] object ActorSystemUtils {
 
   private[actors] def buildFinalName(parentActorName: String, actorName: String): Task[String] =
     actorName match {
-      case ""            => IO.fail(new Exception("Actor actor must not be empty"))
-      case null          => IO.fail(new Exception("Actor actor must not be null"))
+      case ""            => ZIO.fail(new Exception("Actor actor must not be empty"))
+      case null          => ZIO.fail(new Exception("Actor actor must not be null"))
       case RegexName(_*) => UIO.succeed(parentActorName + "/" + actorName)
-      case _             => IO.fail(new Exception(s"Invalid actor name provided $actorName. Valid symbols are -_.*$$+:@&=,!~';"))
+      case _             => ZIO.fail(new Exception(s"Invalid actor name provided $actorName. Valid symbols are -_.*$$+:@&=,!~';"))
     }
 
   def buildPath(actorSystemName: String, actorPath: String, remoteConfig: Option[RemoteConfig]): String =
@@ -240,8 +237,8 @@ private[actors] object ActorSystemUtils {
     // configFile.fold[Task[Option[String]]](Task.none) { file =>
     //   IO(Source.fromFile(file)).toManaged(f => UIO(f.close())).use(s => IO.some(s.mkString))
     // }
-    Task.none
+    ZIO.none
 
   def retrieveRemoteConfig(sysName: String, configStr: Option[String]): Task[Option[RemoteConfig]] =
-    Task.none
+    ZIO.none
 }
