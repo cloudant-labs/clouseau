@@ -37,6 +37,11 @@ dependencyResolutionManagement {
             library('slf4j-log4j12', 'org.slf4j:slf4j-log4j12:1.7.32')
             library('zio-logging', "dev.zio:zio-logging_$scalaShortVersion:2.0.1")
 
+            // config
+            alias('zio-config-typesafe').to('dev.zio', "zio-config-typesafe_$scalaShortVersion").versionRef('zio-vsn')
+            alias('zio-config-magnolia').to('dev.zio', "zio-config-magnolia_$scalaShortVersion").versionRef('zio-vsn')
+            alias('zio-config-refined').to('dev.zio', "zio-config-refined_$scalaShortVersion").versionRef('zio-vsn')
+
             // metrics
             library('zio-zmx', 'dev.zio:zio-zmx_3:0.0.11')
 
