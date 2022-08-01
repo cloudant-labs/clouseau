@@ -1,10 +1,10 @@
 package com.cloudant.zio.actors
 
 import zio.{ Task, ZIO }
-import zio.config._
-import zio.config.ConfigDescriptor._
+import _root_.zio.config._
+import _root_.zio.config.ConfigDescriptor._
 //import zio.config.typesafe.TypesafeConfig
-import zio.config.typesafe._
+import _root_.zio.config.typesafe._
 import zio.Tag
 
 private[actors] object ActorsConfig {

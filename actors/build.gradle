@@ -17,9 +17,11 @@ repositories {
 }
 
 dependencies {
+    implementation(libs.scala.compiler.bridge)
     implementation(libs.scala.library)
     implementation(libs.zio.lib)
     implementation(libs.zio.nio)
+    implementation(libs.jinterface)
     testImplementation(libs.zio.tests)
     testImplementation(libs.junit)
     testImplementation(libs.zio.test.junit)

@@ -4,7 +4,7 @@ import java.io.{ IOException, ObjectInputStream, ObjectOutputStream, ObjectStrea
 
 import zio.nio.{ InetAddress, InetSocketAddress, SocketAddress }
 import zio.nio.channels.AsynchronousSocketChannel
-import zio.{ IO, Runtime, Task, UIO }
+import zio.{ZIO, IO, Runtime, Task, UIO }
 
 /**
  * Reference to actor that might reside on local JVM instance or be available via remote communication

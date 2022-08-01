@@ -3,7 +3,7 @@ package com.cloudant.zio.actors
 import java.io.{ ByteArrayInputStream, ByteArrayOutputStream, File, ObjectInputStream, ObjectOutputStream }
 import java.nio.ByteBuffer
 
-import zio.{ Chunk, ZIO, Promise, RIO, Ref, Task, UIO, ZIO }
+import zio.{ Chunk, ZIO, Promise, RIO, Ref, Task, UIO }
 import Actor.{ AbstractStateful, Stateful }
 import ActorSystemUtils._
 import ActorsConfig._
@@ -226,7 +226,7 @@ private[actors] object ActorSystemUtils {
     actorName match {
       case ""            => ZIO.fail(new Exception("Actor actor must not be empty"))
       case null          => ZIO.fail(new Exception("Actor actor must not be null"))
-      case RegexName(_*) => UIO.succeed(parentActorName + "/" + actorName)
+      case RegexName(_*) => ZIO.succeed(parentActorName + "/" + actorName)
       case _             => ZIO.fail(new Exception(s"Invalid actor name provided $actorName. Valid symbols are -_.*$$+:@&=,!~';"))
     }
 
