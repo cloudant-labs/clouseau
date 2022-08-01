@@ -2,7 +2,9 @@
 java semeru-openj9-17.0.3+7_openj9-0.32.0
 gradle 7.4.2
 scala 2.13.8
-erlang 23.3.2
+# erlang needs java so it should be after it in the list
+# the only version which supports observer
+erlang 25.0.3
 coursier 2.1.0-M5
 
 # required tools
