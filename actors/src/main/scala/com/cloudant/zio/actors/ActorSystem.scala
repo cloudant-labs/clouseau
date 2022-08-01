@@ -3,6 +3,8 @@ package com.cloudant.zio.actors
 import java.io.{ ByteArrayInputStream, ByteArrayOutputStream, File, ObjectInputStream, ObjectOutputStream }
 import java.nio.ByteBuffer
 
+import zio.Console
+
 import zio.{ Chunk, ZIO, Promise, RIO, Ref, Task, UIO }
 import Actor.{ AbstractStateful, Stateful }
 import ActorSystemUtils._
@@ -11,7 +13,21 @@ import zio.Clock
 import zio.nio.{ Buffer, InetAddress, SocketAddress }
 import zio.nio.channels.{ AsynchronousServerSocketChannel, AsynchronousSocketChannel }
 
+import com.ericsson.otp.erlang._;
+
 import scala.io.Source
+
+class Pid(
+  override val node: String,
+  override val id: Int,
+  override val serial: Int,
+  override val creation: Int = 4
+) extends com.ericsson.otp.erlang.OtpErlangPid(
+  node, id, serial, creation
+) {
+  override def toString(): String =
+    "<" + id + "." + serial + "." + creation + ">"
+}
 
 /**
  * Object providing constructor for Actor System with optional remoting module.
@@ -29,10 +45,13 @@ object ActorSystem {
    */
   def apply(sysName: String, configFile: Option[File] = None): Task[ActorSystem] =
     for {
-      initActorRefMap <- Ref.make(Map.empty[String, Any])
+      initActorRefMap <- Ref.make(Map.empty[Pid, Any])
       config          <- retrieveConfig(configFile)
-      remoteConfig    <- retrieveRemoteConfig(sysName, config)
-      actorSystem     <- ZIO.attempt(new ActorSystem(sysName, config, remoteConfig, initActorRefMap, parentActor = None))
+      remoteConfig    <- retrieveRemoteConfig(sysName, config).debug("remoteConfig")
+      actorSystem     <- ZIO.attempt(new ActorSystem(sysName, 1, 0, config, remoteConfig, initActorRefMap, parentActor = None))
+      _               <- ZIO
+                           .succeed(remoteConfig)
+                           .flatMap(_.fold[Task[Unit]](ZIO.unit)(c => actorSystem.startNode(c.node, c.cookie)))
     } yield actorSystem
 }
 
@@ -40,7 +59,7 @@ object ActorSystem {
  * Context for actor used inside Stateful which provides self actor reference and actor creation/selection API
  */
 final class Context private[actors] (
-  private val path: String,
+  private val pid: Pid,
   private val actorSystem: ActorSystem,
   private val childrenRef: Ref[Set[ActorRef[Any]]]
 ) {
@@ -50,7 +69,7 @@ final class Context private[actors] (
    *
    * @return actor reference in a task
    */
-  def self[F[+_]]: Task[ActorRef[F]] = actorSystem.select(path)
+  def self[F[+_]]: Task[ActorRef[F]] = actorSystem.select(pid)
 
   /**
    * Creates actor and registers it to dependent actor system
@@ -81,12 +100,12 @@ final class Context private[actors] (
    * fail with ActorNotFoundException.
    * Otherwise it will always create remote actor stub internally and return ActorRef as if it was found.   *
    *
-   * @param path - absolute path to the actor
+   * @param pid - pid of the actor
    * @tparam F1 - actor's DSL type
    * @return task if actor reference. Selection process might fail with "Actor not found error"
    */
-  def select[F1[+_]](path: String): Task[ActorRef[F1]] =
-    actorSystem.select(path)
+  def select[F1[+_]](pid: Pid): Task[ActorRef[F1]] =
+    actorSystem.select(pid)
 
   /* INTERNAL API */
 
@@ -102,11 +121,30 @@ final class Context private[actors] (
  */
 final class ActorSystem private[actors] (
   private[actors] val actorSystemName: String,
+  private var pidCount: Int = 0,
+  private var serial: Int = 0,
   private[actors] val config: Option[String],
   private val remoteConfig: Option[RemoteConfig],
-  private val refActorMap: Ref[Map[String, Any]],
-  private val parentActor: Option[String]
+  private val refActorMap: Ref[Map[Pid, Any]],
+  private val parentActor: Option[Pid]
 ) {
+  def creation: Int =
+      0
+
+  def newPid(): ZIO[Any, Throwable, Pid] = ZIO.attemptBlocking {
+    val pid: Pid = new Pid(actorSystemName, pidCount, serial, creation)
+    // https://github.com/erlang/otp/blob/7e332d22c4cd2a1da9f7207c4e978d3c5ccb944e/lib/jinterface/java_src/com/ericsson/otp/erlang/OtpLocalNode.java#L119:L127'
+    pidCount += 1
+    if (pidCount > 0x7fff) {
+      pidCount = 0
+
+      serial += 1
+      if (serial > 0x1fff) { /* 13 bits */
+        serial = 0
+      }
+    }
+    pid
+  }
 
   /**
    * Creates actor and registers it to dependent actor system
@@ -127,18 +165,17 @@ final class ActorSystem private[actors] (
   ): RIO[R with Clock, ActorRef[F]] =
     for {
       map          <- refActorMap.get
-      finalName    <- buildFinalName(parentActor.getOrElse(""), actorName)
-      _            <- if (map.contains(finalName)) ZIO.fail(new Exception(s"Actor $finalName already exists")) else ZIO.unit
-      path          = buildPath(actorSystemName, finalName, remoteConfig)
-      derivedSystem = new ActorSystem(actorSystemName, config, remoteConfig, refActorMap, Some(finalName))
+      pid          <- newPid().debug("newPid")
+      _            <- if (map.contains(pid)) ZIO.fail(new Exception(s"Actor $pid already exists")) else ZIO.unit
+      derivedSystem = new ActorSystem(actorSystemName, pidCount, serial, config, remoteConfig, refActorMap, Some(pid))
       childrenSet  <- Ref.make(Set.empty[ActorRef[Any]])
       actor        <- stateful.makeActor(
                         sup,
-                        new Context(path, derivedSystem, childrenSet),
-                        () => dropFromActorMap(path, childrenSet)
+                        new Context(pid, derivedSystem, childrenSet),
+                        () => dropFromActorMap(pid, childrenSet)
                       )(init)
-      _            <- refActorMap.set(map + (finalName -> actor))
-    } yield new ActorRefLocal[F](path, actor)
+      _            <- refActorMap.set(map + (pid -> actor))
+    } yield new ActorRefLocal[F](pid, actor)
 
   /**
    * Looks up for actor on local actor system, and in case of its absence - delegates it to remote internal module.
@@ -146,25 +183,23 @@ final class ActorSystem private[actors] (
    * fail with ActorNotFoundException.
    * Otherwise it will always create remote actor stub internally and return ActorRef as if it was found.   *
    *
-   * @param path - absolute path to the actor
+   * @param pid - pid of the actor
    * @tparam F - actor's DSL type
    * @return task if actor reference. Selection process might fail with "Actor not found error"
    */
-  def select[F[+_]](path: String): Task[ActorRef[F]] =
+  def select[F[+_]](pid: Pid): Task[ActorRef[F]] =
     for {
-      solvedPath                             <- resolvePath(path)
-      (pathActSysName, addr, port, actorName) = solvedPath
-
       actorMap <- refActorMap.get
 
       actorRef <-
         for {
-          actorRef <- actorMap.get(actorName) match {
+          actorRef <- actorMap.get(pid) match {
             case Some(value) =>
               for {
                 actor <- ZIO.succeed(value.asInstanceOf[Actor[F]])
-              } yield new ActorRefLocal(path, actor)
-            case None        => ZIO.fail(new Exception(s"No such actor $actorName in local ActorSystem."))
+              } yield new ActorRefLocal(pid, actor)
+            case None        =>
+              ZIO.fail(new Exception(s"No such actor $pid in local ActorSystem."))
           }
         } yield actorRef
     } yield actorRef
@@ -182,57 +217,53 @@ final class ActorSystem private[actors] (
 
   /* INTERNAL API */
 
-  private[actors] def dropFromActorMap(path: String, childrenRef: Ref[Set[ActorRef[Any]]]): Task[Unit] =
+  private[actors] def dropFromActorMap(pid: Pid, childrenRef: Ref[Set[ActorRef[Any]]]): Task[Unit] =
     for {
-      solvedPath          <- resolvePath(path)
-      (_, _, _, actorName) = solvedPath
-      _                   <- refActorMap.update(_ - actorName)
+      _                   <- refActorMap.update(_ - pid)
       children            <- childrenRef.get
       _                   <- ZIO.foreachDiscard(children)(_.stop)
       _                   <- childrenRef.set(Set.empty)
     } yield ()
+
+  def createNode(
+      name: String,
+      cookie: String
+  ): ZIO[Any, Throwable, OtpNode] = ZIO.attemptBlocking {
+    var node = new OtpNode(name, cookie)
+    node.ping("ziose@127.0.0.1", 2000)
+    node
+  }
+
+  private def startNode(node: ActorsConfig.Node, cookie: ActorsConfig.Cookie): Task[Unit] =
+    for {
+      // TODO: use ZIO supervisor to restart node with exponencial delay in case of errors
+      node <- createNode(node.value, cookie.value)
+      // _ <- receiveLoop(node).fold(
+      //         e =>
+      //           Console.printLine(s"Execution failed with error $e") *> ZIO.succeed(
+      //             1
+      //           ),
+      //         _ => ZIO.succeed(0)
+      //       )
+    } yield ()
+
+  private def receiveLoop(
+        node: OtpNode
+    ): ZIO[Any with Console, Throwable, Unit] =
+      for {
+        p <- Promise.make[Nothing, Unit]
+        // loopEffect = for {
+        // } yield ()
+        // _ <- loopEffect
+        //   .onTermination(_ => ZIO.unit)
+        //   .fork
+        _ <- p.await
+      } yield ()
 }
 
 /* INTERNAL API */
 
 private[actors] object ActorSystemUtils {
-
-  private val RegexName = "[\\w+|\\d+|(\\-_.*$+:@&=,!~';.)|\\/]+".r
-
-  private val RegexFullPath =
-    "^(?:zio:\\/\\/)(\\w+)[@](\\d+\\.\\d+\\.\\d+\\.\\d+)[:](\\d+)[/]([\\w+|\\d+|\\-_.*$+:@&=,!~';.|\\/]+)$".r
-
-  def resolvePath(path: String): Task[(String, Addr, Port, String)] =
-    RegexFullPath.findFirstMatchIn(path) match {
-      case Some(value) if value.groupCount == 4 =>
-        val actorSystemName = value.group(1)
-        val address         = Addr(value.group(2))
-        val port            = Port(value.group(3).toInt)
-        val actorName       = "/" + value.group(4)
-        ZIO.succeed((actorSystemName, address, port, actorName))
-      case Some(value) => ZIO.fail(
-          new Exception(
-            s"Unexpected value ${value}"
-          )
-        )
-      case None                                 => ZIO.fail(
-          new Exception(
-            "Invalid path provided. The pattern is zio://YOUR_ACTOR_SYSTEM_NAME@ADDRES:PORT/RELATIVE_ACTOR_PATH"
-          )
-        )
-    }
-
-  private[actors] def buildFinalName(parentActorName: String, actorName: String): Task[String] =
-    actorName match {
-      case ""            => ZIO.fail(new Exception("Actor actor must not be empty"))
-      case null          => ZIO.fail(new Exception("Actor actor must not be null"))
-      case RegexName(_*) => ZIO.succeed(parentActorName + "/" + actorName)
-      case _             => ZIO.fail(new Exception(s"Invalid actor name provided $actorName. Valid symbols are -_.*$$+:@&=,!~';"))
-    }
-
-  def buildPath(actorSystemName: String, actorPath: String, remoteConfig: Option[RemoteConfig]): String =
-    s"zio://$actorSystemName@${remoteConfig.map(c => c.addr.value + ":" + c.port.value).getOrElse("0.0.0.0:0000")}$actorPath"
-
   def retrieveConfig(configFile: Option[File]): Task[Option[String]] =
     // configFile.fold[Task[Option[String]]](Task.none) { file =>
     //   IO(Source.fromFile(file)).toManaged(f => UIO(f.close())).use(s => IO.some(s.mkString))
@@ -240,5 +271,8 @@ private[actors] object ActorSystemUtils {
     ZIO.none
 
   def retrieveRemoteConfig(sysName: String, configStr: Option[String]): Task[Option[RemoteConfig]] =
-    ZIO.none
+    ZIO.some(new RemoteConfig(
+      new ActorsConfig.Node("mynode@127.0.0.1"),
+      new ActorsConfig.Cookie("monster")
+    ))
 }

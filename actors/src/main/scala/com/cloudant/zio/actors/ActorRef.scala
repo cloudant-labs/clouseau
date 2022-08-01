@@ -33,10 +33,10 @@ sealed trait ActorRef[-F[+_]] extends Serializable {
   def !(fa: F[_]): Task[Unit]
 
   /**
-   * Get referential absolute actor path
+   * Get referential actor pid
    * @return
    */
-  val path: UIO[String]
+  val pid: UIO[Pid]
 
   /**
    * Stops actor and all its children
@@ -51,40 +51,21 @@ private[actors] object ActorRefSerial {
   private[actors] val runtimeForResolve = Runtime.default
 }
 
-private[actors] sealed abstract class ActorRefSerial[-F[+_]](private var actorPath: String)
+private[actors] sealed abstract class ActorRefSerial[-F[+_]](private var actorPid: Pid)
     extends ActorRef[F]
     with Serializable {
   import ActorSystemUtils._
 
-  @throws[IOException]
-  protected def writeObject1(out: ObjectOutputStream): Unit =
-    out.writeObject(actorPath)
-
-  @throws[IOException]
-  protected def readObject1(in: ObjectInputStream): Unit = {
-    val rawActorPath = in.readObject()
-    actorPath = rawActorPath.asInstanceOf[String]
-  }
-
-  override val path: UIO[String] = ZIO.succeed(actorPath)
+  override val pid: UIO[Pid] = ZIO.succeed(actorPid)
 }
 
 private[actors] final class ActorRefLocal[-F[+_]](
-  private val actorName: String,
+  private val actorPid: Pid,
   actor: Actor[F]
-) extends ActorRefSerial[F](actorName) {
+) extends ActorRefSerial[F](actorPid) {
   override def ?[A](fa: F[A]): Task[A] = actor ? fa
 
   override def !(fa: F[_]): Task[Unit] = actor ! fa
 
   override val stop: Task[List[_]] = actor.stop
-
-  @throws[IOException]
-  private def writeObject(out: ObjectOutputStream): Unit =
-    super.writeObject1(out)
-
-  @throws[IOException]
-  private def readObject(in: ObjectInputStream): Unit =
-    super.readObject1(in)
-
 }

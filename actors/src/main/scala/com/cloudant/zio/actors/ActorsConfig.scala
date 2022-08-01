@@ -8,7 +8,7 @@ import _root_.zio.config.typesafe._
 import zio.Tag
 
 private[actors] object ActorsConfig {
-  final case class Addr(value: String) extends AnyVal
-  final case class Port(value: Int)    extends AnyVal
-  final case class RemoteConfig(addr: Addr, port: Port)
+  final case class Node(value: String) extends AnyVal
+  final case class Cookie(value: String)    extends AnyVal
+  final case class RemoteConfig(node: Node, cookie: Cookie)
 }
