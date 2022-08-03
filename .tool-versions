@@ -1,5 +1,5 @@
 # build tools
-java openjdk-17
+java semeru-openj9-17.0.3+7_openj9-0.32.0
 gradle 7.4.2
 scala 2.13.8
 erlang 23.3.2
