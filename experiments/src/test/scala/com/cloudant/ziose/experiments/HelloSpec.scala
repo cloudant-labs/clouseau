@@ -11,19 +11,19 @@ import zio.ZIO
 @RunWith(classOf[ZTestJUnitRunner])
 class HelloSpec extends JUnitRunnableSpec {
   def spec = suite("Population Exercise")(
-      test("successful divide") {
-        for {
-          result <- Hello.divide(4, 2)
-        } yield {
-          assert(result)(equalTo(2))
-        }
-      },
-      test("failed divide") {
-        assert(Hello.divide(4, 0))(
-          throws(isSubtype[ArithmeticException](anything))
-        )
+    test("successful divide") {
+      for {
+        result <- Hello.divide(4, 2)
+      } yield {
+        assert(result)(equalTo(2))
       }
-    )
+    },
+    test("failed divide") {
+      assert(Hello.divide(4, 0))(
+        throws(isSubtype[ArithmeticException](anything))
+      )
+    }
+  )
 }
 
 /*
