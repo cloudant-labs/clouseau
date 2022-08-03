@@ -15,6 +15,16 @@ test: build
 	@epmd &
 	@./gradlew check -i --offline
 
+.PHONY: jar
+# target: jar - Generate JAR files for production
+jar: gradle/wrapper/gradle-wrapper.jar
+	@./gradlew jar
+
+.PHONY: jartest
+# target: jartest - Generate a JAR file containing tests
+jartest: gradle/wrapper/gradle-wrapper.jar
+	@./gradlew jar -Ptype=test
+
 .PHONY: gradle/wrapper/gradle-wrapper.jar
 gradle/wrapper/gradle-wrapper.jar: .tool-versions
 	@gradle wrapper --gradle-version \
