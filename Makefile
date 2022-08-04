@@ -1,10 +1,13 @@
 .PHONY: build
 # target: build - Build package, run tests and create distribution
 build: gradle/wrapper/gradle-wrapper.jar
-	@./gradlew build --offline -x test
+	@./gradlew build -x test
 
 .PHONY: deps
 # target: deps - Download all dependencies for offline development
+# this target is not working correctly yet
+# It fails with 'Could not download compiler-bridge_2.13-1.3.5-sources.jar'
+# when we try to build with `--offline` flag
 deps: gradle/wrapper/gradle-wrapper.jar
 	@echo "==> downloading dependencies..."
 	@./gradlew deps --refresh-dependencies
@@ -37,6 +40,7 @@ clean:
 # target: clean-all - Clean up the project to start afresh
 clean-all:
 	@rm -rf gradlew gradlew.bat .gradle .gradletasknamecache gradle
+	@gradle --stop
 	@find . -name .gradle | xargs rm -rf
 	@find . -name build | xargs rm -rf
 	@echo '==> keep in mind that some state is stored in ~/.gradle/caches/'
