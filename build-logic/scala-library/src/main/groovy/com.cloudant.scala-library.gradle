@@ -21,3 +21,9 @@ configurations.all {
         extendsFrom = []
     }
 }
+
+test {
+    testLogging {
+        events "passed", "skipped", "failed", "standardOut", "standardError"
+    }
+}

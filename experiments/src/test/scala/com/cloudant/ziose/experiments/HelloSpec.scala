@@ -15,12 +15,12 @@ class HelloSpec extends JUnitRunnableSpec {
       for {
         result <- Hello.divide(4, 2)
       } yield {
-        assert(result)(equalTo(2))
+        assertTrue(result == 2)
       }
     },
     test("failed divide") {
-      assert(Hello.divide(4, 0))(
-        throws(isSubtype[ArithmeticException](anything))
+      assertZIO(Hello.divide(4, 0).exit)(
+        fails(isSubtype[ArithmeticException](anything))
       )
     }
   )
