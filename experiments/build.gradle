@@ -18,6 +18,7 @@ dependencies {
     implementation(libs.scala.compiler)
     implementation(libs.scala.library)
     implementation(libs.zio.lib)
+    implementation(libs.zio.logging)
     implementation(libs.zio.nio)
     implementation(libs.jinterface)
     testImplementation(libs.zio.tests)

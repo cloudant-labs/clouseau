@@ -3,10 +3,9 @@ package com.cloudant.ziose.experiments
 import zio.test.junit.ZTestJUnitRunner
 import zio.test.junit.JUnitRunnableSpec
 import org.junit.runner.RunWith
-//import zio.test.DefaultRunnableSpec
+import zio._
 import zio.test._
 import zio.test.Assertion._
-import zio.ZIO
 
 @RunWith(classOf[ZTestJUnitRunner])
 class HelloSpec extends JUnitRunnableSpec {
@@ -21,6 +20,19 @@ class HelloSpec extends JUnitRunnableSpec {
     test("failed divide") {
       assertZIO(Hello.divide(4, 0).exit)(
         fails(isSubtype[ArithmeticException](anything))
+      )
+    },
+    test("test logger") {
+      for {
+        code   <- Hello.run
+        logs   <- ZTestLogger.logOutput
+        output <- TestConsole.output
+      } yield assertTrue(
+        output.nonEmpty &&
+          code == ExitCode.success &&
+          logs(0).logLevel == LogLevel.Info &&
+          logs(0).message() == "name: Ziose" &&
+          logs(1).logLevel == LogLevel.Error
       )
     }
   )
