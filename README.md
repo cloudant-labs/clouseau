@@ -19,10 +19,10 @@ by [`asdf-direnv`](https://github.com/asdf-community/asdf-direnv) plugin.
 All tools managed by `asdf` are configured in `.tool-versions` which looks somewhat like the following:
 
 ```
-java openjdk-17
-gradle 7.2
-scala 2.13.7
-erlang 23.3.2
+java semeru-openj9-_openj9-
+gradle 7.5.1
+scala 2.13.8
+erlang 25.0.3
 ```
 
 The setup also tracks the host dependencies which are required by the project. These dependencies are specified

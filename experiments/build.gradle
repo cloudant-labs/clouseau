@@ -1,6 +1,7 @@
 plugins {
     id 'com.cloudant.scala-library'
     id 'application'
+    id 'org.scoverage' version "5.0.0"
 }
 
 def group = 'com.cloudant.ziose.experiments'

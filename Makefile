@@ -16,7 +16,13 @@ deps: gradle/wrapper/gradle-wrapper.jar
 # target: test - Run all tests
 test: build
 	@epmd &
-	@./gradlew check -i --offline
+	@./gradlew check -i
+
+.PHONY: cover
+# target: cover - Generate code coverage report
+cover: build
+	@./gradlew reportScoverage
+	@open experiments/build/reports/scoverage/index.html
 
 .PHONY: jar
 # target: jar - Generate JAR files for production
