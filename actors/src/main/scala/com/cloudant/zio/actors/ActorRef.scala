@@ -1,10 +1,6 @@
 package com.cloudant.zio.actors
 
-import java.io.{ IOException, ObjectInputStream, ObjectOutputStream, ObjectStreamException }
-
-import zio.nio.{ InetAddress, InetSocketAddress, SocketAddress }
-import zio.nio.channels.AsynchronousSocketChannel
-import zio.{ZIO, IO, Runtime, Task, UIO }
+import zio.{ZIO, Runtime, Task, UIO }
 
 /**
  * Reference to actor that might reside on local JVM instance or be available via remote communication

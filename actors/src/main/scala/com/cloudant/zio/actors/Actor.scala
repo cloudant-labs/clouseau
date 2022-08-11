@@ -112,7 +112,7 @@ private[actors] final class Actor[-F[+_]](
   //   } yield tall
   val stop: Task[List[_]] =
       for {
-        tall <- queue.takeAll
+        _    <- queue.takeAll
         _    <- queue.shutdown
         _    <- optOutActorSystem()
       } yield Nil

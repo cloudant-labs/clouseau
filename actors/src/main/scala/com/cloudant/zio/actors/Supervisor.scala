@@ -1,7 +1,7 @@
 package com.cloudant.zio.actors
 
 import zio.Clock
-import zio.{ IO, RIO, Schedule, URIO, ZIO }
+import zio.{ RIO, Schedule, URIO, ZIO }
 
 private[actors] trait Supervisor[-R] {
   def supervise[R0 <: R, A](zio: RIO[R0, A], error: Throwable): ZIO[R0 with Clock, Unit, A]
