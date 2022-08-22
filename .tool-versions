@@ -1,5 +1,5 @@
 # build tools
-java semeru-openj9-_openj9-
+java openjdk-18.0.2.1
 gradle 7.5.1
 scala 2.13.8
 # erlang needs java so it should be after it in the list
