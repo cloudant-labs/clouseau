@@ -72,9 +72,11 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
   }
 
   private def recursivelyDelete(fileOrDir: File) {
-    if (fileOrDir.isDirectory)
+    if (fileOrDir.isDirectory) {
       for (file <- fileOrDir.listFiles)
         recursivelyDelete(file)
+      fileOrDir.delete
+    }
     if (fileOrDir.isFile)
       fileOrDir.delete
   }
