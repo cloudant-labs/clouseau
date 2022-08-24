@@ -3,6 +3,10 @@
 The `ziose` project is an attempt to replace foundation of [`clouseau`](https://github.com/cloudant-labs/clouseau/) with
 a [`ZIO`](https://github.com/zio/zio) as an asynchronous scheduler.
 
+## Build status
+
+[![Build Status](https://wcp-cloudantnosqldb-prod-jenkins.swg-devops.com/job/cloudant/job/ziose/job/master/badge/icon)](https://wcp-cloudantnosqldb-prod-jenkins.swg-devops.com/job/cloudant/job/ziose/job/master/)
+
 ## Disclaimer
 
 This project is highly experimental and therefore, NOT SUPPORTED. Moreover, we can and will change the API as necessary.

@@ -5,14 +5,17 @@ BIN_DIR=${SELF_DIR}/../bin
 
 
 # call it as
-# result=( $(tools::requires) )
+# result=( $(tools::requires "${os}") )
+# where `os` is one of `darwin | linux`
 tools::requires() {
     local requirements=(
         "grep"
         "cat"
         "sed"
-        "brew"
     )
+    if [ "${1}" == "darwin" ]; then
+        requirements+=("brew")
+    fi
     echo "${requirements[@]}"
 }
 

@@ -1,3 +1,45 @@
+PROJECT_NAME=ziose
+BUILD_DIR=$(shell pwd)
+GIT_COMMIT?=$(shell git rev-parse HEAD)
+GIT_REPOSITORY?=$(shell git config --get remote.origin.url)
+ifeq ($(PROJECT_VERSION),)
+PROJECT_VERSION := $(shell cat $(BUILD_DIR)/build.gradle | sed -e '/[[:space:]]*project[.]ext[.]version[[:space:]]*=[[:space:]]*/!d' -e "s///g" -e "s/\'//g")
+endif
+BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%TZ")
+# tput in docker require TERM variable
+TERM?=xterm
+
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+	OS=linux
+endif
+ifeq ($(UNAME_S),Darwin)
+	OS=darwin
+endif
+
+ENCODED_GHE_USR=$(shell echo ${GHE_USR} | sed 's/@/%40/g' )
+GHE_AUTH_URL=https://${ENCODED_GHE_USR}:${GHE_PSW}@github.ibm.com
+
+ENCODED_ARTIFACTORY_USR=$(shell echo ${ARTIFACTORY_USR} | sed 's/@/%40/g' )
+
+KNOWN_CVEs = \
+
+
+define extract
+echo "$(1)  $(2) $(3)" && \
+CONTAINER_ID=`docker create --read-only $(1) dummy` \
+&& echo "Copying binary $(2) from container $$CONTAINER_ID" \
+&& docker cp $$CONTAINER_ID:$(2) $(3) 2> /dev/null \
+&& docker rm -f $$CONTAINER_ID 2> /dev/null
+endef
+
+ifeq ($(JENKINS_URL),)
+  # Local invocation
+  UBI_OPENJDK17_DIGEST?=$(shell docker manifest inspect registry.access.redhat.com/ubi8/openjdk-17:latest \
+	| jq -r '.manifests |  to_entries[] | select(.value.platform.architecture == "arm64") | .value.digest' \
+  )
+endif
+
 .PHONY: build
 # target: build - Build package, run tests and create distribution
 build: gradle/wrapper/gradle-wrapper.jar
@@ -42,6 +84,7 @@ gradle/wrapper/gradle-wrapper.jar: .tool-versions
 # target: clean - Clean Java/Scala artifacts
 clean:
 	@./gradlew clean
+	@rm -f gradle/manifest_gradle.json
 
 # target: clean-all - Clean up the project to start afresh
 clean-all:
@@ -78,3 +121,45 @@ help:
 # target: tree - Print project source tree
 tree:
 	@tree -I '.gradle' -I 'build' --matchdirs
+
+
+# CI Pipeline
+
+build-in-docker: login-artifactory-docker
+	@DOCKER_BUILDKIT=0 BUILDKIT_PROGRESS=plain docker build \
+		--build-arg UBI_OPENJDK17_DIGEST=${UBI_OPENJDK17_DIGEST} \
+		--build-arg ARTIFACTORY_USR=${ARTIFACTORY_USR} \
+		--build-arg ARTIFACTORY_PSW=${ARTIFACTORY_PSW} \
+		--build-arg TERM=${TERM} \
+		--pull --no-cache --rm \
+		-t ${PROJECT_NAME}:${GIT_COMMIT} \
+		.
+	@$(call extract,${PROJECT_NAME}:${GIT_COMMIT},/artifacts,.)
+	@mkdir -p $(BUILD_DIR)/ci-artifacts/
+	@cp -R artifacts/* $(BUILD_DIR)/ci-artifacts/
+
+.PHONY: ci-copy-gradle-dependencies-metadata
+ci-copy-gradle-dependencies-metadata:
+	mkdir -p $(BUILD_DIR)/gradle/
+	@cp ci-artifacts/manifest_gradle.json $(BUILD_DIR)/gradle/
+	@cp ci-artifacts/verification-metadata.xml $(BUILD_DIR)/gradle/
+
+# Authenticate with our Artifactory Docker registry before pulling any images
+login-artifactory-docker: check-env-artifactory
+	# For UBI images
+	@echo "Docker login Artifactory (ubi)"
+	@docker login -u "${ARTIFACTORY_USR}" -p "${ARTIFACTORY_PSW}" wcp-cloudant-registry-access-redhat-docker-remote.artifactory.swg-devops.com
+
+	# For all other (public) images
+	@echo "Docker login Artifactory (docker hub)"
+	@docker login -u "${ARTIFACTORY_USR}" -p "${ARTIFACTORY_PSW}" wcp-cloudant-registry-hub-docker-remote.artifactory.swg-devops.com
+
+check-env-artifactory:
+	@if [ -z "$${ARTIFACTORY_USR}" ]; then echo "Error: ARTIFACTORY_USR is undefined"; exit 1; fi
+	@if [ -z "$${ARTIFACTORY_PSW}" ]; then echo "Error: ARTIFACTORY_PSW is undefined"; exit 1; fi
+
+# Required by CI's releng-pipeline-library
+.PHONY: version
+# target: version - Print current version
+version:
+	@echo $(PROJECT_VERSION)

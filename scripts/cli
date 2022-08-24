@@ -9,14 +9,16 @@ set -Eeuo pipefail
 SELF_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 GHE=github.ibm.com
 ISSUES_REPO=https://${GHE}/cloudant/dbcore
-PROJECT_LABEL=area:Search
+PROJECT_LABEL=type:technical-foundation
+
+os="$(uname -s | tr '[:upper:]' '[:lower:]')"
 
 requirements=()
 . "${SELF_DIR}"/console.sh
 . "${SELF_DIR}"/tools.sh
 requirements=(
     "$(console::requires)"
-    "$(tools::requires)"
+    "$(tools::requires ${os})"
     "awk"
 )
 

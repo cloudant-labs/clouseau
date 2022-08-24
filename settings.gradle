@@ -7,11 +7,17 @@ def scalaShortVersion = scalaLongVersion.tokenize('.').dropRight(1).join('.')
 
 dependencyResolutionManagement {
     repositories {
-        mavenCentral()
+        mavenCentral{ name = 'mavenCentral' }
         flatDir {
             dirs 'deps'
         }
     }
+
+    ext.provenance = [
+        'jinterface': 'https://github.com/erlang/otp/tree/master/lib/jinterface',
+        '__': 'mavenCentral'
+    ]
+
     versionCatalogs {
         libs {
             version('zio-vsn', '2.0.0')

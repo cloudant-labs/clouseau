@@ -27,3 +27,88 @@ test {
         events "passed", "skipped", "failed", "standardOut", "standardError"
     }
 }
+
+// Write a json dependency manifest to help generate the build BOM
+task writeJsonManifest {
+  description 'Save all build dependencies to gradle/manifest_gradle.json.'
+  ext.provenance = { module ->
+    /*
+    TODO: Add error handling to detect cases where:
+    1. the `provenance` is not configured
+    2. invalid structure in the `provenance` confiuration
+    3. mavenCentral() doesn't have explicit `name` property
+    */
+    def config = gradle.settings.dependencyResolutionManagement;
+    def provenanceMap = config.provenance;
+    def defaultProvenanceRepo = provenanceMap.get('__')
+    def defaultProvenance = config.repositories.find { e -> e.name == defaultProvenanceRepo }
+    return provenanceMap.get(module.id.name, defaultProvenance.url)
+  }
+
+  ext.manifestHeader = { project, version ->
+    return """\
+{
+    "name": "${project}",
+    "version": "${version}",
+    "type": "jar",
+    "dependencies": ["""
+  }
+
+  doLast {
+    /*
+    TODO: This function would be better if we would construct a tree like structure
+    using maps and then used JsonOutput.prettyPrint(json) to convert it to json
+    ```groovy
+    import groovy.json.JsonOutput;
+    def json = JsonOutput.toJson([foo: 'bar', baz: [1]])
+    def pretty = JsonOutput.prettyPrint(json)
+    println(pretty)
+    ```
+    FIXME: This function has a bug. The `org.scala-lang:scala-library` mentioned multiple times.
+    Even for single project.
+    */
+    def jsonOutput = """\
+      {
+        "name": "${rootProject.name}",
+        "version": "${rootProject.ext.version}",
+        "type": "jar",
+        "dependencies": [""".stripIndent()
+
+    configurations.compileClasspath.resolvedConfiguration.firstLevelModuleDependencies.each { dep ->
+      def addToJson
+      addToJson = { resolvedDep, indent ->
+        jsonOutput += """
+          {
+            "name": "${resolvedDep.module.id.group}:${resolvedDep.module.id.name}",
+            "version":"${resolvedDep.module.id.version}",
+            "type":"jar",
+            "provenance": "${provenance(resolvedDep.module)}",
+            "dependencies":[""".stripIndent().replaceAll("\\n", "\n" + " " * indent)
+        if (resolvedDep.children.size() != 0 ) {
+          resolvedDep.children.each { childResolvedDep ->
+            if (resolvedDep in childResolvedDep.getParents()) {
+              addToJson(childResolvedDep, indent + 4)
+            }
+          }
+          if (jsonOutput[-1] == ',') {
+              jsonOutput = jsonOutput[0..-2]
+          }
+        }
+        if (jsonOutput[-1] != '[') {
+          jsonOutput += ("\n" + " " * (indent + 2))
+        }
+        jsonOutput += ("]\n" + " " * indent + "},")
+      }
+      addToJson(dep, 4)
+    }
+    if (jsonOutput[-1] == ',') {
+      jsonOutput = jsonOutput[0..-2]
+    }
+    jsonOutput += "\n]}"
+
+    File file = new File("gradle/manifest_gradle.json")
+    file.withWriter('utf-8') { writer ->
+      writer.write(jsonOutput)
+    }
+  }
+}
