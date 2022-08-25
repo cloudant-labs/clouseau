@@ -31,7 +31,7 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     case CleanupPathMsg(path: String) =>
       val dir = new File(rootDir, path)
       logger.info("Removing %s".format(path))
-      recursivelyDelete(dir)
+      recursivelyDelete(dir, true)
     case RenamePathMsg(dbName: String) =>
       val srcDir = new File(rootDir, dbName)
       val sdf = new SimpleDateFormat("yyyyMMdd'.'HHmmss")
@@ -65,17 +65,18 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
         case 'ok =>
           'ok
         case ('error, 'not_found) =>
-          recursivelyDelete(fileOrDir)
+          recursivelyDelete(fileOrDir, false)
           fileOrDir.delete
       }
     }
   }
 
-  private def recursivelyDelete(fileOrDir: File) {
+  private def recursivelyDelete(fileOrDir: File, deleteDir: Boolean) {
     if (fileOrDir.isDirectory) {
       for (file <- fileOrDir.listFiles)
-        recursivelyDelete(file)
-      fileOrDir.delete
+        recursivelyDelete(file, deleteDir)
+      if (deleteDir)
+        fileOrDir.delete
     }
     if (fileOrDir.isFile)
       fileOrDir.delete
