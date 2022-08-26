@@ -180,6 +180,7 @@ case "${command}" in
     fmt)
         console::infoLn "Reformat scala code"
         scalafmt
+        exit $?
         ;;
     *)
         console::errorLn "Unknown command '${command}'"
