@@ -9,13 +9,17 @@ console::warn "--no-verify"
 console::infoLn " but don't)"
 
 scalafmt --reportError
-formatted=$?
+formatted1=$?
+ec
+formatted2=$?
 
 console::info "* Properly formatted? * "
-if [ ${formatted} -eq 0 ]; then
+if [ ${formatted1} -eq 0 ] && [ ${formatted2} -eq 0 ]; then
+  formatted=0
   echo "$(console::green)YES"
   console::infoLn "Proceeding with commit."
 else
+  formatted=1
   console::error "NO\n"
   console::infoLn "CANCELLING commit due to FORMATTING ERROR."
 fi
