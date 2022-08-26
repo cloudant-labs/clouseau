@@ -22,6 +22,7 @@ dependencyResolutionManagement {
         libs {
             version('zio-vsn', '2.0.0')
             version('zio-nio', '2.0.0')
+            version('zio-config', '3.0.2')
             version('jinterface', "${System.env.JINTERFACE_VSN}")
             version('sbt', '1.3.5')
 
@@ -44,9 +45,10 @@ dependencyResolutionManagement {
             library('zio-logging', "dev.zio:zio-logging_$scalaShortVersion:2.0.1")
 
             // config
-            alias('zio-config-typesafe').to('dev.zio', "zio-config-typesafe_$scalaShortVersion").versionRef('zio-vsn')
-            alias('zio-config-magnolia').to('dev.zio', "zio-config-magnolia_$scalaShortVersion").versionRef('zio-vsn')
-            alias('zio-config-refined').to('dev.zio', "zio-config-refined_$scalaShortVersion").versionRef('zio-vsn')
+            library('zio-config', 'dev.zio', "zio-config_$scalaShortVersion").versionRef('zio-config')
+            library('zio-config-typesafe', 'dev.zio', "zio-config-typesafe_$scalaShortVersion").versionRef('zio-config')
+            library('zio-config-magnolia', 'dev.zio', "zio-config-magnolia_$scalaShortVersion").versionRef('zio-config')
+            library('zio-config-refined', 'dev.zio', "zio-config-refined_$scalaShortVersion").versionRef('zio-config')
 
             // metrics
             library('zio-zmx', 'dev.zio:zio-zmx_3:0.0.11')

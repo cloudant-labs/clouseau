@@ -39,5 +39,5 @@ class HelloSpec extends JUnitRunnableSpec {
 }
 
 /*
-gradle clean test --tests 'ziose.HelloSpec'
+  gradle :experiments:test --tests HelloSpec
  */

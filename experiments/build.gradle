@@ -7,12 +7,11 @@ plugins {
 def group = 'com.cloudant.ziose.experiments'
 
 /*
- gradle run -PmainClass=Hello
+    gradle run -PmainClass=Hello
 */
 application {
     // Define the main class for the application.
-    // mainClass = group + "." + project.findProperty("mainClass").toString()
-    mainClass = "${group}.Hello"
+    mainClass = group + "." + project.findProperty("mainClass").toString()
 }
 
 dependencies {
@@ -21,6 +20,9 @@ dependencies {
     implementation(libs.zio.lib)
     implementation(libs.zio.logging)
     implementation(libs.zio.nio)
+    implementation(libs.zio.config)
+    implementation(libs.zio.config.typesafe)
+    implementation(libs.zio.config.magnolia)
     implementation(project(':actors'))
     implementation(libs.jinterface)
     testImplementation(libs.zio.tests)
