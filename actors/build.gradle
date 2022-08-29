@@ -9,6 +9,7 @@
 plugins {
     id 'com.cloudant.scala-library'
     id 'java-library'
+    id 'org.scoverage' version "7.0.1"
 }
 
 dependencies {

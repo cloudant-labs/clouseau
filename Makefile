@@ -8,6 +8,7 @@ endif
 BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%TZ")
 # tput in docker require TERM variable
 TERM?=xterm
+TEST?=experiments
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
@@ -63,8 +64,8 @@ test: build
 .PHONY: cover
 # target: cover - Generate code coverage report
 cover: build
-	@./gradlew reportScoverage
-	@open experiments/build/reports/scoverage/index.html
+	@./gradlew :${TEST}:reportScoverage
+	@open ${TEST}/build/reports/scoverage/index.html
 
 .PHONY: jar
 # target: jar - Generate JAR files for production
