@@ -10,4 +10,4 @@ The result of our changes can be seen in
 
 [0001-migrate-to-ZIO-2.0.0-and-remove-remote-actors.patch](./0001-migrate-to-ZIO-2.0.0-and-remove-remote-actors.patch)
 
-Then we commited the content of modified source directly into ziose repository.
+Then we committed the content of modified source directly into ziose repository.

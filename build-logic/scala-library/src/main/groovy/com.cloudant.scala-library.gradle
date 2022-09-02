@@ -1,31 +1,31 @@
 plugins {
-    // id('com.cloudant.commons')
-    id 'scala'
+  // id('com.cloudant.commons')
+  id 'scala'
 }
 
 dependencies {
-    implementation(libs.scala.library)
+  implementation(libs.scala.library)
 }
 
 task deps {
-    doLast {
-        configurations.findAll { it.canBeResolved }.each {
-            println(it)
-            it.resolve()
-        }
+  doLast {
+    configurations.findAll { it.canBeResolved }.each {
+      println(it)
+      it.resolve()
     }
+  }
 }
 
 configurations.all {
-    if (name.startsWith("incrementalScalaAnalysis")) {
-        extendsFrom = []
-    }
+  if (name.startsWith("incrementalScalaAnalysis")) {
+    extendsFrom = []
+  }
 }
 
 test {
-    testLogging {
-        events "passed", "skipped", "failed", "standardOut", "standardError"
-    }
+  testLogging {
+    events "passed", "skipped", "failed", "standardOut", "standardError"
+  }
 }
 
 // Write a json dependency manifest to help generate the build BOM
@@ -47,7 +47,7 @@ task writeJsonManifest {
 
   ext.manifestHeader = { project, version ->
     return """\
-{
+  {
     "name": "${project}",
     "version": "${version}",
     "type": "jar",
@@ -84,14 +84,14 @@ task writeJsonManifest {
             "type":"jar",
             "provenance": "${provenance(resolvedDep.module)}",
             "dependencies":[""".stripIndent().replaceAll("\\n", "\n" + " " * indent)
-        if (resolvedDep.children.size() != 0 ) {
+        if (resolvedDep.children.size() != 0) {
           resolvedDep.children.each { childResolvedDep ->
             if (resolvedDep in childResolvedDep.getParents()) {
               addToJson(childResolvedDep, indent + 4)
             }
           }
           if (jsonOutput[-1] == ',') {
-              jsonOutput = jsonOutput[0..-2]
+            jsonOutput = jsonOutput[0..-2]
           }
         }
         if (jsonOutput[-1] != '[') {

@@ -5,7 +5,7 @@
   "IgnoreDefaults": false,
   "SpacesAftertabs": false,
   "NoColor": false,
-  "Exclude": ["LICENSE"],
+  "Exclude": ["LICENSE", "actors/*"],
   "AllowedContentTypes": [],
   "PassedFiles": [],
   "Disable": {

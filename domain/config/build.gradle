@@ -1,5 +1,5 @@
 plugins {
-    id 'com.cloudant.scala-library'
+  id 'com.cloudant.scala-library'
 }
 
 def group = '${group}.domain'

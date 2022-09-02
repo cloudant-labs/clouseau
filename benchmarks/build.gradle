@@ -1,27 +1,27 @@
 plugins {
-    id 'com.cloudant.scala-library'
-    id "me.champeau.jmh" version "0.6.6"
+  id 'com.cloudant.scala-library'
+  id "me.champeau.jmh" version "0.6.6"
 }
 
 jmh {
-    warmupIterations = 2
-    iterations = 5
-    fork = 1
+  warmupIterations = 2
+  iterations = 5
+  fork = 1
 }
 
 configurations.all {
-    if (name.startsWith("incrementalScalaAnalysis")) {
-        extendsFrom = []
-    }
+  if (name.startsWith("incrementalScalaAnalysis")) {
+    extendsFrom = []
+  }
 }
 
 jar {
-    archivesBaseName = "ziose-benchmarks-${project.ext.version}"
-    destinationDirectory = project.ext.outputDir
+  archivesBaseName = "ziose-benchmarks-${project.ext.version}"
+  destinationDirectory = project.ext.outputDir
 
-    from configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+  from configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
 
-    manifest {
-        attributes('mainClassName': 'com.cloudant.ziose.benchmarks.ArrayBenchmarks')
-    }
+  manifest {
+    attributes('mainClassName': 'com.cloudant.ziose.benchmarks.ArrayBenchmarks')
+  }
 }

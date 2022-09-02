@@ -1,46 +1,46 @@
 plugins {
-    id 'com.cloudant.scala-library'
-    id 'application'
-    id 'org.scoverage' version "7.0.1"
+  id 'com.cloudant.scala-library'
+  id 'application'
+  id 'org.scoverage' version "7.0.1"
 }
 
 def group = 'com.cloudant.ziose.experiments'
 
 /*
-    gradle run -PmainClass=Hello
+  gradle run -PmainClass=Hello
 */
 application {
-    // Define the main class for the application.
-    mainClass = group + "." + project.findProperty("mainClass").toString()
+  // Define the main class for the application.
+  mainClass = group + "." + project.findProperty("mainClass").toString()
 }
 
 dependencies {
-    implementation(libs.scala.compiler)
-    implementation(libs.scala.library)
-    implementation(libs.zio.lib)
-    implementation(libs.zio.logging)
-    implementation(libs.zio.nio)
-    implementation(libs.zio.config)
-    implementation(libs.zio.config.typesafe)
-    implementation(libs.zio.config.magnolia)
-    implementation(project(':actors'))
-    implementation(libs.jinterface)
-    testImplementation(libs.zio.tests)
-    testImplementation(libs.junit)
-    testImplementation(libs.zio.test.junit)
+  implementation(libs.scala.compiler)
+  implementation(libs.scala.library)
+  implementation(libs.zio.lib)
+  implementation(libs.zio.logging)
+  implementation(libs.zio.nio)
+  implementation(libs.zio.config)
+  implementation(libs.zio.config.typesafe)
+  implementation(libs.zio.config.magnolia)
+  implementation(project(':actors'))
+  implementation(libs.jinterface)
+  testImplementation(libs.zio.tests)
+  testImplementation(libs.junit)
+  testImplementation(libs.zio.test.junit)
 }
 
 jar {
-    archivesBaseName = "ziose-${project.hasProperty('type') ? 'test' : 'prod'}-${project.ext.version}"
-    destinationDirectory = project.ext.outputDir
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+  archivesBaseName = "ziose-${project.hasProperty('type') ? 'test' : 'prod'}-${project.ext.version}"
+  destinationDirectory = project.ext.outputDir
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
-    from configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-    if (project.hasProperty('type')) {
-        from sourceSets.toSet().output
-    }
+  from configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+  if (project.hasProperty('type')) {
+    from sourceSets.toSet().output
+  }
 
-    manifest {
-        attributes 'Main-Class': 'com.cloudant.ziose.experiments.Hello'
-    }
+  manifest {
+    attributes 'Main-Class': 'com.cloudant.ziose.experiments.Hello'
+  }
 }

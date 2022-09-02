@@ -53,8 +53,7 @@ The steps are documented in full details [here](./scripts/bootstrap.md). Essenti
 
 1. Install [`asdf`](https://github.com/asdf-vm/asdf) with `brew install asdf`
 2. Verify your OS has all tools we need using `scripts/cli verify`
-3. Use step-by-step guide script to finish installation (you might need to call it multiple
-   times) `scripts/cli bootstrap`
+3. Use step-by-step guide script to finish installation (you might need to call it multiple times) `scripts/cli bootstrap`
 4. Restart your shell and `cd` into project directory
 5. Enable configuration by calling `direnv allow`
 

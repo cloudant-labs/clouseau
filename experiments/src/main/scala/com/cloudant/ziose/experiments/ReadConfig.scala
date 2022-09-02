@@ -7,9 +7,9 @@ object ReadConfig extends ZIOAppDefault {
     (for {
       config <- ZIO.service[ServerConfig]
       _ <- Console.printLine(
-             "Application Configuration:\n" +
-               s"\tHost: ${config.host}\n" +
-               s"\tPort: ${config.port}\n"
-           )
+        "Application Configuration:\n" +
+          s"\tHost: ${config.host}\n" +
+          s"\tPort: ${config.port}\n"
+      )
     } yield ()).provide(ServerConfig.layer)
 }

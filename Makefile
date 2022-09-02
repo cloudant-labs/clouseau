@@ -35,10 +35,9 @@ CONTAINER_ID=`docker create --read-only $(1) dummy` \
 endef
 
 ifeq ($(JENKINS_URL),)
-  # Local invocation
-  UBI_OPENJDK17_DIGEST?=$(shell docker manifest inspect registry.access.redhat.com/ubi8/openjdk-17:latest \
-	| jq -r '.manifests |  to_entries[] | select(.value.platform.architecture == "arm64") | .value.digest' \
-  )
+	# Local invocation
+	UBI_OPENJDK17_DIGEST?=$(shell docker manifest inspect registry.access.redhat.com/ubi8/openjdk-17:latest \
+	| jq -r '.manifests |  to_entries[] | select(.value.platform.architecture == "arm64") | .value.digest')
 endif
 
 .PHONY: build

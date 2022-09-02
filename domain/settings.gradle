@@ -1,13 +1,13 @@
 // == Define locations for build logic ==
 pluginManagement {
-    includeBuild('../build-logic')
+  includeBuild('../build-logic')
 }
 
 // == Define locations for components ==
 dependencyResolutionManagement {
-    repositories {
-        mavenCentral()
-    }
+  repositories {
+    mavenCentral()
+  }
 }
 //includeBuild('../platforms')
 
