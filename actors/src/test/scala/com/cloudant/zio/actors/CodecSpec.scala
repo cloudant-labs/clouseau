@@ -35,12 +35,20 @@ class CodecSpec extends JUnitRunnableSpec {
   }
   val environment = ZLayer.succeed(Clock.ClockLive) ++ ZLayer.succeed(Random.RandomLive) ++ logger
   def spec = suite("term encoding")(
-    test("circle round trip") {
-      check(Generators.anyPairGen(4)) { case (term, oterm) =>
+    test("circle round trip from ETerm to OtpErlangObject") {
+      check(Generators.anyPairGen(4)) { case (eTerm, jTerm) =>
         for {
-          _ <- logDebug(term.toString())
-        } yield assertTrue(term.toJava() == oterm)
+          _ <- logDebug(eTerm.toString())
+        } yield assertTrue(eTerm.toJava() == jTerm)
+      }
+    },
+    test("circle round trip from OtpErlangObject to ETerm") {
+      check(Generators.anyPairGen(4)) { case (eTerm, jTerm) =>
+        for {
+          _ <- logDebug(eTerm.toString())
+        } yield assertTrue(fromJava(jTerm) == eTerm)
       }
     }
+
   ).provideCustomLayer(environment)
 }
