@@ -1,10 +1,16 @@
 package com.cloudant.zio.actors
 
-import com.ericsson.otp.erlang._;
+import _root_.com.ericsson.otp.erlang._;
 
 object Codec {
   sealed trait ETerm {
     def toJava(): OtpErlangObject
+  }
+  case class EPid(node: String, id: Integer, serial: Integer, creation: Integer) extends ETerm {
+    def apply(node: String, id: Integer, serial: Integer, creation: Integer) =
+        EPid(node, id, serial, creation)
+    def toJava()                  = new OtpErlangPid(node, id, serial, creation)
+    override def toString: String = s"<$id.$serial.$creation>"
   }
   case class EAtom(atom: Symbol) extends ETerm {
     def apply(atom: Symbol)        = EAtom(atom)
@@ -14,7 +20,7 @@ object Codec {
   case class EString(str: String) extends ETerm {
     def apply(str: String)        = EString(str)
     def toJava()                  = new OtpErlangString(str)
-    override def toString: String = s"\"${str}\""
+    override def toString: String = s"\"$str\""
   }
   case class EList(elems: List[ETerm]) extends ETerm {
     def apply(elems: List[ETerm]) = EList(elems)
@@ -29,7 +35,7 @@ object Codec {
   case class ELong(value: BigInt) extends ETerm {
     def apply(value: BigInt) = ELong(value)
     def toJava()                  = new OtpErlangLong(value.bigInteger)
-    override def toString: String = s"${value}"
+    override def toString: String = s"$value"
   }
   /*
    TODO: Add the rest of the types

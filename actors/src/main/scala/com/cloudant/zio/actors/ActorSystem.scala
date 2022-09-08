@@ -13,7 +13,7 @@ import zio.Clock
 import zio.nio.{ Buffer, InetAddress, SocketAddress }
 import zio.nio.channels.{ AsynchronousServerSocketChannel, AsynchronousSocketChannel }
 
-import com.ericsson.otp.erlang._;
+import _root_.com.ericsson.otp.erlang._;
 
 import scala.io.Source
 
@@ -22,7 +22,7 @@ class Pid(
   override val id: Int,
   override val serial: Int,
   override val creation: Int = 4
-) extends com.ericsson.otp.erlang.OtpErlangPid(
+) extends OtpErlangPid(
   node, id, serial, creation
 ) {
   override def toString(): String =
