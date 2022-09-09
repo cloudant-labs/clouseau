@@ -4,6 +4,7 @@
 gradle/
 **/.gradle/
 **/build/
+**/bin
 *.orig
 gradlew
 gradlew.bat

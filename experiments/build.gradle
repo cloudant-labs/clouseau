@@ -25,6 +25,7 @@ dependencies {
   implementation(libs.zio.config.magnolia)
   implementation(project(':actors'))
   implementation(libs.jinterface)
+  implementation(libs.zio.metrics.dropwizard)
   testImplementation(libs.zio.tests)
   testImplementation(libs.junit)
   testImplementation(libs.zio.test.junit)
