@@ -49,7 +49,6 @@ dependencyResolutionManagement {
       library('zio-config', 'dev.zio', "zio-config_$scalaShortVsn").versionRef('zio-config')
       library('zio-config-typesafe', 'dev.zio', "zio-config-typesafe_$scalaShortVsn").versionRef('zio-config')
       library('zio-config-magnolia', 'dev.zio', "zio-config-magnolia_$scalaShortVsn").versionRef('zio-config')
-      library('zio-config-refined', 'dev.zio', "zio-config-refined_$scalaShortVsn").versionRef('zio-config')
 
       // metrics
       library('zio-metrics-dropwizard', 'dev.zio', "zio-metrics-dropwizard_$scalaShortVsn").versionRef('zio-metrics-vsn')

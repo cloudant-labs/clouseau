@@ -1,5 +1,6 @@
 PROJECT_NAME=ziose
 BUILD_DIR=$(shell pwd)
+GRADLEW=$(BUILD_DIR)/gradlew
 GIT_COMMIT?=$(shell git rev-parse HEAD)
 GIT_REPOSITORY?=$(shell git config --get remote.origin.url)
 ifeq ($(PROJECT_VERSION),)
@@ -43,7 +44,7 @@ endif
 .PHONY: build
 # target: build - Build package, run tests and create distribution
 build: gradle/wrapper/gradle-wrapper.jar
-	@./gradlew build -x test
+	@$(GRADLEW) build -x test
 
 .PHONY: deps
 # target: deps - Download all dependencies for offline development
@@ -52,29 +53,34 @@ build: gradle/wrapper/gradle-wrapper.jar
 # when we try to build with `--offline` flag
 deps: gradle/wrapper/gradle-wrapper.jar
 	@echo "==> downloading dependencies..."
-	@./gradlew deps --refresh-dependencies
+	@$(GRADLEW) deps --refresh-dependencies
 
 .PHONY: test
 # target: test - Run all tests
 test: build
 	@epmd &
-	@./gradlew check -i
+	@$(GRADLEW) check -i
+
+.PHONY: check-deps
+# target: check-deps - Detect publicly disclosed vulnerabilities
+check-deps: build
+	@$(GRADLEW) dependencyCheckAnalyze
 
 .PHONY: cover
 # target: cover - Generate code coverage report
 cover: build
-	@./gradlew :${TEST}:reportScoverage
+	@$(GRADLEW) :${TEST}:reportScoverage
 	@open ${TEST}/build/reports/scoverage/index.html
 
 .PHONY: jar
 # target: jar - Generate JAR files for production
 jar: gradle/wrapper/gradle-wrapper.jar
-	@./gradlew jar
+	@$(GRADLEW) jar
 
 .PHONY: jartest
 # target: jartest - Generate a JAR file containing tests
 jartest: gradle/wrapper/gradle-wrapper.jar
-	@./gradlew jar -Ptype=test
+	@$(GRADLEW) jar -Ptype=test
 
 .PHONY: gradle/wrapper/gradle-wrapper.jar
 gradle/wrapper/gradle-wrapper.jar: .tool-versions
@@ -83,7 +89,7 @@ gradle/wrapper/gradle-wrapper.jar: .tool-versions
 
 # target: clean - Clean Java/Scala artifacts
 clean:
-	@./gradlew clean
+	@$(GRADLEW) clean
 	@rm -f gradle/manifest_gradle.json
 
 # target: clean-all - Clean up the project to start afresh
@@ -97,17 +103,17 @@ clean-all:
 .PHONY: clouseau1
 # target: clouseau1 - Start local instance of clouseau1 node
 clouseau1:
-	@./gradlew run -Pnode=$@
+	@$(GRADLEW) run -Pnode=$@
 
 .PHONY: clouseau2
 # target: clouseau2 - Start local instance of clouseau2 node
 clouseau2:
-	@./gradlew run -Pnode=$@
+	@$(GRADLEW) run -Pnode=$@
 
 .PHONY: clouseau3
 # target: clouseau3 - Start local instance of clouseau3 node
 clouseau3:
-	@./gradlew run -Pnode=$@
+	@$(GRADLEW) run -Pnode=$@
 
 .PHONY: help
 # target: help - Print this help
@@ -131,6 +137,23 @@ build-in-docker: login-artifactory-docker
 		--build-arg ARTIFACTORY_USR=${ARTIFACTORY_USR} \
 		--build-arg ARTIFACTORY_PSW=${ARTIFACTORY_PSW} \
 		--build-arg TERM=${TERM} \
+		--build-arg CMDS=test \
+		--build-arg DIR_TARGET=test-results \
+		--pull --no-cache --rm \
+		-t ${PROJECT_NAME}:${GIT_COMMIT} \
+		.
+	@$(call extract,${PROJECT_NAME}:${GIT_COMMIT},/artifacts,.)
+	@mkdir -p $(BUILD_DIR)/ci-artifacts/
+	@cp -R artifacts/* $(BUILD_DIR)/ci-artifacts/
+
+check-deps-in-docker: login-artifactory-docker
+	@DOCKER_BUILDKIT=0 BUILDKIT_PROGRESS=plain docker build \
+		--build-arg UBI_OPENJDK17_DIGEST=${UBI_OPENJDK17_DIGEST} \
+		--build-arg ARTIFACTORY_USR=${ARTIFACTORY_USR} \
+		--build-arg ARTIFACTORY_PSW=${ARTIFACTORY_PSW} \
+		--build-arg TERM=${TERM} \
+		--build-arg CMDS=check-deps \
+		--build-arg DIR_TARGET=reports \
 		--pull --no-cache --rm \
 		-t ${PROJECT_NAME}:${GIT_COMMIT} \
 		.

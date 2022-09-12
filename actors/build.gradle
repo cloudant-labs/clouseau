@@ -7,24 +7,32 @@
  */
 
 plugins {
-    id 'com.cloudant.scala-library'
-    id 'java-library'
-    id 'org.scoverage' version "7.0.1"
+  id 'com.cloudant.scala-library'
+  id 'java-library'
 }
 
+apply plugin: 'org.scoverage'
+apply plugin: 'org.owasp.dependencycheck'
+
 dependencies {
-    implementation(libs.scala.compiler.bridge)
-    implementation(libs.scala.library)
-    implementation(libs.zio.lib)
-    implementation(libs.zio.nio)
-    implementation(libs.jinterface)
-    implementation(libs.zio.logging)
+  implementation(libs.scala.compiler.bridge)
+  implementation(libs.scala.library)
+  implementation(libs.zio.lib)
+  implementation(libs.zio.nio)
+  implementation(libs.jinterface)
+  implementation(libs.zio.logging)
 
-    implementation(libs.zio.config.typesafe)
-    implementation(libs.zio.config.magnolia)
-    implementation(libs.zio.config.refined)
+  implementation(libs.zio.config.typesafe)
+  implementation(libs.zio.config.magnolia)
 
-    testImplementation(libs.zio.tests)
-    testImplementation(libs.junit)
-    testImplementation(libs.zio.test.junit)
+  testImplementation(libs.zio.tests)
+  testImplementation(libs.junit)
+  testImplementation(libs.zio.test.junit)
+}
+
+dependencyCheck {
+  failBuildOnCVSS = 5
+  failOnError = true
+  format = 'XML'
+  suppressionFile = "dependency-check-suppressions.xml"
 }

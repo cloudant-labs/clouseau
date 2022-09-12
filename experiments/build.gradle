@@ -1,8 +1,10 @@
 plugins {
   id 'com.cloudant.scala-library'
   id 'application'
-  id 'org.scoverage' version "7.0.1"
 }
+
+apply plugin: 'org.scoverage'
+apply plugin: 'org.owasp.dependencycheck'
 
 def group = 'com.cloudant.ziose.experiments'
 
@@ -29,6 +31,13 @@ dependencies {
   testImplementation(libs.zio.tests)
   testImplementation(libs.junit)
   testImplementation(libs.zio.test.junit)
+}
+
+dependencyCheck {
+  failBuildOnCVSS = 5
+  failOnError = true
+  format = 'XML'
+  suppressionFile = "dependency-check-suppressions.xml"
 }
 
 jar {

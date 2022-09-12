@@ -1,3 +1,8 @@
+plugins {
+  id 'org.scoverage' version "7.0.1" apply false
+  id 'org.owasp.dependencycheck' version '7.1.2' apply false
+}
+
 allprojects {
   project.ext.version = '1.0'
   project.ext.outputDir = file("${rootDir}/build/jar-files")
