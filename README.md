@@ -5,7 +5,7 @@ a [`ZIO`](https://github.com/zio/zio) as an asynchronous scheduler.
 
 ## Build status
 
-[![Build Status](https://wcp-cloudantnosqldb-prod-jenkins.swg-devops.com/job/cloudant/job/ziose/job/master/badge/icon)](https://wcp-cloudantnosqldb-prod-jenkins.swg-devops.com/job/cloudant/job/ziose/job/master/)
+[![Build Status](https://wcp-cloudantnosqldb-prod-jenkins.swg-devops.com/job/cloudant/job/ziose/job/main/badge/icon)](https://wcp-cloudantnosqldb-prod-jenkins.swg-devops.com/job/cloudant/job/ziose/job/main/)
 
 ## Disclaimer
 
@@ -84,6 +84,22 @@ The plan is to implement things like
 * `run exp <Class>`
 
 All the above are just examples and not a firm commitment.
+
+## JMX + JConsole
+
+**JMX:** A Java technology that provides tools for managing and monitoring applications, system objects, devices and
+service-oriented networks.
+
+**JConsole:** A graphical monitoring tool to monitor Java Virtual Machine and Java applications both on a local or
+remote machine.
+
+**How to monitor metrics using `jconsole`:**
+1. Run `Hello.scala` first, `gradle run -PmainClass=Hello`
+2. Open another terminal and type `jconsole`
+3. Connect to `com.cloudant.ziose.experiments.Hello`
+4. Select MBeans -> metrics -> times, it will display the metrics as shown in the image below.
+
+![jmx.png](jmx.png)
 
 # Some commands
 
