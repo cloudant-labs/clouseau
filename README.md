@@ -5,7 +5,7 @@ a [`ZIO`](https://github.com/zio/zio) as an asynchronous scheduler.
 
 ## Build status
 
-[![Build Status](https://wcp-cloudantnosqldb-prod-jenkins.swg-devops.com/job/cloudant/job/ziose/job/main/badge/icon)](https://wcp-cloudantnosqldb-prod-jenkins.swg-devops.com/job/cloudant/job/ziose/job/main/)
+[![Build Status](https://wcp-cloudantnosqldb-prod-jenkins.swg-devops.com/buildStatus/icon?job=cloudant%2Fziose%2Fmain)](https://wcp-cloudantnosqldb-prod-jenkins.swg-devops.com/job/cloudant/job/ziose/job/main/)
 
 ## Disclaimer
 
