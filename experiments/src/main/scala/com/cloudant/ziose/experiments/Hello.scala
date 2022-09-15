@@ -19,9 +19,9 @@ object Hello extends ZIOAppDefault {
 
   val app: RIO[Registry with Reporters, MetricRegistry] =
     for {
-      r      <- getCurrentRegistry()
-      _      <- jmx(r)
-      _      <- helpers.console(r, 2, TimeUnit.SECONDS)
+      r <- getCurrentRegistry()
+      _ <- jmx(r)
+      // _ <- helpers.console(r, 2, TimeUnit.SECONDS)
       c      <- counter.register(metricName, Array("test", "counter"))
       t      <- timer.register(metricName, Array("test", "timer"))
       _      <- Console.printLine("What is your name?")
@@ -47,7 +47,7 @@ object Hello extends ZIOAppDefault {
   def run =
     (for {
       json <- app.flatMap(DropwizardExtractor.writeJson(_)(None))
-      _    <- Clock.sleep(60.seconds)
+      _    <- Clock.sleep(30.seconds)
       _    <- printLine(json).exitCode
     } yield ()).provideSomeLayer(logger ++ Registry.live ++ Reporters.live)
 
