@@ -72,6 +72,11 @@ cover: build
 	@$(GRADLEW) :${TEST}:reportScoverage
 	@open ${TEST}/build/reports/scoverage/index.html
 
+.PHONY: check-spotbugs
+# target: check-spotbugs - Run SpotBugs analysis for the source code
+check-spotbugs: build
+	@$(GRADLEW) spotbugsMain
+
 .PHONY: jar
 # target: jar - Generate JAR files for production
 jar: gradle/wrapper/gradle-wrapper.jar
@@ -130,36 +135,30 @@ tree:
 
 
 # CI Pipeline
+define docker_func
+	@DOCKER_BUILDKIT=0 BUILDKIT_PROGRESS=plain docker build \
+		--build-arg UBI_OPENJDK17_DIGEST=${UBI_OPENJDK17_DIGEST} \
+		--build-arg ARTIFACTORY_USR=${ARTIFACTORY_USR} \
+		--build-arg ARTIFACTORY_PSW=${ARTIFACTORY_PSW} \
+		--build-arg TERM=${TERM} \
+		--build-arg CMDS=$(1) \
+		--build-arg DIR_TARGET=$(2) \
+		--pull --no-cache --rm \
+		-t ${PROJECT_NAME}:${GIT_COMMIT} \
+		.
+	@$(call extract,${PROJECT_NAME}:${GIT_COMMIT},/artifacts,.)
+	@mkdir -p $(BUILD_DIR)/ci-artifacts/
+	@cp -R artifacts/* $(BUILD_DIR)/ci-artifacts/
+endef
 
 build-in-docker: login-artifactory-docker
-	@DOCKER_BUILDKIT=0 BUILDKIT_PROGRESS=plain docker build \
-		--build-arg UBI_OPENJDK17_DIGEST=${UBI_OPENJDK17_DIGEST} \
-		--build-arg ARTIFACTORY_USR=${ARTIFACTORY_USR} \
-		--build-arg ARTIFACTORY_PSW=${ARTIFACTORY_PSW} \
-		--build-arg TERM=${TERM} \
-		--build-arg CMDS=test \
-		--build-arg DIR_TARGET=test-results \
-		--pull --no-cache --rm \
-		-t ${PROJECT_NAME}:${GIT_COMMIT} \
-		.
-	@$(call extract,${PROJECT_NAME}:${GIT_COMMIT},/artifacts,.)
-	@mkdir -p $(BUILD_DIR)/ci-artifacts/
-	@cp -R artifacts/* $(BUILD_DIR)/ci-artifacts/
+	@$(call docker_func,test,test-results)
 
 check-deps-in-docker: login-artifactory-docker
-	@DOCKER_BUILDKIT=0 BUILDKIT_PROGRESS=plain docker build \
-		--build-arg UBI_OPENJDK17_DIGEST=${UBI_OPENJDK17_DIGEST} \
-		--build-arg ARTIFACTORY_USR=${ARTIFACTORY_USR} \
-		--build-arg ARTIFACTORY_PSW=${ARTIFACTORY_PSW} \
-		--build-arg TERM=${TERM} \
-		--build-arg CMDS=check-deps \
-		--build-arg DIR_TARGET=reports \
-		--pull --no-cache --rm \
-		-t ${PROJECT_NAME}:${GIT_COMMIT} \
-		.
-	@$(call extract,${PROJECT_NAME}:${GIT_COMMIT},/artifacts,.)
-	@mkdir -p $(BUILD_DIR)/ci-artifacts/
-	@cp -R artifacts/* $(BUILD_DIR)/ci-artifacts/
+	@$(call docker_func,check-deps,reports)
+
+check-spotbugs-in-docker: login-artifactory-docker
+	@$(call docker_func,check-spotbugs,spotbugs)
 
 .PHONY: ci-copy-gradle-dependencies-metadata
 ci-copy-gradle-dependencies-metadata:

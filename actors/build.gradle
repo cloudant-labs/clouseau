@@ -13,6 +13,7 @@ plugins {
 
 apply plugin: 'org.scoverage'
 apply plugin: 'org.owasp.dependencycheck'
+apply plugin: 'com.github.spotbugs'
 
 dependencies {
   implementation(libs.scala.compiler.bridge)
@@ -35,4 +36,27 @@ dependencyCheck {
   failOnError = true
   format = 'XML'
   suppressionFile = "dependency-check-suppressions.xml"
+}
+
+spotbugs {
+  ignoreFailures = false
+  showStackTraces = true
+  effort = 'default'
+  reportLevel = 'default'
+  visitors = ['SwitchFallthrough']
+  omitVisitors = ['FindNonShortCircuit']
+  reportsDir = file("$buildDir/spotbugs")
+  maxHeapSize = '1g'
+  extraArgs = ['-nested:false']
+  jvmArgs = ['-Duser.language=ja']
+}
+
+spotbugsMain {
+  reports {
+    html {
+      enabled = true
+      outputLocation = file("$buildDir/spotbugs/spotbugs-report.html")
+      stylesheet = 'fancy-hist.xsl'
+    }
+  }
 }
