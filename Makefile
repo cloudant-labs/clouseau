@@ -1,5 +1,7 @@
 PROJECT_NAME=ziose
 BUILD_DIR=$(shell pwd)
+ARTIFACTS_DIR?=$(BUILD_DIR)/artifacts
+CI_ARTIFACTS_DIR=$(BUILD_DIR)/ci-artifacts
 GRADLEW=$(BUILD_DIR)/gradlew
 GIT_COMMIT?=$(shell git rev-parse HEAD)
 GIT_REPOSITORY?=$(shell git config --get remote.origin.url)
@@ -57,14 +59,36 @@ deps: gradle/wrapper/gradle-wrapper.jar
 
 .PHONY: test
 # target: test - Run all tests
-test: build
+test: build mkdir-artifacts
 	@epmd &
 	@$(GRADLEW) check -i
+	@find . -name test-results | cut -d'/' -f2 \
+		| xargs -I {} cp -r {}/build/test-results $(ARTIFACTS_DIR)/{}
+	@cp -R build/* $(ARTIFACTS_DIR)
+
+.PHONY: mkdir-artifacts
+mkdir-artifacts:
+	@mkdir -p $(ARTIFACTS_DIR)
+
+.PHONY: check-fmt
+# target: check-fmt - Check mis-formatted code
+check-fmt: mkdir-artifacts
+	@scalafmt --test | tee $(ARTIFACTS_DIR)/scalafmt.log
+	@ec | tee $(ARTIFACTS_DIR)/editor-config.log
 
 .PHONY: check-deps
 # target: check-deps - Detect publicly disclosed vulnerabilities
-check-deps: build
+check-deps: build mkdir-artifacts
 	@$(GRADLEW) dependencyCheckAnalyze
+	@find . -name reports | cut -d'/' -f2 \
+		| xargs -I {} cp -r {}/build/reports $(ARTIFACTS_DIR)/{}
+
+.PHONY: check-spotbugs
+# target: check-spotbugs - Run SpotBugs analysis for the source code
+check-spotbugs: build mkdir-artifacts
+	@$(GRADLEW) spotbugsMain
+	@find . -name spotbugs | cut -d'/' -f2 \
+		| xargs -I {} cp -r {}/build/spotbugs $(ARTIFACTS_DIR)/{}
 
 .PHONY: cover
 # target: cover - Generate code coverage report
@@ -72,10 +96,13 @@ cover: build
 	@$(GRADLEW) :${TEST}:reportScoverage
 	@open ${TEST}/build/reports/scoverage/index.html
 
-.PHONY: check-spotbugs
-# target: check-spotbugs - Run SpotBugs analysis for the source code
-check-spotbugs: build
-	@$(GRADLEW) spotbugsMain
+# FIXME change `actors` when we have real project
+.PHONY: meta
+meta: build mkdir-artifacts
+	@$(GRADLEW) actors:writeJsonManifest
+	@cp $(BUILD_DIR)/gradle/manifest_gradle.json $(ARTIFACTS_DIR)
+	@$(GRADLEW) --write-verification-metadata sha256,pgp
+	@cp $(BUILD_DIR)/gradle/verification-metadata.xml $(ARTIFACTS_DIR)
 
 .PHONY: jar
 # target: jar - Generate JAR files for production
@@ -142,29 +169,41 @@ define docker_func
 		--build-arg ARTIFACTORY_PSW=${ARTIFACTORY_PSW} \
 		--build-arg TERM=${TERM} \
 		--build-arg CMDS=$(1) \
-		--build-arg DIR_TARGET=$(2) \
 		--pull --no-cache --rm \
 		-t ${PROJECT_NAME}:${GIT_COMMIT} \
 		.
 	@$(call extract,${PROJECT_NAME}:${GIT_COMMIT},/artifacts,.)
-	@mkdir -p $(BUILD_DIR)/ci-artifacts/
-	@cp -R artifacts/* $(BUILD_DIR)/ci-artifacts/
+	@mkdir -p $(CI_ARTIFACTS_DIR)
 endef
 
+linter-in-docker: login-artifactory-docker
+	@$(call docker_func,check-fmt)
+	@cp $(ARTIFACTS_DIR)/*.log $(CI_ARTIFACTS_DIR)
+
 build-in-docker: login-artifactory-docker
-	@$(call docker_func,test,test-results)
+	@$(call docker_func,test)
+	@cp -R $(ARTIFACTS_DIR)/* $(CI_ARTIFACTS_DIR)
 
 check-deps-in-docker: login-artifactory-docker
-	@$(call docker_func,check-deps,reports)
+	@$(call docker_func,check-deps)
+	@cp $(ARTIFACTS_DIR)/experiments/dependency-check-report.xml \
+		$(CI_ARTIFACTS_DIR)/dependency_check_report.experiments.xml
+	@cp $(ARTIFACTS_DIR)/actors/dependency-check-report.xml \
+		$(CI_ARTIFACTS_DIR)/dependency_check_report.actors.xml
 
 check-spotbugs-in-docker: login-artifactory-docker
-	@$(call docker_func,check-spotbugs,spotbugs)
+	@$(call docker_func,check-spotbugs)
+	@cp $(ARTIFACTS_DIR)/actors/spotbugs-report.html \
+		$(CI_ARTIFACTS_DIR)/spotbugs_report.actors.html
 
 .PHONY: ci-copy-gradle-dependencies-metadata
-ci-copy-gradle-dependencies-metadata:
-	mkdir -p $(BUILD_DIR)/gradle/
-	@cp ci-artifacts/manifest_gradle.json $(BUILD_DIR)/gradle/
-	@cp ci-artifacts/verification-metadata.xml $(BUILD_DIR)/gradle/
+ci-copy-gradle-dependencies-metadata: login-artifactory-docker
+	@$(call docker_func,meta)
+	@mkdir -p $(BUILD_DIR)/gradle
+	@find $(CI_ARTIFACTS_DIR) $(BUILD_DIR)/gradle \
+		-maxdepth 0 -type d -exec cp -n \
+		$(ARTIFACTS_DIR)/manifest_gradle.json \
+		$(ARTIFACTS_DIR)/verification-metadata.xml {} \;
 
 # Authenticate with our Artifactory Docker registry before pulling any images
 login-artifactory-docker: check-env-artifactory

@@ -4,7 +4,7 @@ gradle 7.5.1
 scala 2.13.8
 # erlang needs java so it should be after it in the list
 # the only version which supports observer
-erlang 25.0.4
+erlang 25.0.2
 coursier 2.1.0-M6-49-gff26f8e39
 editorconfig-checker 2.6.0
 

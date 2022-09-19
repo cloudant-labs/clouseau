@@ -1,11 +1,13 @@
 .asdf
 .envrc.local
 .gradle/
-gradle/
-**/.gradle/
-**/build/
-**/bin
 *.orig
+**/.gradle/
+**/bin
+**/build/
+artifacts
+build/
+gradle/
 gradlew
 gradlew.bat
 
@@ -14,5 +16,5 @@ gradlew.bat
 *.iml
 
 # vscode
-.vscode
 .metals
+.vscode
