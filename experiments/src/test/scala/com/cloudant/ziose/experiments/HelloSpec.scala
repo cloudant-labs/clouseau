@@ -27,11 +27,11 @@ class HelloSpec extends JUnitRunnableSpec {
     suite("Logger Tests")(
       test("test logger") {
         for {
-          code   <- Hello.run
+          _      <- Hello.run
           logs   <- ZTestLogger.logOutput
           output <- TestConsole.output
         } yield assertTrue(
-          output.nonEmpty && code == ExitCode.success &&
+          output.nonEmpty &&
             (logs(0).logLevel == LogLevel.Info && logs(0).message() == "name: Ziose") &&
             (logs(1).logLevel == LogLevel.Error && logs(1).message() == "n: 2") &&
             (logs(2).logLevel == LogLevel.Warning && logs(2).message() == "Counter: 2") &&

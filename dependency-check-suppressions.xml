@@ -12,4 +12,11 @@
     <packageUrl regex="true">^pkg:maven/com\.google\.protobuf/protobuf\-java@.*$</packageUrl>
     <cve>CVE-2021-22569</cve>
   </suppress>
+  <!--TODO: CVE needs to be removed-->
+  <suppress>
+    <notes>
+      <![CDATA[File name: scala-compiler-2.13.6.jar, scala-library-2.13.*.jar, scala-reflect-2.13.*.jar]]></notes>
+    <packageUrl regex="true">^pkg:maven/org\.scala\-lang/scala\-.*@.*$</packageUrl>
+    <cve>CVE-2022-36944</cve>
+  </suppress>
 </suppressions>

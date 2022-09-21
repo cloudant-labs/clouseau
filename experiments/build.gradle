@@ -17,19 +17,13 @@ application {
 }
 
 dependencies {
-  implementation(libs.scala.compiler)
-  implementation(libs.scala.library)
-  implementation(libs.zio.lib)
-  implementation(libs.zio.logging)
-  implementation(libs.zio.nio)
-  implementation(libs.zio.config)
-  implementation(libs.zio.config.typesafe)
   implementation(libs.zio.config.magnolia)
-  implementation(project(':actors'))
-  implementation(libs.jinterface)
+  implementation(libs.zio.logging)
   implementation(libs.zio.metrics.dropwizard)
-  testImplementation(libs.zio.tests)
-  testImplementation(libs.junit)
+  implementation(project(':actors'))
+
+  runtimeOnly(libs.slf4j.nop)
+
   testImplementation(libs.zio.test.junit)
 }
 
@@ -45,6 +39,7 @@ jar {
   destinationDirectory = project.ext.outputDir
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
+  dependsOn(':actors:jar')
   from configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
   if (project.hasProperty('type')) {
     from sourceSets.toSet().output

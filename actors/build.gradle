@@ -16,18 +16,12 @@ apply plugin: 'org.owasp.dependencycheck'
 apply plugin: 'com.github.spotbugs'
 
 dependencies {
-  implementation(libs.scala.compiler.bridge)
-  implementation(libs.scala.library)
+  api(libs.zio.config.typesafe)
+
+  implementation(libs.jinterface)
   implementation(libs.zio.lib)
   implementation(libs.zio.nio)
-  implementation(libs.jinterface)
-  implementation(libs.zio.logging)
 
-  implementation(libs.zio.config.typesafe)
-  implementation(libs.zio.config.magnolia)
-
-  testImplementation(libs.zio.tests)
-  testImplementation(libs.junit)
   testImplementation(libs.zio.test.junit)
 }
 

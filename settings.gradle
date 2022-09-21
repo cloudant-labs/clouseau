@@ -41,9 +41,8 @@ dependencyResolutionManagement {
       library('jinterface', 'com.ericsson.otp.erlang', 'jinterface').versionRef('jinterface')
 
       // logger
-      library('slf4j-api', 'org.slf4j:slf4j-api:1.7.32')
-      library('slf4j-log4j12', 'org.slf4j:slf4j-log4j12:1.7.32')
       library('zio-logging', "dev.zio:zio-logging_$scalaShortVsn:2.0.1")
+      library('slf4j-nop', 'org.slf4j:slf4j-nop:2.0.2')
 
       // config
       library('zio-config', 'dev.zio', "zio-config_$scalaShortVsn").versionRef('zio-config')
