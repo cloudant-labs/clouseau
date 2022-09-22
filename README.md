@@ -57,6 +57,14 @@ The steps are documented in full details [here](./scripts/bootstrap.md). Essenti
 4. Restart your shell and `cd` into project directory
 5. Enable configuration by calling `direnv allow`
 
+## Running the build locally in Docker
+
+1. Install [docker](https://www.docker.com/).
+2. Login into [JFrog](https://na.artifactory.swg-devops.com/ui)
+3. Generate an access token: click your account in the upper right corner, select`Edit Profile`, and then click `API Key`
+4. `ARTIFACTORY_USR` is your email, and `ARTIFACTORY_PSW` is your `API Key`
+5. Run the build: `ARTIFACTORY_PSW=*** ARTIFACTORY_USR=xxx@yy.ibm.com make build-in-docker`
+
 ## The `cli` tool
 
 In order to simplify project maintenance we provide a `cli` command. This command becomes available in your terminal
