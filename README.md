@@ -26,7 +26,7 @@ All tools managed by `asdf` are configured in `.tool-versions` which looks somew
 java semeru-openj9-_openj9-
 gradle 7.5.1
 scala 2.13.8
-erlang 25.0.3
+erlang 25.0.2
 ```
 
 The setup also tracks the host dependencies which are required by the project. These dependencies are specified

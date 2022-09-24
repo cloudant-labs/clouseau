@@ -1,69 +1,112 @@
 package com.cloudant.zio.actors
 
-import _root_.com.ericsson.otp.erlang._;
+import _root_.com.ericsson.otp.erlang._
+import scala.collection.mutable
 
 object Codec {
   sealed trait ETerm {
-    def toJava(): OtpErlangObject
+    def toOtpErlangObject: OtpErlangObject
   }
-  case class EPid(node: String, id: Integer, serial: Integer, creation: Integer) extends ETerm {
-    def this(obj: OtpErlangPid) =
-      this(obj.node, obj.id, obj.serial, obj.creation)
-    def apply(node: String, id: Integer, serial: Integer, creation: Integer) =
-      EPid(node, id, serial, creation)
-    def toJava()                  = new OtpErlangPid(node, id, serial, creation)
-    override def toString: String = s"<$id.$serial.$creation>"
+
+  case class EPid(node: String, id: Int, serial: Int, creation: Int) extends ETerm {
+    def this(obj: OtpErlangPid) = this(obj.node, obj.id, obj.serial, obj.creation)
+    override def toOtpErlangObject: OtpErlangPid = new OtpErlangPid(node, id, serial, creation)
+    override def toString: String                = s"<$id.$serial.$creation>"
   }
+
   case class EAtom(atom: Symbol) extends ETerm {
-    def this(obj: OtpErlangAtom) =
-      this(Symbol(obj.atomValue))
-    def apply(atom: Symbol)       = EAtom(atom)
-    def toJava()                  = new OtpErlangAtom(atom.name)
-    override def toString: String = s"'${atom.name}'"
+    def this(obj: OtpErlangAtom) = this(Symbol(obj.atomValue))
+    override def toOtpErlangObject: OtpErlangAtom = new OtpErlangAtom(atom.name)
+    override def toString: String                 = this.toOtpErlangObject.toString
   }
+
+  case class EBoolean(boolean: Boolean) extends ETerm {
+    def this(obj: OtpErlangBoolean) = this(obj.booleanValue)
+    override def toOtpErlangObject: OtpErlangBoolean = new OtpErlangBoolean(boolean)
+    override def toString: String                    = s"$boolean"
+  }
+
+  case class EInt(int: Int) extends ETerm {
+    def this(obj: OtpErlangInt) = this(obj.intValue)
+    override def toOtpErlangObject: OtpErlangInt = new OtpErlangInt(int)
+    override def toString: String                = s"$int"
+  }
+
+  case class ELong(long: BigInt) extends ETerm {
+    def this(obj: OtpErlangLong) = this(obj.longValue)
+    override def toOtpErlangObject: OtpErlangLong = new OtpErlangLong(long.bigInteger)
+    override def toString: String                 = s"$long"
+  }
+
   case class EString(str: String) extends ETerm {
-    def this(obj: OtpErlangString) =
-      this(obj.stringValue)
-    def apply(str: String)        = EString(str)
-    def toJava()                  = new OtpErlangString(str)
-    override def toString: String = s"\"$str\""
+    def this(obj: OtpErlangString) = this(obj.stringValue)
+    override def toOtpErlangObject: OtpErlangString = new OtpErlangString(str)
+    override def toString: String                   = s"\"$str\""
   }
+
   case class EList(elems: List[ETerm]) extends ETerm {
-    def this(obj: OtpErlangList) =
-      this(obj.elements.map(fromJava).toList)
-    def apply(elems: List[ETerm]) = EList(elems)
-    def toJava()                  = new OtpErlangList(elems.map(_toJava).toArray)
-    override def toString: String = s"[${elems.mkString(",")}]"
+    def this(obj: OtpErlangList) = this(obj.elements.map(toETerm).toList)
+    override def toOtpErlangObject: OtpErlangList = new OtpErlangList(elems.map(_toOtpErlangObject).toArray)
+    override def toString: String                 = s"[${elems.mkString(",")}]"
   }
-  case class ETuple(elems: List[ETerm]) extends ETerm {
-    def this(obj: OtpErlangTuple) =
-      this(obj.elements.map(fromJava).toList)
-    def apply(elems: List[ETerm]) = ETuple(elems)
-    def toJava()                  = new OtpErlangTuple(elems.map(_toJava).toArray)
-    override def toString: String = s"{${elems.mkString(",")}}"
-  }
-  case class ELong(value: BigInt) extends ETerm {
-    def this(obj: OtpErlangLong) =
-      this(obj.longValue)
-    def apply(value: BigInt)      = ELong(value)
-    def toJava()                  = new OtpErlangLong(value.bigInteger)
-    override def toString: String = s"$value"
-  }
-  /*
-   TODO: Add the rest of the types
-   */
-  private def _toJava(eTerm: ETerm): OtpErlangObject =
-    eTerm.toJava()
-  /*
-     TODO: Add the rest of the types
-   */
-  def fromJava(obj: OtpErlangObject): ETerm =
-    obj match {
-      case otpPid: OtpErlangPid       => new EPid(otpPid)
-      case otpAtom: OtpErlangAtom     => new EAtom(otpAtom)
-      case otpString: OtpErlangString => new EString(otpString)
-      case otpList: OtpErlangList     => new EList(otpList)
-      case otpTuple: OtpErlangTuple   => new ETuple(otpTuple)
-      case otpLong: OtpErlangLong     => new ELong(otpLong)
+
+  case class EMap(mapLH: mutable.LinkedHashMap[ETerm, ETerm]) extends ETerm {
+    def this(obj: OtpErlangMap) = this {
+      val eMap = mutable.LinkedHashMap.empty[ETerm, ETerm]
+      obj.entrySet.forEach(i => eMap.update(toETerm(i.getKey), toETerm(i.getValue)))
+      eMap
     }
+
+    override def toOtpErlangObject: OtpErlangMap = {
+      val jMap = new OtpErlangMap()
+      mapLH.foreachEntry((k, v) => jMap.put(k.toOtpErlangObject, v.toOtpErlangObject))
+      jMap
+    }
+
+    override def toString: String = s"#{${this.mapLH.map(_.productIterator.mkString(" => ")).mkString(",")}}"
+  }
+
+  case class ETuple(elems: List[ETerm]) extends ETerm {
+    def this(obj: OtpErlangTuple) = this(obj.elements.map(toETerm).toList)
+    override def toOtpErlangObject: OtpErlangTuple = new OtpErlangTuple(elems.map(_toOtpErlangObject).toArray)
+    override def toString: String                  = s"{${elems.mkString(",")}}"
+  }
+
+  def toETerm(obj: Any): ETerm =
+    obj match {
+      case otpPid: OtpErlangPid         => new EPid(otpPid)
+      case otpBoolean: OtpErlangBoolean => new EBoolean(otpBoolean)
+      case otpAtom: OtpErlangAtom       => new EAtom(otpAtom)
+      case otpInt: OtpErlangInt         => new EInt(otpInt)
+      case otpLong: OtpErlangLong       => new ELong(otpLong)
+      case otpString: OtpErlangString   => new EString(otpString)
+      case otpList: OtpErlangList       => new EList(otpList)
+      case otpMap: OtpErlangMap         => new EMap(otpMap)
+      case otpTuple: OtpErlangTuple     => new ETuple(otpTuple)
+      case b: Boolean                   => EBoolean(b)
+      case i: Int                       => EInt(i)
+      case l: Long                      => ELong(l)
+      case s: String                    => EString(s)
+      case list: List[Any]              => EList(list.map(toETerm))
+    }
+
+  private def _toOtpErlangObject(eTerm: ETerm): OtpErlangObject =
+    eTerm.toOtpErlangObject
+
+  def matchToOtpErlangObject(value: Any): OtpErlangObject =
+    value match {
+      case b: Boolean      => new OtpErlangBoolean(b)
+      case i: Int          => new OtpErlangInt(i)
+      case l: Long         => new OtpErlangLong(l)
+      case s: String       => new OtpErlangString(s)
+      case list: List[Any] => new OtpErlangList(list.map(matchToOtpErlangObject).toArray)
+    }
+
+  def getValue(obj: Any): Any = obj match {
+    case b: EBoolean => b.boolean
+    case i: EInt     => i.int
+    case l: ELong    => l.long
+    case s: EString  => s.str
+    case list: EList => list.elems.map(getValue)
+  }
 }

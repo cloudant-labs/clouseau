@@ -5,26 +5,15 @@
 
  ZIOSE_TEST_DEBUG=1 gradle clean :actors:test --tests 'com.cloudant.zio.actors.CodecSpec'
  */
-
 package com.cloudant.zio.actors
 
-import com.cloudant.zio.actors.Codec._;
-import com.cloudant.zio.actors.helpers;
-
-import zio.test._
-import _root_.com.ericsson.otp.erlang._;
-
-import zio.test.junit.JUnitRunnableSpec
-import zio.test.junit.ZTestJUnitRunner
-import zio.test.Assertion._
-import org.junit.runner.RunWith
-
-import zio.ZLayer
-import zio.ZIO.logDebug
-
-import zio.Random
-import zio.Clock
+import Codec._
 import helpers.Generators
+import org.junit.runner.RunWith
+import zio._
+import zio.test._
+import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
+import zio.ZIO.logDebug
 
 @RunWith(classOf[ZTestJUnitRunner])
 class CodecSpec extends JUnitRunnableSpec {
@@ -34,21 +23,39 @@ class CodecSpec extends JUnitRunnableSpec {
     zio.Runtime.addLogger(zio.ZLogger.default.map(_ => null))
   }
   val environment = ZLayer.succeed(Clock.ClockLive) ++ ZLayer.succeed(Random.RandomLive) ++ logger
+
   def spec = suite("term encoding")(
     test("circle round trip from ETerm to OtpErlangObject") {
       check(Generators.anyPairGen(4)) { case (eTerm, jTerm) =>
         for {
-          _ <- logDebug(eTerm.toString())
-        } yield assertTrue(eTerm.toJava() == jTerm)
+          _ <- logDebug(eTerm.toString)
+        } yield assertTrue(eTerm.toOtpErlangObject == jTerm) &&
+          assertTrue(toETerm(eTerm.toOtpErlangObject) == eTerm)
       }
     },
     test("circle round trip from OtpErlangObject to ETerm") {
       check(Generators.anyPairGen(4)) { case (eTerm, jTerm) =>
         for {
-          _ <- logDebug(eTerm.toString())
-        } yield assertTrue(fromJava(jTerm) == eTerm)
+          _ <- logDebug(eTerm.toString)
+        } yield assertTrue(toETerm(jTerm) == eTerm) &&
+          assertTrue(toETerm(jTerm).toOtpErlangObject == jTerm)
+      }
+    },
+    test("toString should be the same for most ETerm") {
+      check(Generators.anyPairGen(4, withPid = false)) { case (eTerm, jTerm) =>
+        for {
+          _ <- logDebug(eTerm.toString)
+          _ <- logDebug(jTerm.toString)
+        } yield assertTrue(eTerm.toString == jTerm.toString)
+      }
+    },
+    test("toString should be different for EPid") {
+      check(Generators.pidPairGen) { case (eTerm, jTerm) =>
+        for {
+          _ <- logDebug(eTerm.toString)
+          _ <- logDebug(jTerm.toString)
+        } yield assertTrue(eTerm.toString != jTerm.toString)
       }
     }
-
   ).provideCustomLayer(environment)
 }
