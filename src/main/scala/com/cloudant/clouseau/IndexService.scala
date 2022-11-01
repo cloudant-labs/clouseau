@@ -168,7 +168,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     case ('close, reason) =>
       exit(reason)
     case ('close_if_idle) =>
-      if (idle) {
+      if (idle && !ctx.args.writer.hasPendingMerges()) {
         exit("Idle Timeout")
       }
       idle = true
