@@ -54,7 +54,6 @@ import org.apache.lucene.facet.taxonomy.CategoryPath
 import org.apache.lucene.facet.params.{ FacetIndexingParams, FacetSearchParams }
 import scala.Some
 import scalang.Pid
-import scalang.Reference
 import com.spatial4j.core.context.SpatialContext
 import com.spatial4j.core.distance.DistanceUtils
 import java.util.HashSet
@@ -101,13 +100,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
 
   debug("Opened at update_seq %d".format(updateSeq))
 
-  override def handleCall(tag: (Pid, Reference), msg: Any): Any = {
+  override def handleCall(tag: (Pid, Any), msg: Any): Any = {
     idle = false
     send('main, ('touch_lru, ctx.args.name))
     internalHandleCall(tag, msg)
   }
 
-  def internalHandleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
+  def internalHandleCall(tag: (Pid, Any), msg: Any): Any = msg match {
     case request: SearchRequest =>
       search(request)
     case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
