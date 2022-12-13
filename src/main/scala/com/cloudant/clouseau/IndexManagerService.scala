@@ -95,7 +95,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
   val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
   val openTimer = metrics.timer("opens")
   val lru = new LRU()
-  val waiters = Map[String, List[(Pid, Reference)]]()
+  val waiters = Map[String, List[(Pid, Any)]]()
 
   def getFieldCacheSize(): Long = {
     val fieldCache = FieldCache.DEFAULT
@@ -111,7 +111,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     metrics.gauge("field_cache.size")(getFieldCacheSize)
   }
 
-  override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
+  override def handleCall(tag: (Pid, Any), msg: Any): Any = msg match {
     case OpenIndexMsg(peer: Pid, path: String, options: Any) =>
       lru.get(path) match {
         case null =>

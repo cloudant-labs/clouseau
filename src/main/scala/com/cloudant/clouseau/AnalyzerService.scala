@@ -24,7 +24,7 @@ class AnalyzerService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ct
 
   val logger = LoggerFactory.getLogger("clouseau.analyzer")
 
-  override def handleCall(tag: (Pid, Reference), msg: Any): Any = msg match {
+  override def handleCall(tag: (Pid, Any), msg: Any): Any = msg match {
     case ('analyze, analyzerConfig: Any, text: String) =>
       SupportedAnalyzers.createAnalyzer(analyzerConfig) match {
         case Some(analyzer) =>
