@@ -1,7 +1,7 @@
 plugins {
   id 'org.scoverage' version "7.0.1" apply false
-  id 'org.owasp.dependencycheck' version '7.1.2' apply false
-  id "com.github.spotbugs" version "5.0.12" apply false
+  id 'org.owasp.dependencycheck' version '7.4.4' apply false
+  id "com.github.spotbugs" version "5.0.13" apply false
 }
 
 allprojects {

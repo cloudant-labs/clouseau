@@ -1,18 +1,18 @@
 # build tools
-java openjdk-18.0.2.1
-gradle 7.5.1
+java openjdk-17
+gradle 7.6
 scala 2.13.8
 # erlang needs java so it should be after it in the list
 # the only version which supports observer
 erlang 25.0.2
-coursier 2.1.0-M6-49-gff26f8e39
+coursier 2.1.0-M7
 editorconfig-checker 2.6.0
 
 # required tools
-yq 4.27.5
+yq 4.30.6
 
 # project management tools
-github-cli 2.15.0
+github-cli 2.21.2
 
 # optional auxiliary tools
 bat 0.22.1
