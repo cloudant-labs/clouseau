@@ -1,0 +1,32 @@
+#!/bin/bash
+case $1 in
+h | help)
+  echo "Common options:
+  h, help       Show this help message
+  i, install    Install dependencies
+  l, locust     Run locust tests
+                (Specify the docs number to be tested, run $./run l {docs_number}})
+  c, cleanup    Cleanup the directory"
+  ;;
+i | install)
+  echo Install dependencies
+  python3 -m pip install Faker locust rich
+  ;;
+l | locust)
+  if [ ! -z $2 ] && [ $2 -ge 1 ]; then
+    locust -f locustfile.py --headless --only-summary --docs-number $2 --files-number 5000 -u 1 -r 1 -t 120
+  else
+    locust -f locustfile.py --headless --only-summary --docs-number 100 --files-number 50 -u 1 -r 1 -t 20
+  fi
+  ;;
+p | locust_partition)
+  locust -f locustfile_partition.py --headless --only-summary -u 1 -r 1 -t 5
+  ;;
+c | clean)
+  rm -rf *.json __pycache__/
+  echo cleanup DONE
+  ;;
+*)
+  echo don\'t know
+  ;;
+esac
