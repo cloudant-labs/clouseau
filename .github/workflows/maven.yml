@@ -23,7 +23,7 @@ jobs:
     - name: Set up Erlang
       uses: gleam-lang/setup-erlang@v1.1.2
       with:
-        otp-version: 22.3.2
+        otp-version: '23.3.1'
     - name: Start epmd daemon
       run: epmd -daemon
     - name: Build with Maven
