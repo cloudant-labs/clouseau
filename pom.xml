@@ -281,6 +281,7 @@
                   <excludes>
                     <exclude>org/jboss/netty/channel/socket/http/</exclude>
                     <exclude>org/jboss/netty/handler/codec/http/</exclude>
+                    <exclude>org/jboss/netty/handler/ssl/</exclude>
                   </excludes>
                 </filter>
                 <filter>
