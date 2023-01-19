@@ -8,7 +8,7 @@ on:
 jobs:
   release:
     name: Release of clouseau-{version}-dist.zip
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
       - name: Set ENV for github-release
