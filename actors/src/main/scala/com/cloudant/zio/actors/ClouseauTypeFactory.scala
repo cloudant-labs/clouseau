@@ -1,6 +1,5 @@
 package com.cloudant.zio.actors
 
-import _root_.com.ericsson.otp.erlang._
 import Codec._
 
 trait TypeFactory {
@@ -64,7 +63,7 @@ object ClouseauTypeFactory extends TypeFactory {
           ) =>
         Some(Group1Msg(query, field, refresh, groupSort, groupOffset, groupLimit))
       case ETuple(List(EAtom(Symbol("group2")), EMap(options))) =>
-        Some(Group2Msg(options.foldLeft(Map.empty[Symbol, Any]) { case (map, (k: ETerm, v: ETerm)) =>
+        Some(Group2Msg(options.foldLeft(Map.empty[Symbol, Any]) { case (map, (k, v)) =>
           map + (k.asInstanceOf[EAtom].atom -> getValue(v))
         }))
       case ETuple(List(EAtom(Symbol("open")), peer, EString(path), options)) =>
@@ -72,7 +71,7 @@ object ClouseauTypeFactory extends TypeFactory {
       case ETuple(List(EAtom(Symbol("rename")), EString(dbName))) =>
         Some(RenamePathMsg(dbName))
       case ETuple(List(EAtom(Symbol("search")), EMap(options))) =>
-        Some(SearchRequest(options.foldLeft(Map.empty[Symbol, Any]) { case (map, (k: ETerm, v: ETerm)) =>
+        Some(SearchRequest(options.foldLeft(Map.empty[Symbol, Any]) { case (map, (k, v)) =>
           map + (k.asInstanceOf[EAtom].atom -> getValue(v))
         }))
       case ETuple(List(EAtom(Symbol("set_purge_seq")), ELong(seq))) =>

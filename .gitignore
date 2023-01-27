@@ -10,10 +10,14 @@ build/
 gradle/
 gradlew
 gradlew.bat
+.bloop
+.history
 
 # idea
 .idea
 *.iml
+*.bkp
+.DS_Store
 
 # vscode
 .metals

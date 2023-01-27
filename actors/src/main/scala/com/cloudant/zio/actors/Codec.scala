@@ -1,6 +1,6 @@
 package com.cloudant.zio.actors
 
-import _root_.com.ericsson.otp.erlang._
+import com.ericsson.otp.erlang._
 import scala.collection.mutable
 
 object Codec {
@@ -83,30 +83,23 @@ object Codec {
       case otpList: OtpErlangList       => new EList(otpList)
       case otpMap: OtpErlangMap         => new EMap(otpMap)
       case otpTuple: OtpErlangTuple     => new ETuple(otpTuple)
-      case b: Boolean                   => EBoolean(b)
-      case i: Int                       => EInt(i)
-      case l: Long                      => ELong(l)
-      case s: String                    => EString(s)
-      case list: List[Any]              => EList(list.map(toETerm))
     }
 
   private def _toOtpErlangObject(eTerm: ETerm): OtpErlangObject =
     eTerm.toOtpErlangObject
 
-  def matchToOtpErlangObject(value: Any): OtpErlangObject =
-    value match {
-      case b: Boolean      => new OtpErlangBoolean(b)
-      case i: Int          => new OtpErlangInt(i)
-      case l: Long         => new OtpErlangLong(l)
-      case s: String       => new OtpErlangString(s)
-      case list: List[Any] => new OtpErlangList(list.map(matchToOtpErlangObject).toArray)
-    }
-
   def getValue(obj: Any): Any = obj match {
-    case b: EBoolean => b.boolean
-    case i: EInt     => i.int
-    case l: ELong    => l.long
-    case s: EString  => s.str
-    case list: EList => list.elems.map(getValue)
+    case b: EBoolean   => b.boolean
+    case a: EAtom      => a.atom
+    case i: EInt       => i.int
+    case l: ELong      => l.long
+    case s: EString    => s.str
+    case pid: EPid     => pid
+    case list: EList   => list.elems.map(getValue)
+    case tuple: ETuple => tuple.elems.map(getValue)
+    case map: EMap =>
+      map.mapLH.foldLeft(Map.empty[Any, Any]) { case (newMap, (k: ETerm, v: ETerm)) =>
+        newMap + (getValue(k) -> getValue(v))
+      }
   }
 }

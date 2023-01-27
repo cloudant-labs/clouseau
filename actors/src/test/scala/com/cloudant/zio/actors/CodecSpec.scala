@@ -2,31 +2,82 @@
  gradle clean :actors:test --tests 'com.cloudant.zio.actors.CodecSpec'
 
  to debug generated terms use
-
  ZIOSE_TEST_DEBUG=1 gradle clean :actors:test --tests 'com.cloudant.zio.actors.CodecSpec'
+
+ To run Generators tests use
+ ZIOSE_TEST_DEBUG=1 ZIOSE_TEST_Generators=1 gradle clean :actors:test --tests 'com.cloudant.zio.actors.CodecSpec'
  */
 package com.cloudant.zio.actors
 
 import Codec._
-import helpers.Generators
+import com.ericsson.otp.erlang._
+import helpers.Generators._
 import org.junit.runner.RunWith
 import zio._
 import zio.test._
-import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
+import zio.test.Gen._
+import zio.test.junit._
+import zio.test.TestAspect._
 import zio.ZIO.logDebug
 
 @RunWith(classOf[ZTestJUnitRunner])
 class CodecSpec extends JUnitRunnableSpec {
   val logger = if (sys.env contains "ZIOSE_TEST_DEBUG") {
-    zio.Runtime.addLogger(zio.ZLogger.default.map(println))
+    Runtime.addLogger(ZLogger.default.map(println))
   } else {
-    zio.Runtime.addLogger(zio.ZLogger.default.map(_ => null))
+    Runtime.addLogger(ZLogger.default.map(_ => null))
   }
   val environment = ZLayer.succeed(Clock.ClockLive) ++ ZLayer.succeed(Random.RandomLive) ++ logger
 
-  def spec = suite("term encoding")(
+  def allButPid: Gen[Random with Sized, (ETerm, OtpErlangObject)] =
+    termP(10, oneOf(stringP, atomP, booleanP, intP, longP))
+
+  def spec: Spec[TestEnvironment, Any] = suite("term encoding")(
+    test("testing list container generators") {
+      check(listContainerE(listOf(oneOf(intE, longE)))) { eTerm =>
+        assertTrue(eTerm.isInstanceOf[EList])
+      }
+      check(listContainerO(listOf(oneOf(intO, longO)))) { oTerm =>
+        assertTrue(oTerm.isInstanceOf[OtpErlangList])
+      }
+      check(listContainerP(listOf(oneOf(intP, longP)))) { case (eTerm, oTerm) =>
+        assertTrue(eTerm.isInstanceOf[EList])
+        assertTrue(oTerm.isInstanceOf[OtpErlangList])
+      }
+    } @@ ifEnvSet("ZIOSE_TEST_Generators"),
+    test("testing tuple container generators") {
+      check(tupleContainerE(listOf(oneOf(intE, longE)))) { eTerm =>
+        assertTrue(eTerm.isInstanceOf[ETuple])
+      }
+      check(tupleContainerO(listOf(oneOf(intO, longO)))) { oTerm =>
+        assertTrue(oTerm.isInstanceOf[OtpErlangTuple])
+      }
+      check(tupleContainerP(listOf(oneOf(intP, longP)))) { case (eTerm, oTerm) =>
+        assertTrue(eTerm.isInstanceOf[ETuple])
+        assertTrue(oTerm.isInstanceOf[OtpErlangTuple])
+      }
+    } @@ ifEnvSet("ZIOSE_TEST_Generators"),
+    test("testing map container generators") {
+      check(mapContainerE(listOf(oneOf(intE, longE)))) { eTerm =>
+        assertTrue(eTerm.isInstanceOf[EMap])
+      }
+      check(mapContainerO(listOf(oneOf(intO, longO)))) { oTerm =>
+        assertTrue(oTerm.isInstanceOf[OtpErlangMap])
+      }
+      check(mapContainerP(listOf(oneOf(intP, longP)))) { case (eTerm, oTerm) =>
+        assertTrue(eTerm.isInstanceOf[EMap])
+        assertTrue(oTerm.isInstanceOf[OtpErlangMap])
+      }
+    } @@ ifEnvSet("ZIOSE_TEST_Generators"),
+    test("codec ETerm") {
+      check(anyO(10)) { eTerm =>
+        for {
+          _ <- logDebug(eTerm.toString)
+        } yield assertTrue(true)
+      }
+    },
     test("circle round trip from ETerm to OtpErlangObject") {
-      check(Generators.anyPairGen(4)) { case (eTerm, jTerm) =>
+      check(anyP(10)) { case (eTerm, jTerm) =>
         for {
           _ <- logDebug(eTerm.toString)
         } yield assertTrue(eTerm.toOtpErlangObject == jTerm) &&
@@ -34,7 +85,7 @@ class CodecSpec extends JUnitRunnableSpec {
       }
     },
     test("circle round trip from OtpErlangObject to ETerm") {
-      check(Generators.anyPairGen(4)) { case (eTerm, jTerm) =>
+      check(anyP(10)) { case (eTerm, jTerm) =>
         for {
           _ <- logDebug(eTerm.toString)
         } yield assertTrue(toETerm(jTerm) == eTerm) &&
@@ -42,7 +93,7 @@ class CodecSpec extends JUnitRunnableSpec {
       }
     },
     test("toString should be the same for most ETerm") {
-      check(Generators.anyPairGen(4, withPid = false)) { case (eTerm, jTerm) =>
+      check(allButPid) { case (eTerm, jTerm) =>
         for {
           _ <- logDebug(eTerm.toString)
           _ <- logDebug(jTerm.toString)
@@ -50,7 +101,7 @@ class CodecSpec extends JUnitRunnableSpec {
       }
     },
     test("toString should be different for EPid") {
-      check(Generators.pidPairGen) { case (eTerm, jTerm) =>
+      check(pidP) { case (eTerm, jTerm) =>
         for {
           _ <- logDebug(eTerm.toString)
           _ <- logDebug(jTerm.toString)
