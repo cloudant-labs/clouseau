@@ -101,7 +101,7 @@
     <dependency>
       <groupId>com.boundary</groupId>
       <artifactId>scalang-scala_2.9.1</artifactId>
-      <version>1.0.0</version>
+      <version>1.0.1</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
@@ -156,30 +156,20 @@
         <configuration>
           <launchers>
             <launcher>
-              <id>clouseau1</id>
+              <id>standard</id>
               <mainClass>com.cloudant.clouseau.Main</mainClass>
               <jvmArgs>
-                <jvmArg>-Dclouseau.name=clouseau1@127.0.0.1</jvmArg>
-                <jvmArg>-Dclouseau.cookie=monster</jvmArg>
-                <jvmArg>-Dclouseau.dir=${basedir}/target/clouseau1</jvmArg>
+                <jvmArg>-Dclouseau.name=${name}@127.0.0.1</jvmArg>
+                <jvmArg>-Dclouseau.dir=${basedir}/target/${name}</jvmArg>
               </jvmArgs>
             </launcher>
             <launcher>
-              <id>clouseau2</id>
+              <id>with-cookie</id>
               <mainClass>com.cloudant.clouseau.Main</mainClass>
               <jvmArgs>
-                <jvmArg>-Dclouseau.name=clouseau2@127.0.0.1</jvmArg>
-                <jvmArg>-Dclouseau.cookie=monster</jvmArg>
-                <jvmArg>-Dclouseau.dir=${basedir}/target/clouseau2</jvmArg>
-              </jvmArgs>
-            </launcher>
-            <launcher>
-              <id>clouseau3</id>
-              <mainClass>com.cloudant.clouseau.Main</mainClass>
-              <jvmArgs>
-                <jvmArg>-Dclouseau.name=clouseau3@127.0.0.1</jvmArg>
-                <jvmArg>-Dclouseau.cookie=monster</jvmArg>
-                <jvmArg>-Dclouseau.dir=${basedir}/target/clouseau3</jvmArg>
+                <jvmArg>-Dclouseau.name=${name}@127.0.0.1</jvmArg>
+                <jvmArg>-Dclouseau.dir=${basedir}/target/${name}</jvmArg>
+                <jvmArg>-Dclouseau.cookie=${cookie}</jvmArg>
               </jvmArgs>
             </launcher>
           </launchers>
