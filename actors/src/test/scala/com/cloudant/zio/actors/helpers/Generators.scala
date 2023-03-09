@@ -21,37 +21,37 @@ object Generators {
   /**
    * A generator of ETerm objects representing EAtom variant. Shrinks toward the "" (empty string) atom.
    */
-  def atomE: Gen[Random with Sized, ETerm] =
+  def atomE: Gen[Any, ETerm] =
     for { xs <- alphaNumericString } yield EAtom(Symbol(xs))
 
   /**
    * A generator of ETerm objects representing EBoolean variant. Shrinks toward 'false'.
    */
-  def booleanE: Gen[Random with Sized, ETerm] =
+  def booleanE: Gen[Any, ETerm] =
     for { b <- boolean } yield EBoolean(b)
 
   /**
    * A generator of ETerm objects representing EInt variant. Shrinks toward 0.
    */
-  def intE: Gen[Random with Sized, ETerm] =
+  def intE: Gen[Any, ETerm] =
     for { i <- int(Int.MinValue, Int.MaxValue) } yield EInt(i)
 
   /**
    * A generator of ETerm objects representing ELong variant. Shrinks toward 0.
    */
-  def longE: Gen[Random with Sized, ETerm] =
+  def longE: Gen[Any, ETerm] =
     for { i <- long(Long.MinValue, Long.MaxValue) } yield ELong(i)
 
   /**
    * A generator of ETerm objects representing EString variant. Shrinks toward empty string.
    */
-  def stringE: Gen[Random with Sized, ETerm] =
+  def stringE: Gen[Any, ETerm] =
     for { s <- asciiString } yield EString(s)
 
   /**
    * A generator of ETerm objects representing EPid variant. Shrinks toward EPid("", 0, 0, 0).
    */
-  def pidE: Gen[Random with Sized, ETerm] =
+  def pidE: Gen[Any, ETerm] =
     for {
       node     <- alphaNumericString
       id       <- int(0, 10)
@@ -64,7 +64,7 @@ object Generators {
    *
    * Same as `termE(n, oneOf(stringE, atomE, booleanE, intE, longE, pidE))`
    */
-  def anyE(n: Int): Gen[Random with Sized, ETerm] =
+  def anyE(n: Int): Gen[Any, ETerm] =
     termE(n, oneOf(stringE, atomE, booleanE, intE, longE, pidE))
 
   /**
@@ -72,7 +72,7 @@ object Generators {
    *
    * The generated terms can be nested.
    */
-  def tupleE(n: Int): Gen[Random with Sized, ETerm] =
+  def tupleE(n: Int): Gen[Any, ETerm] =
     for { term <- tupleContainerE(listOf(anyE(n))) } yield term
 
   /**
@@ -80,7 +80,7 @@ object Generators {
    *
    * The generated terms can be nested.
    */
-  def listE(n: Int): Gen[Random with Sized, ETerm] =
+  def listE(n: Int): Gen[Any, ETerm] =
     for { term <- listContainerE(listOf(anyE(n))) } yield term
 
   /**
@@ -88,7 +88,7 @@ object Generators {
    *
    * The generated terms can be nested.
    */
-  def mapE(n: Int): Gen[Random with Sized, ETerm] =
+  def mapE(n: Int): Gen[Any, ETerm] =
     for { term <- mapContainerE(listOf(anyE(n))) } yield term
 
   /**
@@ -99,7 +99,7 @@ object Generators {
    * For example the `termE(n, oneOf(intE, longE))` would produce list of integers, tuple of integers, map where values
    * are integers.
    */
-  def termE(n: Int, g: Gen[Random with Sized, ETerm]): Gen[Random with Sized, ETerm] =
+  def termE(n: Int, g: Gen[Any, ETerm]): Gen[Any, ETerm] =
     for {
       (term, _) <- treeP(n, liftE(g))
     } yield term
@@ -111,7 +111,7 @@ object Generators {
    *
    * For example the `listContainerE(n, oneOf(intE, longE))` would produce list of integers.
    */
-  def listContainerE(g: Gen[Random with Sized, List[ETerm]]): Gen[Random with Sized, ETerm] = suspend {
+  def listContainerE(g: Gen[Any, List[ETerm]]): Gen[Any, ETerm] = suspend {
     for { children <- g } yield EList(children)
   }
 
@@ -122,7 +122,7 @@ object Generators {
    *
    * For example the `tupleContainerE(n, oneOf(intE, longE))` would produce tuple of integers.
    */
-  def tupleContainerE(g: Gen[Random with Sized, List[ETerm]]): Gen[Random with Sized, ETerm] = suspend {
+  def tupleContainerE(g: Gen[Any, List[ETerm]]): Gen[Any, ETerm] = suspend {
     for { children <- g } yield ETuple(children)
   }
 
@@ -134,7 +134,7 @@ object Generators {
    * For example the `mapContainerE(n, oneOf(intE, longE))` would produce map where keys are strings and values are
    * integers.
    */
-  def mapContainerE(g: Gen[Random with Sized, List[ETerm]]): Gen[Random with Sized, ETerm] = suspend {
+  def mapContainerE(g: Gen[Any, List[ETerm]]): Gen[Any, ETerm] = suspend {
     g.flatMap { children =>
       for {
         keys <- listOfN(children.size)(stringP)
@@ -152,7 +152,7 @@ object Generators {
    *
    * Shrinks toward the "" (empty string) atom.
    */
-  def atomO: Gen[Random with Sized, OtpErlangObject] =
+  def atomO: Gen[Any, OtpErlangObject] =
     for { s <- alphaNumericString } yield new OtpErlangAtom(s)
 
   /**
@@ -160,7 +160,7 @@ object Generators {
    *
    * Shrinks toward 'false'.
    */
-  def booleanO: Gen[Random with Sized, OtpErlangObject] =
+  def booleanO: Gen[Any, OtpErlangObject] =
     for { b <- boolean } yield new OtpErlangBoolean(b)
 
   /**
@@ -168,7 +168,7 @@ object Generators {
    *
    * Shrinks toward '0'.
    */
-  def intO: Gen[Random with Sized, OtpErlangObject] =
+  def intO: Gen[Any, OtpErlangObject] =
     for { i <- int(Int.MinValue, Int.MaxValue) } yield new OtpErlangInt(i)
 
   /**
@@ -176,7 +176,7 @@ object Generators {
    *
    * Shrinks toward '0'.
    */
-  def longO: Gen[Random with Sized, OtpErlangObject] =
+  def longO: Gen[Any, OtpErlangObject] =
     for { i <- bigIntegerJava(Long.MinValue, Long.MaxValue) } yield new OtpErlangLong(i)
 
   /**
@@ -184,7 +184,7 @@ object Generators {
    *
    * Shrinks toward empty string.
    */
-  def stringO: Gen[Random with Sized, OtpErlangObject] =
+  def stringO: Gen[Any, OtpErlangObject] =
     for { s <- asciiString } yield new OtpErlangString(s)
 
   /**
@@ -192,7 +192,7 @@ object Generators {
    *
    * Shrinks toward OtpErlangPid("", 0, 0, 0).
    */
-  def pidO: Gen[Random with Sized, OtpErlangObject] =
+  def pidO: Gen[Any, OtpErlangObject] =
     for {
       node     <- alphaNumericString
       id       <- int(0, 10)
@@ -205,7 +205,7 @@ object Generators {
    *
    * Same as `termO(n, oneOf(stringO, atomO, booleanO, intO, longO, pidO))`
    */
-  def anyO(n: Int): Gen[Random with Sized, OtpErlangObject] =
+  def anyO(n: Int): Gen[Any, OtpErlangObject] =
     termO(n, oneOf(stringO, atomO, booleanO, intO, longO, pidO))
 
   /**
@@ -213,7 +213,7 @@ object Generators {
    *
    * The generated terms can be nested.
    */
-  def tupleO(n: Int): Gen[Random with Sized, OtpErlangObject] =
+  def tupleO(n: Int): Gen[Any, OtpErlangObject] =
     for { term <- tupleContainerO(listOf(anyO(n))) } yield term
 
   /**
@@ -221,7 +221,7 @@ object Generators {
    *
    * The generated terms can be nested.
    */
-  def listO(n: Int): Gen[Random with Sized, OtpErlangObject] =
+  def listO(n: Int): Gen[Any, OtpErlangObject] =
     for { term <- listContainerO(listOf(anyO(n))) } yield term
 
   /**
@@ -229,7 +229,7 @@ object Generators {
    *
    * The generated terms can be nested.
    */
-  def mapO(n: Int): Gen[Random with Sized, OtpErlangObject] =
+  def mapO(n: Int): Gen[Any, OtpErlangObject] =
     for { term <- mapContainerO(listOf(anyO(n))) } yield term
 
   /**
@@ -240,7 +240,7 @@ object Generators {
    * For example the `termO(n, oneOf(intO, longO))` would produce list of integers, tuple of integers, map where values
    * are integers.
    */
-  def termO(n: Int, g: Gen[Random with Sized, OtpErlangObject]): Gen[Random with Sized, OtpErlangObject] =
+  def termO(n: Int, g: Gen[Any, OtpErlangObject]): Gen[Any, OtpErlangObject] =
     for { (_, term) <- treeP(n, liftO(g)) } yield term
 
   /**
@@ -250,7 +250,7 @@ object Generators {
    *
    * For example the `listContainerO(n, oneOf(intO, longO))` would produce list of integers.
    */
-  def listContainerO(g: Gen[Random with Sized, List[OtpErlangObject]]): Gen[Random with Sized, OtpErlangObject] =
+  def listContainerO(g: Gen[Any, List[OtpErlangObject]]): Gen[Any, OtpErlangObject] =
     suspend(for { children <- g } yield new OtpErlangList(children.toArray))
 
   /**
@@ -260,7 +260,7 @@ object Generators {
    *
    * For example the `tupleContainerO(n, oneOf(intO, longO))` would produce tuple of integers.
    */
-  def tupleContainerO(g: Gen[Random with Sized, List[OtpErlangObject]]): Gen[Random with Sized, OtpErlangObject] =
+  def tupleContainerO(g: Gen[Any, List[OtpErlangObject]]): Gen[Any, OtpErlangObject] =
     suspend(for { children <- g } yield new OtpErlangTuple(children.toArray))
 
   /**
@@ -271,7 +271,7 @@ object Generators {
    * For example the `mapContainerO(n, oneOf(intO, longO))` would produce map where keys are strings and values are
    * integers.
    */
-  def mapContainerO(g: Gen[Random with Sized, List[OtpErlangObject]]): Gen[Random with Sized, OtpErlangObject] =
+  def mapContainerO(g: Gen[Any, List[OtpErlangObject]]): Gen[Any, OtpErlangObject] =
     suspend {
       g.flatMap { children =>
         for {
@@ -290,7 +290,7 @@ object Generators {
    *
    * Shrinks toward the (EAtom(''), OtpErlangAtom('')) (empty string) atom.
    */
-  def atomP: Gen[Random with Sized, SamplePair] =
+  def atomP: Gen[Any, SamplePair] =
     for { s <- alphaNumericString } yield (EAtom(Symbol(s)), new OtpErlangAtom(s))
 
   /**
@@ -298,7 +298,7 @@ object Generators {
    *
    * Shrinks toward the (EBoolean(false), OtpErlangBoolean(false)).
    */
-  def booleanP: Gen[Random with Sized, SamplePair] =
+  def booleanP: Gen[Any, SamplePair] =
     for { b <- boolean } yield (EBoolean(b), new OtpErlangBoolean(b))
 
   /**
@@ -306,7 +306,7 @@ object Generators {
    *
    * Shrinks toward the (EInt(0), OtpErlangInt(0)).
    */
-  def intP: Gen[Random with Sized, SamplePair] =
+  def intP: Gen[Any, SamplePair] =
     for { i <- int(Int.MinValue, Int.MaxValue) } yield (EInt(i), new OtpErlangInt(i))
 
   /**
@@ -314,7 +314,7 @@ object Generators {
    *
    * Shrinks toward the (ELong(0), OtpErlangLong(0)).
    */
-  def longP: Gen[Random with Sized, SamplePair] =
+  def longP: Gen[Any, SamplePair] =
     for { i <- bigIntegerJava(Long.MinValue, Long.MaxValue) } yield (ELong(i), new OtpErlangLong(i))
 
   /**
@@ -322,7 +322,7 @@ object Generators {
    *
    * Shrinks toward the (EString(""), OtpErlangString("")).
    */
-  def stringP: Gen[Random with Sized, SamplePair] =
+  def stringP: Gen[Any, SamplePair] =
     for { s <- asciiString } yield (EString(s), new OtpErlangString(s))
 
   /**
@@ -330,7 +330,7 @@ object Generators {
    *
    * Shrinks toward (EPid("", 0, 0, 0), OtpErlangPid("", 0, 0, 0)).
    */
-  def pidP: Gen[Random with Sized, SamplePair] =
+  def pidP: Gen[Any, SamplePair] =
     for {
       node     <- alphaNumericString
       id       <- int(0, 10)
@@ -343,25 +343,25 @@ object Generators {
    *
    * Same as `termP(n, oneOf(stringP, atomP, booleanP, intP, longP, pidP))`
    */
-  def anyP(n: Int): Gen[Random with Sized, SamplePair] =
+  def anyP(n: Int): Gen[Any, SamplePair] =
     treeP(n, oneOf(stringP, atomP, booleanP, intP, longP, pidP))
 
   /**
    * A generator of tuples (ETuple, OtpErlangTuple). The generated terms can be nested.
    */
-  def tupleP(n: Int): Gen[Random with Sized, SamplePair] =
+  def tupleP(n: Int): Gen[Any, SamplePair] =
     for { term <- tupleContainerP(listOf(anyP(n))) } yield term
 
   /**
    * A generator of tuples (EList, OtpErlangList). The generated terms can be nested.
    */
-  def listP(n: Int): Gen[Random with Sized, SamplePair] =
+  def listP(n: Int): Gen[Any, SamplePair] =
     for { term <- listContainerP(listOf(anyP(n))) } yield term
 
   /**
    * A generator of tuples (EMap, OtpErlangMap). The generated terms can be nested.
    */
-  def mapP(n: Int): Gen[Random with Sized, SamplePair] =
+  def mapP(n: Int): Gen[Any, SamplePair] =
     for { term <- mapContainerP(listOf(anyP(n))) } yield term
 
   /**
@@ -372,7 +372,7 @@ object Generators {
    * For example the `termP(n, oneOf(intP, longP))` would produce integers and terms which include list of integers,
    * tuple of integers, map where values are integers.
    */
-  def termP(n: Int, g: Gen[Random with Sized, SamplePair]): Gen[Random with Sized, SamplePair] =
+  def termP(n: Int, g: Gen[Any, SamplePair]): Gen[Any, SamplePair] =
     treeP(n, g)
 
   /**
@@ -382,7 +382,7 @@ object Generators {
    *
    * For example the `listContainerP(n, oneOf(intP, longP))` would produce list of integers.
    */
-  def listContainerP(g: Gen[Random with Sized, List[SamplePair]]): Gen[Random with Sized, SamplePair] = suspend {
+  def listContainerP(g: Gen[Any, List[SamplePair]]): Gen[Any, SamplePair] = suspend {
     for {
       children <- g
       (eTerms, otpTerms) = children.unzip
@@ -396,7 +396,7 @@ object Generators {
    *
    * For example the `tupleContainerP(n, oneOf(intP, longP))` would produce tuple of integers.
    */
-  def tupleContainerP(g: Gen[Random with Sized, List[SamplePair]]): Gen[Random with Sized, SamplePair] = suspend {
+  def tupleContainerP(g: Gen[Any, List[SamplePair]]): Gen[Any, SamplePair] = suspend {
     for {
       children <- g
       (eTerms, otpTerms) = children.unzip
@@ -411,7 +411,7 @@ object Generators {
    * For example the `mapContainerP(n, oneOf(intP, longP))` would produce map where keys are strings and values are
    * integers.
    */
-  def mapContainerP(g: Gen[Random with Sized, List[SamplePair]]): Gen[Random with Sized, SamplePair] = suspend {
+  def mapContainerP(g: Gen[Any, List[SamplePair]]): Gen[Any, SamplePair] = suspend {
     g.flatMap { children =>
       for {
         keys <- listOfN(children.size)(stringP)
@@ -428,15 +428,15 @@ object Generators {
 
   private def childrenP(
     n: Int,
-    g: Gen[Random with Sized, SamplePair]
-  ): Gen[Random with Sized, List[(ETerm, OtpErlangObject)]] = suspend {
+    g: Gen[Any, SamplePair]
+  ): Gen[Any, List[(ETerm, OtpErlangObject)]] = suspend {
     for {
       i <- Gen.int(1, n - 1)
       r <- listOfN(n - i)(treeP(i, g))
     } yield r
   }
 
-  private def nodeP(n: Int, g: Gen[Random with Sized, SamplePair]): Gen[Random with Sized, (ETerm, OtpErlangObject)] =
+  private def nodeP(n: Int, g: Gen[Any, SamplePair]): Gen[Any, (ETerm, OtpErlangObject)] =
     suspend {
       for {
         container <- oneOf(
@@ -447,7 +447,7 @@ object Generators {
       } yield container
     }
 
-  private def treeP(n: Int, g: Gen[Random with Sized, SamplePair]): Gen[Random with Sized, SamplePair] = suspend {
+  private def treeP(n: Int, g: Gen[Any, SamplePair]): Gen[Any, SamplePair] = suspend {
     if (n == 1) g
     else oneOf(nodeP(n, g), g)
   }
@@ -455,17 +455,17 @@ object Generators {
   /**
    * Converts generator of OtpErlangObject objects into generator of (ETerm, OtpErlangObject)
    */
-  private def liftO(g: Gen[Random with Sized, OtpErlangObject]): Gen[Random with Sized, SamplePair] =
+  private def liftO(g: Gen[Any, OtpErlangObject]): Gen[Any, SamplePair] =
     for { o <- g } yield (EList(List.empty), o)
 
   /**
    * Converts generator of ETerm objects into generator of (ETerm, OtpErlangObject)
    */
-  private def liftE(g: Gen[Random with Sized, ETerm]): Gen[Random with Sized, SamplePair] =
+  private def liftE(g: Gen[Any, ETerm]): Gen[Any, SamplePair] =
     for { e <- g } yield (e, new OtpErlangList())
 
   /* --------------- ClouseauMessagePairGen --------------- */
-  def cleanupDbMsgPairGen: Gen[Random with Sized, (ETerm, ClouseauMessage)] =
+  def cleanupDbMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] =
     for {
       dbName     <- alphaNumericString
       activeSigs <- listOf(alphaNumericString)
@@ -474,32 +474,32 @@ object Generators {
       CleanupDbMsg(dbName, activeSigs)
     )
 
-  def cleanupPathMsgPairGen: Gen[Random with Sized, (ETerm, ClouseauMessage)] =
+  def cleanupPathMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] =
     for {
       path <- alphaNumericString
     } yield (ETuple(List(EAtom(Symbol("cleanup")), EString(path))), CleanupPathMsg(path))
 
-  def closeLRUByPathMsgPairGen: Gen[Random with Sized, (ETerm, ClouseauMessage)] =
+  def closeLRUByPathMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] =
     for {
       path <- alphaNumericString
     } yield (ETuple(List(EAtom(Symbol("close_lru_by_path")), EString(path))), CloseLRUByPathMsg(path))
 
-  def commitMsgPairGen: Gen[Random with Sized, (ETerm, ClouseauMessage)] =
+  def commitMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] =
     for {
       seq <- long(Long.MinValue, Long.MaxValue)
     } yield (ETuple(List(EAtom(Symbol("commit")), ELong(seq))), CommitMsg(seq))
 
-  def deleteDocMsgPairGen: Gen[Random with Sized, (ETerm, ClouseauMessage)] =
+  def deleteDocMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] =
     for {
       id <- alphaNumericString
     } yield (ETuple(List(EAtom(Symbol("delete")), EString(id))), DeleteDocMsg(id))
 
-  def diskSizeMsgPairGen: Gen[Random with Sized, (ETerm, ClouseauMessage)] =
+  def diskSizeMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] =
     for {
       path <- alphaNumericString
     } yield (ETuple(List(EAtom(Symbol("disk_size")), EString(path))), DiskSizeMsg(path))
 
-  def group1MsgPairGen(depth: Int): Gen[Random with Sized, (ETerm, ClouseauMessage)] =
+  def group1MsgPairGen(depth: Int): Gen[Any, (ETerm, ClouseauMessage)] =
     for {
       query          <- alphaNumericString
       field          <- alphaNumericString
@@ -522,7 +522,7 @@ object Generators {
       Group1Msg(query, field, refresh, groupSort, groupOffset, groupLimit)
     )
 
-  def group2MsgPairGen: Gen[Random with Sized, (ETerm, ClouseauMessage)] =
+  def group2MsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] =
     for {
       keys   <- setOf(alphaNumericStringBounded(1, 10))
       values <- listOfN(keys.size)(anyE(10))
@@ -536,7 +536,7 @@ object Generators {
       )
     }
 
-  def openIndexMsgPairGen(depth: Int): Gen[Random with Sized, (ETerm, ClouseauMessage)] =
+  def openIndexMsgPairGen(depth: Int): Gen[Any, (ETerm, ClouseauMessage)] =
     for {
       pid     <- pidE
       path    <- alphaNumericString
@@ -546,12 +546,12 @@ object Generators {
       OpenIndexMsg(pid.asInstanceOf[EPid], path, options)
     )
 
-  def renamePathMsgPairGen: Gen[Random with Sized, (ETerm, ClouseauMessage)] =
+  def renamePathMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] =
     for {
       dbName <- alphaNumericString
     } yield (ETuple(List(EAtom(Symbol("rename")), EString(dbName))), RenamePathMsg(dbName))
 
-  def searchRequestPairGen: Gen[Random with Sized, (ETerm, ClouseauMessage)] =
+  def searchRequestPairGen: Gen[Any, (ETerm, ClouseauMessage)] =
     for {
       keys   <- setOf(alphaNumericStringBounded(1, 10))
       values <- listOfN(keys.size)(anyE(10))
@@ -565,17 +565,17 @@ object Generators {
       )
     }
 
-  def setPurgeSeqMsgPairGen: Gen[Random with Sized, (ETerm, ClouseauMessage)] =
+  def setPurgeSeqMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] =
     for {
       seq <- long(Long.MinValue, Long.MaxValue)
     } yield (ETuple(List(EAtom(Symbol("set_purge_seq")), ELong(seq))), SetPurgeSeqMsg(seq))
 
-  def setUpdateSeqMsgPairGen: Gen[Random with Sized, (ETerm, ClouseauMessage)] =
+  def setUpdateSeqMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] =
     for {
       seq <- long(Long.MinValue, Long.MaxValue)
     } yield (ETuple(List(EAtom(Symbol("set_update_seq")), ELong(seq))), SetUpdateSeqMsg(seq))
 
-  def anyMessagePairGen(depth: Int): Gen[Random with Sized, (ETerm, ClouseauMessage)] =
+  def anyMessagePairGen(depth: Int): Gen[Any, (ETerm, ClouseauMessage)] =
     small { _ =>
       oneOf(
         cleanupDbMsgPairGen,

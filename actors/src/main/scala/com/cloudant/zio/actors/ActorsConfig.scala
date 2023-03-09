@@ -1,7 +1,7 @@
 package com.cloudant.zio.actors
 
 import _root_.zio.config._
-import _root_.zio.config.ConfigDescriptor._
+import _root_.zio.Config
 import _root_.zio.config.typesafe._
 
 private[actors] object ActorsConfig {

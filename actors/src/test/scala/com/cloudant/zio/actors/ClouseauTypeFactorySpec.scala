@@ -32,7 +32,7 @@ class ClouseauTypeFactorySpec extends JUnitRunnableSpec {
             assertTrue(event.get.isInstanceOf[ClouseauMessage]) &&
             assertTrue(event.get == msg)
         }
-      ).provideCustomLayer(environment),
+      ).provideLayer(environment),
       test("Undefined ClouseauMessage type should return None") {
         for {
           event <- succeed(parse(ETuple(List(EAtom(Symbol("wrong"))))))

@@ -1,19 +1,12 @@
 package com.cloudant.ziose.experiments
 
-import zio._
-import zio.config._
-import zio.config.magnolia.descriptor
-import zio.config.typesafe.TypesafeConfigSource
+import zio.Config
 
 case class ServerConfig(host: String, port: Int)
 
 object ServerConfig {
-  val layer: ZLayer[Any, ReadError[String], ServerConfig] =
-    ZLayer {
-      read {
-        descriptor[ServerConfig].from(
-          TypesafeConfigSource.fromResourcePath.at(PropertyTreePath.$("ServerConfig"))
-        )
-      }
+  val config: Config[ServerConfig] =
+    (Config.string("host") ++ Config.int("port")).map { case (host, port) =>
+      ServerConfig(host, port)
     }
 }

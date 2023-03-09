@@ -4,11 +4,11 @@ ThisBuild / scalaVersion := "2.13.8"
 updateOptions := updateOptions.value.withCachedResolution(true)
 
 val versions: Map[String, String] = Map(
-  "zio" -> "2.0.0",
-  "zio.nio" -> "2.0.0",
-  "zio.config" -> "3.0.2",
-  "zio.logging" -> "2.0.1",
-  "zio.metrics" -> "2.0.0",
+  "zio" -> "2.0.10",
+  "zio.nio" -> "2.0.1",
+  "zio.config" -> "4.0.0-RC12",
+  "zio.logging" -> "2.1.10",
+  "zio.metrics" -> "2.0.1",
 )
 
 def jinterface = Def.setting {
@@ -30,6 +30,7 @@ lazy val commonSettings = Seq(
     "dev.zio"                       %% "zio-config-magnolia"             % versions("zio.config"),
     "dev.zio"                       %% "zio-config-refined"              % versions("zio.config"),
     "dev.zio"                       %% "zio-config-typesafe"             % versions("zio.config"),
+    "dev.zio"                       %% "zio-config-yaml"                 % versions("zio.config"),
     "dev.zio"                       %% "zio-test"                        % versions("zio") % Test,
     "dev.zio"                       %% "zio-test-junit"                  % versions("zio") % Test,
     "org.slf4j"                      % "slf4j-nop"                       % "2.0.6",

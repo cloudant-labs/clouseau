@@ -30,10 +30,10 @@ class CodecSpec extends JUnitRunnableSpec {
   }
   val environment = ZLayer.succeed(Clock.ClockLive) ++ ZLayer.succeed(Random.RandomLive) ++ logger
 
-  def allButPid: Gen[Random with Sized, (ETerm, OtpErlangObject)] =
+  def allButPid: Gen[Any, (ETerm, OtpErlangObject)] =
     termP(10, oneOf(stringP, atomP, booleanP, intP, longP))
 
-  def spec: Spec[TestEnvironment, Any] = suite("term encoding")(
+  def spec: Spec[Any, Any] = suite("term encoding")(
     test("testing list container generators") {
       check(listContainerE(listOf(oneOf(intE, longE)))) { eTerm =>
         assertTrue(eTerm.isInstanceOf[EList])
@@ -109,5 +109,5 @@ class CodecSpec extends JUnitRunnableSpec {
         } yield assertTrue(eTerm.toString != jTerm.toString)
       }
     }
-  ).provideCustomLayer(environment)
+  ).provideLayer(environment)
 }
