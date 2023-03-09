@@ -5,7 +5,14 @@
   "IgnoreDefaults": false,
   "SpacesAftertabs": false,
   "NoColor": false,
-  "Exclude": ["LICENSE", "actors/*"],
+  "Exclude": [
+    "LICENSE",
+    "actors/*",
+    "project/project/*",
+    "project/target/*",
+    "target/*",
+    "**/node_modules/*"
+  ],
   "AllowedContentTypes": [],
   "PassedFiles": [],
   "Disable": {

@@ -5,6 +5,7 @@
 **/.gradle/
 **/bin
 **/build/
+**/node_modules
 artifacts
 build/
 gradle/
