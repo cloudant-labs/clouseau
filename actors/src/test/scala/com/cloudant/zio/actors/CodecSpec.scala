@@ -12,6 +12,7 @@ package com.cloudant.zio.actors
 import Codec._
 import com.ericsson.otp.erlang._
 import helpers.Generators._
+import helpers.Utils._
 import org.junit.runner.RunWith
 import zio._
 import zio.test._
@@ -22,7 +23,7 @@ import zio.ZIO.logDebug
 
 @RunWith(classOf[ZTestJUnitRunner])
 class CodecSpec extends JUnitRunnableSpec {
-  val logger = if (sys.env contains "ZIOSE_TEST_DEBUG") {
+  val logger = if (flag("ZIOSE_TEST_DEBUG")) {
     Runtime.addLogger(ZLogger.default.map(println))
   } else {
     Runtime.addLogger(ZLogger.default.map(_ => null))
@@ -44,7 +45,7 @@ class CodecSpec extends JUnitRunnableSpec {
         assertTrue(eTerm.isInstanceOf[EList])
         assertTrue(oTerm.isInstanceOf[OtpErlangList])
       }
-    } @@ ifEnvSet("ZIOSE_TEST_Generators"),
+    } @@ ifPropSet("ZIOSE_TEST_Generators"),
     test("testing tuple container generators") {
       check(tupleContainerE(listOf(oneOf(intE, longE)))) { eTerm =>
         assertTrue(eTerm.isInstanceOf[ETuple])
@@ -56,7 +57,7 @@ class CodecSpec extends JUnitRunnableSpec {
         assertTrue(eTerm.isInstanceOf[ETuple])
         assertTrue(oTerm.isInstanceOf[OtpErlangTuple])
       }
-    } @@ ifEnvSet("ZIOSE_TEST_Generators"),
+    } @@ ifPropSet("ZIOSE_TEST_Generators"),
     test("testing map container generators") {
       check(mapContainerE(listOf(oneOf(intE, longE)))) { eTerm =>
         assertTrue(eTerm.isInstanceOf[EMap])
@@ -68,7 +69,7 @@ class CodecSpec extends JUnitRunnableSpec {
         assertTrue(eTerm.isInstanceOf[EMap])
         assertTrue(oTerm.isInstanceOf[OtpErlangMap])
       }
-    } @@ ifEnvSet("ZIOSE_TEST_Generators"),
+    } @@ ifPropSet("ZIOSE_TEST_Generators"),
     test("codec ETerm") {
       check(anyO(10)) { eTerm =>
         for {

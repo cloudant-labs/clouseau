@@ -109,25 +109,15 @@ remote machine.
 
 ![jmx.png](jmx.png)
 
-# Some commands
 
-## Running an experiment
+# Using `sbt`
 
-*Note*: this would be replaced by `cli run exp Hello`)
-
-```bash
-gradle
-gradle run
-gradle run -PmainClass=Hello
-gradle :experiments:run -PmainClass=Hello
 ```
-
-## Running test case for experiment
-
-*Note*: this would be replaced by `cli test exp HelloSpec`)
-
-```bash
-gradle test
-gradle :experiments:test --tests HelloSpec
-gradle :experiments:test --tests 'com.cloudant.ziose.experiments.HelloSpec'
+actors / test
+actors/testOnly com.cloudant.zio.actors.CodecSpec
+actors/testOnly *CodecSpec
+actors/testOnly *CodecSpec -- -DZIOSE_TEST_Generators=true
+actors/testOnly *CodecSpec -- -DZIOSE_TEST_DEBUG=true
+p
+experiments/runMain com.cloudant.ziose.experiments.Hello
 ```

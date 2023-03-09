@@ -6,6 +6,8 @@
 **/bin
 **/build/
 **/node_modules
+**/project
+**/target
 artifacts
 build/
 gradle/

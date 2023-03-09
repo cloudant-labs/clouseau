@@ -1,14 +1,26 @@
 PROJECT_NAME=ziose
+CACHE?=true
 BUILD_DIR=$(shell pwd)
 ARTIFACTS_DIR?=$(BUILD_DIR)/artifacts
 CI_ARTIFACTS_DIR=$(BUILD_DIR)/ci-artifacts
-GRADLEW=$(BUILD_DIR)/gradlew
 GIT_COMMIT?=$(shell git rev-parse HEAD)
 GIT_REPOSITORY?=$(shell git config --get remote.origin.url)
 ifeq ($(PROJECT_VERSION),)
-PROJECT_VERSION := $(shell cat $(BUILD_DIR)/build.gradle | sed -e '/[[:space:]]*project[.]ext[.]version[[:space:]]*=[[:space:]]*/!d' -e "s///g" -e "s/\'//g")
+# technically we could use 'sbt -Dsbt.supershell=false -error "print version"'
+# but it takes 30 seconds to run it. So we go with direct access
+PROJECT_VERSION := $(shell cat $(BUILD_DIR)/build.sbt | sed -e \
+	'/ThisBuild[[:space:]]*[/][[:space:]]*version[[:space:]]*[:]=[[:space:]]*/!d' \
+	-e "s///g" \
+	-e 's/\"//g' \
+)
 endif
+SUBPROJECTS := \
+	experiments \
+	domain \
+	actors \
+	benchmarks
 BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%TZ")
+ERL_EPMD_ADDRESS?=127.0.0.1
 # tput in docker require TERM variable
 TERM?=xterm
 TEST?=experiments
@@ -37,34 +49,47 @@ CONTAINER_ID=`docker create --read-only $(1) dummy` \
 && docker rm -f $$CONTAINER_ID 2> /dev/null
 endef
 
+define to_artifacts
+	find $(SUBPROJECTS) -name '$(1)' -print0 | while IFS= read -r -d '' pathname; \
+	do \
+		project=$$(echo "$${pathname}" | cut -d "/" -f1) ; \
+		mkdir -p "$(ARTIFACTS_DIR)/$${project}"; \
+		cp -r "$${pathname}" "$(ARTIFACTS_DIR)/$${project}" ; \
+	done
+endef
+
 ifeq ($(JENKINS_URL),)
 	# Local invocation
 	UBI_OPENJDK17_DIGEST?=$(shell docker manifest inspect registry.access.redhat.com/ubi8/openjdk-17:latest \
-	| jq -r '.manifests |  to_entries[] | select(.value.platform.architecture == "arm64") | .value.digest')
+	| jq -r '.manifests |  to_entries[] | select(.value.platform.architecture == "amd64") | .value.digest')
+endif
+
+ifeq ($(CACHE),true)
+	DOCKER_ARGS=--pull
+else
+	DOCKER_ARGS=--pull --no-cache --rm
 endif
 
 .PHONY: build
 # target: build - Build package, run tests and create distribution
-build: gradle/wrapper/gradle-wrapper.jar
-	@$(GRADLEW) build -x test
+build: epmd
+	@sbt compile test
 
 .PHONY: deps
 # target: deps - Download all dependencies for offline development
 # this target is not working correctly yet
-# It fails with 'Could not download compiler-bridge_2.13-1.3.5-sources.jar'
-# when we try to build with `--offline` flag
-deps: gradle/wrapper/gradle-wrapper.jar
+deps:
 	@echo "==> downloading dependencies..."
-	@$(GRADLEW) deps --refresh-dependencies
+	@sbt update
 
 .PHONY: test
 # target: test - Run all tests
+# coverage is commented out due to conflict in dependencies it can be enabled
+# when we update zio-config
 test: build mkdir-artifacts
-	@epmd &
-	@$(GRADLEW) check -i
-	@find . -name test-results | cut -d'/' -f2 \
-		| xargs -I {} cp -r {}/build/test-results $(ARTIFACTS_DIR)/{}
-	@cp -R build/* $(ARTIFACTS_DIR)
+	@#sbt clean coverage test
+	@sbt clean test
+	$(call to_artifacts,test-reports)
 
 .PHONY: mkdir-artifacts
 mkdir-artifacts:
@@ -79,73 +104,81 @@ check-fmt: mkdir-artifacts
 .PHONY: check-deps
 # target: check-deps - Detect publicly disclosed vulnerabilities
 check-deps: build mkdir-artifacts
-	@$(GRADLEW) dependencyCheckAnalyze
-	@find . -name reports | cut -d'/' -f2 \
-		| xargs -I {} cp -r {}/build/reports $(ARTIFACTS_DIR)/{}
+	@sbt '; dependencyCheck ; actors / dependencyCheck'
+	$(call to_artifacts,dependency-check-report.*)
 
 .PHONY: check-spotbugs
 # target: check-spotbugs - Run SpotBugs analysis for the source code
 check-spotbugs: build mkdir-artifacts
-	@$(GRADLEW) spotbugsMain
-	@find . -name spotbugs | cut -d'/' -f2 \
-		| xargs -I {} cp -r {}/build/spotbugs $(ARTIFACTS_DIR)/{}
+	@sbt findbugs
+	$(call to_artifacts,findbugs-report.*)
 
 .PHONY: cover
 # target: cover - Generate code coverage report
 cover: build
-	@$(GRADLEW) :${TEST}:reportScoverage
+	@sbt coverageReport
 	@open ${TEST}/build/reports/scoverage/index.html
 
 # FIXME change `actors` when we have real project
 .PHONY: meta
 meta: build mkdir-artifacts
-	@$(GRADLEW) actors:writeJsonManifest
-	@cp $(BUILD_DIR)/gradle/manifest_gradle.json $(ARTIFACTS_DIR)
-	@$(GRADLEW) --write-verification-metadata sha256,pgp
-	@cp $(BUILD_DIR)/gradle/verification-metadata.xml $(ARTIFACTS_DIR)
+	@sbt makeBom
 
 .PHONY: jar
 # target: jar - Generate JAR files for production
-jar: gradle/wrapper/gradle-wrapper.jar
-	@$(GRADLEW) jar
+jar:
+	@echo 'Not implemented yet'
 
 .PHONY: jartest
 # target: jartest - Generate a JAR file containing tests
 jartest: gradle/wrapper/gradle-wrapper.jar
-	@$(GRADLEW) jar -Ptype=test
-
-.PHONY: gradle/wrapper/gradle-wrapper.jar
-gradle/wrapper/gradle-wrapper.jar: .tool-versions
-	@gradle wrapper --gradle-version \
-		$$(cat .tool-versions | grep gradle | cut -d' ' -f2)
+	@echo 'Not implemented yet'
 
 # target: clean - Clean Java/Scala artifacts
 clean:
-	@$(GRADLEW) clean
-	@rm -f gradle/manifest_gradle.json
+	@sbt clean
+
+.PHONY: epmd
+epmd:
+	@ERL_EPMD_ADDRESS=$(ERL_EPMD_ADDRESS) epmd -daemon
 
 # target: clean-all - Clean up the project to start afresh
 clean-all:
 	@rm -rf gradlew gradlew.bat .gradle .gradletasknamecache gradle
-	@gradle --stop
-	@find . -name .gradle | xargs rm -rf
-	@find . -name build | xargs rm -rf
-	@echo '==> keep in mind that some state is stored in ~/.gradle/caches/'
+	@sbt clean
+	@echo '==> keep in mind that some state is stored in ~/.ivy2/cache/ and ~/.sbt'
+	@echo '    to fully clean the cache use `make clean-user-cache`'
+
+clean-user-cache:
+	@echo 'Removing ivy cache'
+	@rm -rfv ~/.ivy2/cache/*
+	@echo 'Removing all sbt lock files'
+	@find ~/.sbt ~/.ivy2 -name "*.lock" -print -delete
+	@find ~/.sbt ~/.ivy2 -name "ivydata-*.properties" -print -delete
+	@echo 'Removing all the class files'
+	@rm -fvr ~/.sbt/1.0/plugins/target
+	@rm -fvr ~/.sbt/1.0/plugins/project/target
+	@rm -fvr ~/.sbt/1.0/target
+	@rm -fvr ~/.sbt/0.13/plugins/target
+	@rm -fvr ~/.sbt/0.13/plugins/project/target
+	@rm -fvr ~/.sbt/0.13/target
+	@rm -fvr ./project/target
+	@rm -fvr ./project/project/target
 
 .PHONY: clouseau1
 # target: clouseau1 - Start local instance of clouseau1 node
 clouseau1:
-	@$(GRADLEW) run -Pnode=$@
+	@sbt run -Dnode=$@
 
 .PHONY: clouseau2
 # target: clouseau2 - Start local instance of clouseau2 node
 clouseau2:
-	@$(GRADLEW) run -Pnode=$@
+	@sbt run -Dnode=$@
 
 .PHONY: clouseau3
 # target: clouseau3 - Start local instance of clouseau3 node
 clouseau3:
-	@$(GRADLEW) run -Pnode=$@
+	@sbt run -Dnode=$@
 
 .PHONY: help
 # target: help - Print this help
@@ -163,13 +196,13 @@ tree:
 
 # CI Pipeline
 define docker_func
-	@DOCKER_BUILDKIT=0 BUILDKIT_PROGRESS=plain docker build \
+	@DOCKER_BUILDKIT=1 BUILDKIT_PROGRESS=plain docker build \
 		--build-arg UBI_OPENJDK17_DIGEST=${UBI_OPENJDK17_DIGEST} \
 		--build-arg ARTIFACTORY_USR=${ARTIFACTORY_USR} \
 		--build-arg ARTIFACTORY_PSW=${ARTIFACTORY_PSW} \
 		--build-arg TERM=${TERM} \
 		--build-arg CMDS=$(1) \
-		--pull --no-cache --rm \
+		$(DOCKER_ARGS) \
 		-t ${PROJECT_NAME}:${GIT_COMMIT} \
 		.
 	@$(call extract,${PROJECT_NAME}:${GIT_COMMIT},/artifacts,.)
@@ -182,6 +215,7 @@ linter-in-docker: login-artifactory-docker
 
 build-in-docker: login-artifactory-docker
 	@$(call docker_func,test)
+	@find $(ARTIFACTS_DIR)/
 	@cp -R $(ARTIFACTS_DIR)/* $(CI_ARTIFACTS_DIR)
 
 check-deps-in-docker: login-artifactory-docker
@@ -193,8 +227,8 @@ check-deps-in-docker: login-artifactory-docker
 
 check-spotbugs-in-docker: login-artifactory-docker
 	@$(call docker_func,check-spotbugs)
-	@cp $(ARTIFACTS_DIR)/actors/spotbugs-report.html \
-		$(CI_ARTIFACTS_DIR)/spotbugs_report.actors.html
+	@cp $(ARTIFACTS_DIR)/actors/findbugs-report.* \
+		$(CI_ARTIFACTS_DIR)/
 
 .PHONY: ci-copy-gradle-dependencies-metadata
 ci-copy-gradle-dependencies-metadata: login-artifactory-docker
