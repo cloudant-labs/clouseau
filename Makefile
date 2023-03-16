@@ -23,7 +23,6 @@ BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%TZ")
 ERL_EPMD_ADDRESS?=127.0.0.1
 # tput in docker require TERM variable
 TERM?=xterm
-TEST?=experiments
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
@@ -73,7 +72,7 @@ endif
 .PHONY: build
 # target: build - Build package, run tests and create distribution
 build: epmd
-	@sbt compile test
+	@sbt compile
 
 .PHONY: deps
 # target: deps - Download all dependencies for offline development
@@ -89,7 +88,7 @@ deps:
 test: build mkdir-artifacts
 	@#sbt clean coverage test
 	@sbt clean test
-	$(call to_artifacts,test-reports)
+	@$(call to_artifacts,test-reports)
 
 .PHONY: mkdir-artifacts
 mkdir-artifacts:
@@ -104,20 +103,25 @@ check-fmt: mkdir-artifacts
 .PHONY: check-deps
 # target: check-deps - Detect publicly disclosed vulnerabilities
 check-deps: build mkdir-artifacts
-	@sbt '; dependencyCheck ; actors / dependencyCheck'
-	$(call to_artifacts,dependency-check-report.*)
+	@sbt dependencyCheck
+	@$(call to_artifacts,dependency-check-report.*)
 
 .PHONY: check-spotbugs
 # target: check-spotbugs - Run SpotBugs analysis for the source code
 check-spotbugs: build mkdir-artifacts
 	@sbt findbugs
-	$(call to_artifacts,findbugs-report.*)
+	@$(call to_artifacts,findbugs-report.*)
 
 .PHONY: cover
-# target: cover - Generate code coverage report
+# target: cover - Generate code coverage report, options: TEST=<sub-project>
 cover: build
-	@sbt coverageReport
-	@open ${TEST}/build/reports/scoverage/index.html
+ifeq ($(TEST),)
+	@sbt coverage +test +coverageReport +coverageAggregate
+	@open target/scala-2.13/scoverage-report/index.html
+else
+	@sbt coverage +${TEST}/test +${TEST}/coverageReport
+	@open ${TEST}/target/scala-2.13/scoverage-report/index.html
+endif
 
 # FIXME change `actors` when we have real project
 .PHONY: meta

@@ -75,7 +75,7 @@ lazy val actors = (project in file("actors"))
   )
 
 val root = (project in file("."))
-  .aggregate(domain, experiments, benchmarks)
+  .aggregate(actors, domain, experiments, benchmarks)
   .enablePlugins(plugins.JUnitXmlReportPlugin)
   .settings(
     scalacOptions ++= Seq("-Ymacro-annotations"),
@@ -87,4 +87,3 @@ val root = (project in file("."))
     name := "ziose",
     unmanagedBase := baseDirectory.value / "deps"
   )
-  .dependsOn(actors)
