@@ -243,11 +243,11 @@ ci-copy-gradle-dependencies-metadata: login-artifactory-docker
 login-artifactory-docker: check-env-artifactory
 	# For UBI images
 	@echo "Docker login Artifactory (ubi)"
-	@docker login -u "${ARTIFACTORY_USR}" -p "${ARTIFACTORY_PSW}" wcp-cloudant-registry-access-redhat-docker-remote.artifactory.swg-devops.com
+	@docker login -u "${ARTIFACTORY_USR}" -p "${ARTIFACTORY_PSW}" docker-na-public.artifactory.swg-devops.com/wcp-cloudant-registry-access-redhat-docker-remote
 
 	# For all other (public) images
 	@echo "Docker login Artifactory (docker hub)"
-	@docker login -u "${ARTIFACTORY_USR}" -p "${ARTIFACTORY_PSW}" wcp-cloudant-registry-hub-docker-remote.artifactory.swg-devops.com
+	@docker login -u "${ARTIFACTORY_USR}" -p "${ARTIFACTORY_PSW}" docker-na-public.artifactory.swg-devops.com/wcp-cloudant-registry-hub-docker-remote
 
 check-env-artifactory:
 	@if [ -z "$${ARTIFACTORY_USR}" ]; then echo "Error: ARTIFACTORY_USR is undefined"; exit 1; fi
