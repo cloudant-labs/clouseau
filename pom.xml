@@ -261,13 +261,13 @@
               <minimizeJar>false</minimizeJar>
               <artifactSet>
                 <includes>
-                  <include>org.jboss.netty</include>
+                  <include>netty-all</include>
                   <include>org.apache.lucene:lucene-queryparser</include>
                 </includes>
               </artifactSet>
               <filters>
                 <filter>
-                  <artifact>org.jboss.netty</artifact>
+                  <artifact>netty-all</artifact>
                   <excludes>
                     <exclude>org/jboss/netty/channel/socket/http/</exclude>
                     <exclude>org/jboss/netty/handler/codec/http/</exclude>
