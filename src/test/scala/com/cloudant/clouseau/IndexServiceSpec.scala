@@ -131,14 +131,42 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       val doc1 = new Document()
       doc1.add(new StringField("_id", "foo", Field.Store.YES))
       doc1.add(new StringField("field1", "bar", Field.Store.YES))
+      doc1.add(new StringField("field2", "bar", Field.Store.NO))
+      doc1.add(new StringField("field3", "bar", Field.Store.YES))
+      doc1.add(new StringField("field3", "bar", Field.Store.YES))
       node.call(service, UpdateDocMsg("foo", doc1)) must be equalTo 'ok
+
+      // Basic
       (node.call(service, SearchRequest(options =
         Map('highlight_fields -> List("field1"), 'query -> "field1:bar")))
         must beLike {
           case ('ok, List(_, ('total_hits, 1),
             ('hits, List(
-              Hit(_, List(("_id", "foo"), ("field1", "bar"),
+              Hit(_, List(("_id", "foo"), ("field1", "bar"), ("field3", List("bar", "bar")),
                 ("_highlights", List(("field1", List("<em>bar</em>"))))))
+              )))) => ok
+        })
+
+      // Attempted highlight on non-stored field
+      (node.call(service, SearchRequest(options =
+        Map('highlight_fields -> List("field1", "field2"), 'query -> "field1:bar")))
+        must beLike {
+          case ('ok, List(_, ('total_hits, 1),
+            ('hits, List(
+              Hit(_, List(("_id", "foo"), ("field1", "bar"), ("field3", List("bar", "bar")),
+                ("_highlights", List(("field1", List("<em>bar</em>")),
+                  ("field2", Nil)))))
+              )))) => ok
+        })
+
+      // highlights on duplicated field
+      (node.call(service, SearchRequest(options =
+        Map('highlight_fields -> List("field3"), 'query -> "field3:bar")))
+        must beLike {
+          case ('ok, List(_, ('total_hits, 1),
+            ('hits, List(
+              Hit(_, List(("_id", "foo"), ("field1", "bar"), ("field3", List("bar", "bar")),
+                ("_highlights", List(("field3", List("<em>bar</em>", "<em>bar</em>"))))))
               )))) => ok
         })
     }

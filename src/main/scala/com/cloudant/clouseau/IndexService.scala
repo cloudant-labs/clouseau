@@ -734,9 +734,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     if (HPs != null) {
       val highlights = (HPs.highlightFields zip HPs.analyzers).map {
         case (field, analyzer) =>
-          val frags = HPs.highlighter.getBestFragments(analyzer, field,
-            doc.get(field), HPs.highlightNumber).toList
-          (field, frags)
+          (field, doc.getValues(field).flatMap { v =>
+            HPs.highlighter.getBestFragments(analyzer, field,
+              v, HPs.highlightNumber).toList
+          }.toList)
       }
       fields += "_highlights" -> highlights.toList
     }
