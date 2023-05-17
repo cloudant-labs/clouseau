@@ -219,7 +219,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       case e: IOException => warn("Error while closing reader", e)
     }
     try {
-      ctx.args.writer.rollback()
+      ctx.args.writer.close()
     } catch {
       case e: AlreadyClosedException => 'ignored
       case e: IOException =>
