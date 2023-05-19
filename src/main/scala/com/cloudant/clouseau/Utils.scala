@@ -13,16 +13,16 @@
 package com.cloudant.clouseau
 
 import org.apache.lucene.index.Term
-import org.apache.lucene.util.BytesRef
+import org.apache.lucene.util.{ BytesRef, BytesRefBuilder }
 import org.apache.lucene.util.NumericUtils
 
 object Utils {
 
   def doubleToTerm(field: String, value: Double): Term = {
-    val bytesRef = new BytesRef
+    val bytesRefBuilder = new BytesRefBuilder
     val asLong = NumericUtils.doubleToSortableLong(value)
-    NumericUtils.longToPrefixCoded(asLong, 0, bytesRef)
-    new Term(field, bytesRef)
+    NumericUtils.longToPrefixCoded(asLong, 0, bytesRefBuilder)
+    new Term(field, bytesRefBuilder.get())
   }
 
   implicit def stringToBytesRef(string: String): BytesRef = {

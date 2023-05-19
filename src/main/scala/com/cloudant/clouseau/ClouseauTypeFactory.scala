@@ -17,15 +17,15 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.apache.lucene.document.Field._
 import org.apache.lucene.document._
+import org.apache.lucene.facet.FacetsConfig
+import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetField
+import org.apache.lucene.index.FieldInfo.IndexOptions
 import org.apache.lucene.search._
+import org.apache.lucene.util.BytesRef
 import scala.collection.immutable.Map
 import scala.collection.JavaConversions._
 import scalang._
 import org.jboss.netty.buffer.ChannelBuffer
-import org.apache.lucene.util.BytesRef
-import org.apache.lucene.facet.params.FacetIndexingParams
-import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetFields
-import org.apache.lucene.facet.taxonomy.CategoryPath
 import scala.collection.mutable.ArrayBuffer
 
 case class SearchRequest(options: Map[Symbol, Any])
@@ -51,6 +51,22 @@ case class SetPurgeSeqMsg(seq: Long)
 object ClouseauTypeFactory extends TypeFactory {
 
   val logger = LoggerFactory.getLogger("clouseau.tf")
+
+  // Default numeric precision step changed in Lucene 4.9, this
+  // wrapper is to help to preserve the original setting for
+  // compatibility reasons :-(
+  def maybeDoubleStored(stored: Store) = {
+    val result = new FieldType()
+    result.setIndexed(true)
+    result.setTokenized(true)
+    result.setOmitNorms(true)
+    result.setIndexOptions(IndexOptions.DOCS_ONLY)
+    result.setNumericType(FieldType.NumericType.DOUBLE)
+    result.setNumericPrecisionStep(8)
+    result.setStored(stored == Store.YES)
+    result.freeze()
+    result
+  }
 
   def createType(name: Symbol, arity: Int, reader: TermReader): Option[Any] = (name, arity) match {
     case ('open, 4) =>
@@ -113,7 +129,8 @@ object ClouseauTypeFactory extends TypeFactory {
     for (field <- reader.readAs[List[Any]]) {
       addFields(result, field)
     }
-    result
+    val fc = new FacetsConfig()
+    fc.build(result)
   }
 
   private def addFields(doc: Document, field0: Any): Unit = field0 match {
@@ -129,12 +146,7 @@ object ClouseauTypeFactory extends TypeFactory {
           }
           doc.add(field)
           if (isFacet(map) && value.nonEmpty) {
-            val fp = FacetIndexingParams.DEFAULT
-            val delim = fp.getFacetDelimChar
-            if (!name.contains(delim) && !value.contains(delim)) {
-              val facets = new SortedSetDocValuesFacetFields(fp)
-              facets.addFields(doc, List(new CategoryPath(name, value)))
-            }
+            doc.add(new SortedSetDocValuesFacetField(name, value))
           }
         case None =>
           'ok
@@ -151,7 +163,7 @@ object ClouseauTypeFactory extends TypeFactory {
       val map = options.toMap
       toDouble(value) match {
         case Some(doubleValue) =>
-          doc.add(new DoubleField(name, doubleValue, toStore(map)))
+          doc.add(new DoubleField(name, doubleValue, maybeDoubleStored(toStore(map))))
           if (isFacet(map)) {
             doc.add(new DoubleDocValuesField(name, doubleValue))
           }
