@@ -285,9 +285,9 @@ object SupportedAnalyzers {
     case "japanese" =>
       options.get("stopwords") match {
         case Some(stopwords: List[String]) =>
-          Some(new JapaneseAnalyzer(IndexService.version, null, JapaneseTokenizer.DEFAULT_MODE, stopwords, JapaneseAnalyzer.getDefaultStopTags))
+          Some(new JapaneseAnalyzer(null, JapaneseTokenizer.DEFAULT_MODE, stopwords, JapaneseAnalyzer.getDefaultStopTags))
         case _ =>
-          Some(new JapaneseAnalyzer(IndexService.version))
+          Some(new JapaneseAnalyzer())
       }
     case "latvian" =>
       options.get("stopwords") match {

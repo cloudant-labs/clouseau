@@ -25,7 +25,7 @@ import scalang._
 import com.yammer.metrics.scala._
 import scala.collection.JavaConversions._
 import org.apache.lucene.search.FieldCache
-import org.apache.lucene.util.RamUsageEstimator
+import org.apache.lucene.util.Accountable
 
 class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
 
@@ -101,7 +101,9 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     val fieldCache = FieldCache.DEFAULT
     var result = 0L
     for (cacheEntry <- fieldCache.getCacheEntries) {
-      result += RamUsageEstimator.sizeOf(cacheEntry.getValue())
+      val value = cacheEntry.getValue().asInstanceOf[Accountable]
+      val bytesUsed = if (value == null) 0 else value.ramBytesUsed()
+      result += bytesUsed
     }
     result
   }
