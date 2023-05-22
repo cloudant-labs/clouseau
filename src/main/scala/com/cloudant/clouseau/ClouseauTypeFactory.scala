@@ -19,6 +19,7 @@ import org.apache.lucene.document.Field._
 import org.apache.lucene.document._
 import org.apache.lucene.facet.FacetsConfig
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetField
+import org.apache.lucene.index.FieldInfo.IndexOptions
 import org.apache.lucene.search._
 import org.apache.lucene.util.BytesRef
 import scala.collection.immutable.Map
@@ -50,6 +51,38 @@ case class SetPurgeSeqMsg(seq: Long)
 object ClouseauTypeFactory extends TypeFactory {
 
   val logger = LoggerFactory.getLogger("clouseau.tf")
+
+  // Default numeric precision step changed in Lucene 4.9, preserve
+  // the original setting for compatibility reasons. :(
+
+  val DOUBLE_NOT_STORED = doubleNotStored()
+
+  def doubleNotStored() = {
+    val result = new FieldType()
+    result.setIndexed(true)
+    result.setTokenized(true)
+    result.setOmitNorms(true)
+    result.setIndexOptions(IndexOptions.DOCS_ONLY)
+    result.setNumericType(FieldType.NumericType.DOUBLE)
+    result.setNumericPrecisionStep(4)
+    result.freeze()
+    result
+  }
+
+  val DOUBLE_STORED = doubleStored()
+
+  def doubleStored() = {
+    val result = new FieldType()
+    result.setIndexed(true)
+    result.setTokenized(true)
+    result.setOmitNorms(true)
+    result.setIndexOptions(IndexOptions.DOCS_ONLY)
+    result.setNumericType(FieldType.NumericType.DOUBLE)
+    result.setNumericPrecisionStep(4)
+    result.setStored(true)
+    result.freeze()
+    result
+  }
 
   def createType(name: Symbol, arity: Int, reader: TermReader): Option[Any] = (name, arity) match {
     case ('open, 4) =>
@@ -146,7 +179,13 @@ object ClouseauTypeFactory extends TypeFactory {
       val map = options.toMap
       toDouble(value) match {
         case Some(doubleValue) =>
-          doc.add(new DoubleField(name, doubleValue, toStore(map)))
+          val fieldType = toStore(map) match {
+            case Store.YES =>
+              DOUBLE_STORED
+            case Store.NO =>
+              DOUBLE_NOT_STORED
+          }
+          doc.add(new DoubleField(name, doubleValue, fieldType))
           if (isFacet(map)) {
             doc.add(new DoubleDocValuesField(name, doubleValue))
           }

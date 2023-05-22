@@ -62,7 +62,7 @@ class ClouseauQueryParser(version: Version,
                              startInclusive: Boolean,
                              endInclusive: Boolean): Query = {
     if (isNumber(lower) && isNumber(upper)) {
-      NumericRangeQuery.newDoubleRange(field, 16, lower.toDouble,
+      NumericRangeQuery.newDoubleRange(field, 8, lower.toDouble,
         upper.toDouble, startInclusive, endInclusive)
     } else {
       setLowercaseExpandedTerms(field)
