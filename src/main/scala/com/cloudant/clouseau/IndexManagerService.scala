@@ -24,8 +24,6 @@ import org.slf4j.LoggerFactory
 import scalang._
 import com.yammer.metrics.scala._
 import scala.collection.JavaConversions._
-import org.apache.lucene.search.FieldCache
-import org.apache.lucene.util.RamUsageEstimator
 
 class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
 
@@ -96,20 +94,6 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
   val openTimer = metrics.timer("opens")
   val lru = new LRU()
   val waiters = Map[String, List[(Pid, Any)]]()
-
-  def getFieldCacheSize(): Long = {
-    val fieldCache = FieldCache.DEFAULT
-    var result = 0L
-    for (cacheEntry <- fieldCache.getCacheEntries) {
-      result += RamUsageEstimator.sizeOf(cacheEntry.getValue())
-    }
-    result
-  }
-
-  val fieldCacheMetrics = ctx.args.config.getBoolean("clouseau.field_cache_metrics", false)
-  if (fieldCacheMetrics) {
-    metrics.gauge("field_cache.size")(getFieldCacheSize)
-  }
 
   override def handleCall(tag: (Pid, Any), msg: Any): Any = msg match {
     case OpenIndexMsg(peer: Pid, path: String, options: Any) =>
