@@ -61,12 +61,14 @@ class ClouseauQueryParser(version: Version,
                              upper: String,
                              startInclusive: Boolean,
                              endInclusive: Boolean): Query = {
-    if (isNumber(lower) && isNumber(upper)) {
-      NumericRangeQuery.newDoubleRange(field, 8, lower.toDouble,
-        upper.toDouble, startInclusive, endInclusive)
+    val lb = Option(lower).getOrElse("-Infinity")
+    val ub = Option(upper).getOrElse("Infinity")
+    if (isNumber(lb) && isNumber(ub)) {
+      NumericRangeQuery.newDoubleRange(
+        field, 8, lb.toDouble, ub.toDouble, startInclusive, endInclusive)
     } else {
       setLowercaseExpandedTerms(field)
-      super.getRangeQuery(field, lower, upper, startInclusive, endInclusive)
+      super.getRangeQuery(field, lb, ub, startInclusive, endInclusive)
     }
   }
 

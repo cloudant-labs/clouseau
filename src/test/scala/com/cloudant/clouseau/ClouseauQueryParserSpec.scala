@@ -41,6 +41,14 @@ class ClouseauQueryParserSpec extends SpecificationWithJUnit {
       parser.parse("foo:[1.0 TO 2.0]") must haveClass[NumericRangeQuery[JDouble]]
     }
 
+    "support open-ended numeric range queries (*)" in new parser {
+      parser.parse("foo:[0.0 TO *]") must haveClass[NumericRangeQuery[JDouble]]
+    }
+
+    "support open-ended numeric range queries (Infinity)" in new parser {
+      parser.parse("foo:[-Infinity TO 0]") must haveClass[NumericRangeQuery[JDouble]]
+    }
+
     "support numeric term queries (integer)" in new parser {
       val query = parser.parse("foo:12")
       query must haveClass[TermQuery]
