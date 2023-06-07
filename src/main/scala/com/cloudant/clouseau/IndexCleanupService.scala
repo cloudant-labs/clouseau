@@ -18,20 +18,24 @@ import java.util.regex.Pattern
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.TimeZone
+import java.util.{ Map => JMap }
+import java.util.HashMap
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import scalang._
 
 class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
-
   val logger = LoggerFactory.getLogger("clouseau.cleanup")
   val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
+  val pendingDeletions: JMap[File, Int] = new HashMap()
 
   override def handleCast(msg: Any) = msg match {
     case CleanupPathMsg(path: String) =>
       val dir = new File(rootDir, path)
       logger.info("Removing %s".format(path))
-      recursivelyDelete(dir, true)
+      val pattern = Pattern.compile(path + "/([0-9a-f]+)$")
+      cleanup(dir, pattern, Nil, true)
+      finishCleanup(dir)
     case RenamePathMsg(dbName: String) =>
       val srcDir = new File(rootDir, dbName)
       val sdf = new SimpleDateFormat("yyyyMMdd'.'HHmmss")
@@ -48,22 +52,41 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     case CleanupDbMsg(dbName: String, activeSigs: List[String]) =>
       logger.info("Cleaning up " + dbName)
       val pattern = Pattern.compile("shards/[0-9a-f]+-[0-9a-f]+/" + dbName + "\\.[0-9]+/([0-9a-f]+)$")
-      cleanup(rootDir, pattern, activeSigs)
+      cleanup(rootDir, pattern, activeSigs, false)
   }
 
-  private def cleanup(fileOrDir: File, includePattern: Pattern, activeSigs: List[String]) {
+  override def handleInfo(msg: Any) = msg match {
+    case ('index_deleted, parent: File) =>
+      finishCleanup(parent)
+  }
+
+  private def finishCleanup(dir: File) {
+    val count = Option(pendingDeletions.get(dir)).getOrElse(0)
+    if (count == 0) {
+      dir.delete
+    } else {
+      pendingDeletions.put(dir, count - 1)
+    }
+  }
+
+  private def cleanup(fileOrDir: File, includePattern: Pattern, activeSigs: List[String], removeParent: Boolean) {
     if (!fileOrDir.isDirectory) {
       return
     }
     for (file <- fileOrDir.listFiles) {
-      cleanup(file, includePattern, activeSigs)
+      cleanup(file, includePattern, activeSigs, removeParent)
     }
     val m = includePattern.matcher(fileOrDir.getAbsolutePath)
     if (m.find && !activeSigs.contains(m.group(1))) {
       logger.info("Removing unreachable index " + m.group)
-      call('main, ('delete, m.group)) match {
+      val parentCleaner = if (removeParent) Some(self) else None
+      call('main, ('delete, m.group, parentCleaner)) match {
         case 'ok =>
-          'ok
+          if (removeParent) {
+            val parent = fileOrDir.getAbsoluteFile.getParentFile
+            val count = Option(pendingDeletions.get(parent)).getOrElse(0)
+            pendingDeletions.put(parent, count + 1)
+          }
         case ('error, 'not_found) =>
           recursivelyDelete(fileOrDir, false)
           fileOrDir.delete

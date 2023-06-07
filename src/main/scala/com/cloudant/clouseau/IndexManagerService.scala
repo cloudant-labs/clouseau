@@ -122,12 +122,12 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       }
     case ('get_root_dir) =>
       ('ok, rootDir.getAbsolutePath())
-    case ('delete, path: String) =>
+    case ('delete, path: String, parentCleaner: Option[Pid]) =>
       lru.get(path) match {
         case null =>
           ('error, 'not_found)
         case pid: Pid =>
-          pid ! 'delete
+          pid ! ('delete, parentCleaner)
           'ok
       }
     case DiskSizeMsg(path: String) =>

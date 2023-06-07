@@ -173,12 +173,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       idle = true
     case 'count_fields =>
       countFields
-    case 'delete =>
+    case ('delete, parentCleaner: Option[Pid]) =>
       val dir = ctx.args.writer.getDirectory
       ctx.args.writer.close()
       for (name <- dir.listAll) {
         dir.deleteFile(name)
       }
+      removeIndexDir(dir, parentCleaner)
       exit('deleted)
     case 'maybe_commit =>
       commit(pendingSeq, pendingPurgeSeq)
@@ -228,8 +229,27 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         if (IndexWriter.isLocked(dir)) {
           IndexWriter.unlock(dir);
         }
+    }
+    try {
+      val dir = ctx.args.writer.getDirectory
+      removeIndexDir(dir, None)
+    } catch {
+      case e: IOException =>
+        warn("Error while removing directory", e)
     } finally {
       super.exit(msg)
+    }
+  }
+
+  private def removeIndexDir(dir: Directory, parentCleaner: Option[Pid]) {
+    if (!dir.isInstanceOf[FSDirectory])
+      return
+    val fsDir = dir.asInstanceOf[FSDirectory].getDirectory
+    val parent = fsDir.getAbsoluteFile.getParentFile
+    fsDir.delete
+    parentCleaner match {
+      case Some(pid) => pid ! ('index_deleted, parent)
+      case None => parent.delete
     }
   }
 

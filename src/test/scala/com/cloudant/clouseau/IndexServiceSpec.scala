@@ -499,6 +499,24 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       snapshotDir.list.sorted must be equalTo Array("_0.cfe", "_0.cfs", "_0.si", "segments_1")
     }
 
+    "locks around index files are not removed before closing" in new index_service_and_cleanup_service {
+      val lockFile = new File(indexDir, "write.lock")
+      lockFile.exists must beTrue
+      node.cast(cleanupService, CleanupPathMsg(dbPath)) must be equalTo 'ok
+      // Ensure that the lock file has not already been removed therefore reversing the order,
+      // which would expose LUCENE-5544.
+      Thread.sleep(100)
+      lockFile.exists must beTrue
+      // Simulate that the Dreyfus peer is exiting.
+      node.send(indexService, 'close) must be equalTo 'ok
+      indexService = null
+      // Wait for services to stop so that all the directories are removed eventually.
+      Thread.sleep(1000)
+      indexDir.exists must beFalse
+      dbDir.exists must beFalse
+      shardDir.exists must beTrue
+    }
+
   }
 
   private def isSearchable(node: Node, service: Pid,
@@ -602,7 +620,7 @@ trait index_service extends RunningNode {
 
   override def after {
     if (service != null) {
-      node.send(service, 'delete)
+      node.send(service, ('delete, None))
     }
     super.after
   }
@@ -635,4 +653,41 @@ trait index_service_with_idle_timeout_and_close_if_idle_false extends index_serv
   config.addProperty("clouseau.close_if_idle", false)
   config.addProperty("clouseau.idle_check_interval_secs", 2)
   override val args = new ConfigurationArgs(config)
+}
+
+trait index_service_and_cleanup_service extends RunningNode {
+  val config = new SystemConfiguration()
+  val args = new ConfigurationArgs(config)
+  val subPath = System.currentTimeMillis().toString
+  val rootDir = new File("target", "indexes")
+  val shardDir = new File(new File(rootDir, "shards"), "0000")
+  val dbDir = new File(shardDir, "db_index")
+  val indexDir = new File(dbDir, subPath)
+  val dbPath = "shards/0000/db_index"
+  val indexPath = dbPath + "/" + subPath
+  var indexService: Pid = null
+  val cleanupService = node.spawnService[IndexCleanupService, ConfigurationArgs](args)
+  val mbox = node.spawnMbox
+
+  override def before {
+    if (indexDir.exists) {
+      for (f <- indexDir.listFiles) {
+        f.delete
+      }
+      indexDir.delete
+    }
+    dbDir.delete
+    shardDir.delete
+
+    val (_, pid: Pid) = IndexService.start(node, config, indexPath, "standard")
+    indexService = pid
+  }
+
+  override def after {
+    if (indexService != null) {
+      node.send(indexService, ('delete, None))
+    }
+    super.after
+  }
+
 }
