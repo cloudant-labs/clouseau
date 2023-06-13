@@ -224,9 +224,19 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       case e: AlreadyClosedException => 'ignored
       case e: IOException =>
         warn("Error while closing writer", e)
-        val dir = ctx.args.writer.getDirectory
+        val writer = ctx.args.writer
+        val dir = writer.getDirectory
         if (IndexWriter.isLocked(dir)) {
           IndexWriter.unlock(dir);
+        }
+        // Manually release the write lock on failure to hack around
+        // LUCENE-5544.  TODO: Remove on upgrading to Lucene 4.7.1 or
+        // later.
+        writer.synchronized {
+          val field = writer.getClass.getDeclaredField("writeLock")
+          field.setAccessible(true)
+          val writeLock = field.get(writer).asInstanceOf[Lock]
+          writeLock.release
         }
     } finally {
       super.exit(msg)
