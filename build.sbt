@@ -1,16 +1,15 @@
 ThisBuild / version      := "0.1.0"
-ThisBuild / scalaVersion := "2.13.8"
+ThisBuild / scalaVersion := "2.13.12"
 
 updateOptions := updateOptions.value.withCachedResolution(true)
 
 val versions: Map[String, String] = Map(
-  "zio"            -> "2.0.18",
-  "zio.nio"        -> "2.0.2",
-  // versions RC13-RC16 are not compatible with zio 2.0.18
-  "zio.config"     -> "4.0.0-RC12",
-  "zio.logging"    -> "2.1.14",
-  "zio.metrics"    -> "2.0.1",
-  "lucene"         -> "4.6.1-cloudant1",
+  "zio"         -> "2.0.18",
+  "zio.nio"     -> "2.0.2",
+  "zio.config"  -> "4.0.0-RC16",
+  "zio.logging" -> "2.1.14",
+  "zio.metrics" -> "2.0.1",
+  "lucene"      -> "4.6.1-cloudant1"
 )
 
 def jinterface = Def.setting {
@@ -21,16 +20,16 @@ lazy val luceneComponents = Seq(
   // The single % is for java libraries
   // the %% appends the version of scala used, and should be used for scala libraries;
   // the %%% is for scala-js (and scala native).
-  "org.apache.lucene" % "lucene-core" % versions("lucene"),
-  "org.apache.lucene" % "lucene-grouping" % versions("lucene"),
-  "org.apache.lucene" % "lucene-queryparser" % versions("lucene"),
-  "org.apache.lucene" % "lucene-analyzers-common" % versions("lucene"),
-  "org.apache.lucene" % "lucene-analyzers-stempel" % versions("lucene"),
-  "org.apache.lucene" % "lucene-analyzers-smartcn" % versions("lucene"),
+  "org.apache.lucene" % "lucene-core"               % versions("lucene"),
+  "org.apache.lucene" % "lucene-grouping"           % versions("lucene"),
+  "org.apache.lucene" % "lucene-queryparser"        % versions("lucene"),
+  "org.apache.lucene" % "lucene-analyzers-common"   % versions("lucene"),
+  "org.apache.lucene" % "lucene-analyzers-stempel"  % versions("lucene"),
+  "org.apache.lucene" % "lucene-analyzers-smartcn"  % versions("lucene"),
   "org.apache.lucene" % "lucene-analyzers-kuromoji" % versions("lucene"),
-  "org.apache.lucene" % "lucene-facet" % versions("lucene"),
-  "org.apache.lucene" % "lucene-spatial" % versions("lucene"),
-  "org.apache.lucene" % "lucene-highlighter" % versions("lucene"),
+  "org.apache.lucene" % "lucene-facet"              % versions("lucene"),
+  "org.apache.lucene" % "lucene-spatial"            % versions("lucene"),
+  "org.apache.lucene" % "lucene-highlighter"        % versions("lucene")
 )
 
 lazy val commonSettings = Seq(
@@ -63,17 +62,8 @@ lazy val commonSettings = Seq(
   scalacOptions ++= Seq("-Ywarn-unused:imports")
 )
 
-lazy val experiments = (project in file("experiments"))
-  .settings(commonSettings: _*)
-  .settings(dependencyCheckSkip := false)
-  .settings(fork := true)
-  .enablePlugins(BuildInfoPlugin)
-  .dependsOn(clouseau)
-lazy val benchmarks = (project in file("benchmarks"))
-  .settings(commonSettings: _*)
-  .dependsOn(core)
 lazy val core = (project in file("core"))
-  .settings(commonSettings: _*)
+  .settings(commonSettings *)
   .settings(dependencyCheckSkip := false)
   .enablePlugins(BuildInfoPlugin)
   .enablePlugins(plugins.JUnitXmlReportPlugin)
@@ -96,8 +86,11 @@ lazy val core = (project in file("core"))
     scalacOptions ++= Seq("-deprecation", "-feature")
   )
 
+lazy val benchmarks = (project in file("benchmarks"))
+  .settings(commonSettings *)
+  .dependsOn(core)
 lazy val otp = (project in file("otp"))
-  .settings(commonSettings: _*)
+  .settings(commonSettings *)
   .settings(
     scalacOptions ++= Seq("-deprecation", "-feature")
   )
@@ -105,10 +98,10 @@ lazy val otp = (project in file("otp"))
   .dependsOn(core)
   .dependsOn(test % "test->test")
 lazy val scalang = (project in file("scalang"))
-  .settings(commonSettings: _*)
+  .settings(commonSettings *)
   .dependsOn(core)
 lazy val clouseau = (project in file("clouseau"))
-  .settings(commonSettings: _*)
+  .settings(commonSettings *)
   .settings(
     resolvers += "cloudant-repo" at "https://maven.cloudant.com/repo/",
     libraryDependencies ++= luceneComponents
@@ -119,14 +112,14 @@ lazy val clouseau = (project in file("clouseau"))
   .dependsOn(test % "test->test")
 
 lazy val test = (project in file("test"))
-  .settings(commonSettings: _*)
+  .settings(commonSettings *)
   .settings(
     scalacOptions ++= Seq("-deprecation", "-feature")
   )
   .dependsOn(core)
 
 lazy val root = (project in file("."))
-  .aggregate(experiments, benchmarks, core, clouseau, test, otp)
+  .aggregate(benchmarks, core, clouseau, test, otp)
   .enablePlugins(plugins.JUnitXmlReportPlugin)
   .settings(
     scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports"),
