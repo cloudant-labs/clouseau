@@ -1,9 +1,12 @@
+# pre-requisite
+direnv 2.32.3
+
 # build tools
 java openjdk-17
 scala 2.13.8
 # erlang needs java so it should be after it in the list
 # the only version which supports observer
-erlang 25.0.2
+erlang 25.3.2.7
 coursier 2.1.0-M7
 editorconfig-checker 2.7.0
 sbt 1.8.2

@@ -1,26 +1,26 @@
-.asdf
-.envrc.local
-.gradle/
-*.orig
 **/.gradle/
 **/bin
 **/build/
 **/node_modules
 **/project
 **/target
+*.orig
+.asdf
+.bloop
+.bsp
+.DS_Store
+.envrc.local
+.gradle/
+.history
 artifacts
 build/
 gradle/
 gradlew
 gradlew.bat
-.bloop
-.history
 
 # idea
-.idea
 *.iml
-*.bkp
-.DS_Store
+.idea
 
 # vscode
 .metals

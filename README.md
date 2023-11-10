@@ -24,7 +24,7 @@ All tools managed by `asdf` are configured in `.tool-versions` which looks somew
 
 ```
 java semeru-openj9-_openj9-
-gradle 7.5.1
+sbt 1.8.2
 scala 2.13.8
 erlang 25.0.2
 ```
@@ -120,4 +120,34 @@ actors/testOnly *CodecSpec -- -DZIOSE_TEST_Generators=true
 actors/testOnly *CodecSpec -- -DZIOSE_TEST_DEBUG=true
 p
 experiments/runMain com.cloudant.ziose.experiments.Hello
+```
+
+# Using Read-Eval-Print Loop
+
+```scala
+sbt> console
+[info] Starting scala interpreter...
+Welcome to Scala 2.13.8 (OpenJDK 64-Bit Server VM, Java 17).
+Type in expressions for evaluation. Or try :help.
+
+scala> import zio._
+import zio._
+scala> import zio.Console._
+import zio.Console._
+scala> import zio.stream.ZStream
+import zio.stream.ZStream
+scala> val stream = ZStream(1,2,3,4).merge(ZStream(9,8,7,6))
+val stream: zio.stream.ZStream[Any,Nothing,Int] = zio.stream.ZStream@4368e720
+scala> val tapped = stream.tap(x => printLine(s"${x}"))
+val tapped: zio.stream.ZStream[Any,java.io.IOException,Int] = zio.stream.ZStream@14560718
+scala> Unsafe.unsafe { implicit unsafe => Runtime.default.unsafe.run(tapped.runDrain) }
+9
+8
+7
+6
+1
+2
+3
+4
+scala> :q
 ```

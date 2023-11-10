@@ -15,10 +15,12 @@ PROJECT_VERSION := $(shell cat $(BUILD_DIR)/build.sbt | sed -e \
 )
 endif
 SUBPROJECTS := \
+	benchmarks \
+	clouseau \
+	core \
 	experiments \
-	domain \
-	actors \
-	benchmarks
+	otp \
+	scalang \
 BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%TZ")
 ERL_EPMD_ADDRESS?=127.0.0.1
 # tput in docker require TERM variable
@@ -123,7 +125,6 @@ else
 	@open ${TEST}/target/scala-2.13/scoverage-report/index.html
 endif
 
-# FIXME change `actors` when we have real project
 .PHONY: meta
 meta: build mkdir-artifacts
 	@sbt makeBom
@@ -135,7 +136,7 @@ jar:
 
 .PHONY: jartest
 # target: jartest - Generate a JAR file containing tests
-jartest: gradle/wrapper/gradle-wrapper.jar
+jartest:
 	@echo 'Not implemented yet'
 
 # target: clean - Clean Java/Scala artifacts
@@ -148,9 +149,9 @@ epmd:
 
 # target: clean-all - Clean up the project to start afresh
 clean-all:
-	@rm -rf gradlew gradlew.bat .gradle .gradletasknamecache gradle
 	@sbt clean
 	@echo '==> keep in mind that some state is stored in ~/.ivy2/cache/ and ~/.sbt'
+	@echo '     and in  ~/Library/Caches/Coursier/v1/https/'
 	@echo '    to fully clean the cache use `make clean-user-cache`'
 
 clean-user-cache:
@@ -168,6 +169,7 @@ clean-user-cache:
 	@rm -fvr ~/.sbt/0.13/target
 	@rm -fvr ./project/target
 	@rm -fvr ./project/project/target
+	@rm -fvr  ~/Library/Caches/Coursier/v1/https
 
 .PHONY: clouseau1
 # target: clouseau1 - Start local instance of clouseau1 node
@@ -195,7 +197,7 @@ help:
 .PHONY: tree
 # target: tree - Print project source tree
 tree:
-	@tree -I '.gradle' -I 'build' --matchdirs
+	@tree -I 'build' --matchdirs
 
 
 # CI Pipeline
@@ -233,15 +235,6 @@ check-spotbugs-in-docker: login-artifactory-docker
 	@$(call docker_func,check-spotbugs)
 	@cp $(ARTIFACTS_DIR)/actors/findbugs-report.* \
 		$(CI_ARTIFACTS_DIR)/
-
-.PHONY: ci-copy-gradle-dependencies-metadata
-ci-copy-gradle-dependencies-metadata: login-artifactory-docker
-	@$(call docker_func,meta)
-	@mkdir -p $(BUILD_DIR)/gradle
-	@find $(CI_ARTIFACTS_DIR) $(BUILD_DIR)/gradle \
-		-maxdepth 0 -type d -exec cp -n \
-		$(ARTIFACTS_DIR)/manifest_gradle.json \
-		$(ARTIFACTS_DIR)/verification-metadata.xml {} \;
 
 # Authenticate with our Artifactory Docker registry before pulling any images
 login-artifactory-docker: check-env-artifactory

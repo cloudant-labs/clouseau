@@ -13,8 +13,9 @@ class ArrayBenchmarks {
   var size: Int = _
 
   @Setup(Level.Trial)
-  def setup(): Unit =
+  def setup(): Unit = {
     array = (1 to size).toArray
+  }
 
   @Benchmark
   def fold(): Int = array.sum
