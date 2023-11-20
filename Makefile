@@ -8,28 +8,31 @@ help:
 
 .PHONY: build
 # target: build - Build package, run tests and create distribution
-build: .asdf
+build: .asdf check-epmd
 	@mvn
 
 .PHONY: clouseau1
 # target: clouseau1 - Start local inistance of clouseau1 node
-clouseau1: .asdf
+clouseau1: .asdf check-epmd
 	@mvn scala:run -Dname=$@
 
 .PHONY: clouseau2
 # target: clouseau2 - Start local inistance of clouseau2 node
-clouseau2: .asdf
+clouseau2: .asdf check-epmd
 	@mvn scala:run -Dname=$@
 
 .PHONY: clouseau3
 # target: clouseau3 - Start local inistance of clouseau3 node
-clouseau3: .asdf
+clouseau3: .asdf check-epmd
 	@mvn scala:run -Dname=$@
 
 .PHONY: clean
 # target: clean - Remove build artifacts
 clean:
 	@mvn clean
+
+check-epmd:
+	@if ! lsof -i TCP:4369 | grep -q epmd ; then echo "Error: Please start 'epmd' first"; exit 1; fi
 
 # ==========================
 # Setting up the environment
