@@ -15,7 +15,13 @@ During the development of the project few experiments were conducted.
 
 # Hello
 
-The `Hello` experiment can be found [here](src/main/scala/com/cloudant/ziose/experiments/Hello.scala).
+The `Hello` experiment can be found [here](https://github.ibm.com/cloudant/ziose/blob/b0bf77376e2d31ecd769fe1697807329b4d8b833/experiments/src/main/scala/com/cloudant/ziose/experiments/Hello.scala).
+
+## List of the files related to experiment
+
+- [`src/main/scala/com/cloudant/ziose/experiments/Hello.scala`](https://github.ibm.com/cloudant/ziose/blob/b0bf77376e2d31ecd769fe1697807329b4d8b833/experiments/src/main/scala/com/cloudant/ziose/experiments/Hello.scala)
+- [`experiments/src/test/scala/com/cloudant/ziose/experiments/HelloSpec.scala`](https://github.ibm.com/cloudant/ziose/blob/b0bf77376e2d31ecd769fe1697807329b4d8b833/experiments/src/test/scala/com/cloudant/ziose/experiments/HelloSpec.scala)
+
 
 ## Goals of the experiment
 
@@ -40,7 +46,16 @@ So we need to find an approach how to replace them.
 
 # ReadConfig
 
-The `ReadConfig` experiment can be found [here](src/main/scala/com/cloudant/ziose/experiments/ReadConfig.scala).
+The `ReadConfig` experiment can be found [here](https://github.ibm.com/cloudant/ziose/blob/b0bf77376e2d31ecd769fe1697807329b4d8b833/experiments/src/main/scala/com/cloudant/ziose/experiments/ReadConfig.scala).
+
+## List of the files related to experiment
+
+- `src/main/scala/com/cloudant/ziose/experiments/`
+  - [`ReadConfig.scala`](https://github.ibm.com/cloudant/ziose/blob/b0bf77376e2d31ecd769fe1697807329b4d8b833/experiments/src/main/scala/com/cloudant/ziose/experiments/ReadConfig.scala)
+  - [`ServerConfig.scala`](https://github.ibm.com/cloudant/ziose/blob/b0bf77376e2d31ecd769fe1697807329b4d8b833/experiments/src/main/scala/com/cloudant/ziose/experiments/ServerConfig.scala)
+- `experiments/src/test/`
+  - [`resources/application.conf`](https://github.ibm.com/cloudant/ziose/blob/b0bf77376e2d31ecd769fe1697807329b4d8b833/experiments/src/test/resources/application.conf)
+  - [`scala/com/cloudant/ziose/experiments/ReadConfigSpec.scala`](https://github.ibm.com/cloudant/ziose/blob/b0bf77376e2d31ecd769fe1697807329b4d8b833/experiments/src/test/scala/com/cloudant/ziose/experiments/ReadConfigSpec.scala)
 
 ## Goals of the experiment
 
@@ -65,7 +80,7 @@ The `nested` usage is tested in the accompanying spec file.
 
 # ReceiveExperiment
 
-The `ReceiveExperiment` experiment can be found [here](src/main/scala/com/cloudant/ziose/experiments/ReceiveExperiment.scala).
+The `ReceiveExperiment` experiment can be found [here](https://github.ibm.com/cloudant/ziose/blob/b0bf77376e2d31ecd769fe1697807329b4d8b833/experiments/src/main/scala/com/cloudant/ziose/experiments/ReceiveExperiment.scala).
 
 ## Goals of the experiment
 
@@ -92,7 +107,7 @@ The consumer reads the messages from the queue and output them to terminal using
 
 # EchoExperiment
 
-The `EchoExperiment` experiment can be found [here](src/main/scala/com/cloudant/ziose/experiments/EchoExperiment.scala).
+The `EchoExperiment` experiment can be found [here](https://github.ibm.com/cloudant/ziose/blob/b0bf77376e2d31ecd769fe1697807329b4d8b833/experiments/src/main/scala/com/cloudant/ziose/experiments/EchoExperiment.scala).
 
 ## Goals of the experiment
 
@@ -111,7 +126,7 @@ Since the goal of the experiment is to demonstrate how things can be done in pur
 
 # NodeExperiment
 
-The `NodeExperiment` experiment can be found [here](src/main/scala/com/cloudant/ziose/experiments/NodeExperiment.scala).
+The `NodeExperiment` experiment can be found [here](https://github.ibm.com/cloudant/ziose/blob/b0bf77376e2d31ecd769fe1697807329b4d8b833/experiments/src/main/scala/com/cloudant/ziose/experiments/NodeExperiment.scala).
 
 ## Goals of the experiment
 
@@ -145,7 +160,7 @@ The `NodeExperiment` experiment can be found [here](src/main/scala/com/cloudant/
 
 # OtpStatusExperiment
 
-The `OtpStatusExperiment` experiment can be found [here](src/main/scala/com/cloudant/ziose/experiments/OtpStatusExperiment.scala).
+The `OtpStatusExperiment` experiment can be found [here](https://github.ibm.com/cloudant/ziose/blob/b0bf77376e2d31ecd769fe1697807329b4d8b833/experiments/src/main/scala/com/cloudant/ziose/experiments/OtpStatusExperiment.scala).
 
 ## Goals of the experiment
 
@@ -158,7 +173,7 @@ This experiment failed. The code compiles, but I don't observe any debugging pri
 
 # NodeStreamExperiment
 
-The `NodeStreamExperiment` experiment can be found [here](src/main/scala/com/cloudant/ziose/experiments/NodeStreamExperiment.scala).
+The `NodeStreamExperiment` experiment can be found [here](https://github.ibm.com/cloudant/ziose/blob/b0bf77376e2d31ecd769fe1697807329b4d8b833/experiments/src/main/scala/com/cloudant/ziose/experiments/NodeStreamExperiment.scala).
 
 ## Goals of the experiment
 
@@ -233,7 +248,7 @@ This is not great and we need to find better way
 
 # ActorFactoryExperiment
 
-The `ActorFactoryExperiment` experiment can be found [here](src/main/scala/com/cloudant/ziose/experiments/ActorFactoryExperiment.scala).
+The `ActorFactoryExperiment` experiment can be found [here](https://github.ibm.com/cloudant/ziose/blob/b0bf77376e2d31ecd769fe1697807329b4d8b833/experiments/src/main/scala/com/cloudant/ziose/experiments/ActorFactoryExperiment.scala).
 
 ## Goal of the experiment
 
@@ -261,7 +276,7 @@ We use type safe builder pattern to implement lazy construction. We add an Actor
 
 # ClouseauEchoExperiment
 
-The `ClouseauEchoExperiment` experiment can be found [here](src/main/scala/com/cloudant/ziose/experiments/ClouseauEchoExperiment.scala).
+The `ClouseauEchoExperiment` experiment can be found [here](https://github.ibm.com/cloudant/ziose/blob/b0bf77376e2d31ecd769fe1697807329b4d8b833/experiments/src/main/scala/com/cloudant/ziose/experiments/ClouseauEchoExperiment.scala).
 
 ## Goals of the experiment
 
