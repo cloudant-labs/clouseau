@@ -280,7 +280,7 @@ export ZSH_DARWIN_HELP
 
 
 define CONTRIBUTE_SHELL_SETUP
-  We detected $(CURRENT_SHELL) running on $(CURRENT_OS). Unfortunatelly
+  We detected $(CURRENT_SHELL) running on $(CURRENT_OS). Unfortunately
   documentation for this combination is not available. Contributions are welcome.
 endef
 export CONTRIBUTE_SHELL_SETUP
