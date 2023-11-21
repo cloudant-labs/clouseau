@@ -1,3 +1,4 @@
+instances = clouseau1 clouseau2 clouseau3
 .PHONY: help
 # target: help - Print this help
 help:
@@ -11,19 +12,10 @@ help:
 build: .asdf check-epmd
 	@mvn
 
-.PHONY: clouseau1
 # target: clouseau1 - Start local inistance of clouseau1 node
-clouseau1: .asdf check-epmd
-	@mvn scala:run -Dname=$@
-
-.PHONY: clouseau2
 # target: clouseau2 - Start local inistance of clouseau2 node
-clouseau2: .asdf check-epmd
-	@mvn scala:run -Dname=$@
-
-.PHONY: clouseau3
 # target: clouseau3 - Start local inistance of clouseau3 node
-clouseau3: .asdf check-epmd
+$(instances): .asdf check-epmd
 	@mvn scala:run -Dname=$@
 
 .PHONY: clean
