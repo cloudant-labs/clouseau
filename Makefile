@@ -28,7 +28,7 @@ clean:
 	@mvn clean
 
 check-epmd:
-	@if ! lsof -i TCP:4369 | grep -q epmd ; then echo "Error: Please start 'epmd' first"; exit 1; fi
+	@if ! pgrep epmd >>/dev/null 2>&1 ; then echo "Error: Please start 'epmd' first"; exit 1; fi
 
 # ==========================
 # Setting up the environment
