@@ -1,4 +1,8 @@
 instances = clouseau1 clouseau2 clouseau3
+ifneq ($(WITH_COOKIE),)
+with-cookie := -Dlauncher=with-cookie -Dcookie=$(WITH_COOKIE)
+endif
+
 .PHONY: help
 # target: help - Print this help
 help:
@@ -16,7 +20,7 @@ build: .asdf check-epmd
 # target: clouseau2 - Start local inistance of clouseau2 node
 # target: clouseau3 - Start local inistance of clouseau3 node
 $(instances): .asdf check-epmd
-	@mvn scala:run -Dname=$@
+	@mvn scala:run -Dname=$@ $(with-cookie)
 
 .PHONY: clean
 # target: clean - Remove build artifacts

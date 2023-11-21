@@ -108,6 +108,14 @@ make clouseau2
 make clouseau3
 ```
 
+## Specifying Erlang cookie
+
+The cookie for a node can be specified using following
+
+```
+make clouseau2 WITH_COOKIE=2123
+```
+
 ## Changing tools version
 
 The list of tools are configured in a `.tool-versions` file. Make sure you
