@@ -367,16 +367,19 @@ object SupportedAnalyzers {
         case None =>
           fallbackAnalyzer
       }
+      // The Per-field analyzers are always strings
       var fieldMap: Map[String, Analyzer] = options.get("fields") match {
-        case Some(fields: List[(String, Any)]) =>
-          fields map { kv =>
-            createAnalyzerInt(kv._2) match {
-              case Some(fieldAnalyzer) =>
-                (kv._1, fieldAnalyzer)
-              case None =>
-                (kv._1, defaultAnalyzer)
-            }
-          } toMap
+        case Some(fields: List[_]) =>
+          // ignore all fields of non string type
+          fields.collect {
+            case (field: String, analyzerName: String) =>
+              createAnalyzerFromStringInt(analyzerName) match {
+                case Some(fieldAnalyzer) =>
+                  (field, fieldAnalyzer)
+                case None =>
+                  (field, defaultAnalyzer)
+              }
+          }.toMap
         case _ =>
           Map.empty
       }
