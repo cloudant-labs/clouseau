@@ -23,13 +23,13 @@ class IndexManagerServiceSpec extends SpecificationWithJUnit {
   "the index manager" should {
 
     "open an index when asked" in new manager_service {
-      node.call(service, OpenIndexMsg(mbox.self, "foo", "standard")) must beLike { case ('ok, pid: Pid) => ok }
+      node.call(service, OpenIndexMsg.fromAnalyzerName(mbox.self, "foo", "standard")) must beLike { case ('ok, pid: Pid) => ok }
     }
 
     "return the same index if it's already open" in new manager_service {
-      node.call(service, OpenIndexMsg(mbox.self, "foo", "standard")) match {
+      node.call(service, OpenIndexMsg.fromAnalyzerName(mbox.self, "foo", "standard")) match {
         case ('ok, pid) =>
-          node.call(service, OpenIndexMsg(mbox.self, "foo", "standard")) must be equalTo ('ok, pid)
+          node.call(service, OpenIndexMsg.fromAnalyzerName(mbox.self, "foo", "standard")) must be equalTo ('ok, pid)
       }
     }
 

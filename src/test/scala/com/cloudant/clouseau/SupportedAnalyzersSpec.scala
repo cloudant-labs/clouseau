@@ -61,29 +61,26 @@ class SupportedAnalyzersSpec extends SpecificationWithJUnit {
   "SupportedAnalyzers" should {
 
     "ignore unsupported analyzers" in {
-      createAnalyzer("foo") must beNone
-    }
-    "List of non-tuples yields no analyzer" in {
-      createAnalyzer(List("foo")) must beNone
+      createAnalyzerFromString("foo") must beNone
     }
     "keyword" in {
-      createAnalyzer("keyword") must haveClass[Some[KeywordAnalyzer]]
+      createAnalyzerFromString("keyword") must haveClass[Some[KeywordAnalyzer]]
     }
     "simple" in {
-      createAnalyzer("simple") must haveClass[Some[SimpleAnalyzer]]
+      createAnalyzerFromString("simple") must haveClass[Some[SimpleAnalyzer]]
     }
     "whitespace" in {
-      createAnalyzer("whitespace") must haveClass[Some[WhitespaceAnalyzer]]
+      createAnalyzerFromString("whitespace") must haveClass[Some[WhitespaceAnalyzer]]
     }
     "simple_asciifolding" in {
-      createAnalyzer("simple_asciifolding") must haveClass[Some[Analyzer]]
+      createAnalyzerFromString("simple_asciifolding") must haveClass[Some[Analyzer]]
     }
     "email" in {
-      createAnalyzer("email") must haveClass[Some[UAX29URLEmailAnalyzer]]
+      createAnalyzerFromString("email") must haveClass[Some[UAX29URLEmailAnalyzer]]
     }
     "perfield" in {
       // basic
-      createAnalyzer("perfield") must haveClass[Some[PerFieldAnalyzer]]
+      createAnalyzerFromString("perfield") must haveClass[Some[PerFieldAnalyzer]]
 
       // override default
       createAnalyzer(Map("name" -> "perfield", "default" -> "english")).toString must
@@ -98,112 +95,112 @@ class SupportedAnalyzersSpec extends SpecificationWithJUnit {
         contain("foo -> org.apache.lucene.analysis.en.EnglishAnalyzer")
     }
     "arabic" in {
-      createAnalyzer("arabic") must haveClass[Some[ArabicAnalyzer]]
+      createAnalyzerFromString("arabic") must haveClass[Some[ArabicAnalyzer]]
     }
     "bulgarian" in {
-      createAnalyzer("bulgarian") must haveClass[Some[BulgarianAnalyzer]]
+      createAnalyzerFromString("bulgarian") must haveClass[Some[BulgarianAnalyzer]]
     }
     "brazilian" in {
-      createAnalyzer("brazilian") must haveClass[Some[BrazilianAnalyzer]]
+      createAnalyzerFromString("brazilian") must haveClass[Some[BrazilianAnalyzer]]
     }
     "catalan" in {
-      createAnalyzer("catalan") must haveClass[Some[CatalanAnalyzer]]
+      createAnalyzerFromString("catalan") must haveClass[Some[CatalanAnalyzer]]
     }
     "cjk" in {
-      createAnalyzer("cjk") must haveClass[Some[CJKAnalyzer]]
+      createAnalyzerFromString("cjk") must haveClass[Some[CJKAnalyzer]]
     }
     "chinese" in {
-      createAnalyzer("chinese") must haveClass[Some[SmartChineseAnalyzer]]
+      createAnalyzerFromString("chinese") must haveClass[Some[SmartChineseAnalyzer]]
     }
     "czech" in {
-      createAnalyzer("czech") must haveClass[Some[CzechAnalyzer]]
+      createAnalyzerFromString("czech") must haveClass[Some[CzechAnalyzer]]
     }
     "danish" in {
-      createAnalyzer("danish") must haveClass[Some[DanishAnalyzer]]
+      createAnalyzerFromString("danish") must haveClass[Some[DanishAnalyzer]]
     }
     "german" in {
-      createAnalyzer("german") must haveClass[Some[GermanAnalyzer]]
+      createAnalyzerFromString("german") must haveClass[Some[GermanAnalyzer]]
     }
     "greek" in {
-      createAnalyzer("greek") must haveClass[Some[GreekAnalyzer]]
+      createAnalyzerFromString("greek") must haveClass[Some[GreekAnalyzer]]
     }
     "english" in {
-      createAnalyzer("english") must haveClass[Some[EnglishAnalyzer]]
+      createAnalyzerFromString("english") must haveClass[Some[EnglishAnalyzer]]
     }
     "spanish" in {
-      createAnalyzer("spanish") must haveClass[Some[SpanishAnalyzer]]
+      createAnalyzerFromString("spanish") must haveClass[Some[SpanishAnalyzer]]
     }
     "basque" in {
-      createAnalyzer("basque") must haveClass[Some[BasqueAnalyzer]]
+      createAnalyzerFromString("basque") must haveClass[Some[BasqueAnalyzer]]
     }
     "persian" in {
-      createAnalyzer("persian") must haveClass[Some[PersianAnalyzer]]
+      createAnalyzerFromString("persian") must haveClass[Some[PersianAnalyzer]]
     }
     "finnish" in {
-      createAnalyzer("finnish") must haveClass[Some[FinnishAnalyzer]]
+      createAnalyzerFromString("finnish") must haveClass[Some[FinnishAnalyzer]]
     }
     "french" in {
-      createAnalyzer("french") must haveClass[Some[FrenchAnalyzer]]
+      createAnalyzerFromString("french") must haveClass[Some[FrenchAnalyzer]]
     }
     "irish" in {
-      createAnalyzer("irish") must haveClass[Some[IrishAnalyzer]]
+      createAnalyzerFromString("irish") must haveClass[Some[IrishAnalyzer]]
     }
     "galician" in {
-      createAnalyzer("galician") must haveClass[Some[GalicianAnalyzer]]
+      createAnalyzerFromString("galician") must haveClass[Some[GalicianAnalyzer]]
     }
     "hindi" in {
-      createAnalyzer("hindi") must haveClass[Some[HindiAnalyzer]]
+      createAnalyzerFromString("hindi") must haveClass[Some[HindiAnalyzer]]
     }
     "hungarian" in {
-      createAnalyzer("hungarian") must haveClass[Some[HungarianAnalyzer]]
+      createAnalyzerFromString("hungarian") must haveClass[Some[HungarianAnalyzer]]
     }
     "armenian" in {
-      createAnalyzer("armenian") must haveClass[Some[ArmenianAnalyzer]]
+      createAnalyzerFromString("armenian") must haveClass[Some[ArmenianAnalyzer]]
     }
     "indonesian" in {
-      createAnalyzer("indonesian") must haveClass[Some[IndonesianAnalyzer]]
+      createAnalyzerFromString("indonesian") must haveClass[Some[IndonesianAnalyzer]]
     }
     "italian" in {
-      createAnalyzer("italian") must haveClass[Some[ItalianAnalyzer]]
+      createAnalyzerFromString("italian") must haveClass[Some[ItalianAnalyzer]]
     }
     "japanese" in {
-      createAnalyzer("japanese") must haveClass[Some[JapaneseAnalyzer]]
+      createAnalyzerFromString("japanese") must haveClass[Some[JapaneseAnalyzer]]
     }
     "latvian" in {
-      createAnalyzer("latvian") must haveClass[Some[LatvianAnalyzer]]
+      createAnalyzerFromString("latvian") must haveClass[Some[LatvianAnalyzer]]
     }
     "dutch" in {
-      createAnalyzer("dutch") must haveClass[Some[DutchAnalyzer]]
+      createAnalyzerFromString("dutch") must haveClass[Some[DutchAnalyzer]]
     }
     "norwegian" in {
-      createAnalyzer("norwegian") must haveClass[Some[NorwegianAnalyzer]]
+      createAnalyzerFromString("norwegian") must haveClass[Some[NorwegianAnalyzer]]
     }
     "polish" in {
-      createAnalyzer("polish") must haveClass[Some[PolishAnalyzer]]
+      createAnalyzerFromString("polish") must haveClass[Some[PolishAnalyzer]]
     }
     "portuguese" in {
-      createAnalyzer("portuguese") must haveClass[Some[PortugueseAnalyzer]]
+      createAnalyzerFromString("portuguese") must haveClass[Some[PortugueseAnalyzer]]
     }
     "romanian" in {
-      createAnalyzer("romanian") must haveClass[Some[RomanianAnalyzer]]
+      createAnalyzerFromString("romanian") must haveClass[Some[RomanianAnalyzer]]
     }
     "russian" in {
-      createAnalyzer("russian") must haveClass[Some[RussianAnalyzer]]
+      createAnalyzerFromString("russian") must haveClass[Some[RussianAnalyzer]]
     }
     "classic" in {
-      createAnalyzer("classic") must haveClass[Some[ClassicAnalyzer]]
+      createAnalyzerFromString("classic") must haveClass[Some[ClassicAnalyzer]]
     }
     "standard" in {
-      createAnalyzer("standard") must haveClass[Some[StandardAnalyzer]]
+      createAnalyzerFromString("standard") must haveClass[Some[StandardAnalyzer]]
     }
     "swedish" in {
-      createAnalyzer("swedish") must haveClass[Some[SwedishAnalyzer]]
+      createAnalyzerFromString("swedish") must haveClass[Some[SwedishAnalyzer]]
     }
     "thai" in {
-      createAnalyzer("thai") must haveClass[Some[ThaiAnalyzer]]
+      createAnalyzerFromString("thai") must haveClass[Some[ThaiAnalyzer]]
     }
     "turkish" in {
-      createAnalyzer("turkish") must haveClass[Some[TurkishAnalyzer]]
+      createAnalyzerFromString("turkish") must haveClass[Some[TurkishAnalyzer]]
     }
 
   }

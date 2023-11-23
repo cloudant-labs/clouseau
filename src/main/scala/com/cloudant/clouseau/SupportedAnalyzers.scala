@@ -71,10 +71,13 @@ import org.apache.lucene.analysis.core.LowerCaseFilter
 import org.apache.lucene.analysis.core.LetterTokenizer
 
 object SupportedAnalyzers {
-
   val logger = LoggerFactory.getLogger("clouseau.analyzers")
 
-  def createAnalyzer(options: Any): Option[Analyzer] = {
+  def createAnalyzerFromString(name: String): Option[Analyzer] = {
+    createAnalyzer(Map("name" -> name))
+  }
+
+  def createAnalyzer(options: Map[String, Any]): Option[Analyzer] = {
     createAnalyzerInt(options) match {
       case Some(perfield: PerFieldAnalyzer) =>
         Some(perfield)
@@ -87,23 +90,14 @@ object SupportedAnalyzers {
     }
   }
 
-  def createAnalyzerInt(options: Any): Option[Analyzer] = options match {
-    case name: String =>
-      createAnalyzerInt(Map("name" -> name))
-    case list: List[(String, Any)] =>
-      try {
-        createAnalyzerInt(list.toMap)
-      } catch {
-        case e: ClassCastException => None
-      }
-    case map: Map[String, Any] =>
-      map.get("name") match {
-        case Some(name: String) =>
-          createAnalyzerInt(name, map)
-        case None =>
-          None
-      }
-    case _ =>
+  def createAnalyzerFromStringInt(name: String): Option[Analyzer] = {
+    createAnalyzerInt(Map("name" -> name))
+  }
+
+  def createAnalyzerInt(options: Map[String, Any]): Option[Analyzer] = options.get("name").map(_.asInstanceOf[String]) match {
+    case Some(name: String) =>
+      createAnalyzerInt(name, options)
+    case None =>
       None
   }
 
@@ -361,9 +355,10 @@ object SupportedAnalyzers {
       }
     case "perfield" =>
       val fallbackAnalyzer = new StandardAnalyzer(IndexService.version)
-      val defaultAnalyzer: Analyzer = options.get("default") match {
-        case Some(defaultOptions) =>
-          createAnalyzerInt(defaultOptions) match {
+      // The "default" field is always a string
+      val defaultAnalyzer: Analyzer = options.get("default").map(_.asInstanceOf[String]) match {
+        case Some(defaultOptions: String) =>
+          createAnalyzerFromStringInt(defaultOptions) match {
             case Some(defaultAnalyzer1) =>
               defaultAnalyzer1
             case None =>

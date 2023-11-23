@@ -30,7 +30,19 @@ import scala.collection.mutable.ArrayBuffer
 
 case class SearchRequest(options: Map[Symbol, Any])
 
-case class OpenIndexMsg(peer: Pid, path: String, options: Any)
+case class OpenIndexMsg(peer: Pid, path: String, options: OpenIndexMsg.Options)
+object OpenIndexMsg {
+  type Options = Map[String, Any]
+  def fromMap(peer: Pid, path: String, map: Map[_, _]): OpenIndexMsg =
+    OpenIndexMsg(peer, path, map.asInstanceOf[OpenIndexMsg.Options])
+  def fromAnalyzerName(peer: Pid, path: String, name: String): OpenIndexMsg =
+    OpenIndexMsg(peer, path, Map("name" -> name).asInstanceOf[Options])
+  def fromKVsList(peer: Pid, path: String, options: List[_]): OpenIndexMsg = {
+    OpenIndexMsg(peer, path, collectKVs(options).toMap[String, Any].asInstanceOf[Options])
+  }
+  def collectKVs(list: List[_]): List[(String, Any)] =
+    list.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]]
+}
 case class CleanupPathMsg(path: String)
 case class RenamePathMsg(dbName: String)
 case class CleanupDbMsg(dbName: String, activeSigs: List[String])
@@ -53,8 +65,15 @@ object ClouseauTypeFactory extends TypeFactory {
   val logger = LoggerFactory.getLogger("clouseau.tf")
 
   def createType(name: Symbol, arity: Int, reader: TermReader): Option[Any] = (name, arity) match {
-    case ('open, 4) =>
-      Some(OpenIndexMsg(reader.readAs[Pid], reader.readAs[String], reader.readTerm))
+    case ('open, 4) => {
+      val peer = reader.readAs[Pid]
+      val path = reader.readAs[String]
+      reader.readTerm match {
+        case map: Map[_, _] => Some(OpenIndexMsg.fromMap(peer, path, map))
+        case list: List[_] => Some(OpenIndexMsg.fromKVsList(peer, path, list))
+        case string: String => Some(OpenIndexMsg.fromAnalyzerName(peer, path, string))
+      }
+    }
     case ('cleanup, 2) =>
       Some(CleanupPathMsg(reader.readAs[String]))
     case ('rename, 2) =>

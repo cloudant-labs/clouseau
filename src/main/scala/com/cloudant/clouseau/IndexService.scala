@@ -899,7 +899,7 @@ object IndexService {
   val FP = """([-+]?[0-9]+(?:\.[0-9]+)?)"""
   val DISTANCE_RE = "^([-+])?<distance,([\\.\\w]+),([\\.\\w]+),%s,%s,(mi|km)>$".format(FP, FP).r
 
-  def start(node: Node, config: Configuration, path: String, options: Any): Any = {
+  def start(node: Node, config: Configuration, path: String, options: OpenIndexMsg.Options): Any = {
     val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
     val dir = newDirectory(config, new File(rootDir, path))
     try {

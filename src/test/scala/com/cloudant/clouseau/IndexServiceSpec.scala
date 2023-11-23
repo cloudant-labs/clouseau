@@ -596,8 +596,8 @@ trait index_service extends RunningNode {
     service = pid
   }
 
-  def options(): Any = {
-    "standard"
+  def options(): Map[String, Any] = {
+    Map("name" -> "standard")
   }
 
   override def after {
@@ -611,7 +611,7 @@ trait index_service extends RunningNode {
 
 trait index_service_perfield extends index_service {
 
-  override def options(): Any = {
+  override def options(): Map[String, Any] = {
     Map("name" -> "perfield", "default" -> "english")
   }
 
