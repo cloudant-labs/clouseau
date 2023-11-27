@@ -38,7 +38,7 @@ case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit a
   // var cleanup = spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args)
   // var analyzer = spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args)
 
-  override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any) {
+  override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Unit = {
     // if (monitored == manager) {
     //   logger.warn("manager crashed")
     //   manager = spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args)

@@ -55,13 +55,14 @@ trait ProcessLike[A <: Adapter[_]] extends core.Actor {
     adapter.send(envelope)
   }
 
-  def handleMessage(msg : Any)
+  def handleMessage(msg : Any): Unit
 
+  // TODO: Fully evaluate the effect and return Unit
   def handleExit(from : Pid, reason : Any) = {
     exit(reason)
   }
 
-  def handleMonitorExit(monitored : Any, ref : Reference, reason : Any)
+  def handleMonitorExit(monitored : Any, ref : Reference, reason : Any): Unit
 
   def exit(reason : Any) =
     adapter.exit(Codec.fromScala(reason))
@@ -218,23 +219,23 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_]
    * Handle a call style of message which will expect a response.
    */
   def handleCall(tag : (Pid, Any), request : Any): Any =
-    throw new Exception(getClass + " did not define a call handler.")
+    throw new Exception(getClass.toString + " did not define a call handler.")
 
   /**
    * Handle a cast style of message which will receive no response.
    */
   def handleCast(request : Any): Any =
-    throw new Exception(getClass + " did not define a cast handler.")
+    throw new Exception(getClass.toString + " did not define a cast handler.")
 
   /**
    * Handle any messages that do not fit the call or cast pattern.
    */
   def handleInfo(request : Any): Any =
-    throw new Exception(getClass + " did not define an info handler.")
+    throw new Exception(getClass.toString + " did not define an info handler.")
 
   override def onMessage[PContext <: ProcessContext](event: MessageEnvelope, ctx: PContext): ZIO[Any, Throwable, Unit] = {
       event.getPayload match {
-        case Some(ETuple(List(EAtom('ping), from : EPid, ref : ERef))) => {
+        case Some(ETuple(List(EAtom(Symbol("ping")), from : EPid, ref : ERef))) => {
           val address = Address.fromPid(from, self.workerId)
           adapter.send(MessageEnvelope.makeSend(address, Codec.fromScala((Symbol("pong"), ref)), self.workerId)).unit
         }

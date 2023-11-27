@@ -6,7 +6,7 @@ trait ActorFactory {
   def create[A <: Actor, C <: ProcessContext](
     builder: ActorBuilder.Sealed[A],
     ctx: C
-  ): ZIO[Any, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]]
+  ): IO[_ <: Node.Error, AddressableActor[A, _ <: ProcessContext]]
 }
 
 object ActorFactory {
@@ -14,6 +14,6 @@ object ActorFactory {
     builder: ActorBuilder.Sealed[A],
     ctx: C
   ): ZIO[ActorFactory, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
-    ZIO.environmentWithZIO[ActorFactory](_.get.create(builder, ctx))
+    ZIO.serviceWithZIO[ActorFactory](_.create(builder, ctx))
   }
 }

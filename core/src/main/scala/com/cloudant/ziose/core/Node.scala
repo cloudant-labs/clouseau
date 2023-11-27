@@ -21,7 +21,7 @@ trait Node {
 }
 
 object Node {
-  trait Error extends Throwable {}
+  trait Error extends Throwable
 
   object Error {
     case class Disconnected()               extends Error
@@ -35,35 +35,34 @@ object Node {
   def spawn[A <: Actor](
     builder: ActorBuilder.Sealed[A]
   ): ZIO[Node with Scope, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
-    ZIO.environmentWithZIO[Node](_.get.spawn(builder))
+    ZIO.serviceWithZIO[Node](_.spawn(builder))
   }
 
   def close: ZIO[Node, _ <: Node.Error, Unit] = {
-    ZIO.environmentWithZIO[Node](_.get.close)
+    ZIO.serviceWithZIO[Node](_.close)
   }
 
   def ping(nodeName: String, timeout: Option[Duration] = None): ZIO[Node, _ <: Node.Error, Boolean] = {
-    ZIO.environmentWithZIO[Node](_.get.ping(nodeName, timeout))
+    ZIO.serviceWithZIO[Node](_.ping(nodeName, timeout))
   }
 
   // def register[E <: Node.Error](actor: Actor, name: String): ZIO[Node, E, Boolean] =
-  //   ZIO.environmentWithZIO[Node](_.get.register(actor, name))
+  //   ZIO.serviceWithZIO[Node](_.register(actor, name))
 
   // testing only
   def listNames(): ZIO[Node, _ <: Node.Error, List[String]] = {
-    ZIO.environmentWithZIO[Node](_.get.listNames())
+    ZIO.serviceWithZIO[Node](_.listNames())
   }
 
   // testing only
   def lookUpName(name: String): ZIO[Node, _ <: Node.Error, Option[Codec.EPid]] = {
-    ZIO.environmentWithZIO[Node](_.get.lookUpName(name))
+    ZIO.serviceWithZIO[Node](_.lookUpName(name))
   }
 
   def stopActor(
     actor: AddressableActor[_ <: Actor, _ <: ProcessContext],
     reason: Option[Codec.ETerm]
   ): ZIO[Node, _ <: Node.Error, Unit] = {
-    ZIO.environmentWithZIO[Node](_.get.stopActor(actor, reason))
+    ZIO.serviceWithZIO[Node](_.stopActor(actor, reason))
   }
-
 }

@@ -272,7 +272,7 @@ How we can construct object like the above? How we would do it lazily so only no
 
 ## Solution
 
-We use type safe builder pattern to implement lazy construction. We add an ActorFactory concept to abstract the creation of an object, so we can use different procedures for different types of nodes. We define Node, ActorFactory and EngineWorker as ZIO services and use `ZIO.environmentWithZIO[ServiceTrait]` to get concrete implementation of a trait.
+We use type safe builder pattern to implement lazy construction. We add an ActorFactory concept to abstract the creation of an object, so we can use different procedures for different types of nodes. We define Node, ActorFactory and EngineWorker as ZIO services and use `ZIO.serviceWithZIO[ServiceTrait]` to get concrete implementation of a trait.
 
 # ClouseauEchoExperiment
 
