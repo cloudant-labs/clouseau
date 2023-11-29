@@ -110,241 +110,241 @@ object SupportedAnalyzers {
         }
       })
     case "arabic" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new ArabicAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new ArabicAnalyzer(IndexService.version))
       }
     case "bulgarian" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new BulgarianAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new BulgarianAnalyzer(IndexService.version))
       }
     case "brazilian" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new BrazilianAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new BrazilianAnalyzer(IndexService.version))
       }
     case "catalan" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new CatalanAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new CatalanAnalyzer(IndexService.version))
       }
     case "cjk" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new CJKAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new CJKAnalyzer(IndexService.version))
       }
     case "chinese" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new SmartChineseAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new SmartChineseAnalyzer(IndexService.version))
       }
     case "czech" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new CzechAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new CzechAnalyzer(IndexService.version))
       }
     case "danish" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new DanishAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new DanishAnalyzer(IndexService.version))
       }
     case "german" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new GermanAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new GermanAnalyzer(IndexService.version))
       }
     case "greek" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new GreekAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new GreekAnalyzer(IndexService.version))
       }
     case "english" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new EnglishAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new EnglishAnalyzer(IndexService.version))
       }
     case "spanish" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new SpanishAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new SpanishAnalyzer(IndexService.version))
       }
     case "basque" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new BasqueAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new BasqueAnalyzer(IndexService.version))
       }
     case "persian" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new PersianAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new PersianAnalyzer(IndexService.version))
       }
     case "finnish" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new FinnishAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new FinnishAnalyzer(IndexService.version))
       }
     case "french" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new FrenchAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new FrenchAnalyzer(IndexService.version))
       }
     case "irish" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new IrishAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new IrishAnalyzer(IndexService.version))
       }
     case "galician" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new GalicianAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new GalicianAnalyzer(IndexService.version))
       }
     case "hindi" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new HindiAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new HindiAnalyzer(IndexService.version))
       }
     case "hungarian" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new HungarianAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new HungarianAnalyzer(IndexService.version))
       }
     case "armenian" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new ArmenianAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new ArmenianAnalyzer(IndexService.version))
       }
     case "indonesian" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new IndonesianAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new IndonesianAnalyzer(IndexService.version))
       }
     case "italian" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new ItalianAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new ItalianAnalyzer(IndexService.version))
       }
     case "japanese" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new JapaneseAnalyzer(IndexService.version, null, JapaneseTokenizer.DEFAULT_MODE, stopwords, JapaneseAnalyzer.getDefaultStopTags))
-        case _ =>
+        case None =>
           Some(new JapaneseAnalyzer(IndexService.version))
       }
     case "latvian" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new LatvianAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new LatvianAnalyzer(IndexService.version))
       }
     case "dutch" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new DutchAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new DutchAnalyzer(IndexService.version))
       }
     case "norwegian" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new NorwegianAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new NorwegianAnalyzer(IndexService.version))
       }
     case "polish" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new PolishAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new PolishAnalyzer(IndexService.version))
       }
     case "portuguese" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new PortugueseAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new PortugueseAnalyzer(IndexService.version))
       }
     case "romanian" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new RomanianAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new RomanianAnalyzer(IndexService.version))
       }
     case "russian" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new RussianAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new RussianAnalyzer(IndexService.version))
       }
     case "classic" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new ClassicAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new ClassicAnalyzer(IndexService.version))
       }
     case "standard" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new StandardAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new StandardAnalyzer(IndexService.version))
       }
     case "email" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new UAX29URLEmailAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new UAX29URLEmailAnalyzer(IndexService.version))
       }
     case "perfield" =>
@@ -390,24 +390,24 @@ object SupportedAnalyzers {
       fieldMap += ("_partition" -> new KeywordAnalyzer())
       Some(new PerFieldAnalyzer(defaultAnalyzer, fieldMap))
     case "swedish" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new SwedishAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new SwedishAnalyzer(IndexService.version))
       }
     case "thai" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new ThaiAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new ThaiAnalyzer(IndexService.version))
       }
     case "turkish" =>
-      options.get("stopwords") match {
-        case Some(stopwords: List[String]) =>
+      getStopWords(options) match {
+        case Some(stopwords) =>
           Some(new TurkishAnalyzer(IndexService.version, stopwords))
-        case _ =>
+        case None =>
           Some(new TurkishAnalyzer(IndexService.version))
       }
     case _ =>
@@ -419,6 +419,9 @@ object SupportedAnalyzers {
     case string: String => Some(AnalyzerOptions.fromAnalyzerName(string).toMap)
     case _ => None
   }
+
+  def getStopWords(options: Map[String, Any]): Option[CharArraySet] =
+    options.get("stopwords").collect { case list: List[_] => list.collect { case word: String => word } }
 
   implicit def listToJavaSet(list: List[String]): JSet[String] = {
     Set() ++ list
