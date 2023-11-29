@@ -74,8 +74,8 @@ object SupportedAnalyzers {
 
   val logger = LoggerFactory.getLogger("clouseau.analyzers")
 
-  def createAnalyzer(options: Any): Option[Analyzer] = {
-    createAnalyzerInt(options) match {
+  def createAnalyzer(options: AnalyzerOptions): Option[Analyzer] = {
+    createAnalyzerInt(options.toMap) match {
       case Some(perfield: PerFieldAnalyzer) =>
         Some(perfield)
       case Some(analyzer: Analyzer) =>
@@ -87,25 +87,13 @@ object SupportedAnalyzers {
     }
   }
 
-  def createAnalyzerInt(options: Any): Option[Analyzer] = options match {
-    case name: String =>
-      createAnalyzerInt(Map("name" -> name))
-    case list: List[(String, Any)] =>
-      try {
-        createAnalyzerInt(list.toMap)
-      } catch {
-        case e: ClassCastException => None
-      }
-    case map: Map[String, Any] =>
-      map.get("name") match {
-        case Some(name: String) =>
-          createAnalyzerInt(name, map)
-        case None =>
-          None
-      }
-    case _ =>
-      None
-  }
+  def createAnalyzerInt(options: Map[String, Any]): Option[Analyzer] =
+    options.get("name").map(_.asInstanceOf[String]) match {
+      case Some(name: String) =>
+        createAnalyzerInt(name, options)
+      case None =>
+        None
+    }
 
   def createAnalyzerInt(name: String, options: Map[String, Any]): Option[Analyzer] = name match {
     case "keyword" =>
@@ -361,7 +349,7 @@ object SupportedAnalyzers {
       }
     case "perfield" =>
       val fallbackAnalyzer = new StandardAnalyzer(IndexService.version)
-      val defaultAnalyzer: Analyzer = options.get("default") match {
+      val defaultAnalyzer: Analyzer = options.get("default").flatMap(parseDefault) match {
         case Some(defaultOptions) =>
           createAnalyzerInt(defaultOptions) match {
             case Some(defaultAnalyzer1) =>
@@ -372,16 +360,29 @@ object SupportedAnalyzers {
         case None =>
           fallbackAnalyzer
       }
+
+      def parseFields(fields: List[_]): List[(String, Option[Map[String, Any]])] =
+        // anaylyzerName can be a String or a single String element wrapped in a List
+        // the latter is a corner case which we should deprecate
+        fields.collect {
+          case (field: String, analyzerName: String) => (field, Some(Map("name" -> analyzerName)))
+          case (field: String, List(analyzerName: String)) => (field, Some(Map("name" -> analyzerName)))
+          case (field: String, _) => (field, None)
+        }
+
       var fieldMap: Map[String, Analyzer] = options.get("fields") match {
-        case Some(fields: List[(String, Any)]) =>
-          fields map { kv =>
-            createAnalyzerInt(kv._2) match {
-              case Some(fieldAnalyzer) =>
-                (kv._1, fieldAnalyzer)
-              case None =>
-                (kv._1, defaultAnalyzer)
-            }
-          } toMap
+        case Some(fields: List[_]) =>
+          parseFields(fields).map {
+            case (field, Some(options)) =>
+              createAnalyzerInt(options) match {
+                case Some(fieldAnalyzer) =>
+                  (field, fieldAnalyzer)
+                case None =>
+                  (field, defaultAnalyzer)
+              }
+            case (field, None) =>
+              (field, defaultAnalyzer)
+          }.toMap
         case _ =>
           Map.empty
       }
@@ -411,6 +412,12 @@ object SupportedAnalyzers {
       }
     case _ =>
       None
+  }
+
+  def parseDefault(default: Any): Option[Map[String, Any]] = default match {
+    case list: List[_] => Some(AnalyzerOptions.fromKVsList(list).toMap)
+    case string: String => Some(AnalyzerOptions.fromAnalyzerName(string).toMap)
+    case _ => None
   }
 
   implicit def listToJavaSet(list: List[String]): JSet[String] = {

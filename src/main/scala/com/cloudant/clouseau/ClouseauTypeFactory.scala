@@ -30,7 +30,7 @@ import scala.collection.mutable.ArrayBuffer
 
 case class SearchRequest(options: Map[Symbol, Any])
 
-case class OpenIndexMsg(peer: Pid, path: String, options: Any)
+case class OpenIndexMsg(peer: Pid, path: String, options: AnalyzerOptions)
 case class CleanupPathMsg(path: String)
 case class RenamePathMsg(dbName: String)
 case class CleanupDbMsg(dbName: String, activeSigs: List[String])
@@ -53,8 +53,12 @@ object ClouseauTypeFactory extends TypeFactory {
   val logger = LoggerFactory.getLogger("clouseau.tf")
 
   def createType(name: Symbol, arity: Int, reader: TermReader): Option[Any] = (name, arity) match {
-    case ('open, 4) =>
-      Some(OpenIndexMsg(reader.readAs[Pid], reader.readAs[String], reader.readTerm))
+    case ('open, 4) => {
+      val peer = reader.readAs[Pid]
+      val path = reader.readAs[String]
+      val options = reader.readTerm
+      AnalyzerOptions.from(options).map(OpenIndexMsg(peer, path, _))
+    }
     case ('cleanup, 2) =>
       Some(CleanupPathMsg(reader.readAs[String]))
     case ('rename, 2) =>
