@@ -5,6 +5,7 @@ ARTIFACTS_DIR?=$(BUILD_DIR)/artifacts
 CI_ARTIFACTS_DIR=$(BUILD_DIR)/ci-artifacts
 GIT_COMMIT?=$(shell git rev-parse HEAD)
 GIT_REPOSITORY?=$(shell git config --get remote.origin.url)
+DIRENV_VERSION := $(shell grep -F 'direnv' .tool-versions | awk '{print $$2}')
 ifeq ($(PROJECT_VERSION),)
 # technically we could use 'sbt -Dsbt.supershell=false -error "print version"'
 # but it takes 30 seconds to run it. So we go with direct access
@@ -206,6 +207,7 @@ define docker_func
 		--build-arg UBI_OPENJDK17_DIGEST=${UBI_OPENJDK17_DIGEST} \
 		--build-arg ARTIFACTORY_USR=${ARTIFACTORY_USR} \
 		--build-arg ARTIFACTORY_PSW=${ARTIFACTORY_PSW} \
+		--build-arg DIRENV_VERSION=${DIRENV_VERSION} \
 		--build-arg TERM=${TERM} \
 		--build-arg CMDS=$(1) \
 		$(DOCKER_ARGS) \

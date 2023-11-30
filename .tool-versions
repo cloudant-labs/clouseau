@@ -1,5 +1,5 @@
 # pre-requisite
-direnv 2.32.3
+direnv 2.33.0
 
 # build tools
 java openjdk-17
