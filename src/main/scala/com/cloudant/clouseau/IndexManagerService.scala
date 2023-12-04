@@ -109,7 +109,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
   }
 
   override def handleCall(tag: (Pid, Any), msg: Any): Any = msg match {
-    case OpenIndexMsg(peer: Pid, path: String, options: Any) =>
+    case OpenIndexMsg(peer: Pid, path: String, options: AnalyzerOptions) =>
       lru.get(path) match {
         case null =>
           waiters.get(path) match {

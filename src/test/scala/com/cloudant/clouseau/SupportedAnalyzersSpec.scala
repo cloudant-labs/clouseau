@@ -61,150 +61,243 @@ class SupportedAnalyzersSpec extends SpecificationWithJUnit {
   "SupportedAnalyzers" should {
 
     "ignore unsupported analyzers" in {
-      createAnalyzer("foo") must beNone
+      val options = AnalyzerOptions.from("foo")
+      options must beSome
+      createAnalyzer(options.get) must beNone
     }
     "List of non-tuples yields no analyzer" in {
-      createAnalyzer(List("foo")) must beNone
+      val options = AnalyzerOptions.from(List("foo"))
+      options must beSome
+      createAnalyzer(options.get) must beNone
     }
     "keyword" in {
-      createAnalyzer("keyword") must haveClass[Some[KeywordAnalyzer]]
+      val options = AnalyzerOptions.from("keyword")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[KeywordAnalyzer]]
     }
     "simple" in {
-      createAnalyzer("simple") must haveClass[Some[SimpleAnalyzer]]
+      val options = AnalyzerOptions.from("simple")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[SimpleAnalyzer]]
     }
     "whitespace" in {
-      createAnalyzer("whitespace") must haveClass[Some[WhitespaceAnalyzer]]
+      val options = AnalyzerOptions.from("whitespace")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[WhitespaceAnalyzer]]
     }
     "simple_asciifolding" in {
-      createAnalyzer("simple_asciifolding") must haveClass[Some[Analyzer]]
+      val options = AnalyzerOptions.from("simple_asciifolding")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[Analyzer]]
     }
     "email" in {
-      createAnalyzer("email") must haveClass[Some[UAX29URLEmailAnalyzer]]
+      val options = AnalyzerOptions.from("email")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[UAX29URLEmailAnalyzer]]
     }
     "perfield" in {
       // basic
-      createAnalyzer("perfield") must haveClass[Some[PerFieldAnalyzer]]
+      val basicOptions = AnalyzerOptions.from("perfield")
+      basicOptions must beSome
+      createAnalyzer(basicOptions.get) must haveClass[Some[PerFieldAnalyzer]]
 
       // override default
-      createAnalyzer(Map("name" -> "perfield", "default" -> "english")).toString must
+      val overrideDefaultOptions = AnalyzerOptions.from(Map("name" -> "perfield", "default" -> "english"))
+      overrideDefaultOptions must beSome
+      createAnalyzer(overrideDefaultOptions.get).toString must
         contain("default=org.apache.lucene.analysis.en.EnglishAnalyzer")
 
       // override field
-      createAnalyzer(Map("name" -> "perfield", "fields" -> List("foo" -> "english"))).toString must
+      val overrideFieldOptions = AnalyzerOptions.from(Map("name" -> "perfield", "fields" -> List("foo" -> "english")))
+      overrideFieldOptions must beSome
+      createAnalyzer(overrideFieldOptions.get).toString must
         contain("foo -> org.apache.lucene.analysis.en.EnglishAnalyzer")
 
       // unrecognized per-field becomes default
-      createAnalyzer(Map("name" -> "perfield", "default" -> "english", "fields" -> List("foo" -> "foo"))).toString must
+      val unrecognizedOptions = AnalyzerOptions.from(Map("name" -> "perfield", "default" -> "english", "fields" -> List("foo" -> "foo")))
+      unrecognizedOptions must beSome
+      createAnalyzer(unrecognizedOptions.get).toString must
         contain("foo -> org.apache.lucene.analysis.en.EnglishAnalyzer")
     }
     "arabic" in {
-      createAnalyzer("arabic") must haveClass[Some[ArabicAnalyzer]]
+      val options = AnalyzerOptions.from("arabic")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[ArabicAnalyzer]]
     }
     "bulgarian" in {
-      createAnalyzer("bulgarian") must haveClass[Some[BulgarianAnalyzer]]
+      val options = AnalyzerOptions.from("bulgarian")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[BulgarianAnalyzer]]
     }
     "brazilian" in {
-      createAnalyzer("brazilian") must haveClass[Some[BrazilianAnalyzer]]
+      val options = AnalyzerOptions.from("brazilian")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[BrazilianAnalyzer]]
     }
     "catalan" in {
-      createAnalyzer("catalan") must haveClass[Some[CatalanAnalyzer]]
+      val options = AnalyzerOptions.from("catalan")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[CatalanAnalyzer]]
     }
     "cjk" in {
-      createAnalyzer("cjk") must haveClass[Some[CJKAnalyzer]]
+      val options = AnalyzerOptions.from("cjk")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[CJKAnalyzer]]
     }
     "chinese" in {
-      createAnalyzer("chinese") must haveClass[Some[SmartChineseAnalyzer]]
+      val options = AnalyzerOptions.from("chinese")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[SmartChineseAnalyzer]]
     }
     "czech" in {
-      createAnalyzer("czech") must haveClass[Some[CzechAnalyzer]]
+      val options = AnalyzerOptions.from("czech")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[CzechAnalyzer]]
     }
     "danish" in {
-      createAnalyzer("danish") must haveClass[Some[DanishAnalyzer]]
+      val options = AnalyzerOptions.from("danish")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[DanishAnalyzer]]
     }
     "german" in {
-      createAnalyzer("german") must haveClass[Some[GermanAnalyzer]]
+      val options = AnalyzerOptions.from("german")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[GermanAnalyzer]]
     }
     "greek" in {
-      createAnalyzer("greek") must haveClass[Some[GreekAnalyzer]]
+      val options = AnalyzerOptions.from("greek")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[GreekAnalyzer]]
     }
     "english" in {
-      createAnalyzer("english") must haveClass[Some[EnglishAnalyzer]]
+      val options = AnalyzerOptions.from("english")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[EnglishAnalyzer]]
     }
     "spanish" in {
-      createAnalyzer("spanish") must haveClass[Some[SpanishAnalyzer]]
+      val options = AnalyzerOptions.from("spanish")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[SpanishAnalyzer]]
     }
     "basque" in {
-      createAnalyzer("basque") must haveClass[Some[BasqueAnalyzer]]
+      val options = AnalyzerOptions.from("basque")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[BasqueAnalyzer]]
     }
     "persian" in {
-      createAnalyzer("persian") must haveClass[Some[PersianAnalyzer]]
+      val options = AnalyzerOptions.from("persian")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[PersianAnalyzer]]
     }
     "finnish" in {
-      createAnalyzer("finnish") must haveClass[Some[FinnishAnalyzer]]
+      val options = AnalyzerOptions.from("finnish")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[FinnishAnalyzer]]
     }
     "french" in {
-      createAnalyzer("french") must haveClass[Some[FrenchAnalyzer]]
+      val options = AnalyzerOptions.from("french")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[FrenchAnalyzer]]
     }
     "irish" in {
-      createAnalyzer("irish") must haveClass[Some[IrishAnalyzer]]
+      val options = AnalyzerOptions.from("irish")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[IrishAnalyzer]]
     }
     "galician" in {
-      createAnalyzer("galician") must haveClass[Some[GalicianAnalyzer]]
+      val options = AnalyzerOptions.from("galician")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[GalicianAnalyzer]]
     }
     "hindi" in {
-      createAnalyzer("hindi") must haveClass[Some[HindiAnalyzer]]
+      val options = AnalyzerOptions.from("hindi")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[HindiAnalyzer]]
     }
     "hungarian" in {
-      createAnalyzer("hungarian") must haveClass[Some[HungarianAnalyzer]]
+      val options = AnalyzerOptions.from("hungarian")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[HungarianAnalyzer]]
     }
     "armenian" in {
-      createAnalyzer("armenian") must haveClass[Some[ArmenianAnalyzer]]
+      val options = AnalyzerOptions.from("armenian")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[ArmenianAnalyzer]]
     }
     "indonesian" in {
-      createAnalyzer("indonesian") must haveClass[Some[IndonesianAnalyzer]]
+      val options = AnalyzerOptions.from("indonesian")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[IndonesianAnalyzer]]
     }
     "italian" in {
-      createAnalyzer("italian") must haveClass[Some[ItalianAnalyzer]]
+      val options = AnalyzerOptions.from("italian")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[ItalianAnalyzer]]
     }
     "japanese" in {
-      createAnalyzer("japanese") must haveClass[Some[JapaneseAnalyzer]]
+      val options = AnalyzerOptions.from("japanese")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[JapaneseAnalyzer]]
     }
     "latvian" in {
-      createAnalyzer("latvian") must haveClass[Some[LatvianAnalyzer]]
+      val options = AnalyzerOptions.from("latvian")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[LatvianAnalyzer]]
     }
     "dutch" in {
-      createAnalyzer("dutch") must haveClass[Some[DutchAnalyzer]]
+      val options = AnalyzerOptions.from("dutch")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[DutchAnalyzer]]
     }
     "norwegian" in {
-      createAnalyzer("norwegian") must haveClass[Some[NorwegianAnalyzer]]
+      val options = AnalyzerOptions.from("norwegian")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[NorwegianAnalyzer]]
     }
     "polish" in {
-      createAnalyzer("polish") must haveClass[Some[PolishAnalyzer]]
+      val options = AnalyzerOptions.from("polish")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[PolishAnalyzer]]
     }
     "portuguese" in {
-      createAnalyzer("portuguese") must haveClass[Some[PortugueseAnalyzer]]
+      val options = AnalyzerOptions.from("portuguese")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[PortugueseAnalyzer]]
     }
     "romanian" in {
-      createAnalyzer("romanian") must haveClass[Some[RomanianAnalyzer]]
+      val options = AnalyzerOptions.from("romanian")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[RomanianAnalyzer]]
     }
     "russian" in {
-      createAnalyzer("russian") must haveClass[Some[RussianAnalyzer]]
+      val options = AnalyzerOptions.from("russian")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[RussianAnalyzer]]
     }
     "classic" in {
-      createAnalyzer("classic") must haveClass[Some[ClassicAnalyzer]]
+      val options = AnalyzerOptions.from("classic")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[ClassicAnalyzer]]
     }
     "standard" in {
-      createAnalyzer("standard") must haveClass[Some[StandardAnalyzer]]
+      val options = AnalyzerOptions.from("standard")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[StandardAnalyzer]]
     }
     "swedish" in {
-      createAnalyzer("swedish") must haveClass[Some[SwedishAnalyzer]]
+      val options = AnalyzerOptions.from("swedish")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[SwedishAnalyzer]]
     }
     "thai" in {
-      createAnalyzer("thai") must haveClass[Some[ThaiAnalyzer]]
+      val options = AnalyzerOptions.from("thai")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[ThaiAnalyzer]]
     }
     "turkish" in {
-      createAnalyzer("turkish") must haveClass[Some[TurkishAnalyzer]]
+      val options = AnalyzerOptions.from("turkish")
+      options must beSome
+      createAnalyzer(options.get) must haveClass[Some[TurkishAnalyzer]]
     }
-
   }
 }
