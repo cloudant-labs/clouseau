@@ -23,7 +23,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import scalang._
 import com.yammer.metrics.scala._
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import java.util.HashSet
 
 class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
@@ -74,13 +74,13 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     }
 
     def close() {
-      pidToPath foreach {
+      pidToPath.asScala foreach {
         kv => kv._1 ! ('close, 'closing)
       }
     }
 
     def closeByPath(path: String) {
-      pidToPath foreach {
+      pidToPath.asScala foreach {
         kv =>
           if (kv._2.startsWith(path)) {
             logger.info("closing lru for " + path)
@@ -101,7 +101,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     val field = lockClass.getDeclaredField("LOCK_HELD")
     field.setAccessible(true)
     val LOCK_HELD = field.get(null).asInstanceOf[HashSet[String]]
-    metrics.gauge("NativeFSLock.count")(getNativeFSLockHeldSize(LOCK_HELD))
+    metrics.gauge("NativeFSLock.count")(getNativeFSLockHeldSize(LOCK_HELD.asScala))
   }
 
   def getNativeFSLockHeldSize(lockHeld: Collection[String]) = lockHeld.synchronized {
@@ -201,7 +201,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     // As the index is closed, we snapshot every file.
     val files = originDir.list
     try {
-      ExternalSnapshotDeletionPolicy.snapshot(originDir, new File(snapshotDir), files)
+      ExternalSnapshotDeletionPolicy.snapshot(originDir, new File(snapshotDir), files.toSeq.asJavaCollection)
       'ok
     } catch {
       case e: IllegalStateException =>

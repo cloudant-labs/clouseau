@@ -21,7 +21,7 @@ import org.apache.lucene.analysis.Tokenizer
 import org.apache.lucene.analysis.TokenStream
 import org.apache.lucene.analysis.Analyzer.TokenStreamComponents
 import org.apache.lucene.analysis.util.CharArraySet
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 import org.apache.lucene.analysis.core.KeywordAnalyzer
 import org.apache.lucene.analysis.core.SimpleAnalyzer
@@ -424,11 +424,11 @@ object SupportedAnalyzers {
     options.get("stopwords").collect { case list: List[_] => list.collect { case word: String => word } }
 
   implicit def listToJavaSet(list: List[String]): JSet[String] = {
-    Set() ++ list
+    (Set() ++ list).asJava
   }
 
   implicit def listToCharArraySet(list: List[String]): CharArraySet = {
-    CharArraySet.unmodifiableSet(CharArraySet.copy(IndexService.version, Set() ++ list))
+    CharArraySet.unmodifiableSet(CharArraySet.copy(IndexService.version, (Set() ++ list).asJava))
   }
 
 }
