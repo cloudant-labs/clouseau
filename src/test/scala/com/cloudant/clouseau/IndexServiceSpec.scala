@@ -24,7 +24,7 @@ import org.apache.lucene.facet.taxonomy.CategoryPath
 import scalang.Pid
 import scala.Some
 import java.io.File
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 class IndexServiceSpec extends SpecificationWithJUnit {
   sequential
@@ -240,17 +240,17 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       val doc1 = new Document()
       doc1.add(new StringField("_id", "foo", Field.Store.YES))
       doc1.add(new StringField("ffield", "f1", Field.Store.YES))
-      facets.addFields(doc1, List(new CategoryPath("ffield", "f1")))
+      facets.addFields(doc1, List(new CategoryPath("ffield", "f1")).asJava)
 
       val doc2 = new Document()
       doc2.add(new StringField("_id", "foo2", Field.Store.YES))
       doc2.add(new StringField("ffield", "f1", Field.Store.YES))
-      facets.addFields(doc2, List(new CategoryPath("ffield", "f1")))
+      facets.addFields(doc2, List(new CategoryPath("ffield", "f1")).asJava)
 
       val doc3 = new Document()
       doc3.add(new StringField("_id", "foo3", Field.Store.YES))
       doc3.add(new StringField("ffield", "f3", Field.Store.YES))
-      facets.addFields(doc3, List(new CategoryPath("ffield", "f3")))
+      facets.addFields(doc3, List(new CategoryPath("ffield", "f3")).asJava)
 
       node.call(service, UpdateDocMsg("foo", doc1)) must be equalTo 'ok
       node.call(service, UpdateDocMsg("foo2", doc2)) must be equalTo 'ok

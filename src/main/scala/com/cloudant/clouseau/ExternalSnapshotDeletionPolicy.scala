@@ -5,11 +5,12 @@ import java.io.IOException
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.Files
 import java.util.List
+import java.util.Collection
 import java.util.UUID
 import org.apache.lucene.index.IndexCommit
 import org.apache.lucene.index.IndexDeletionPolicy
 import org.apache.lucene.store.FSDirectory
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 class ExternalSnapshotDeletionPolicy(dir: FSDirectory) extends IndexDeletionPolicy {
 
@@ -37,10 +38,10 @@ class ExternalSnapshotDeletionPolicy(dir: FSDirectory) extends IndexDeletionPoli
 
   private def keepOnlyLastCommit(commits: List[_ <: IndexCommit]): Unit = {
     synchronized {
-      for (commit <- commits.reverse.drop(1)) {
+      for (commit <- commits.asScala.reverse.drop(1)) {
         commit.delete
       }
-      lastCommit = commits.lastOption
+      lastCommit = commits.asScala.lastOption
     }
   }
 
@@ -72,7 +73,7 @@ object ExternalSnapshotDeletionPolicy {
     }
     var success = false
     try {
-      for (filename <- files) {
+      for (filename <- files.asScala) {
         Files.createLink(new File(tmpDir, filename).toPath, new File(originDir, filename).toPath);
       }
       Files.move(tmpDir.toPath, snapshotDir.toPath, ATOMIC_MOVE)

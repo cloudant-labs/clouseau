@@ -36,7 +36,7 @@ import org.apache.lucene.search.highlight.{
 }
 import org.apache.lucene.analysis.Analyzer
 import scalang._
-import collection.JavaConversions._
+import collection.JavaConverters._
 import com.yammer.metrics.scala._
 import com.cloudant.clouseau.Utils._
 import org.apache.commons.configuration.Configuration
@@ -238,9 +238,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       committing = true
       val index = self
       node.spawn((_) => {
-        ctx.args.writer.setCommitData(ctx.args.writer.getCommitData +
+        ctx.args.writer.setCommitData((ctx.args.writer.getCommitData.asScala +
           ("update_seq" -> newUpdateSeq.toString) +
-          ("purge_seq" -> newPurgeSeq.toString))
+          ("purge_seq" -> newPurgeSeq.toString)).asJava)
         try {
           commitTimer.time {
             ctx.args.writer.commit()
@@ -358,7 +358,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
             case None =>
               null
             case Some(rangeList: List[_]) =>
-              val rangeFacetRequests = for ((name: String, ranges: List[_]) <- rangeList) yield {
+              val rangeFacetRequests: List[FacetRequest] = for ((name: String, ranges: List[_]) <- rangeList) yield {
                 new RangeFacetRequest(name, ranges.map({
                   case (label: String, rangeQuery: String) =>
                     ctx.args.queryParser.parse(rangeQuery) match {
@@ -375,9 +375,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
                     }
                   case _ =>
                     throw new ParseException("invalid ranges query")
-                }))
+                }).asJava)
               }
-              val acc = new RangeAccumulator(rangeFacetRequests)
+              val acc = new RangeAccumulator(rangeFacetRequests.asJava)
               FacetsCollector.create(acc)
             case Some(other) =>
               throw new ParseException(other + " is not a valid ranges query")
@@ -455,10 +455,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
             else
               throw e
         }
-        val countFacetRequests = for (count <- counts) yield {
+        val countFacetRequests: List[FacetRequest] = for (count <- counts) yield {
           new CountFacetRequest(new CategoryPath(count), Int.MaxValue)
         }
-        val facetSearchParams = new FacetSearchParams(countFacetRequests)
+        val facetSearchParams = new FacetSearchParams(countFacetRequests.asJava)
         val acc = try {
           new SortedSetDocValuesAccumulator(state, facetSearchParams)
         } catch {
@@ -485,7 +485,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
             case null =>
               ('ok, List())
             case topGroups =>
-              ('ok, topGroups map {
+              ('ok, topGroups.asScala map {
                 g => (g.groupValue, convertOrder(g.sortValues))
               })
           }
@@ -520,7 +520,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         }
         safeSearch {
           val fieldName = validateGroupField(field)
-          val collector = new TermSecondPassGroupingCollector(fieldName, groups1,
+          val collector = new TermSecondPassGroupingCollector(fieldName, groups1.asJava,
             parseSort(groupSort).rewrite(searcher),
             parseSort(docSort).rewrite(searcher), docLimit, true, false, true)
           searchTimer.time {
@@ -706,10 +706,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       case null =>
         searcher.doc(scoreDoc.doc)
       case _ =>
-        searcher.doc(scoreDoc.doc, includeFields)
+        searcher.doc(scoreDoc.doc, includeFields.asJava)
     }
 
-    var fields = doc.getFields.foldLeft(Map[String, Any]())((acc, field) => {
+    var fields = doc.getFields.asScala.foldLeft(Map[String, Any]())((acc, field) => {
       val value = field.numericValue match {
         case null =>
           field.stringValue
@@ -793,7 +793,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     case null =>
       Nil
     case _ =>
-      List((name, c.getFacetResults.map { f => convertFacet(f) }.toList))
+      List((name, c.getFacetResults.asScala.map { f => convertFacet(f) }.toList))
   }
 
   private def convertFacet(facet: FacetResult): Any = {
@@ -801,7 +801,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   private def convertFacetNode(node: FacetResultNode): Any = {
-    val children = node.subResults.map { n => convertFacetNode(n) }.toList
+    val children = node.subResults.asScala.map { n => convertFacetNode(n) }.toList
     (node.label.components.toList, node.value, children)
   }
 
