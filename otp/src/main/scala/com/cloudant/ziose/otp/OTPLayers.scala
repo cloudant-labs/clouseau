@@ -6,15 +6,15 @@ import com.cloudant.ziose.core.Engine
 
 object OTPLayers {
   def liveEngineWorker(engineId: Engine.EngineId, workerId: Engine.WorkerId, cfg: OTPNodeConfig) = {
-    val name = s"${cfg.node}${engineId}.${workerId}@${cfg.domain}"
+    val name = s"${cfg.name}${engineId}.${workerId}@${cfg.domain}"
     OTPEngineWorker.live(engineId, workerId, name, cfg)
   }
   def liveActorFactory(engineId: Engine.EngineId, workerId: Engine.WorkerId, cfg: OTPNodeConfig) = {
-    val name = s"${cfg.node}${engineId}.${workerId}@${cfg.domain}"
+    val name = s"${cfg.name}${engineId}.${workerId}@${cfg.domain}"
     OTPActorFactory.live(name, cfg)
   }
   def liveNode(engineId: Engine.EngineId, workerId: Engine.WorkerId, cfg: OTPNodeConfig) = {
-    val name = s"${cfg.node}${engineId}.${workerId}@${cfg.domain}"
+    val name = s"${cfg.name}${engineId}.${workerId}@${cfg.domain}"
     OTPNode.live(name, engineId, workerId, cfg)
   }
 }

@@ -1,16 +1,10 @@
 package com.cloudant.ziose.otp
 
-import _root_.zio.Config
+import zio.Config
+import zio.config.magnolia.deriveConfig
 
-final case class Node(value: String)   extends AnyVal
-final case class Domain(value: String) extends AnyVal
-final case class Cookie(value: String) extends AnyVal
-final case class OTPNodeConfig(node: Node, domain: Domain, cookie: Cookie)
+final case class OTPNodeConfig(name: String, domain: String, cookie: String)
 
 object OTPNodeConfig {
-  val config: Config[OTPNodeConfig] = {
-    (Config.string("name") ++ Config.string("domain") ++ Config.string("cookie")).map { case (node, domain, cookie) =>
-      OTPNodeConfig(Node(node), Domain(domain), Cookie(cookie))
-    }
-  }
+  val config: Config[OTPNodeConfig] = deriveConfig[OTPNodeConfig]
 }

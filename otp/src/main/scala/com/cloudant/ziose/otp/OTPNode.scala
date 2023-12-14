@@ -44,8 +44,8 @@ object OTPNode {
       queue <- Queue.unbounded[Envelope[Command[_], _, _]].withFinalizer(_.shutdown)
       accessKey = AccessKey.create()
       service <- for {
-        _           <- ZIO.debug(s"Creating OtpNode(${name}, ${cfg.cookie.value})") // TODO remove cookie
-        nodeProcess <- NodeProcess.make(name, cfg.cookie.value, queue, accessKey)
+        _           <- ZIO.debug(s"Creating OtpNode(${name}, ${cfg.cookie})") // TODO remove cookie
+        nodeProcess <- NodeProcess.make(name, cfg.cookie, queue, accessKey)
         _           <- nodeProcess.stream.runDrain.forever.fork
         scope       <- ZIO.scope
         service = unsafeMake(queue, nodeProcess, scope, factory, ctx)
