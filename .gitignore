@@ -47,3 +47,7 @@ dependency-reduced-pom.xml
 # direnv & asdf
 .asdf
 .envrc.local
+
+# vscode & metals
+.vscode
+.metals
