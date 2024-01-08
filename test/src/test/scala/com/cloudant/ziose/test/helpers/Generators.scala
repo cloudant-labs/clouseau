@@ -144,16 +144,13 @@ object Generators {
    * integers.
    */
   def mapContainerE(g: Gen[Any, List[ETerm]]): Gen[Any, ETerm] = suspend {
-    g.flatMap { children =>
-      for {
-        keys <- listOfN(children.size)(stringP)
-        elements      = keys zip children.asInstanceOf[List[SamplePair]]
-        linkedHashMap = mutable.LinkedHashMap.empty[ETerm, ETerm]
-        _ = elements.foreach { case ((eKey, _), (eTerm, _)) =>
-          linkedHashMap.put(eKey, eTerm)
-        }
-      } yield EMap(linkedHashMap)
-    }
+    for {
+      children <- g
+      elements = children.zip(children)
+      emap = elements.foldLeft(mutable.LinkedHashMap.empty[ETerm, ETerm]) { case (a, (k, v)) =>
+        a += (k -> v)
+      }
+    } yield EMap(emap)
   }
 
   /**
@@ -295,16 +292,14 @@ object Generators {
    */
   def mapContainerO(g: Gen[Any, List[OtpErlangObject]]): Gen[Any, OtpErlangObject] = {
     suspend {
-      g.flatMap { children =>
-        for {
-          keys <- listOfN(children.size)(stringP)
-          elements     = keys zip children.asInstanceOf[List[SamplePair]]
-          otpErlangMap = new OtpErlangMap
-          _ = elements.foreach { case ((_, otpKey), (_, otpTerm)) =>
-            otpErlangMap.put(otpKey, otpTerm)
-          }
-        } yield otpErlangMap
-      }
+      for {
+        children <- g
+        elements     = children.zip(children)
+        otpErlangMap = new OtpErlangMap
+        _ = elements.foreach { case (otpKey, otpTerm) =>
+          otpErlangMap.put(otpKey, otpTerm)
+        }
+      } yield otpErlangMap
     }
   }
 
