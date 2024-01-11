@@ -3,9 +3,12 @@ sbt 'clouseau/runMain com.cloudant.ziose.clouseau.Main'
  */
 package com.cloudant.ziose.clouseau
 
+import com.cloudant.ziose.core.{ActorFactory, AddressableActor, EngineWorker, Node}
+import com.cloudant.ziose.otp.{OTPActorFactory, OTPEngineWorker, OTPNode, OTPNodeConfig}
 import zio.config.magnolia.deriveConfig
 import zio.config.typesafe.FromConfigSourceTypesafe
-import zio.{&, ConfigProvider, Console, IO, Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
+import zio.logging.{ConsoleLoggerConfig, LogFilter, LogFormat, consoleLogger}
+import zio.{&, ConfigProvider, IO, RIO, Runtime, Task, ZIO, ZIOAppDefault}
 
 import java.io.FileNotFoundException
 
@@ -19,16 +22,49 @@ object Main extends ZIOAppDefault {
       .orElseFail(new FileNotFoundException(s"File Not Found: $path"))
   }
 
-  def run: ZIO[Any & ZIOAppArgs & Scope, Serializable, Unit] = {
+  private def startCoordinator(
+    node: ClouseauNode,
+    config: AppConfiguration
+  ): RIO[EngineWorker & Node & ActorFactory, AddressableActor[_, _]] = {
+    val clouseauCfg: ClouseauConfiguration = config.clouseau.get
+    val nodeCfg: OTPNodeConfig             = config.node
+
+    EchoService.start(node, "coordinator", Configuration(clouseauCfg, nodeCfg))
+  }
+
+  private def effect(nodesCfg: NodeCfg): RIO[EngineWorker & Node & ActorFactory, Unit] = {
     for {
-      nodes <- getConfig("app.conf")
-      node1 = nodes.config.head
-      node2 = nodes.config(1)
-      _ <- Console.printLine(s"node2 node config: ${node2.node}")
-      _ <- Console.printLine(s"node2 clouseau config: ${node2.clouseau}")
-      _ <- Console.printLine(node1.clouseau.get.close_if_idle)
-      _ <- Console.printLine(node1.clouseau.get.max_indexes_open)
-      _ <- Console.printLine(node2.clouseau.get.dir.get)
+      runtime  <- ZIO.runtime[EngineWorker & Node & ActorFactory]
+      otp_node <- ZIO.service[Node]
+      nodeCfg     = nodesCfg.config.head
+      remote_node = s"node${nodeCfg.node.name.last}@${nodeCfg.node.domain}"
+      _      <- otp_node.monitorRemoteNode(remote_node)
+      worker <- ZIO.service[EngineWorker]
+      node   <- ZIO.succeed(new ClouseauNode()(runtime, worker))
+      _      <- startCoordinator(node, nodeCfg)
+      _      <- worker.awaitShutdown
     } yield ()
   }
+
+  private val app: Task[Unit] = {
+    for {
+      nodesCfg <- getConfig("app.conf")
+      node     = nodesCfg.config.head.node
+      name     = s"${node.name}@${node.domain}"
+      workerId = node.name.last.toInt
+      engineId = workerId
+      _ <- ZIO
+        .scoped(effect(nodesCfg))
+        .provide(
+          OTPActorFactory.live(name, node),
+          OTPNode.live(name, engineId, workerId, node),
+          OTPEngineWorker.live(engineId, workerId, name, node)
+        )
+    } yield ()
+  }
+
+  private val logger = Runtime.removeDefaultLoggers >>>
+    consoleLogger(ConsoleLoggerConfig(LogFormat.colored, LogFilter.acceptAll))
+
+  def run: IO[Any, Unit] = ZIO.scoped(app).provide(logger)
 }
