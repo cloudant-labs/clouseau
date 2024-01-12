@@ -24,7 +24,7 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
         val reply = (Symbol("echo_reply"), from, ts, self.pid, now(), seq)
         send(from, reply)
       case msg =>
-        ZIO.debug(s"[WARNING] Unexpected message: $msg ...")
+        println(s"[WARNING] Unexpected message: $msg ...")
     }
   }
 
