@@ -192,7 +192,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       committing = false
   }
 
-  def countFields() {
+  def countFields() = {
     if (countFieldsEnabled) {
       val leaves = reader.leaves().iterator()
       val warningThreshold = ctx.args.config.
@@ -211,7 +211,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     }
   }
 
-  override def exit(msg: Any) {
+  override def exit(msg: Any) = {
     debug("Closed with reason: %.1000s".format(msg))
     try {
       reader.close()
@@ -233,7 +233,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     }
   }
 
-  private def commit(newUpdateSeq: Long, newPurgeSeq: Long) {
+  private def commit(newUpdateSeq: Long, newPurgeSeq: Long) = {
     if (!committing && (newUpdateSeq > updateSeq || newPurgeSeq > purgeSeq)) {
       committing = true
       val index = self
@@ -643,7 +643,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     new IndexSearcher(reader)
   }
 
-  private def reopenIfChanged() {
+  private def reopenIfChanged() = {
     val newReader = DirectoryReader.openIfChanged(reader)
     if (newReader != null) {
       reader.close()
@@ -859,23 +859,23 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     ctx.args.writer.getConfig().getIndexDeletionPolicy().asInstanceOf[ExternalSnapshotDeletionPolicy]
   }
 
-  private def debug(str: String) {
+  private def debug(str: String) = {
     IndexService.logger.debug(prefix_name(str))
   }
 
-  private def info(str: String) {
+  private def info(str: String) = {
     IndexService.logger.info(prefix_name(str))
   }
 
-  private def warn(str: String) {
+  private def warn(str: String) = {
     IndexService.logger.warn(prefix_name(str))
   }
 
-  private def warn(str: String, e: Throwable) {
+  private def warn(str: String, e: Throwable) = {
     IndexService.logger.warn(prefix_name(str), e)
   }
 
-  private def error(str: String, e: Throwable) {
+  private def error(str: String, e: Throwable) = {
     IndexService.logger.error(prefix_name(str), e)
   }
 

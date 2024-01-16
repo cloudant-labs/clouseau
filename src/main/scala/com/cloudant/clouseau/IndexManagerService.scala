@@ -55,13 +55,13 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       pid
     }
 
-    def put(path: String, pid: Pid) {
+    def put(path: String, pid: Pid) = {
       val prev = pathToPid.put(path, pid)
       pidToPath.remove(prev)
       pidToPath.put(pid, path)
     }
 
-    def remove(pid: Pid) {
+    def remove(pid: Pid) = {
       val path = pidToPath.remove(pid)
       pathToPid.remove(path)
       if (Option(path).isDefined) {
@@ -73,13 +73,13 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       pidToPath.isEmpty
     }
 
-    def close() {
+    def close() = {
       pidToPath.asScala foreach {
         kv => kv._1 ! ('close, 'closing)
       }
     }
 
-    def closeByPath(path: String) {
+    def closeByPath(path: String) = {
       pidToPath.asScala foreach {
         kv =>
           if (kv._2.startsWith(path)) {
@@ -211,7 +211,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     }
   }
 
-  private def replyAll(path: String, msg: Any) {
+  private def replyAll(path: String, msg: Any) = {
     waiters.remove(path) match {
       case Some(list) =>
         for ((pid, ref) <- list) {

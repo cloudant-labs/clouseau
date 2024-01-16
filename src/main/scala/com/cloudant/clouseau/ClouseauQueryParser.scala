@@ -107,7 +107,7 @@ class ClouseauQueryParser(version: Version,
     fpRegex.matcher(str).matches()
   }
 
-  private def setLowercaseExpandedTerms(field: String) {
+  private def setLowercaseExpandedTerms(field: String) = {
     getAnalyzer match {
       case a: PerFieldAnalyzer =>
         setLowercaseExpandedTerms(a.getWrappedAnalyzer(field))
@@ -116,7 +116,7 @@ class ClouseauQueryParser(version: Version,
     }
   }
 
-  private def setLowercaseExpandedTerms(analyzer: Analyzer) {
+  private def setLowercaseExpandedTerms(analyzer: Analyzer) = {
     setLowercaseExpandedTerms(!analyzer.isInstanceOf[KeywordAnalyzer])
   }
 

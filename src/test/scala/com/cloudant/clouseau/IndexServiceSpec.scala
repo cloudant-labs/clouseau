@@ -515,7 +515,7 @@ class IndexServiceSpec extends SpecificationWithJUnit {
       })
   }
 
-  private def indexNotClosedAfterTimeout(node: Node, service: Pid) {
+  private def indexNotClosedAfterTimeout(node: Node, service: Pid) = {
     val value, query = "foo"
     val doc = new Document()
     doc.add(new StringField("_id", value, Field.Store.YES))
@@ -531,7 +531,7 @@ class IndexServiceSpec extends SpecificationWithJUnit {
     (node.isAlive(service) must beTrue)
   }
 
-  private def indexClosedAfterTimeOut(node: Node, service: Pid) {
+  private def indexClosedAfterTimeOut(node: Node, service: Pid) = {
     val value, query = "foo"
     val doc = new Document()
     doc.add(new StringField("_id", value, Field.Store.YES))
@@ -548,7 +548,7 @@ class IndexServiceSpec extends SpecificationWithJUnit {
   }
 
   private def indexNotClosedAfterActivityBetweenTwoIdleChecks(node: Node,
-                                                              service: Pid) {
+                                                              service: Pid) = {
     var value, query = "foo"
     var doc = new Document()
     doc.add(new StringField("_id", value, Field.Store.YES))
