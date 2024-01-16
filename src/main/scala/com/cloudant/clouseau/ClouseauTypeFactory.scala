@@ -212,7 +212,7 @@ object ClouseauTypeFactory extends TypeFactory {
       case false => Store.NO
       case str: String =>
         try {
-          Store.valueOf(str toUpperCase)
+          Store.valueOf(str.toUpperCase)
         } catch {
           case _: IllegalArgumentException =>
             Store.NO
@@ -228,7 +228,7 @@ object ClouseauTypeFactory extends TypeFactory {
       case false => Index.NO
       case str: String =>
         try {
-          Index.valueOf(str toUpperCase)
+          Index.valueOf(str.toUpperCase)
         } catch {
           case _: IllegalArgumentException =>
             Index.ANALYZED
@@ -240,7 +240,7 @@ object ClouseauTypeFactory extends TypeFactory {
 
   def toTermVector(options: Map[String, Any]): TermVector = {
     val termVector = options.getOrElse("termvector", "no").asInstanceOf[String]
-    TermVector.valueOf(termVector toUpperCase)
+    TermVector.valueOf(termVector.toUpperCase)
   }
 
   def isFacet(options: Map[String, Any]) = {
