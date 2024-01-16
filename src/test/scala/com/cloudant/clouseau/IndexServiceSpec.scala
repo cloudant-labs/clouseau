@@ -25,9 +25,191 @@ import scalang.Pid
 import scala.Some
 import java.io.File
 import scala.collection.JavaConverters._
+import org.apache.lucene.queryparser.classic.ParseException
 
+/*
+mvn test -Dtest="com.cloudant.clouseau.IndexServiceSpec"
+*/
 class IndexServiceSpec extends SpecificationWithJUnit {
   sequential
+
+  "a groups parser" should {
+    def groups(value: Any): Map[Symbol, Any] = Map('groups -> value)
+
+    "return None if option map doesn't contain 'groups'" in {
+      IndexService.getGroups(Map().asInstanceOf[Map[Symbol, Any]]) must beEqualTo(None)
+    }
+
+    "return None if 'groups option contain 'nil" in {
+      IndexService.getGroups(groups('nil)) must beEqualTo(None)
+    }
+
+    "return correct result for empty list groups" in {
+      IndexService.getGroups(groups(List())) must beEqualTo(Some(List()))
+    }
+
+    "return correct result for groups in the expected format" in {
+      var input = List(
+        ("first", List(List())), ("second", List(Seq())), ("third", List("String")),
+        ('null, List(List())), ('null, List(Seq())), ('null, List("String"))
+      )
+      IndexService.getGroups(groups(input)) must beEqualTo(Some(List(
+        (Some("first"), List(List())), (Some("second"), List(Seq())), (Some("third"), List("String")),
+        (None, List(List())), (None, List(Seq())), (None, List("String"))
+      )))
+    }
+
+    "return error when groups is not a list" in {
+      IndexService.getGroups(groups("not a List")) must throwA[ParseException].like {
+        case e => e.getMessage must contain("invalid groups query")
+      }
+    }
+
+  }
+
+  "an include_fields parser" should {
+    def includeFields(value: Any): Map[Symbol, Any] = Map('include_fields -> value)
+
+    "return None if option map doesn't contain 'include_fields'" in {
+      IndexService.getIncludeFields(Map().asInstanceOf[Map[Symbol, Any]]) must beEqualTo(None)
+    }
+
+    "return None if 'include_fields option contain 'nil" in {
+      IndexService.getIncludeFields(includeFields('nil)) must beEqualTo(None)
+    }
+
+    "return correct result for empty list include_fields" in {
+      IndexService.getIncludeFields(includeFields(List())) must beEqualTo(Some(Set("_id")))
+    }
+
+    "return correct result for List[String]" in {
+      var planets = List("Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune")
+      IndexService.getIncludeFields(includeFields(planets)) must beEqualTo(Some(
+        Set("Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "_id")
+      ))
+    }
+
+    "return error when include_fields is not a list" in {
+      IndexService.getIncludeFields(includeFields("not a List")) must throwA[ParseException].like {
+        case e => e.getMessage must contain("not a List is not a valid 'include_fields query")
+      }
+    }
+
+    "return error when one of the elements of include_fields is not a String" in {
+      IndexService.getIncludeFields(includeFields(List("one", 2))) must throwA[ParseException].like {
+        case e => e.getMessage must contain("List(one, 2) is not a valid 'include_fields query")
+      }
+    }
+  }
+
+  "a ranges parser" should {
+    def ranges(value: Any): Map[Symbol, Any] = Map('ranges -> value)
+
+    "return None if option map doesn't contain 'ranges'" in {
+      IndexService.getRanges(Map().asInstanceOf[Map[Symbol, Any]]) must beEqualTo(None)
+    }
+
+    "return None if 'ranges option contain 'nil" in {
+      IndexService.getRanges(ranges('nil)) must beEqualTo(None)
+    }
+
+    "return correct result for empty list ranges" in {
+      IndexService.getRanges(ranges(List())) must beEqualTo(Some(List()))
+    }
+
+    "return correct result for empty list of queries" in {
+      val input = List(("first", List()))
+      IndexService.getRanges(ranges(input)) must beEqualTo(Some(input))
+    }
+
+    "return correct result when ranges are in correct format" in {
+      val input = List(("first", List(("second", "third"))))
+      IndexService.getRanges(ranges(input)) must beEqualTo(Some(input))
+    }
+
+    "return error when ranges is not a list" in {
+      IndexService.getRanges(ranges("not a List")) must throwA[ParseException].like {
+        case e => e.getMessage must contain("invalid ranges query")
+      }
+    }
+
+    "return error when range name is not a String" in {
+      IndexService.getRanges(ranges(List(1, List()))) must throwA[ParseException].like {
+        case e => e.getMessage must contain("List(1, List()) is not a valid ranges query")
+      }
+    }
+
+    "return error when query is not tuple with arity 2" in {
+      IndexService.getRanges(ranges(List("first", List(("second", "third"), (1, 2, 3))))) must throwA[ParseException].like {
+        case e => e.getMessage must contain("List(first, List((second,third), (1,2,3))) is not a valid ranges query")
+      }
+    }
+
+    "return error when query label is not a String" in {
+      IndexService.getRanges(ranges(List("first", List((1, "query"))))) must throwA[ParseException].like {
+        case e => e.getMessage must contain("List(first, List((1,query))) is not a valid ranges query")
+      }
+    }
+
+    "return error when query is not a list" in {
+      IndexService.getRanges(ranges(List("first", List(("second", 1))))) must throwA[ParseException].like {
+        case e => e.getMessage must contain("List(first, List((second,1))) is not a valid ranges query")
+      }
+    }
+
+    "return error when queries is not a list" in {
+      IndexService.getRanges(ranges(List("first", "not a List"))) must throwA[ParseException].like {
+        case e => e.getMessage must contain("List(first, not a List) is not a valid ranges query")
+      }
+    }
+  }
+
+  "a drilldown parser" should {
+    def drilldown(value: Any): Map[Symbol, Any] = Map('drilldown -> value)
+
+    "return None if option map doesn't contain 'drilldown'" in {
+      IndexService.getDrilldown(Map().asInstanceOf[Map[Symbol, Any]]) must beEqualTo(None)
+    }
+
+    "return None if 'drilldown option contain 'nil" in {
+      IndexService.getDrilldown(drilldown('nil)) must beEqualTo(None)
+    }
+
+    "return correct result for single inner list of List[List[String]]" in {
+      var planets = List(List("Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"))
+      IndexService.getDrilldown(drilldown(planets)) must beEqualTo(Some(planets))
+    }
+
+    "return correct result for multiple inner lists of List[List[String]]" in {
+      var planets = List(List("Mercury", "Venus", "Earth"), List("Mars", "Jupiter", "Saturn"), List("Uranus", "Neptune"))
+      IndexService.getDrilldown(drilldown(planets)) must beEqualTo(Some(planets))
+    }
+
+    "return error on List[NotAList]" in {
+      IndexService.getDrilldown(drilldown(List(1, 2))) must throwA[ParseException].like {
+        case e => e.getMessage must contain("invalid drilldown query List(1, 2)")
+      }
+    }
+
+    "return error on List[MixOFListsAndNoneLists]" in {
+      IndexService.getDrilldown(drilldown(List(List("1", "2"), "3", "4"))) must throwA[ParseException].like {
+        case e => e.getMessage must contain("invalid drilldown query List(List(1, 2), 3, 4)")
+      }
+    }
+
+    "return error on List[List[NotAString]]" in {
+      IndexService.getDrilldown(drilldown(List(List(1, 2)))) must throwA[ParseException].like {
+        case e => e.getMessage must contain("List(1, 2) contains non-string element 1")
+      }
+    }
+
+    "return error on List[List[MixOfStringsAndNoneStrings]]" in {
+      IndexService.getDrilldown(drilldown(List(List("1", 2, "3")))) must throwA[ParseException].like {
+        case e => e.getMessage must contain("List(1, 2, 3) contains non-string element 2")
+      }
+    }
+
+  }
 
   "an index" should {
 
