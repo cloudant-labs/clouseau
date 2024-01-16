@@ -104,7 +104,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     metrics.gauge("NativeFSLock.count")(getNativeFSLockHeldSize(LOCK_HELD.asScala))
   }
 
-  def getNativeFSLockHeldSize(lockHeld: Collection[String]) = lockHeld.synchronized {
+  def getNativeFSLockHeldSize(lockHeld: scala.collection.mutable.Set[String]) = lockHeld.synchronized {
     lockHeld.size
   }
 
