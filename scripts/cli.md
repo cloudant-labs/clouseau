@@ -13,6 +13,7 @@ Use `cli help <command>` to get more help.
 * `bootstrap` - a step-by-step guide to help set up environment
 * `start`     - start clouseau node
 * `stop`      - stop clouseau node
+* `zeunit`    - run `zeunit` tests
 * `fmt`       - reformat scala code
 * `gh`        - GitHub related commands
 * `issue`     - Issues management
@@ -64,6 +65,17 @@ cli start "clouseau" "java -jar clouseau.jar"
 
 ```bash
 cli stop "clouseau"
+```
+
+---
+
+### `zeunit`: Run zeunit tests
+
+* `cli zeunit [name] [suites=] [tests=]` - Run zeunit tests using specified `suites` and `tests`
+
+```bash
+cli zeunit clouseau1 # Run all zeunit tests
+cli zeunit clouseau1 suites=echo_tests # Run specified tests only
 ```
 
 ---

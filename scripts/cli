@@ -193,6 +193,15 @@ stop)
   run::stop "$1"
   exit $?
   ;;
+zeunit)
+  ensure_args 1 "help_topic zeunit" "$@"
+  name=$1
+  run::health-check "$name"
+  trap 'run::stop "$name"' EXIT
+  shift
+  run::eunit "$@"
+  exit $?
+  ;;
 *)
   console::errorLn "Unknown command '${command}'"
   console::infoLn "List of supported commands"

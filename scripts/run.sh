@@ -1,6 +1,8 @@
 #!/bin/bash
 SELF_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
 TMP_DIR=${SELF_DIR}/../tmp
+ZEUNIT_DIR=${SELF_DIR}/../zeunit
+REBAR=rebar
 
 mkdir -p "$TMP_DIR"
 . "${SELF_DIR}"/console.sh
@@ -32,4 +34,12 @@ run::stop() {
     pkill -F "$pid_file"
     rm -f "$pid_file"
   fi
+}
+
+run::health-check() {
+  escript "${ZEUNIT_DIR}/src/health-check.escript" "$1"
+}
+
+run::eunit() {
+  cd "${ZEUNIT_DIR}" && $REBAR eunit "$@"
 }

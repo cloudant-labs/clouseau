@@ -4,6 +4,7 @@
 **/node_modules
 **/project
 **/target
+*.beam
 *.orig
 .asdf
 .bloop

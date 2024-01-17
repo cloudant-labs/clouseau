@@ -258,3 +258,9 @@ check-env-artifactory:
 # target: version - Print current version
 version:
 	@echo $(PROJECT_VERSION)
+
+.PHONY: zeunit
+# target: zeunit - `zeunit`: Run integration tests
+zeunit: jar
+	@cli start "clouseau1" "java -jar clouseau/target/scala-2.13/clouseau_2.13.12_0.1.0.jar"
+	@cli zeunit clouseau1
