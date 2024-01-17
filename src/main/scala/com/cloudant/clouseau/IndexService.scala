@@ -610,7 +610,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       ('error, ('bad_request, "Malformed query syntax"))
     case e: ParseException =>
       ('error, ('bad_request, e.getMessage))
-    case e =>
+    case e: Throwable =>
       ('error, e.getMessage)
   }
 
