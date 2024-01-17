@@ -576,14 +576,14 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   private def makeSearchGroup(group: Any): SearchGroup[BytesRef] = group match {
-    case (None, order: List[AnyRef]) =>
+    case (None, order: List[AnyRef @unchecked]) =>
       val result: SearchGroup[BytesRef] = new SearchGroup
-      result.sortValues = order.toArray
+      result.sortValues = order.collect({ case ref: AnyRef => ref }).toArray
       result
-    case (Some(name: String), order: List[AnyRef]) =>
+    case (Some(name: String), order: List[AnyRef @unchecked]) =>
       val result: SearchGroup[BytesRef] = new SearchGroup
       result.groupValue = name
-      result.sortValues = order.toArray
+      result.sortValues = order.collect({ case ref: AnyRef => ref }).toArray
       result
   }
 
@@ -674,7 +674,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       Sort.RELEVANCE
     case field: String =>
       new Sort(toSortField(field))
-    case fields: List[String] =>
+    case fields: List[String @unchecked] =>
       new Sort(fields.map(toSortField).toArray: _*)
   }
 
@@ -793,7 +793,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     case Some((score: Any, doc: Any)) =>
       Some(new ScoreDoc(ClouseauTypeFactory.toInteger(doc),
         ClouseauTypeFactory.toFloat(score)))
-    case Some(list: List[Object]) =>
+    case Some(list: List[Object @unchecked]) =>
       val doc = list.last
       sort.getSort match {
         case Array(SortField.FIELD_SCORE) =>

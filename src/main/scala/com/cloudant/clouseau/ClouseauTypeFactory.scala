@@ -122,7 +122,7 @@ object ClouseauTypeFactory extends TypeFactory {
 
   private def addFields(doc: Document, field0: Any): Unit = {
     field0 match {
-      case (name: String, value: String, options: List[_]) =>
+      case (name: String, value: String, options: List[(String, Any) @unchecked]) =>
         val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
         constructField(name, value, toStore(map), toIndex(map), toTermVector(map)) match {
           case Some(field) =>
@@ -144,7 +144,7 @@ object ClouseauTypeFactory extends TypeFactory {
           case None =>
             'ok
         }
-      case (name: String, value: Boolean, options: List[_]) =>
+      case (name: String, value: Boolean, options: List[(String, Any) @unchecked]) =>
         val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
         constructField(name, value.toString, toStore(map), Index.NOT_ANALYZED, toTermVector(map)) match {
           case Some(field) =>
@@ -152,7 +152,7 @@ object ClouseauTypeFactory extends TypeFactory {
           case None =>
             'ok
         }
-      case (name: String, value: Any, options: List[_]) =>
+      case (name: String, value: Any, options: List[(String, Any) @unchecked]) =>
         val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
         toDouble(value) match {
           case Some(doubleValue) =>
