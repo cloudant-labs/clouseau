@@ -13,4 +13,3 @@ indent_style = tab
 
 [*.gitignore]
 insert_final_newline = false
-

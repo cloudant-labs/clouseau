@@ -6,16 +6,16 @@ java openjdk-17
 scala 2.13.12
 # erlang needs java so it should be after it in the list
 # the only version which supports observer
-erlang 25.3.2.7
-coursier 2.1.8
-editorconfig-checker 2.7.2
-sbt 1.9.7
+erlang 25.3.2.9
+coursier 2.1.9
+editorconfig-checker 2.8.0
+sbt 1.9.8
 
 # required tools
-yq 4.40.3
+yq 4.40.7
 
 # project management tools
-github-cli 2.39.1
+github-cli 2.43.1
 
 # optional auxiliary tools
 bat 0.24.0
