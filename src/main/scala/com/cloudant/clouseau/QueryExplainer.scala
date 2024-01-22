@@ -23,7 +23,7 @@ object QueryExplainer {
     builder.toString
   }
 
-  private def planBooleanQuery(builder: StringBuilder, query: BooleanQuery) = {
+  private def planBooleanQuery(builder: StringBuilder, query: BooleanQuery): Unit = {
     for (clause <- query.getClauses) {
       builder.append(clause.getOccur)
       explain(builder, clause.getQuery)
