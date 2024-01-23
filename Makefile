@@ -133,12 +133,12 @@ meta: build mkdir-artifacts
 .PHONY: jar
 # target: jar - Generate JAR files for production
 jar:
-	@echo 'Not implemented yet'
+	@sbt assembly
 
 .PHONY: jartest
-# target: jartest - Generate a JAR file containing tests
+# target: jartest - Generate JAR files containing tests
 jartest:
-	@echo 'Not implemented yet'
+	@sbt assembly -Djartest=true
 
 # target: clean - Clean Java/Scala artifacts
 clean:
