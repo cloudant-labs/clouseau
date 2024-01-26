@@ -8,12 +8,10 @@ import com.cloudant.ziose.scalang.Adapter
 import zio._
 import zio.Runtime
 import core.Actor
-import core.Node
 import core.AddressableActor
 import core.ActorBuilder
-import core.EngineWorker
 
-class ClouseauNode(implicit val runtime: Runtime[EngineWorker & Node], worker: EngineWorker) extends SNode { self =>
+class ClouseauNode(worker: core.EngineWorker)(implicit override val runtime: Runtime[core.EngineWorker & core.Node]) extends SNode() { self =>
   /*
    * Each service would need to implement a constructor in the following form
    *

@@ -6,6 +6,7 @@ import core.MessageEnvelope
 import core.Codec
 
 case class Adapter[C <: ProcessContext](val ctx: C, val node: Node) {
+  val runtime = node.runtime
   def name = ctx.name
   def self = ctx.self
   def call(msg: core.MessageEnvelope.Call) = ctx.call(msg)

@@ -66,8 +66,9 @@ trait ProcessLike[A <: Adapter[_]] extends core.Actor {
 
   def exit(reason : Any) = {
     Unsafe.unsafe { implicit unsafe =>
-      Runtime.default.unsafe.run(adapter.exit(Codec.fromScala(reason)))
+      adapter.runtime.unsafe.run(adapter.exit(Codec.fromScala(reason)))
     }
+    ()
   }
 
   def unlink(to : Pid) =
@@ -124,6 +125,7 @@ In ziose builds we would be running new ones
 
 */
 class Process(implicit val adapter: Adapter[_]) extends ProcessLike[Adapter[_]] {
+  val runtime = adapter.runtime
   val name = adapter.name
   val self = adapter.self
   val node = adapter.node

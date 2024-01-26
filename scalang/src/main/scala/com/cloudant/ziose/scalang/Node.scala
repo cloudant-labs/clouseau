@@ -1,6 +1,6 @@
 package com.cloudant.ziose.scalang
 
-import _root_.com.cloudant.ziose.core
+import com.cloudant.ziose.core
 import core.Address
 import core.MessageEnvelope
 import core.Codec
@@ -8,8 +8,10 @@ import zio.Duration
 import java.util.concurrent.TimeUnit
 import zio.Tag
 import zio.ZIO
+import zio.Runtime
+import zio.&
 
-case class Node() {
+class Node()(implicit val runtime: Runtime[core.EngineWorker & core.Node]) {
   type RegName = Symbol
   type NodeName = Symbol
 
