@@ -14,7 +14,7 @@ final case class RootDir(value: String) extends AnyVal
 
 final case class ClouseauConfiguration(
   dir: Option[RootDir],
-  search_allowed_timeout_msecs: Option[Int],
+  search_allowed_timeout_msecs: Option[Long],
   count_fields: Option[Boolean],
   close_if_idle: Option[Boolean],
   idle_check_interval_secs: Option[Int],
