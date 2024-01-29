@@ -25,11 +25,11 @@ import java.util.Map
 This is lucene spatial's DistanceValueSource but with configurable
 x and y field names to better suit our existing API.
  */
-class DistanceValueSource(ctx: SpatialContext,
-                          lon: String,
-                          lat: String,
-                          multiplier: Double,
-                          from: Point)
+case class DistanceValueSource(ctx: SpatialContext,
+                               lon: String,
+                               lat: String,
+                               multiplier: Double,
+                               from: Point)
     extends ValueSource {
 
   def description() = "DistanceValueSource(%s)".format(from)

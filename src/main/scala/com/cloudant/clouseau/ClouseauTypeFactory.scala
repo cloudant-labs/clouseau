@@ -120,49 +120,51 @@ object ClouseauTypeFactory extends TypeFactory {
     result
   }
 
-  private def addFields(doc: Document, field0: Any): Unit = field0 match {
-    case (name: String, value: String, options: List[(String, Any)]) =>
-      val map = options.toMap
-      constructField(name, value, toStore(map), toIndex(map), toTermVector(map)) match {
-        case Some(field) =>
-          map.get("boost") match {
-            case Some(boost: Number) =>
-              field.setBoost(toFloat(boost))
-            case None =>
-              'ok
-          }
-          doc.add(field)
-          if (isFacet(map) && value.nonEmpty) {
-            val fp = FacetIndexingParams.DEFAULT
-            val delim = fp.getFacetDelimChar
-            if (!name.contains(delim) && !value.contains(delim)) {
-              val facets = new SortedSetDocValuesFacetFields(fp)
-              facets.addFields(doc, List(new CategoryPath(name, value)).asJava)
+  private def addFields(doc: Document, field0: Any): Unit = {
+    field0 match {
+      case (name: String, value: String, options: List[(String, Any) @unchecked]) =>
+        val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
+        constructField(name, value, toStore(map), toIndex(map), toTermVector(map)) match {
+          case Some(field) =>
+            map.get("boost") match {
+              case Some(boost: Number) =>
+                field.setBoost(toFloat(boost))
+              case None =>
+                'ok
             }
-          }
-        case None =>
-          'ok
-      }
-    case (name: String, value: Boolean, options: List[(String, Any)]) =>
-      val map = options.toMap
-      constructField(name, value.toString, toStore(map), Index.NOT_ANALYZED, toTermVector(map)) match {
-        case Some(field) =>
-          doc.add(field)
-        case None =>
-          'ok
-      }
-    case (name: String, value: Any, options: List[(String, Any)]) =>
-      val map = options.toMap
-      toDouble(value) match {
-        case Some(doubleValue) =>
-          doc.add(new DoubleField(name, doubleValue, toStore(map)))
-          if (isFacet(map)) {
-            doc.add(new DoubleDocValuesField(name, doubleValue))
-          }
-        case None =>
-          logger.warn("Unrecognized value: %s".format(value))
-          'ok
-      }
+            doc.add(field)
+            if (isFacet(map) && value.nonEmpty) {
+              val fp = FacetIndexingParams.DEFAULT
+              val delim = fp.getFacetDelimChar
+              if (!name.contains(delim) && !value.contains(delim)) {
+                val facets = new SortedSetDocValuesFacetFields(fp)
+                facets.addFields(doc, List(new CategoryPath(name, value)).asJava)
+              }
+            }
+          case None =>
+            'ok
+        }
+      case (name: String, value: Boolean, options: List[(String, Any) @unchecked]) =>
+        val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
+        constructField(name, value.toString, toStore(map), Index.NOT_ANALYZED, toTermVector(map)) match {
+          case Some(field) =>
+            doc.add(field)
+          case None =>
+            'ok
+        }
+      case (name: String, value: Any, options: List[(String, Any) @unchecked]) =>
+        val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
+        toDouble(value) match {
+          case Some(doubleValue) =>
+            doc.add(new DoubleField(name, doubleValue, toStore(map)))
+            if (isFacet(map)) {
+              doc.add(new DoubleDocValuesField(name, doubleValue))
+            }
+          case None =>
+            logger.warn("Unrecognized value: %s".format(value))
+            'ok
+        }
+    }
   }
 
   private def constructField(name: String, value: String, store: Store, index: Index, tv: TermVector): Option[Field] = {
@@ -192,7 +194,7 @@ object ClouseauTypeFactory extends TypeFactory {
     case v: java.lang.Float => Some(v.doubleValue)
     case v: java.lang.Integer => Some(v.doubleValue)
     case v: java.lang.Long => Some(v.doubleValue)
-    case v: scala.math.BigInt => Some(v.doubleValue())
+    case v: scala.math.BigInt => Some(v.doubleValue)
     case _ => None
   }
 
@@ -212,7 +214,7 @@ object ClouseauTypeFactory extends TypeFactory {
       case false => Store.NO
       case str: String =>
         try {
-          Store.valueOf(str toUpperCase)
+          Store.valueOf(str.toUpperCase)
         } catch {
           case _: IllegalArgumentException =>
             Store.NO
@@ -228,7 +230,7 @@ object ClouseauTypeFactory extends TypeFactory {
       case false => Index.NO
       case str: String =>
         try {
-          Index.valueOf(str toUpperCase)
+          Index.valueOf(str.toUpperCase)
         } catch {
           case _: IllegalArgumentException =>
             Index.ANALYZED
@@ -240,7 +242,7 @@ object ClouseauTypeFactory extends TypeFactory {
 
   def toTermVector(options: Map[String, Any]): TermVector = {
     val termVector = options.getOrElse("termvector", "no").asInstanceOf[String]
-    TermVector.valueOf(termVector toUpperCase)
+    TermVector.valueOf(termVector.toUpperCase)
   }
 
   def isFacet(options: Map[String, Any]) = {

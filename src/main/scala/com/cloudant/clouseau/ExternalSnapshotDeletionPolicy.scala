@@ -49,7 +49,7 @@ class ExternalSnapshotDeletionPolicy(dir: FSDirectory) extends IndexDeletionPoli
 
 object ExternalSnapshotDeletionPolicy {
 
-  def snapshot(originDir: File, snapshotDir: File, files: Collection[String]) {
+  def snapshot(originDir: File, snapshotDir: File, files: Collection[String]) = {
     if (!originDir.isAbsolute) {
       throw new IOException(originDir + " is not an absolute path")
     }

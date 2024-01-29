@@ -51,7 +51,7 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       cleanup(rootDir, pattern, activeSigs)
   }
 
-  private def cleanup(fileOrDir: File, includePattern: Pattern, activeSigs: List[String]) {
+  private def cleanup(fileOrDir: File, includePattern: Pattern, activeSigs: List[String]): Unit = {
     if (!fileOrDir.isDirectory) {
       return
     }
@@ -71,7 +71,7 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
     }
   }
 
-  private def recursivelyDelete(fileOrDir: File, deleteDir: Boolean) {
+  private def recursivelyDelete(fileOrDir: File, deleteDir: Boolean): Unit = {
     if (fileOrDir.isDirectory) {
       for (file <- fileOrDir.listFiles)
         recursivelyDelete(file, deleteDir)
@@ -82,7 +82,7 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       fileOrDir.delete
   }
 
-  private def rename(srcDir: File, destDir: File) {
+  private def rename(srcDir: File, destDir: File): Unit = {
     if (!srcDir.isDirectory) {
       return
     }

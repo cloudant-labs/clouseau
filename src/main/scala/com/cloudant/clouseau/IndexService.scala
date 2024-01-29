@@ -57,6 +57,9 @@ import scalang.Pid
 import com.spatial4j.core.context.SpatialContext
 import com.spatial4j.core.distance.DistanceUtils
 import java.util.HashSet
+import conversions._
+import Utils.ensureElementsType
+import java.lang.Throwable
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
 case class HighlightParameters(highlighter: Highlighter, highlightFields: List[String], highlightNumber: Int, analyzers: List[Analyzer])
@@ -66,6 +69,18 @@ case class TopDocs(updateSeq: Long, totalHits: Long, hits: List[Hit])
 case class Hit(order: List[Any], fields: List[Any])
 
 class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
+  import IndexService.{
+    getDrilldown,
+    getGroups,
+    getIncludeFields,
+    getListOfStringsOption,
+    getOption,
+    getRanges,
+    GroupName,
+    RangesLabel,
+    RangesName,
+    RangesQuery
+  }
 
   var reader = DirectoryReader.open(ctx.args.writer, true)
   var updateSeq = getCommittedSeq
@@ -192,7 +207,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       committing = false
   }
 
-  def countFields() {
+  def countFields() = {
     if (countFieldsEnabled) {
       val leaves = reader.leaves().iterator()
       val warningThreshold = ctx.args.config.
@@ -211,7 +226,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     }
   }
 
-  override def exit(msg: Any) {
+  override def exit(msg: Any) = {
     debug("Closed with reason: %.1000s".format(msg))
     try {
       reader.close()
@@ -233,7 +248,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     }
   }
 
-  private def commit(newUpdateSeq: Long, newPurgeSeq: Long) {
+  private def commit(newUpdateSeq: Long, newPurgeSeq: Long) = {
     if (!committing && (newUpdateSeq > updateSeq || newPurgeSeq > purgeSeq)) {
       committing = true
       val index = self
@@ -262,45 +277,22 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     val queryString = request.options.getOrElse('query, "*:*").asInstanceOf[String]
     val refresh = request.options.getOrElse('refresh, true).asInstanceOf[Boolean]
     val limit = request.options.getOrElse('limit, 25).asInstanceOf[Int]
-    val partition = request.options.getOrElse('partition, 'nil) match {
-      case 'nil =>
-        None
-      case value =>
-        Some(value.asInstanceOf[String])
-    }
 
-    val counts = request.options.getOrElse('counts, 'nil) match {
-      case 'nil =>
-        None
-      case value =>
-        Some(value)
-    }
-    val ranges = request.options.getOrElse('ranges, 'nil) match {
-      case 'nil =>
-        None
-      case value =>
-        Some(value)
-    }
+    val partition: Option[String] = getOption[String](request.options, 'partition)
 
-    val includeFields: Set[String] =
-      request.options.getOrElse('include_fields, 'nil) match {
-        case 'nil =>
-          null
-        case value: List[String] =>
-          Set[String]() ++ ("_id" :: value).toSet
-        case other =>
-          throw new ParseException(other + " is not a valid include_fields query")
-      }
+    val counts: Option[List[String]] = getListOfStringsOption(request.options, 'counts)
+
+    val ranges = getRanges(request.options)
+
+    val includeFields: Option[Set[String]] = getIncludeFields(request.options)
 
     val legacy = request.options.getOrElse('legacy, false).asInstanceOf[Boolean]
 
     parseQuery(queryString, partition) match {
       case baseQuery: Query =>
         safeSearch {
-          val query = request.options.getOrElse('drilldown, Nil) match {
-            case Nil =>
-              baseQuery
-            case categories: List[List[String]] =>
+          val query = getDrilldown(request.options) match {
+            case Some(categories: List[_]) => {
               val drilldownQuery = new DrillDownQuery(
                 FacetIndexingParams.DEFAULT, baseQuery)
               for (category <- categories) {
@@ -326,16 +318,17 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
                 }
               }
               drilldownQuery
-            case _ =>
+            }
+            case Some(_) =>
               throw new ParseException("invalid drilldown query")
+            case None => baseQuery
           }
-
           val searcher = getSearcher(refresh)
           val weight = searcher.createNormalizedWeight(query)
           val docsScoredInOrder = !weight.scoresDocsOutOfOrder
 
           val sort = parseSort(request.options.getOrElse('sort, 'relevance)).rewrite(searcher)
-          val after = toScoreDoc(sort, request.options.getOrElse('after, 'nil))
+          val after = toScoreDoc(sort, getOption(request.options, 'after))
 
           val hitsCollector = (limit, after, sort) match {
             case (0, _, _) =>
@@ -358,9 +351,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
             case None =>
               null
             case Some(rangeList: List[_]) =>
-              val rangeFacetRequests: List[FacetRequest] = for ((name: String, ranges: List[_]) <- rangeList) yield {
+              val rangeFacetRequests: List[FacetRequest] = for ((name: RangesName, ranges: List[_]) <- rangeList) yield {
                 new RangeFacetRequest(name, ranges.map({
-                  case (label: String, rangeQuery: String) =>
+                  case (label: RangesLabel, rangeQuery: RangesQuery) =>
                     ctx.args.queryParser.parse(rangeQuery) match {
                       case q: NumericRangeQuery[_] =>
                         new DoubleRange(
@@ -433,7 +426,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   private def getHits(collector: Collector, searcher: IndexSearcher,
-                      includeFields: Set[String], HPs: HighlightParameters = null) =
+                      includeFields: Option[Set[String]], HPs: Option[HighlightParameters] = None) =
     collector match {
       case c: TopDocsCollector[_] =>
         c.topDocs.scoreDocs.map({ docToHit(searcher, _, includeFields, HPs) }).toList
@@ -441,11 +434,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         Nil
     }
 
-  private def createCountsCollector(counts: Option[Any]): FacetsCollector = {
+  private def createCountsCollector(counts: Option[List[String]]): FacetsCollector = {
     counts match {
       case None =>
         null
-      case Some(counts: List[String]) =>
+      case Some(counts: List[_]) =>
         val state = try {
           new SortedSetDocValuesReaderState(reader)
         } catch {
@@ -499,19 +492,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     val queryString = request.options.getOrElse('query, "*:*").asInstanceOf[String]
     val field = request.options('field).asInstanceOf[String]
     val refresh = request.options.getOrElse('refresh, true).asInstanceOf[Boolean]
-    val groups = request.options('groups).asInstanceOf[List[Any]]
+    val groups = getGroups(request.options).getOrElse(List())
     val groupSort = request.options('group_sort)
     val docSort = request.options('sort)
     val docLimit = request.options.getOrElse('limit, 25).asInstanceOf[Int]
-    val includeFields: Set[String] =
-      request.options.getOrElse('include_fields, 'nil) match {
-        case 'nil =>
-          null
-        case value: List[String] =>
-          Set[String]() ++ ("_id" :: value).toSet
-        case other =>
-          throw new ParseException(other + " is not a valid include_fields query")
-      }
+    val includeFields: Option[Set[String]] = getIncludeFields(request.options)
     parseQuery(queryString, None) match {
       case query: Query =>
         val searcher = getSearcher(refresh)
@@ -550,38 +535,31 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     }
   }
 
-  private def getHighlightParameters(options: Map[Symbol, Any], query: Query) =
-    options.getOrElse('highlight_fields, 'nil) match {
-      case 'nil =>
-        null
-      case highlightFields: List[String] => {
-        val preTag = options.getOrElse('highlight_pre_tag,
-          "<em>").asInstanceOf[String]
-        val postTag = options.getOrElse('highlight_post_tag,
-          "</em>").asInstanceOf[String]
-        val highlightNumber = options.getOrElse('highlight_number,
-          1).asInstanceOf[Int] //number of fragments
-        val highlightSize = options.getOrElse('highlight_size, 0).
-          asInstanceOf[Int]
-        val htmlFormatter = new SimpleHTMLFormatter(preTag, postTag)
-        val highlighter = new Highlighter(htmlFormatter, new QueryScorer(query))
-        if (highlightSize > 0) {
-          highlighter.setTextFragmenter(new SimpleFragmenter(highlightSize))
-        }
-        val analyzers = highlightFields.map { field =>
-          ctx.args.queryParser.getAnalyzer() match {
-            case a1: PerFieldAnalyzer =>
-              a1.getWrappedAnalyzer(field)
-            case a2: Analyzer =>
-              a2
-          }
-        }
-        HighlightParameters(highlighter, highlightFields, highlightNumber,
-          analyzers)
+  private def getHighlightParameters(options: Map[Symbol, Any], query: Query): Option[HighlightParameters] =
+    getListOfStringsOption(options, 'highlight_fields).map(highlightFields => {
+      val preTag = options.getOrElse('highlight_pre_tag,
+        "<em>").asInstanceOf[String]
+      val postTag = options.getOrElse('highlight_post_tag,
+        "</em>").asInstanceOf[String]
+      val highlightNumber = options.getOrElse('highlight_number,
+        1).asInstanceOf[Int] //number of fragments
+      val highlightSize = options.getOrElse('highlight_size, 0).
+        asInstanceOf[Int]
+      val htmlFormatter = new SimpleHTMLFormatter(preTag, postTag)
+      val highlighter = new Highlighter(htmlFormatter, new QueryScorer(query))
+      if (highlightSize > 0) {
+        highlighter.setTextFragmenter(new SimpleFragmenter(highlightSize))
       }
-      case other =>
-        throw new ParseException(other + " is not a valid highlight_fields query")
-    }
+      val analyzers = highlightFields.map { field =>
+        ctx.args.queryParser.getAnalyzer() match {
+          case a1: PerFieldAnalyzer =>
+            a1.getWrappedAnalyzer(field)
+          case a2: Analyzer =>
+            a2
+        }
+      }
+      HighlightParameters(highlighter, highlightFields, highlightNumber, analyzers)
+    })
 
   private def validateGroupField(field: String) = {
     IndexService.SORT_FIELD_RE.findFirstMatchIn(field) match {
@@ -598,14 +576,14 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   }
 
   private def makeSearchGroup(group: Any): SearchGroup[BytesRef] = group match {
-    case ('null, order: List[AnyRef]) =>
+    case (None, order: List[AnyRef @unchecked]) =>
       val result: SearchGroup[BytesRef] = new SearchGroup
-      result.sortValues = order.toArray
+      result.sortValues = order.collect({ case ref: AnyRef => ref }).toArray
       result
-    case (name: String, order: List[AnyRef]) =>
+    case (Some(name: String), order: List[AnyRef @unchecked]) =>
       val result: SearchGroup[BytesRef] = new SearchGroup
       result.groupValue = name
-      result.sortValues = order.toArray
+      result.sortValues = order.collect({ case ref: AnyRef => ref }).toArray
       result
   }
 
@@ -632,7 +610,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       ('error, ('bad_request, "Malformed query syntax"))
     case e: ParseException =>
       ('error, ('bad_request, e.getMessage))
-    case e =>
+    case e: Throwable =>
       ('error, e.getMessage)
   }
 
@@ -643,7 +621,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     new IndexSearcher(reader)
   }
 
-  private def reopenIfChanged() {
+  private def reopenIfChanged() = {
     val newReader = DirectoryReader.openIfChanged(reader)
     if (newReader != null) {
       reader.close()
@@ -696,17 +674,17 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       Sort.RELEVANCE
     case field: String =>
       new Sort(toSortField(field))
-    case fields: List[String] =>
+    case fields: List[String @unchecked] =>
       new Sort(fields.map(toSortField).toArray: _*)
   }
 
   private def docToHit(searcher: IndexSearcher, scoreDoc: ScoreDoc,
-                       includeFields: Set[String] = null, HPs: HighlightParameters = null): Hit = {
+                       includeFields: Option[Set[String]] = null, HPs: Option[HighlightParameters] = None): Hit = {
     val doc = includeFields match {
-      case null =>
+      case None =>
         searcher.doc(scoreDoc.doc)
-      case _ =>
-        searcher.doc(scoreDoc.doc, includeFields.asJava)
+      case Some(fields) =>
+        searcher.doc(scoreDoc.doc, fields.asJava)
     }
 
     var fields = doc.getFields.asScala.foldLeft(Map[String, Any]())((acc, field) => {
@@ -719,7 +697,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       acc.get(field.name) match {
         case None =>
           acc + (field.name -> value)
-        case Some(list: List[Any]) =>
+        case Some(list: List[_]) =>
           acc + (field.name -> (value :: list))
         case Some(existingValue: Any) =>
           acc + (field.name -> List(value, existingValue))
@@ -731,15 +709,19 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
       case _ =>
         List[Any](scoreDoc.score, scoreDoc.doc)
     }
-    if (HPs != null) {
-      val highlights = (HPs.highlightFields zip HPs.analyzers).map {
-        case (field, analyzer) =>
-          (field, doc.getValues(field).flatMap { v =>
-            HPs.highlighter.getBestFragments(analyzer, field,
-              v, HPs.highlightNumber).toList
-          }.toList)
+
+    HPs match {
+      case Some(parameters: HighlightParameters) => {
+        val highlights = (parameters.highlightFields zip parameters.analyzers).map {
+          case (field, analyzer) =>
+            (field, doc.getValues(field).flatMap { v =>
+              parameters.highlighter.getBestFragments(analyzer, field,
+                v, parameters.highlightNumber).toList
+            }.toList)
+        }
+        fields += "_highlights" -> highlights.toList
       }
-      fields += "_highlights" -> highlights.toList
+      case None => ()
     }
     Hit(order, fields.toList)
   }
@@ -769,7 +751,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         case null => DistanceUtils.EARTH_EQUATORIAL_RADIUS_KM
       }
       val ctx = SpatialContext.GEO
-      val point = ctx.makePoint(lon toDouble, lat toDouble)
+      val point = ctx.makePoint(lon.toDouble, lat.toDouble)
       val degToKm = DistanceUtils.degrees2Dist(1, radius)
       val valueSource = new DistanceValueSource(ctx, fieldLon, fieldLat, degToKm, point)
       valueSource.getSortField(fieldOrder == "-")
@@ -805,13 +787,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     (node.label.components.toList, node.value, children)
   }
 
-  private def toScoreDoc(sort: Sort, after: Any): Option[ScoreDoc] = after match {
-    case 'nil =>
+  private def toScoreDoc(sort: Sort, after: Option[Any]): Option[ScoreDoc] = after match {
+    case None =>
       None
-    case (score: Any, doc: Any) =>
+    case Some((score: Any, doc: Any)) =>
       Some(new ScoreDoc(ClouseauTypeFactory.toInteger(doc),
         ClouseauTypeFactory.toFloat(score)))
-    case list: List[Object] =>
+    case Some(list: List[Object @unchecked]) =>
       val doc = list.last
       sort.getSort match {
         case Array(SortField.FIELD_SCORE) =>
@@ -824,7 +806,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
             throw new ParseException("sort order not compatible with given bookmark")
           }
           Some(new FieldDoc(ClouseauTypeFactory.toInteger(doc),
-            Float.NaN, (sortfields zip fields) map {
+            Float.NaN, sortfields.zip(fields).map {
               case (_, 'null) =>
                 null
               case (_, str: String) =>
@@ -839,7 +821,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
                 java.lang.Integer.valueOf(number.intValue())
               case (_, field) =>
                 field
-            } toArray))
+            }.toArray))
       }
   }
 
@@ -859,23 +841,23 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     ctx.args.writer.getConfig().getIndexDeletionPolicy().asInstanceOf[ExternalSnapshotDeletionPolicy]
   }
 
-  private def debug(str: String) {
+  private def debug(str: String) = {
     IndexService.logger.debug(prefix_name(str))
   }
 
-  private def info(str: String) {
+  private def info(str: String) = {
     IndexService.logger.info(prefix_name(str))
   }
 
-  private def warn(str: String) {
+  private def warn(str: String) = {
     IndexService.logger.warn(prefix_name(str))
   }
 
-  private def warn(str: String, e: Throwable) {
+  private def warn(str: String, e: Throwable) = {
     IndexService.logger.warn(prefix_name(str), e)
   }
 
-  private def error(str: String, e: Throwable) {
+  private def error(str: String, e: Throwable) = {
     IndexService.logger.error(prefix_name(str), e)
   }
 
@@ -932,4 +914,168 @@ object IndexService {
     dirCtor.newInstance(path, lockFactory).asInstanceOf[FSDirectory]
   }
 
+  /**
+   * Returns the Option[List[List[String]]] of a `drilldown` key from given map of options if it is in correct format.
+   *
+   * @param options: Map[Symbol, Any] - map of options to extract `drilldown` key
+   * @return An optional value of a `drilldown` key as `Option[List[List[String]]]`
+   * @throws ParseException
+   *
+   */
+
+  private[clouseau] def getDrilldown(options: Map[Symbol, Any]): Option[List[List[String]]] = {
+    val asListOfStrings: PartialFunction[Any, List[String]] = ensureElementsType(
+      { case string: String => string },
+      { case (container, element) => throw new ParseException(container.toString + " contains non-string element " + element.toString) }
+    )
+
+    val asListofListsOfStrings: PartialFunction[Any, List[List[String]]] = ensureElementsType(
+      asListOfStrings,
+      { case (container, element) => throw new ParseException("invalid drilldown query " + container.toString) }
+    )
+
+    val extractor = asListofListsOfStrings.Extractor
+    getOption[Any](options, 'drilldown) match {
+      case Some(extractor(value)) =>
+        Some(value)
+      case None =>
+        None
+    }
+  }
+
+  /**
+   * Returns the Option[value] of a `ranges` key from given map of options if it is in correct format.
+   *
+   * @param options: Map[Symbol, Any] - map of options to extract `ranges` key
+   * @return An optional value of a `ranges` key as `Option[List[Product2[RangesName, List[Product2[RangesLabel, RangesQuery]]]]]`
+   * @throws ParseException
+   *
+   * The function expects the `ranges` value to be in a following format
+   *
+   * ```erlang
+   * -type name :: string().
+   * -type label :: string().
+   * -type query :: string().
+   * [{name(), [
+   *   {label(), query()}
+   * ]}]
+   * ```
+   *
+   * or the same in scala format
+   *
+   * ```scala
+   * type Name = String
+   * type Label = String
+   * type Query = String
+   * List[(Name, List(
+   *   (Label, Query)
+   * ))]
+   * ```
+   *
+   */
+  private[clouseau]type RangesLabel = String
+  private[clouseau]type RangesQuery = String
+  private[clouseau]type RangesName = String
+
+  private[clouseau] def getRanges(options: Map[Symbol, Any]): Option[List[Product2[RangesName, List[Product2[RangesLabel, RangesQuery]]]]] = {
+    val asQueries: PartialFunction[Any, List[Product2[RangesLabel, RangesQuery]]] = ensureElementsType(
+      { case (label: RangesLabel, query: RangesQuery) => (label, query) },
+      { case (_container, _element) => throw new ParseException("invalid ranges query") }
+    )
+
+    val asQueriesExtractor = asQueries.Extractor
+
+    val asRange: PartialFunction[Any, List[Product2[RangesName, List[Product2[RangesLabel, RangesQuery]]]]] = ensureElementsType(
+      { case (name: RangesName, asQueriesExtractor(queries)) => (name, queries) },
+      { case (container, _element) => throw new ParseException(container.toString + " is not a valid ranges query") }
+    ).orElse({ case notAList => throw new ParseException("invalid ranges query") })
+
+    val extractor = asRange.Extractor
+
+    getOption[Any](options, 'ranges) match {
+      case Some(extractor(value)) =>
+        Some(value)
+      case None =>
+        None
+    }
+  }
+
+  /**
+   * Returns the Option[List[String]] of a given option key from a map of options if each element of a list is indeed a String.
+   *
+   * @param options: Map[Symbol, Any] - map of options to extract given key
+   * @return An optional value of a given key as `Option[List[String]]`
+   * @throws ParseException
+   *
+   */
+  private[clouseau] def getListOfStringsOption(options: Map[Symbol, Any], field: Symbol): Option[List[String]] = {
+    val asListOfStrings: PartialFunction[Any, List[String]] = ensureElementsType(
+      { case string: String => string },
+      { case (container, _element) => throw new ParseException(container.toString + " is not a valid " + field + " query") }
+    ).orElse({ case notAList => throw new ParseException(notAList.toString + " is not a valid " + field + " query") })
+
+    val extractor = asListOfStrings.Extractor
+    getOption[Any](options, field) match {
+      case Some(extractor(value)) =>
+        Some(value)
+      case None =>
+        None
+    }
+  }
+
+  /**
+   * Returns the Option[Set[String]] of a `include_fields` key from given map of options if each element of a list
+   * is indeed a String.
+   *
+   * It does convert List[String] to Set[String] before returning the result. It also injects an "_id" key into Set[String].
+   *
+   * @param options: Map[Symbol, Any] - map of options to extract given key
+   * @return An optional value of a `include_fields` key as `Option[Set[String]]`
+   * @throws ParseException
+   *
+   */
+
+  private[clouseau] def getIncludeFields(options: Map[Symbol, Any]): Option[Set[String]] = {
+    getListOfStringsOption(options, 'include_fields).map(value => Set[String]() ++ ("_id" :: value).toSet)
+  }
+
+  /**
+   * Returns the Option[List[Product2[Option[GroupName], List[Any]]]] of a `groups` key from given map of options
+   * if each element of a list of tuples with arity 2 and first element is a String.
+   * It does not check whether the second element of the tuple whether it is AnyRef or Any because of auto unboxing in scala.
+   *
+   * @param options: Map[Symbol, Any] - map of options to extract given key from
+   * @return An optional value of a `groups` key as `Option[List[Product2[Option[GroupName], List[Any]]]]`
+   * @throws ParseException
+   *
+   */
+
+  private[clouseau]type GroupName = String
+  private[clouseau] def getGroups(options: Map[Symbol, Any]): Option[List[Product2[Option[GroupName], List[Any]]]] = {
+    val asGroup: PartialFunction[Any, List[Product2[Option[GroupName], List[Any]]]] = ensureElementsType(
+      {
+        case (name: GroupName, order: List[_]) => (Some(name), order)
+        case ('null, order: List[_]) => (None, order)
+      },
+      { case (container, _element) => throw new ParseException(container.toString + " is not a valid groups query") }
+    ).orElse({ case notAList => throw new ParseException("invalid groups query") })
+
+    val extractor = asGroup.Extractor
+
+    getOption[Any](options, 'groups) match {
+      case Some(extractor(value)) =>
+        Some(value)
+      case None =>
+        None
+    }
+  }
+
+  private[clouseau] def getOption[T](options: Map[Symbol, Any], field: Symbol): Option[T] = {
+    // Unfortunately CouchDB sends 'nil over the wire
+    options.get(field) match {
+      case Some('nil) => None
+      case Some(value) => Some(value.asInstanceOf[T])
+      case None => None
+    }
+  }
 }

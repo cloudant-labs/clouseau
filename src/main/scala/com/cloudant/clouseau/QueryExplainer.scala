@@ -23,7 +23,7 @@ object QueryExplainer {
     builder.toString
   }
 
-  private def planBooleanQuery(builder: StringBuilder, query: BooleanQuery) {
+  private def planBooleanQuery(builder: StringBuilder, query: BooleanQuery): Unit = {
     for (clause <- query.getClauses) {
       builder.append(clause.getOccur)
       explain(builder, clause.getQuery)
@@ -32,7 +32,7 @@ object QueryExplainer {
     builder.setLength(builder.length - 1)
   }
 
-  private def planFuzzyQuery(builder: StringBuilder, query: FuzzyQuery) {
+  private def planFuzzyQuery(builder: StringBuilder, query: FuzzyQuery) = {
     builder.append(query.getTerm)
     builder.append(",prefixLength=")
     builder.append(query.getPrefixLength)
@@ -40,7 +40,7 @@ object QueryExplainer {
     builder.append(query.getMaxEdits)
   }
 
-  private def planNumericRangeQuery(builder: StringBuilder, query: NumericRangeQuery[_]) {
+  private def planNumericRangeQuery(builder: StringBuilder, query: NumericRangeQuery[_]) = {
     builder.append(query.getMin)
     builder.append(" TO ")
     builder.append(query.getMax)
@@ -48,25 +48,25 @@ object QueryExplainer {
     builder.append(query.getMin.getClass.getSimpleName)
   }
 
-  private def planPrefixQuery(builder: StringBuilder, query: PrefixQuery) {
+  private def planPrefixQuery(builder: StringBuilder, query: PrefixQuery) = {
     builder.append(query.getPrefix)
   }
 
-  private def planTermQuery(builder: StringBuilder, query: TermQuery) {
+  private def planTermQuery(builder: StringBuilder, query: TermQuery) = {
     builder.append(query.getTerm)
   }
 
-  private def planTermRangeQuery(builder: StringBuilder, query: TermRangeQuery) {
+  private def planTermRangeQuery(builder: StringBuilder, query: TermRangeQuery) = {
     builder.append(query.getLowerTerm.utf8ToString)
     builder.append(" TO ")
     builder.append(query.getUpperTerm.utf8ToString)
   }
 
-  private def planWildcardQuery(builder: StringBuilder, query: WildcardQuery) {
+  private def planWildcardQuery(builder: StringBuilder, query: WildcardQuery) = {
     builder.append(query.getTerm)
   }
 
-  private def explain(builder: StringBuilder, query: Query) {
+  private def explain(builder: StringBuilder, query: Query) = {
     builder.append(query.getClass.getSimpleName)
     builder.append("(")
     query match {
