@@ -15,10 +15,33 @@ object Codec {
     def toScala(from: From): Any
   }
 
-  case class ERef(node: String, ids: Array[Int], creation: Int) extends ETerm {
-    def this(obj: OtpErlangRef) = this(obj.node, obj.ids, obj.creation)
-    override def toOtpErlangObject: OtpErlangRef = new OtpErlangRef(node, ids, creation)
-    override def toString: String                = s"#Ref<$node.${ids.mkString(".")}>"
+  /*
+    ERef is implemented differently compared to the rest of the ETerms.
+    The main reason is because we want to leverage hashCode provided by jInterface
+    The OtpErlangRef has special logic which can be summarized as:
+      - it uses different algorithms depending on how many ids are provided
+      - it considers only first three ids
+
+    https://github.com/erlang/otp/blob/413da54ce2eca7c40786871859b87930cc21d239/lib/jinterface/java_src/com/ericsson/otp/erlang/OtpErlangRef.java#L298C2-L306C6
+   */
+  class ERef(val obj: OtpErlangRef) extends ETerm {
+    override def hashCode: Int = obj.hashCode()
+    override def equals(other: Any): Boolean = {
+      other match {
+        case other: ERef => obj.equals(other.obj)
+        case _           => false
+      }
+    }
+
+    override def toOtpErlangObject: OtpErlangRef = obj
+    override def toString: String                = obj.toString
+    val node                                     = obj.node
+    val ids                                      = obj.ids
+    val creation                                 = obj.creation
+  }
+  object ERef {
+    def apply(node: String, ids: Array[Int], creation: Int) = new ERef(new OtpErlangRef(node, ids, creation))
+    def unapply(x: ERef): Option[(String, Array[Int], Int)] = Some((x.obj.node, x.obj.ids, x.obj.creation))
   }
 
   case class EPid(node: String, id: Int, serial: Int, creation: Int) extends ETerm {
@@ -127,7 +150,7 @@ object Codec {
     case l: ELong      => l.long
     case s: EString    => s.str
     case pid: EPid     => pid
-    case ref: ERef     => ref
+    case ref: ERef     => ref.obj
     case list: EList   => list.elems.map(toScala)
     case tuple: ETuple => product(tuple.elems.map(toScala))
     case map: EMap =>

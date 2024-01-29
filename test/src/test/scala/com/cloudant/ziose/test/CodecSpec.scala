@@ -27,7 +27,11 @@ class CodecSpec extends JUnitRunnableSpec {
   val environment = ZLayer.succeed(Clock.ClockLive) ++ ZLayer.succeed(Random.RandomLive) ++ logger
 
   def allButPid: Gen[Any, (ETerm, OtpErlangObject)] = {
-    termP(10, oneOf(stringP, atomP, booleanP, intP, longP))
+    termP(10, oneOf(stringP, atomP, booleanP, intP, longP, refP))
+  }
+
+  def allButRef(size: Int): Gen[Any, (ETerm, OtpErlangObject)] = {
+    termP(size, oneOf(stringP, atomP, booleanP, intP, longP, pidP))
   }
 
   val listContainer = suite("list container:")(
@@ -95,8 +99,25 @@ class CodecSpec extends JUnitRunnableSpec {
         } yield assertTrue(true)
       }
     },
+    test("equals function of ETerm") {
+      check(anyEq(10)) { case (aTerm, bTerm) =>
+        for {
+          _ <- logDebug(s"${aTerm.toString} == ${bTerm.toString}?")
+        } yield assertTrue(aTerm == bTerm)
+      }
+    },
+    test("hashCode function of ETerm") {
+      check(anyEq(10)) { case (aTerm, bTerm) =>
+        for {
+          _ <- logDebug(
+            s"${aTerm.toString}.hashCode (${aTerm.hashCode}) == ${bTerm.toString}.hashCode (${bTerm.hashCode})?"
+          )
+        } yield assertTrue(aTerm.hashCode == bTerm.hashCode)
+      }
+    },
     test("circle round trip from ETerm to OtpErlangObject") {
-      check(anyP(10)) { case (eTerm, jTerm) =>
+      // Exclude Ref because it become different instance on recreation
+      check(allButRef(10)) { case (eTerm, jTerm) =>
         for {
           _ <- logDebug(eTerm.toString)
         } yield assertTrue(
@@ -106,7 +127,8 @@ class CodecSpec extends JUnitRunnableSpec {
       }
     },
     test("circle round trip from OtpErlangObject to ETerm") {
-      check(anyP(10)) { case (eTerm, jTerm) =>
+      // Exclude Ref because it become different instance on recreation
+      check(allButRef(10)) { case (eTerm, jTerm) =>
         for {
           _ <- logDebug(eTerm.toString)
         } yield assertTrue(

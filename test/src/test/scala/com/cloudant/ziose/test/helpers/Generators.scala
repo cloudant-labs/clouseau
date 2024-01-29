@@ -13,8 +13,10 @@ object Generators {
    *   - somethingE: produces stream of ETerm objects
    *   - somethingO: produces stream of OtpErlangObject objects
    *   - somethingP: produces stream of (ETerm, OtpErlangObject) pairs
+   *   - somethingEq: produces stream of equal terms (ETerm, ETerm)
    */
   type SamplePair = (ETerm, OtpErlangObject)
+  type EqPair     = (ETerm, ETerm)
 
   /**
    * A generator of ETerm objects representing EAtom variant. Shrinks toward the "" (empty string) atom.
@@ -64,12 +66,25 @@ object Generators {
   }
 
   /**
+   * A generator of ETerm objects representing ERef variant. Shrinks toward ERef("", Array(), 0).
+   */
+  def refE: Gen[Any, ETerm] = {
+    for {
+      // empty string is special so we avoid generating it
+      node <- alphaNumericStringBounded(1, 256)
+      // values from 0..3 considered special that's why we start from 5
+      ids      <- listOfBounded(1, 3)(int(5, Int.MaxValue))
+      creation <- int(0, 10)
+    } yield ERef(node, ids.toArray, creation)
+  }
+
+  /**
    * A generator of ETerm objects. The generated terms can be nested.
    *
-   * Same as `termE(n, oneOf(stringE, atomE, booleanE, intE, longE, pidE))`
+   * Same as `termE(n, oneOf(stringE, atomE, booleanE, intE, longE, pidE, refE))`
    */
   def anyE(n: Int): Gen[Any, ETerm] = {
-    termE(n, oneOf(stringE, atomE, booleanE, intE, longE, pidE))
+    termE(n, oneOf(stringE, atomE, booleanE, intE, longE, pidE, refE))
   }
 
   /**
@@ -213,12 +228,30 @@ object Generators {
   }
 
   /**
+   * A generator of OtpErlangObject objects representing OtpErlangRef variant.
+   *
+   * Shrinks toward OtpErlangRef("", Array(), 0).
+   */
+  def refO: Gen[Any, OtpErlangObject] = {
+    for {
+      // empty string is special so we avoid generating it
+      node <- alphaNumericStringBounded(1, 256)
+      // values from 0..3 considered special that's why we start from 5
+      ids      <- listOfBounded(1, 3)(int(5, Int.MaxValue))
+      creation <- int(0, 10)
+    } yield new OtpErlangRef(node, ids.toArray, creation)
+  }
+
+  // Gen.sized.flatMap(listOfN(_))
+  // ids      <- listOf(int(Int.MinValue, Int.MaxValue))
+
+  /**
    * A generator of OtpErlangObject objects. The generated terms can be nested.
    *
-   * Same as `termO(n, oneOf(stringO, atomO, booleanO, intO, longO, pidO))`
+   * Same as `termO(n, oneOf(stringO, atomO, booleanO, intO, longO, pidO, refO))`
    */
   def anyO(n: Int): Gen[Any, OtpErlangObject] = {
-    termO(n, oneOf(stringO, atomO, booleanO, intO, longO, pidO))
+    termO(n, oneOf(stringO, atomO, booleanO, intO, longO, pidO, refO))
   }
 
   /**
@@ -363,12 +396,30 @@ object Generators {
   }
 
   /**
+   * A generator of tuples (ERef, OtpErlangRef) objects representing OtpErlangRef variant.
+   *
+   * Shrinks toward (ERef("", Array(), 0), OtpErlangRef("", Array(), 0)).
+   */
+  def refP: Gen[Any, SamplePair] = {
+    for {
+      // empty string is special so we avoid generating it
+      node <- alphaNumericStringBounded(1, 256)
+      // values from 0..3 considered special that's why we start from 5
+      ids      <- listOfBounded(1, 3)(int(5, Int.MaxValue))
+      creation <- int(0, 10)
+    } yield {
+      val idsArray = ids.toArray
+      (ERef(node, idsArray, creation), new OtpErlangRef(node, idsArray, creation))
+    }
+  }
+
+  /**
    * A generator of tuples (ETerm, OtpErlangObject) objects. The generated terms can be nested.
    *
-   * Same as `termP(n, oneOf(stringP, atomP, booleanP, intP, longP, pidP))`
+   * Same as `termP(n, oneOf(stringP, atomP, booleanP, intP, longP, pidP, refP))`
    */
   def anyP(n: Int): Gen[Any, SamplePair] = {
-    treeP(n, oneOf(stringP, atomP, booleanP, intP, longP, pidP))
+    treeP(n, oneOf(stringP, atomP, booleanP, intP, longP, pidP, refP))
   }
 
   /**
@@ -480,6 +531,198 @@ object Generators {
   private def treeP(n: Int, g: Gen[Any, SamplePair]): Gen[Any, SamplePair] = suspend {
     if (n == 1) g
     else oneOf(nodeP(n, g), g)
+  }
+
+  /**
+   * A generator of tuples containing equal elements (EAtom, EAtom).
+   *
+   * Shrinks toward the (EAtom(''), EAtom('')) (empty string) atom.
+   */
+  def atomEq: Gen[Any, EqPair] = {
+    for { s <- alphaNumericString } yield (EAtom(Symbol(s)), EAtom(Symbol(s)))
+  }
+
+  /**
+   * A generator of tuples containing equal elements (EBoolean, EBoolean).
+   *
+   * Shrinks toward the (EBoolean(false), EBoolean(false)).
+   */
+  def booleanEq: Gen[Any, EqPair] = {
+    for { b <- boolean } yield (EBoolean(b), EBoolean(b))
+  }
+
+  /**
+   * A generator of tuples containing equal elements (EInt, EInt).
+   *
+   * Shrinks toward the (EInt(0), EInt(0)).
+   */
+  def intEq: Gen[Any, EqPair] = {
+    for { i <- int(Int.MinValue, Int.MaxValue) } yield (EInt(i), EInt(i))
+  }
+
+  /**
+   * A generator of tuples containing equal elements (ELong, ELong).
+   *
+   * Shrinks toward the (ELong(0), ELong(0)).
+   */
+  def longEq: Gen[Any, EqPair] = {
+    for { i <- bigIntegerJava(Long.MinValue, Long.MaxValue) } yield (ELong(i), ELong(i))
+  }
+
+  /**
+   * A generator of tuples containing equal elements (EString, EString).
+   *
+   * Shrinks toward the (EString(""), EString("")).
+   */
+  def stringEq: Gen[Any, EqPair] = {
+    for { s <- asciiString } yield (EString(s), EString(s))
+  }
+
+  /**
+   * A generator of tuples containing equal elements (EPid, EPid) objects representing EPid variant.
+   *
+   * Shrinks toward (EPid("", 0, 0, 0), EPid("", 0, 0, 0)).
+   */
+  def pidEq: Gen[Any, EqPair] = {
+    for {
+      node     <- alphaNumericString
+      id       <- int(0, 10)
+      serial   <- int(0, 10)
+      creation <- int(0, 10)
+    } yield (EPid(node, id, serial, creation), EPid(node, id, serial, creation))
+  }
+
+  /**
+   * A generator of tuples containing equal elements (ERef, ERef) objects representing ERef variant.
+   *
+   * Shrinks toward (ERef("", Array(), 0), ERef("", Array(), 0)).
+   */
+  def refEq: Gen[Any, EqPair] = {
+    for {
+      node     <- alphaNumericString
+      ids      <- listOf(int(Int.MinValue, Int.MaxValue))
+      creation <- int(0, 10)
+    } yield (ERef(node, ids.toArray, creation), ERef(node, ids.toArray, creation))
+  }
+
+  /**
+   * A generator of tuples containing equal elements (ETerm, ETerm) objects. The generated terms can be nested.
+   *
+   * Same as `termEq(n, oneOf(stringEq, atomEq, booleanEq, intEq, longEq, pidEq, refEq))`
+   */
+  def anyEq(n: Int): Gen[Any, EqPair] = {
+    treeEq(n, oneOf(stringEq, atomEq, booleanEq, intEq, longEq, pidEq, refEq))
+  }
+
+  /**
+   * A generator of tuples containing equal elements (ETuple, ETuple). The generated terms can be nested.
+   */
+  def tupleEq(n: Int): Gen[Any, EqPair] = {
+    for { term <- tupleContainerEq(listOf(anyEq(n))) } yield term
+  }
+
+  /**
+   * A generator of tuples containing equal elements (EList, EList). The generated terms can be nested.
+   */
+  def listEq(n: Int): Gen[Any, EqPair] = {
+    for { term <- listContainerEq(listOf(anyEq(n))) } yield term
+  }
+
+  /**
+   * A generator of tuples containing equal elements (EMap, EMap). The generated terms can be nested.
+   */
+  def mapEq(n: Int): Gen[Any, EqPair] = {
+    for { term <- mapContainerEq(listOf(anyEq(n))) } yield term
+  }
+
+  /**
+   * A generator of tuples containing equal elements (ETerm, ETerm) objects. The generated terms can be nested.
+   *
+   * The type of the children is defined by passed generator.
+   *
+   * For example the `termEq(n, oneOf(intEq, longEq))` would produce integers and terms which include list of integers,
+   * tuple of integers, map where values are integers.
+   */
+  def termEq(n: Int, g: Gen[Any, EqPair]): Gen[Any, EqPair] = {
+    treeEq(n, g)
+  }
+
+  /**
+   * A generator of tuples containing equal elements (EList, EList) objects.
+   *
+   * The type of the children is defined by passed generator.
+   *
+   * For example the `listContainerEq(n, oneOf(intEq, longEq))` would produce list of integers.
+   */
+  def listContainerEq(g: Gen[Any, List[EqPair]]): Gen[Any, EqPair] = suspend {
+    for {
+      children <- g
+      (aTerms, bTerms) = children.unzip
+    } yield (EList(aTerms), EList(bTerms))
+  }
+
+  /**
+   * A generator of tuples containing equal elements (ETuple, ETuple) objects.
+   *
+   * The type of the children is defined by passed generator.
+   *
+   * For example the `tupleContainerEq(n, oneOf(intEq, longEq))` would produce tuple of integers.
+   */
+  def tupleContainerEq(g: Gen[Any, List[EqPair]]): Gen[Any, EqPair] = suspend {
+    for {
+      children <- g
+      (aTerms, bTerms) = children.unzip
+    } yield (ETuple(aTerms), ETuple(bTerms))
+  }
+
+  /**
+   * A generator of tuples containing equal elements (ETerm, EObject) objects.
+   *
+   * The type of the children is defined by passed generator.
+   *
+   * For example the `mapContainerEq(n, oneOf(intEq, longEq))` would produce map where keys are strings and values are
+   * integers.
+   */
+  def mapContainerEq(g: Gen[Any, List[EqPair]]): Gen[Any, EqPair] = suspend {
+    g.flatMap { children =>
+      for {
+        keys <- listOfN(children.size)(stringEq)
+        elements = keys zip children
+        aHashMap = mutable.LinkedHashMap.empty[ETerm, ETerm]
+        bHashMap = mutable.LinkedHashMap.empty[ETerm, ETerm]
+        _ = elements.foreach { case ((aKey, bKey), (aTerm, bTerm)) =>
+          aHashMap.put(aKey, aTerm)
+          bHashMap.put(bKey, bTerm)
+        }
+      } yield (EMap(aHashMap), EMap(bHashMap))
+    }
+  }
+
+  private def childrenEq(
+    n: Int,
+    g: Gen[Any, EqPair]
+  ): Gen[Any, List[(ETerm, ETerm)]] = suspend {
+    for {
+      i <- Gen.int(1, n - 1)
+      r <- listOfN(n - i)(treeEq(i, g))
+    } yield r
+  }
+
+  private def nodeEq(n: Int, g: Gen[Any, EqPair]): Gen[Any, (ETerm, ETerm)] = {
+    suspend {
+      for {
+        container <- oneOf(
+          listContainerEq(childrenEq(n, g)),
+          tupleContainerEq(childrenEq(n, g)),
+          mapContainerEq(childrenEq(n, g))
+        )
+      } yield container
+    }
+  }
+
+  private def treeEq(n: Int, g: Gen[Any, EqPair]): Gen[Any, EqPair] = suspend {
+    if (n == 1) g
+    else oneOf(nodeEq(n, g), g)
   }
 
   /**
