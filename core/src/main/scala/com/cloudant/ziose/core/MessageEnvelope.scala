@@ -1,7 +1,13 @@
 package com.cloudant.ziose.core
 
-import com.ericsson.otp.erlang.OtpMsg
-import com.ericsson.otp.erlang.OtpErlangPid
+import com.ericsson.otp.erlang.{
+  OtpMsg,
+  OtpErlangPid,
+  OtpErlangException,
+  OtpErlangExit,
+  OtpErlangDecodeException,
+  OtpErlangRangeException
+}
 import zio._
 
 sealed trait MessageEnvelope extends WithWorkerId[Engine.WorkerId] {
@@ -101,6 +107,19 @@ object MessageEnvelope {
       case OtpMsg.regSendTag => Send(Some(getSenderPid(msg)), getRecipient(msg, workerId), getMsg(msg), workerId)
       case OtpMsg.exit2Tag   => Exit(Some(getSenderPid(msg)), getRecipient(msg, workerId), getMsg(msg), workerId)
     }
+  }
+
+  def fromOtpException(exception: OtpErlangException, pid: Codec.EPid, workerId: Engine.WorkerId): MessageEnvelope = {
+    val address = Address.fromPid(pid, workerId)
+    val (from, reason) = exception match {
+      case exit: OtpErlangExit =>
+        (Some(Codec.fromErlang(exit.pid).asInstanceOf[Codec.EPid]), Codec.fromErlang(exit.reason))
+      case decode: OtpErlangDecodeException =>
+        (None, new Codec.EAtom(Symbol("term_decode_error")))
+      case range: OtpErlangRangeException =>
+        (None, new Codec.EAtom(Symbol("term_range_error")))
+    }
+    MessageEnvelope.Exit(from, address, reason, 0)
   }
 
   private def getSenderPid(msg: OtpMsg): Codec.EPid = {

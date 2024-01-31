@@ -13,7 +13,7 @@ trait ProcessContext extends EnqueueWithId[Address, MessageEnvelope] {
   def cast(msg: MessageEnvelope.Cast): UIO[Unit]
   def send(msg: MessageEnvelope.Send): UIO[Unit]
   def stream: ZStream[Any, Throwable, MessageEnvelope]
-  def exit(reason: Codec.ETerm): ZIO[Any with Scope, Nothing, Unit]
+  def exit(reason: Codec.ETerm): UIO[Unit]
   def unlink(to: Codec.EPid): ZIO[Any with Scope, Nothing, Boolean]
   def link(to: Codec.EPid): ZIO[Any with Scope, Nothing, Boolean]
   def monitor(monitored: Address): Codec.ERef

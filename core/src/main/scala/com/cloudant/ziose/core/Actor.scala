@@ -56,8 +56,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     // TODO make it configurable
     .groupedWithin(3, Duration.fromMillis(50))
     .flattenChunks
-    // .tap(x => printLine(s"actor stream before onMessage: $x"))
-    .mapZIO(msg => actor.onMessage(msg, ctx))
+    // .tap(x => Console.printLine(s"actor stream: $x"))
     .refineOrDie {
       // TODO use Cause.annotate to add extra metainfo about location of a failure
       case e: ArithmeticException => {
@@ -70,7 +69,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
       }
     }
     .ensuringWith {
-      case Exit.Success(_) => ZIO.succeed(onTermination(Codec.fromScala(Symbol("normal"))))
+      case Exit.Success(result) => ZIO.succeed(result)
       case Exit.Failure(cause) if cause.isFailure => {
         ZIO.succeed(onTermination(Codec.fromScala((Symbol("failure"), cause.failures.toString()))))
       }
@@ -87,6 +86,9 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   def onTermination(reason: Codec.ETerm): ZIO[Any, Throwable, Unit] = {
     println(s"AddressableActor.onTermination ${reason}")
     actor.onTermination(reason, ctx)
+  }
+  def onMessage(message: MessageEnvelope): ZIO[Any, Throwable, Unit] = {
+    actor.onMessage(message, ctx)
   }
   def capacity: Int = ctx.capacity
   override def awaitShutdown(implicit trace: Trace): UIO[Unit] = {

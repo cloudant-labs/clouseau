@@ -29,7 +29,7 @@ class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], val registry
   def buildWith(builderFn: Int => ZIO[Any with Scope, Throwable, E]) = {
     registry.buildWith(builderFn)
   }
-  def stream = ZStream.fromQueue(queue).tap(x => printLine(s"exchange event: $x")).mapZIO(loop)
+  def stream = ZStream.fromQueueWithShutdown(queue).tap(x => printLine(s"exchange event: $x")).mapZIO(loop)
   def loop(msg: M) = for {
     destination <- this.get(keyFn(msg)).debug("maybeEnqueue")
     _           <- ZIO.debug(s"destination=${destination}")

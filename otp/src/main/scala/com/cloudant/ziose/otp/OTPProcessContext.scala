@@ -22,7 +22,7 @@ class OTPProcessContext private (
   private val mbox: OtpMbox
 ) extends ProcessContext {
   val id   = mailbox.id
-  val self = PID(new Codec.EPid(mailbox.mbox.self()), workerId)
+  val self = PID(new Codec.EPid(mailbox.externalMailbox.self), workerId)
 
   override def toString: String = name match {
     case Some(n) => s"OTPProcessContext(${n}.${workerId}.${engineId}@${nodeName})"
@@ -49,7 +49,7 @@ class OTPProcessContext private (
     mailbox.size
   }
 
-  def exit(reason: Codec.ETerm)               = mailbox.exit(reason)
+  def exit(reason: Codec.ETerm): UIO[Unit]    = mailbox.exit(reason)
   def unlink(to: Codec.EPid)                  = mailbox.unlink(to)
   def link(to: Codec.EPid)                    = mailbox.link(to)
   def monitor(monitored: Address): Codec.ERef = mailbox.monitor(monitored)

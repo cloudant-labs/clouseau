@@ -64,8 +64,11 @@ trait ProcessLike[A <: Adapter[_]] extends core.Actor {
 
   def handleMonitorExit(monitored : Any, ref : Reference, reason : Any): Unit
 
-  def exit(reason : Any) =
-    adapter.exit(Codec.fromScala(reason))
+  def exit(reason : Any) = {
+    Unsafe.unsafe { implicit unsafe =>
+      Runtime.default.unsafe.run(adapter.exit(Codec.fromScala(reason)))
+    }
+  }
 
   def unlink(to : Pid) =
     adapter.unlink(to.fromScala)

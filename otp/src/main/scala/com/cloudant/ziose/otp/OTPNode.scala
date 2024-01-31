@@ -19,6 +19,7 @@ import com.cloudant.ziose.core.Failure
 import com.cloudant.ziose.core.Result
 import com.cloudant.ziose.core.AddressableActor
 import com.cloudant.ziose.core.ActorFactory
+import com.cloudant.ziose.core.MessageEnvelope
 
 abstract class OTPNode() extends Node {
   def acquire: UIO[Unit]
@@ -115,7 +116,7 @@ object OTPNode {
     def release()                            = close()
     def createMbox(name: String)             = node.createMbox(name)
     def close()                              = node.close
-    def stream                               = ZStream.fromQueue(queue).mapZIO(loop)
+    def stream                               = ZStream.fromQueueWithShutdown(queue).mapZIO(loop)
     def monitorRemoteNode(name: String, timeout: Option[Duration]) = ZStream((name, timeout))
       .schedule(Schedule.spaced(DEFAULT_REMOTE_NODE_MONITOR_INTERVAL))
       .mapZIO(checkRemoteNode)
@@ -133,10 +134,22 @@ object OTPNode {
             _ <- actor.start(
               scope
             ) // .withFinalizer(_ => ZIO.succeed(stopActor(actor.asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]], None)))
-            _ <- actor.stream.runDrain.forever.forkScoped
-            // .ensuring(_ => {
-            //   ZIO.succeed(stopActor(actor.asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]], None))
-            // }).runDrain.forever.forkScoped
+            _ <- actor.stream.runForeachWhile {
+              case MessageEnvelope.Exit(_from, _to, reason, _workerId) =>
+                for {
+                  // _ <- Console.printLine(s"exit: $reason")
+                  _ <- stopActor(actor.asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]], Some(reason))
+                } yield false
+              case message =>
+                for {
+                  // _ <- Console.printLine(s"message: $msg")
+                  _ <- actor.onMessage(message)
+                } yield true
+            }
+              // .ensuring {
+              //  ZIO.succeed(stopActor(actor.asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]], None))
+              // }
+              .forkScoped
             // _ <- actor.stream.runDrain.forever.forkScoped
             _ <- event.succeed(Response.StartActor(actor.self.pid))
           } yield ()
@@ -153,29 +166,24 @@ object OTPNode {
     def stopActor[A <: Actor, C <: ProcessContext](
       actor: AddressableActor[A, OTPProcessContext],
       reason: Option[Codec.ETerm]
-    ) = {
-      println(s"stopping actor ${actor.id.toString()}")
-      val mbox = actor.ctx.mailbox(accessKey)
-      reason match {
-        case Some(term) => {
-          ZIO.succeedBlocking(node.closeMbox(mbox, term.toOtpErlangObject))
-          try {
-            actor.onTermination(term)
-          } catch {
-            case _: Throwable => ()
-          }
-        }
-        case None => {
-          ZIO.succeedBlocking(node.closeMbox(mbox))
-          try {
-            actor.onTermination(Codec.EAtom(Symbol("normal")))
-          } catch {
-            case _: Throwable => ()
-          }
-        }
+    ): UIO[Unit] = for {
+      _ <- ZIO.debug(s"stopping actor ${actor.id.toString()}")
+      mbox = actor.ctx.mailbox(accessKey)
+      _ <- reason match {
+        case Some(term) =>
+          for {
+            _ <- actor.onTermination(term).catchAll(_ => ZIO.unit)
+            _ <- actor.ctx.shutdown
+            _ <- ZIO.succeedBlocking(node.closeMbox(mbox, term.toOtpErlangObject))
+          } yield ()
+        case None =>
+          for {
+            _ <- actor.onTermination(Codec.EAtom(Symbol("normal"))).catchAll(_ => ZIO.unit)
+            _ <- actor.ctx.shutdown
+            _ <- ZIO.succeedBlocking(node.closeMbox(mbox))
+          } yield ()
       }
-      ()
-    }
+    } yield ()
 
     def handleCommand(command: Command[_]): Result[_ <: Node.Error, Response] = {
       command match {
