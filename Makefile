@@ -16,9 +16,9 @@ help:
 build: .asdf check-epmd
 	@mvn
 
-# target: clouseau1 - Start local inistance of clouseau1 node
-# target: clouseau2 - Start local inistance of clouseau2 node
-# target: clouseau3 - Start local inistance of clouseau3 node
+# target: clouseau1 - Start local instance of clouseau1 node
+# target: clouseau2 - Start local instance of clouseau2 node
+# target: clouseau3 - Start local instance of clouseau3 node
 $(instances): .asdf check-epmd
 	@mvn scala:run -Dname=$@ $(with-cookie)
 
