@@ -10,13 +10,15 @@
 -define(ANSI_RED, "31").
 -define(ANSI_GREEN, "32").
 
+-define(TIMEOUT, 30).
+
 main(Args) ->
     Node = get_node(Args),
     try
         CurDir = filename:dirname(escript:script_name()),
         Util = filename:join([CurDir, "util.erl"]),
         {ok, util} = compile:file(Util),
-        pong = util:check(Node),
+        pong = util:check(Node, ?TIMEOUT),
         log(success)
     catch
         _:_ ->

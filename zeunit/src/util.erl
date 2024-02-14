@@ -1,6 +1,6 @@
 -module(util).
 -export([a2l/1, l2a/1]).
--export([check/1, wait_value/3]).
+-export([check/1, check/2, wait_value/3]).
 
 -define(TIMEOUT, 5).
 
@@ -8,10 +8,12 @@ a2l(V) -> atom_to_list(V).
 
 l2a(V) -> list_to_atom(V).
 
-check(Node) when is_atom(Node) ->
-    wait_value(fun() -> net_adm:ping(Node) end, pong, ?TIMEOUT);
-check(Node) ->
-    wait_value(fun() -> net_adm:ping(l2a(Node)) end, pong, ?TIMEOUT).
+check(Node) -> check(Node, ?TIMEOUT).
+
+check(Node, Timeout) when is_atom(Node) ->
+    wait_value(fun() -> net_adm:ping(Node) end, pong, Timeout);
+check(Node, Timeout) ->
+    wait_value(fun() -> net_adm:ping(l2a(Node)) end, pong, Timeout).
 
 wait_value(Fun, Value, Timeout) ->
     wait(
