@@ -7,7 +7,7 @@ scala 2.13.12
 # erlang needs java so it should be after it in the list
 # the only version which supports observer
 erlang 25.3.2.9
-coursier 2.1.9
+coursier 2.1.8
 editorconfig-checker 2.8.0
 sbt 1.9.8
 
