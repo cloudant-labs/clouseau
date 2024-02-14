@@ -16,6 +16,7 @@ os="$(uname -s | tr '[:upper:]' '[:lower:]')"
 requirements=()
 . "${SELF_DIR}"/console.sh
 . "${SELF_DIR}"/tools.sh
+. "${SELF_DIR}"/run.sh
 requirements=(
   "$(console::requires)"
   "$(tools::requires ${os})"
@@ -55,7 +56,7 @@ ensure_args() {
   local help=${2}
   shift
   shift
-  if [ "$#" -lt ${expected} ]; then
+  if [ "$#" -lt "${expected}" ]; then
     echo -e "\n$(console::red)ERROR: Missing mandatory arguments$(console::reset)\n"
     console::markdown "${help}"
     exit 1
@@ -180,6 +181,16 @@ gh)
 fmt)
   console::infoLn "Reformat scala code"
   scalafmt
+  exit $?
+  ;;
+start)
+  ensure_args 2 "help_topic start" "$@"
+  run::start "$@"
+  exit $?
+  ;;
+stop)
+  ensure_args 1 "help_topic stop" "$@"
+  run::stop "$1"
   exit $?
   ;;
 *)

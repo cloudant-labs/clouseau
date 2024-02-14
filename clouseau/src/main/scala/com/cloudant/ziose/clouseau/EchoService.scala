@@ -12,7 +12,7 @@ import com.cloudant.ziose.core.{
   ProcessContext
 }
 import com.cloudant.ziose.scalang.{Adapter, Pid, Service, ServiceContext, Node => SNode}
-import zio.{&, RIO, ZIO}
+import zio.{&, RIO}
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -32,9 +32,7 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
     (Symbol("echo"), request)
   }
 
-  private def now(): BigInt = {
-    ChronoUnit.MICROS.between(Instant.EPOCH, Instant.now())
-  }
+  private def now(): BigInt = ChronoUnit.MICROS.between(Instant.EPOCH, Instant.now())
 }
 
 private object EchoService extends ActorConstructor[EchoService] {

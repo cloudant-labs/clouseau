@@ -4,16 +4,18 @@ sbt 'clouseau/testOnly com.cloudant.ziose.clouseau.MainSpec'
 package com.cloudant.ziose.clouseau
 
 import org.junit.runner.RunWith
+import zio.System
 import zio.test.Assertion.{anything, fails, isSubtype}
+import zio.test.TestSystem.{Data, DefaultData}
 import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
-import zio.test.{Spec, assert, assertTrue}
+import zio.test.{Spec, TestSystem, assert, assertTrue}
 
 import java.io.FileNotFoundException
 
 @RunWith(classOf[ZTestJUnitRunner])
 class MainSpec extends JUnitRunnableSpec {
-  def spec: Spec[Any, FileNotFoundException] = {
-    suite("MainSpec")(
+  val getConfigSuite: Spec[Any, FileNotFoundException] = {
+    suite("getConfig")(
       test("getConfig success") {
         for {
           nodes <- Main.getConfig("clouseau/src/test/resources/testApp.conf")
@@ -35,5 +37,38 @@ class MainSpec extends JUnitRunnableSpec {
         } yield assert(result)(fails(isSubtype[FileNotFoundException](anything)))
       }
     )
+  }
+
+  val nodeIdxSuite: Spec[Any, Throwable] = {
+    suite("nodeIdx")(
+      test("default value should be 0") {
+        for {
+          prop  <- System.property("node")
+          index <- Main.getNodeIdx
+        } yield assertTrue(prop.isEmpty, index == 0)
+      }.provideLayer(TestSystem.live(DefaultData)),
+      test("nodeIdx should be 'node number - 1'") {
+        for {
+          prop  <- System.property("node")
+          index <- Main.getNodeIdx
+        } yield assertTrue(prop.contains("ziose3"), index == 2)
+      }.provideLayer(TestSystem.live(Data(properties = Map("node" -> "ziose3")))),
+      test("nodeIdx should be 0 when node number is not in [1 to 3]") {
+        for {
+          prop  <- System.property("node")
+          index <- Main.getNodeIdx
+        } yield assertTrue(prop.contains("n4"), index == 0)
+      }.provideLayer(TestSystem.live(Data(properties = Map("node" -> "n4")))),
+      test("nodeIdx should be 0 when node property don't contain number") {
+        for {
+          prop  <- System.property("node")
+          index <- Main.getNodeIdx
+        } yield assertTrue(prop.contains("ziose"), index == 0)
+      }.provideLayer(TestSystem.live(Data(properties = Map("node" -> "ziose"))))
+    )
+  }
+
+  def spec: Spec[Any, Throwable] = {
+    suite("MainSpec")(getConfigSuite, nodeIdxSuite)
   }
 }

@@ -1,0 +1,35 @@
+#!/bin/bash
+SELF_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
+TMP_DIR=${SELF_DIR}/../tmp
+
+mkdir -p "$TMP_DIR"
+. "${SELF_DIR}"/console.sh
+
+run::get_hash() {
+  echo "$1" | sha256sum | cut -d " " -f 1
+}
+
+run::start() {
+  local hash
+  hash=$(run::get_hash "$1")
+  local pid_file="${TMP_DIR}/${hash}.pid"
+
+  [ -f "$pid_file" ] && console::errorLn "PID file already exist!" && exit 1
+
+  shift
+  $@ &
+  echo $! >"$pid_file"
+}
+
+run::stop() {
+  local hash
+  hash=$(run::get_hash "$1")
+  local pid_file="${TMP_DIR}/${hash}.pid"
+
+  [ ! -f "$pid_file" ] && console::errorLn "Not found PID file!" && exit 1
+
+  if pgrep -F "$pid_file" >/dev/null; then
+    pkill -F "$pid_file"
+    rm -f "$pid_file"
+  fi
+}

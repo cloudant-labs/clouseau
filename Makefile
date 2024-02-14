@@ -142,6 +142,7 @@ jartest:
 
 # target: clean - Clean Java/Scala artifacts
 clean:
+	@rm -rf tmp
 	@sbt clean
 
 .PHONY: epmd

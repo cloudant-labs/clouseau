@@ -11,6 +11,8 @@ Use `cli help <command>` to get more help.
 * `verify`    - verify developer setup
 * `deps`      - group of dependency management commands
 * `bootstrap` - a step-by-step guide to help set up environment
+* `start`     - start clouseau node
+* `stop`      - stop clouseau node
 * `fmt`       - reformat scala code
 * `gh`        - GitHub related commands
 * `issue`     - Issues management
@@ -42,6 +44,27 @@ Execute set of check which would verify the environment and print out hints what
 ### `bootstrap`: A step-by-step guide to help set up environment
 
 * `cli bootstrap` - provide shell dependent guidance to do setup
+
+---
+
+### `start`: Start clouseau node
+
+* `cli start [name] [command]` - start clouseau node
+
+```bash
+cli start "clouseau1" "sbt run -Dnode=clouseau1"
+cli start "clouseau" "java -jar clouseau.jar"
+```
+
+---
+
+### `stop`: Stop clouseau node
+
+* `cli stop [name]` - stop clouseau node
+
+```bash
+cli stop "clouseau"
+```
 
 ---
 

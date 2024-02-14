@@ -145,3 +145,5 @@ lazy val root = (project in file("."))
     Compile / console / scalacOptions -= "-Ywarn-unused:imports"
   )
   .dependsOn(core)
+
+run := (clouseau / Compile / run).evaluated

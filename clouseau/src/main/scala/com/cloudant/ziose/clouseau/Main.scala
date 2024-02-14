@@ -8,7 +8,7 @@ import com.cloudant.ziose.otp.{OTPActorFactory, OTPEngineWorker, OTPNode, OTPNod
 import zio.config.magnolia.deriveConfig
 import zio.config.typesafe.FromConfigSourceTypesafe
 import zio.logging.{ConsoleLoggerConfig, LogFilter, LogFormat, consoleLogger}
-import zio.{&, ConfigProvider, IO, RIO, Runtime, Task, ZIO, ZIOAppDefault}
+import zio.{&, ConfigProvider, IO, RIO, Runtime, System, Task, ZIO, ZIOAppDefault}
 
 import java.io.FileNotFoundException
 
@@ -22,6 +22,20 @@ object Main extends ZIOAppDefault {
       .orElseFail(new FileNotFoundException(s"File Not Found: $path"))
   }
 
+  def getNodeIdx: Task[Int] = {
+    for {
+      prop <- System.property("node")
+      lastChar = prop.getOrElse("1").last
+      index = {
+        if (('1' to '3').contains(lastChar)) {
+          lastChar - '1'
+        } else {
+          0
+        }
+      }
+    } yield index
+  }
+
   private def startCoordinator(
     node: ClouseauNode,
     config: AppConfiguration
@@ -32,7 +46,7 @@ object Main extends ZIOAppDefault {
     EchoService.start(node, "coordinator", Configuration(clouseauCfg, nodeCfg))
   }
 
-  private def effect(nodesCfg: NodeCfg): RIO[EngineWorker & Node & ActorFactory, Unit] = {
+  private def main(nodesCfg: NodeCfg): RIO[EngineWorker & Node & ActorFactory, Unit] = {
     for {
       runtime  <- ZIO.runtime[EngineWorker & Node & ActorFactory]
       otp_node <- ZIO.service[Node]
@@ -46,15 +60,17 @@ object Main extends ZIOAppDefault {
     } yield ()
   }
 
+  private val workerId: Int = 1
+  private val engineId: Int = 1
+
   private val app: Task[Unit] = {
     for {
+      nodeIdx  <- getNodeIdx
       nodesCfg <- getConfig("app.conf")
-      node     = nodesCfg.config.head.node
-      name     = s"${node.name}@${node.domain}"
-      workerId = node.name.last.toInt
-      engineId = workerId
+      node     = nodesCfg.config(nodeIdx).node
+      name = s"${node.name}@${node.domain}"
       _ <- ZIO
-        .scoped(effect(nodesCfg))
+        .scoped(main(nodesCfg))
         .provide(
           OTPActorFactory.live(name, node),
           OTPNode.live(name, engineId, workerId, node),

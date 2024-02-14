@@ -17,6 +17,7 @@ build/
 gradle/
 gradlew
 gradlew.bat
+tmp/
 
 # idea
 *.iml
