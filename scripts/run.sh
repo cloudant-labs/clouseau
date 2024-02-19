@@ -2,7 +2,7 @@
 SELF_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
 TMP_DIR=${SELF_DIR}/../tmp
 ZEUNIT_DIR=${SELF_DIR}/../zeunit
-REBAR=rebar
+: "${REBAR:=rebar}"
 
 mkdir -p "$TMP_DIR"
 . "${SELF_DIR}"/console.sh
