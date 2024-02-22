@@ -34,22 +34,22 @@ case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit a
   // def onTermination[C <: ProcessContext](reason: Codec.ETerm, ctx: C): UIO[Unit] =
   //   ZIO.succeed(())
   //  val logger = LoggerFactory.getLogger("clouseau.supervisor")
-  // var manager = spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args)
-  // var cleanup = spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args)
-  // var analyzer = spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args)
+  // var manager = spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args.config.clouseau)
+  // var cleanup = spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args.config.clouseau)
+  // var analyzer = spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args.config.clouseau)
 
   override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Unit = {
     // if (monitored == manager) {
     //   logger.warn("manager crashed")
-    //   manager = spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args)
+    //   manager = spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args.config.clouseau)
     // }
     // if (monitored == cleanup) {
     //   logger.warn("cleanup crashed")
-    //   cleanup = spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args)
+    //   cleanup = spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args.config.clouseau)
     // }
     // if (monitored == analyzer) {
     //   logger.warn("analyzer crashed")
-    //   analyzer = spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args)
+    //   analyzer = spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args.config.clouseau)
     // }
   }
 
