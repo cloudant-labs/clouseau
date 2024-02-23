@@ -47,10 +47,10 @@ lazy val commonSettings = Seq(
     "dev.zio"       %% "zio-test"               % versions("zio") % Test,
     "dev.zio"       %% "zio-test-junit"         % versions("zio") % Test,
     "com.github.sbt" % "junit-interface"        % "0.13.3"        % Test,
-    "junit"          % "junit"                  % "4.13.2"        % Test
+    "junit"          % "junit"                  % "4.13.2"        % Test,
 //    "dev.zio"       %% "zio-macros"             % versions("zio"),
 //    "dev.zio"       %% "zio-nio"                % versions("zio.nio"),
-//    "dev.zio"       %% "zio-logging-slf4j"      % versions("zio.logging"),
+    "dev.zio"       %% "zio-logging-slf4j"      % versions("zio.logging"),
 //    "dev.zio"       %% "zio-config-refined"     % versions("zio.config"),
 //    "dev.zio"       %% "zio-config-yaml"        % versions("zio.config"),
 //    "org.slf4j"      % "slf4j-nop"              % "2.0.9"
