@@ -27,8 +27,9 @@ import com.cloudant.ziose.core.EngineWorker
 import com.cloudant.ziose.core.AddressableActor
 import com.cloudant.ziose.core.ActorFactory
 
-
-case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_]) extends Service(ctx) with Actor {
+case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_])
+    extends Service(ctx)
+    with Actor {
   // def onMessage[C <: ProcessContext](msg: MessageEnvelope, ctx: C): UIO[Unit] =
   //   ZIO.succeed(())
   // def onTermination[C <: ProcessContext](reason: Codec.ETerm, ctx: C): UIO[Unit] =
@@ -53,18 +54,19 @@ case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit a
     // }
   }
 
-      // private def spawnAndMonitorService[T <: Service[A, _ <: ProcessContext], A <: Product](regName: Symbol, args: A)(implicit mf: Manifest[T]): Pid = {
-      //   val pid = node.spawnService[T, A](regName, args, reentrant = false)
-      //   monitor(pid)
-      //   pid
-      // }
+  // private def spawnAndMonitorService[T <: Service[A, _ <: ProcessContext], A <: Product](regName: Symbol, args: A)(implicit mf: Manifest[T]): Pid = {
+  //   val pid = node.spawnService[T, A](regName, args, reentrant = false)
+  //   monitor(pid)
+  //   pid
+  // }
 
 }
 
 object ClouseauSupervisor extends ActorConstructor[ClouseauSupervisor] {
   def make(node: SNode, service_ctx: ServiceContext[ConfigurationArgs]) = {
-    def maker[PContext <: ProcessContext](process_context: PContext): ClouseauSupervisor =
+    def maker[PContext <: ProcessContext](process_context: PContext): ClouseauSupervisor = {
       ClouseauSupervisor(service_ctx)(Adapter(process_context, node))
+    }
 
     ActorBuilder()
       // TODO get capacity from config
@@ -72,10 +74,13 @@ object ClouseauSupervisor extends ActorConstructor[ClouseauSupervisor] {
       .withName("ClouseauSupervisor")
       .withMaker(maker)
       .build(this)
-    }
+  }
 
-  def start(node: SNode, config: Configuration): ZIO[EngineWorker & Node & ActorFactory, Throwable, AddressableActor[_, _]] = {
-    val ctx = new ServiceContext[ConfigurationArgs] {val args = ConfigurationArgs(config)}
+  def start(
+    node: SNode,
+    config: Configuration
+  ): ZIO[EngineWorker & Node & ActorFactory, Throwable, AddressableActor[_, _]] = {
+    val ctx = new ServiceContext[ConfigurationArgs] { val args = ConfigurationArgs(config) }
     node.spawnServiceZIO[ClouseauSupervisor, ConfigurationArgs](make(node, ctx))
   }
 }

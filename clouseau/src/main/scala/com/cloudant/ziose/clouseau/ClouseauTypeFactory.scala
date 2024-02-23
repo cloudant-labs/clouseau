@@ -27,7 +27,7 @@ case class SetPurgeSeqMsg(seq: Long)                            extends Clouseau
 case class SetUpdateSeqMsg(seq: Long)                           extends ClouseauMessage
 
 object ClouseauTypeFactory extends TypeFactory {
-  def createType(name: Symbol, arity: Int, _reader: Any): Option[ClouseauMessage] =
+  def createType(name: Symbol, arity: Int, _reader: Any): Option[ClouseauMessage] = {
     (name, arity) match {
       case (Symbol("open"), 4) => {
         // I'll keep this comment for now to remind myself how it is done in original Scalang
@@ -35,8 +35,9 @@ object ClouseauTypeFactory extends TypeFactory {
         None // FIXME by properly constructing OpenIndexMsg message
       }
     }
+  }
 
-  def parse(term: ETerm): Option[ClouseauMessage] =
+  def parse(term: ETerm): Option[ClouseauMessage] = {
     term match {
       case ETuple(List(EAtom(Symbol("cleanup")), EString(dbName), EList(activeSigs))) =>
         Some(CleanupDbMsg(dbName, activeSigs.map(_.asInstanceOf[EString].str)))
@@ -80,4 +81,5 @@ object ClouseauTypeFactory extends TypeFactory {
         Some(SetUpdateSeqMsg(seq.toLong))
       case _ => None
     }
+  }
 }

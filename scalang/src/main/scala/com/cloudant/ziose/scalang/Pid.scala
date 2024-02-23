@@ -7,17 +7,19 @@ import core.Codec.EPid
 import core.Codec.ToScala
 import core.Codec.FromScala
 
-case class Pid(node : Symbol, id : Int, serial : Int, creation : Int) extends FromScala {
+case class Pid(node: Symbol, id: Int, serial: Int, creation: Int) extends FromScala {
   def fromScala = EPid(node.name, id, serial, creation)
 
-  def toErlangString : String =
+  def toErlangString: String = {
     "<" + id + "." + serial + "." + creation + ">"
+  }
 
   /*
   This method is used to do an implicit conversion of EPid into Pid
-  */
-  def unapply(pid: EPid) =
+   */
+  def unapply(pid: EPid) = {
     Pid.e2pid(pid)
+  }
 }
 
 object Pid extends ToScala[EPid] {
@@ -35,7 +37,8 @@ object Pid extends ToScala[EPid] {
    */
 
   implicit def address2pid(address: core.PID): Pid = Pid.toScala(address.pid)
-  implicit def e2pid(pid: EPid): Pid = Pid.toScala(pid)
-  override def toScala(pid: EPid): Pid =
+  implicit def e2pid(pid: EPid): Pid               = Pid.toScala(pid)
+  override def toScala(pid: EPid): Pid = {
     Pid(Symbol(pid.node), pid.id, pid.serial, pid.creation)
+  }
 }

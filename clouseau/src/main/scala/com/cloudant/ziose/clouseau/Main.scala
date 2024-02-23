@@ -67,7 +67,7 @@ object Main extends ZIOAppDefault {
     for {
       nodeIdx  <- getNodeIdx
       nodesCfg <- getConfig("app.conf")
-      node     = nodesCfg.config(nodeIdx).node
+      node = nodesCfg.config(nodeIdx).node
       name = s"${node.name}@${node.domain}"
       _ <- ZIO
         .scoped(main(nodesCfg))

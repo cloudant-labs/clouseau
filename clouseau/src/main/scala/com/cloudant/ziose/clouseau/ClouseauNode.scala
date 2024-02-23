@@ -11,7 +11,8 @@ import core.Actor
 import core.AddressableActor
 import core.ActorBuilder
 
-class ClouseauNode(worker: core.EngineWorker)(implicit override val runtime: Runtime[core.EngineWorker & core.Node]) extends SNode() { self =>
+class ClouseauNode(worker: core.EngineWorker)(implicit override val runtime: Runtime[core.EngineWorker & core.Node])
+    extends SNode() { self =>
   /*
    * Each service would need to implement a constructor in the following form
    *
@@ -38,30 +39,44 @@ class ClouseauNode(worker: core.EngineWorker)(implicit override val runtime: Run
    * ```
    */
 
-  override def spawnService[TS <: Service[A] with Actor : Tag, A <: Product](builder: ActorBuilder.Sealed[TS])(implicit adapter: Adapter[_]) = {
+  override def spawnService[TS <: Service[A] with Actor: Tag, A <: Product](
+    builder: ActorBuilder.Sealed[TS]
+  )(implicit adapter: Adapter[_]) = {
     val result = Unsafe.unsafe { implicit unsafe =>
-      runtime.unsafe.run(
-        spawnServiceZIO[TS, A](builder)
-      ).getOrThrowFiberFailure()} // TODO: kill the caller
+      runtime.unsafe
+        .run(
+          spawnServiceZIO[TS, A](builder)
+        )
+        .getOrThrowFiberFailure()
+    } // TODO: kill the caller
     result.asInstanceOf[AddressableActor[TS, ProcessContext]]
   }
 
-  override def spawnService[TS <: Service[A] with Actor : Tag, A <: Product](builder: ActorBuilder.Sealed[TS], reentrant: Boolean)(implicit adapter: Adapter[_]) = {
+  override def spawnService[TS <: Service[A] with Actor: Tag, A <: Product](
+    builder: ActorBuilder.Sealed[TS],
+    reentrant: Boolean
+  )(implicit adapter: Adapter[_]) = {
     // TODO Handle reentrant argument
     val result = Unsafe.unsafe { implicit unsafe =>
-      runtime.unsafe.run(
-        spawnServiceZIO[TS, A](builder, reentrant)
-      ).getOrThrowFiberFailure()} // TODO: kill the caller
+      runtime.unsafe
+        .run(
+          spawnServiceZIO[TS, A](builder, reentrant)
+        )
+        .getOrThrowFiberFailure()
+    } // TODO: kill the caller
     result.asInstanceOf[AddressableActor[TS, ProcessContext]]
   }
 
-  override def spawnServiceZIO[TS <: Service[A] with Actor : Tag, A <: Product](builder: ActorBuilder.Sealed[TS]) = {
+  override def spawnServiceZIO[TS <: Service[A] with Actor: Tag, A <: Product](builder: ActorBuilder.Sealed[TS]) = {
     for {
       addressable <- worker.spawn[TS](builder)
     } yield addressable
   }
 
-  override def spawnServiceZIO[TS <: Service[A] with Actor : Tag, A <: Product](builder: ActorBuilder.Sealed[TS], reentrant: Boolean) = {
+  override def spawnServiceZIO[TS <: Service[A] with Actor: Tag, A <: Product](
+    builder: ActorBuilder.Sealed[TS],
+    reentrant: Boolean
+  ) = {
     // TODO Handle reentrant argument
     for {
       addressable <- worker.spawn[TS](builder)
