@@ -20,14 +20,14 @@ import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.scalang.Reference
 import com.cloudant.ziose.core.ActorConstructor
 import com.cloudant.ziose.core.ActorBuilder
-import com.cloudant.ziose.scalang.{Node => SNode}
+import com.cloudant.ziose.scalang.SNode
 import com.cloudant.ziose.scalang.Adapter
 import com.cloudant.ziose.core.Actor
 import com.cloudant.ziose.core.EngineWorker
 import com.cloudant.ziose.core.AddressableActor
 import com.cloudant.ziose.core.ActorFactory
 
-case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_])
+case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _])
     extends Service(ctx)
     with Actor {
   // def onMessage[C <: ProcessContext](msg: MessageEnvelope, ctx: C): UIO[Unit] =
@@ -65,7 +65,7 @@ case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit a
 object ClouseauSupervisor extends ActorConstructor[ClouseauSupervisor] {
   def make(node: SNode, service_ctx: ServiceContext[ConfigurationArgs]) = {
     def maker[PContext <: ProcessContext](process_context: PContext): ClouseauSupervisor = {
-      ClouseauSupervisor(service_ctx)(Adapter(process_context, node))
+      ClouseauSupervisor(service_ctx)(new Adapter(process_context, node, ClouseauTypeFactory))
     }
 
     ActorBuilder()

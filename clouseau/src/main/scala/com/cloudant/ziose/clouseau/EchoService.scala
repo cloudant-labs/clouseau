@@ -11,13 +11,13 @@ import com.cloudant.ziose.core.{
   Node,
   ProcessContext
 }
-import com.cloudant.ziose.scalang.{Adapter, Pid, Service, ServiceContext, Node => SNode}
-import zio.{&, RIO}
+import com.cloudant.ziose.scalang.{Adapter, Pid, Service, ServiceContext, SNode}
+import zio.{&, ZIO}
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_]) extends Service(ctx) {
+class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   override def handleInfo(request: Any): Any = {
     request match {
       case (Symbol("echo"), from: Codec.EPid, ts: BigInt, seq: BigInt) =>
@@ -42,7 +42,7 @@ private object EchoService extends ActorConstructor[EchoService] {
     name: String
   ): ActorBuilder.Builder[EchoService, State.Spawnable] = {
     def maker[PContext <: ProcessContext](process_context: PContext): EchoService = {
-      new EchoService(service_context)(Adapter(process_context, node))
+      new EchoService(service_context)(new Adapter(process_context, node, ClouseauTypeFactory))
     }
 
     ActorBuilder()
@@ -57,7 +57,7 @@ private object EchoService extends ActorConstructor[EchoService] {
     node: SNode,
     name: String,
     config: Configuration
-  ): RIO[EngineWorker & Node & ActorFactory, AddressableActor[_, _]] = {
+  ): ZIO[EngineWorker & Node & ActorFactory, Throwable, AddressableActor[_, _]] = {
     val ctx: ServiceContext[ConfigurationArgs] = {
       new ServiceContext[ConfigurationArgs] {
         val args: ConfigurationArgs = ConfigurationArgs(config)

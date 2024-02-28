@@ -5,7 +5,7 @@ import core.ProcessContext
 import core.MessageEnvelope
 import core.Codec
 
-case class Adapter[C <: ProcessContext](val ctx: C, val node: Node) {
+case class Adapter[C <: ProcessContext, F <: TypeFactory](ctx: C, node: SNode, factory: F) {
   val runtime                              = node.runtime
   def name                                 = ctx.name
   def self                                 = ctx.self
@@ -18,4 +18,10 @@ case class Adapter[C <: ProcessContext](val ctx: C, val node: Node) {
   def monitor(monitored: core.Address)     = ctx.monitor(monitored)
   def demonitor(ref: Codec.ERef)           = ctx.demonitor(ref)
   def makeRef()                            = ctx.makeRef()
+  def toScala(term: Codec.ETerm): Any = {
+    factory.parse(term) match {
+      case Some(msg) => msg
+      case None      => Codec.toScala(term)
+    }
+  }
 }

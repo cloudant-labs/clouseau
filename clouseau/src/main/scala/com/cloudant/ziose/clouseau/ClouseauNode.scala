@@ -1,6 +1,6 @@
 package com.cloudant.ziose.clouseau
 
-import com.cloudant.ziose.scalang.{Node => SNode}
+import com.cloudant.ziose.scalang.SNode
 import com.cloudant.ziose.core
 import core.ProcessContext
 import com.cloudant.ziose.scalang.Service
@@ -11,8 +11,8 @@ import core.Actor
 import core.AddressableActor
 import core.ActorBuilder
 
-class ClouseauNode(worker: core.EngineWorker)(implicit override val runtime: Runtime[core.EngineWorker & core.Node])
-    extends SNode() { self =>
+class ClouseauNode(implicit override val runtime: Runtime[core.EngineWorker & core.Node], worker: core.EngineWorker)
+    extends SNode()(runtime) { self =>
   /*
    * Each service would need to implement a constructor in the following form
    *
@@ -41,7 +41,7 @@ class ClouseauNode(worker: core.EngineWorker)(implicit override val runtime: Run
 
   override def spawnService[TS <: Service[A] with Actor: Tag, A <: Product](
     builder: ActorBuilder.Sealed[TS]
-  )(implicit adapter: Adapter[_]) = {
+  )(implicit adapter: Adapter[_, _]) = {
     val result = Unsafe.unsafe { implicit unsafe =>
       runtime.unsafe
         .run(
@@ -55,7 +55,7 @@ class ClouseauNode(worker: core.EngineWorker)(implicit override val runtime: Run
   override def spawnService[TS <: Service[A] with Actor: Tag, A <: Product](
     builder: ActorBuilder.Sealed[TS],
     reentrant: Boolean
-  )(implicit adapter: Adapter[_]) = {
+  )(implicit adapter: Adapter[_, _]) = {
     // TODO Handle reentrant argument
     val result = Unsafe.unsafe { implicit unsafe =>
       runtime.unsafe

@@ -1,11 +1,7 @@
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.core.Codec._
-
-trait TypeFactory {
-  def createType(name: Symbol, arity: Int, reader: Any): Option[ClouseauMessage]
-  def parse(term: ETerm): Option[ClouseauMessage]
-}
+import com.cloudant.ziose.scalang.TypeFactory
 
 class TermReader // we could just have a reference to mailbox here
 // but we should not remove abstraction
@@ -27,15 +23,7 @@ case class SetPurgeSeqMsg(seq: Long)                            extends Clouseau
 case class SetUpdateSeqMsg(seq: Long)                           extends ClouseauMessage
 
 object ClouseauTypeFactory extends TypeFactory {
-  def createType(name: Symbol, arity: Int, _reader: Any): Option[ClouseauMessage] = {
-    (name, arity) match {
-      case (Symbol("open"), 4) => {
-        // I'll keep this comment for now to remind myself how it is done in original Scalang
-        // Some(OpenIndexMsg(reader.readAs[Pid], reader.readAs[String], reader.readTerm))
-        None // FIXME by properly constructing OpenIndexMsg message
-      }
-    }
-  }
+  type T = ClouseauMessage
 
   def parse(term: ETerm): Option[ClouseauMessage] = {
     term match {

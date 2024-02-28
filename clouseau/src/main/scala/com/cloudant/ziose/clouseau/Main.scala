@@ -42,7 +42,6 @@ object Main extends ZIOAppDefault {
   ): RIO[EngineWorker & Node & ActorFactory, AddressableActor[_, _]] = {
     val clouseauCfg: ClouseauConfiguration = config.clouseau.get
     val nodeCfg: OTPNodeConfig             = config.node
-
     EchoService.start(node, "coordinator", Configuration(clouseauCfg, nodeCfg))
   }
 
@@ -54,7 +53,7 @@ object Main extends ZIOAppDefault {
       remote_node = s"node${nodeCfg.node.name.last}@${nodeCfg.node.domain}"
       _      <- otp_node.monitorRemoteNode(remote_node)
       worker <- ZIO.service[EngineWorker]
-      node   <- ZIO.succeed(new ClouseauNode(worker)(runtime))
+      node   <- ZIO.succeed(new ClouseauNode()(runtime, worker))
       _      <- startCoordinator(node, nodeCfg)
       _      <- worker.awaitShutdown
     } yield ()

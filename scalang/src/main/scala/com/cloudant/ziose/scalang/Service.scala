@@ -13,7 +13,7 @@ import core.MessageEnvelope
 import core.ProcessContext
 import java.util.concurrent.TimeUnit
 
-trait ProcessLike[A <: Adapter[_]] extends core.Actor {
+trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
   type RegName  = Symbol
   type NodeName = Symbol
 
@@ -128,7 +128,7 @@ In clouseau builds we would be running old tests
 In ziose builds we would be running new ones
 
  */
-class Process(implicit val adapter: Adapter[_]) extends ProcessLike[Adapter[_]] {
+class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_, _]] {
   val runtime = adapter.runtime
   val name    = adapter.name
   val self    = adapter.self
@@ -225,7 +225,7 @@ trait ServiceContext[A <: Product] {
   def args: A
 }
 
-class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_]) extends Process()(adapter) {
+class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_, _]) extends Process()(adapter) {
 
   /**
    * Handle a call style of message which will expect a response.
@@ -261,7 +261,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_]
         val fromPid = Pid.toScala(from)
         val result = {
           try {
-            handleCall((fromPid, ref), request)
+            handleCall((fromPid, ref), adapter.toScala(request))
           } catch {
             case err: Throwable => {
               println(s"onMessage Throwable ${err}")
@@ -281,10 +281,10 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_]
         } yield ()
       }
       case Some(ETuple(List(EAtom(Symbol("$gen_cast")), request: Any))) =>
-        ZIO.succeed(handleCast(request))
+        ZIO.succeed(handleCast(adapter.toScala(request)))
       case Some(info: ETerm) => {
         try {
-          return ZIO.succeed(handleInfo(Codec.toScala(info)))
+          return ZIO.succeed(handleInfo(adapter.toScala(info)))
         } catch {
           case err: Throwable => {
             println(s"onMessage Throwable ${err.getMessage()}")
