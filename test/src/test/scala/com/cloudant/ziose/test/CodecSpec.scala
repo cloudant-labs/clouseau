@@ -9,7 +9,7 @@
  */
 package com.cloudant.ziose.test
 
-import com.cloudant.ziose.core.Codec.{EList, EMap, ETerm, ETuple, fromErlang}
+import com.cloudant.ziose.core.Codec.{EList, EMap, ETerm, ETuple, EString, EBoolean, EListImproper, EInt, fromErlang}
 import com.cloudant.ziose.test.helpers.Generators._
 import com.cloudant.ziose.test.helpers.Utils
 import com.ericsson.otp.erlang.{OtpErlangList, OtpErlangMap, OtpErlangObject, OtpErlangTuple}
@@ -155,10 +155,258 @@ class CodecSpec extends JUnitRunnableSpec {
     }
   )
 
+  val listSuite = suite("EList suite:")(
+    test("Proper EList construction") {
+      val list     = new EList(List(EInt(1), EString("hello"), EBoolean(false)), true)
+      val elements = list.elems.toArray
+      assertTrue(list.isProper) &&
+      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
+      assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
+    },
+    test("Proper EList construction via apply of a List") {
+      val list     = EList(List(EInt(1), EString("hello"), EBoolean(false)))
+      val elements = list.elems.toArray
+      assertTrue(list.isProper) &&
+      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
+      assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
+    },
+    test("Proper EList construction via apply of a variable number of args") {
+      val list     = EList(EInt(1), EString("hello"), EBoolean(false))
+      val elements = list.elems.toArray
+      assertTrue(list.isProper) &&
+      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
+      assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
+    },
+    test("Proper EList matching untyped args") {
+      val list = EList(EInt(1), EString("hello"), EBoolean(false))
+      // TODO there must be something better than assertTrue (spec2???)
+      val match_result = list match {
+        case EList(i, s, b) => Option((i, s, b))
+        case _              => None
+      }
+      assertTrue(match_result.isDefined)
+      val (i, s, b) = match_result.get
+      assertTrue(EInt(1) == i.asInstanceOf[EInt]) &&
+      assertTrue(EString("hello") == s.asInstanceOf[EString]) &&
+      assertTrue(EBoolean(false) == b.asInstanceOf[EBoolean])
+    },
+    test("Proper EList matching typed args") {
+      val list = EList(EInt(1), EString("hello"), EBoolean(false))
+      // TODO there must be something better than assertTrue (spec2???)
+      val match_result = list match {
+        case EList(i: EInt, s: EString, b: EBoolean) => Option((i, s, b))
+        case _                                       => None
+      }
+      assertTrue(match_result.isDefined)
+      val (i, s, b) = match_result.get
+      assertTrue(EInt(1) == i) &&
+      assertTrue(EString("hello") == s) &&
+      assertTrue(EBoolean(false) == b)
+    },
+    test("Proper EList matching type") {
+      val list = EList(EInt(1), EString("hello"), EBoolean(false))
+      // TODO there must be something better than assertTrue (spec2???)
+      val match_result = list match {
+        case list: EList if list.isProper => Option(list)
+        case _                            => None
+      }
+      assertTrue(match_result.isDefined)
+      val elements = match_result.get.elems.toArray
+      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
+      assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
+    },
+    test("Proper EList doesn't match untyped args of EListImproper") {
+      val list = EList(EInt(1), EString("hello"), EBoolean(false))
+      // TODO there must be something better than assertTrue (spec2???)
+      val match_result = list match {
+        case EListImproper(i, s, b) => Option((i, s, b))
+        case _                      => None
+      }
+      assertTrue(match_result.isEmpty)
+    },
+    test("Proper EList doesn't match typed args") {
+      val list = EList(EInt(1), EString("hello"), EBoolean(false))
+      // TODO there must be something better than assertTrue (spec2???)
+      val match_result = list match {
+        case EListImproper(i: EInt, s: EString, b: EBoolean) => Option((i, s, b))
+        case _                                               => None
+      }
+      assertTrue(match_result.isEmpty)
+    },
+    test("Proper EList doesn't match type") {
+      val list = EList(EInt(1), EString("hello"), EBoolean(false))
+      // TODO there must be something better than assertTrue (spec2???)
+      val match_result = list match {
+        case list: EList if !list.isProper => Option(list)
+        case _                             => None
+      }
+      assertTrue(match_result.isEmpty)
+    },
+    test("Improper EList construction") {
+      val list     = new EList(List(EInt(1), EString("hello"), EBoolean(false)), false)
+      val elements = list.elems.toArray
+      assertTrue(!list.isProper) &&
+      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
+      assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
+    },
+    test("Improper EList construction via apply of a List") {
+      val list     = EListImproper(List(EInt(1), EString("hello"), EBoolean(false)))
+      val elements = list.elems.toArray
+      assertTrue(!list.isProper) &&
+      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
+      assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
+    },
+    test("Improper EList construction via apply of a variable number of args") {
+      val list     = EListImproper(EInt(1), EString("hello"), EBoolean(false))
+      val elements = list.elems.toArray
+      assertTrue(!list.isProper) &&
+      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
+      assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
+    },
+    test("Improper EList matching untyped args") {
+      val list = EListImproper(EInt(1), EString("hello"), EBoolean(false))
+      // TODO there must be something better than assertTrue (spec2???)
+      val match_result = list match {
+        case EListImproper(i, s, b) => Option((i, s, b))
+        case _                      => None
+      }
+      assertTrue(match_result.isDefined)
+      val (i, s, b) = match_result.get
+      assertTrue(EInt(1) == i.asInstanceOf[EInt]) &&
+      assertTrue(EString("hello") == s.asInstanceOf[EString]) &&
+      assertTrue(EBoolean(false) == b.asInstanceOf[EBoolean])
+    },
+    test("Improper EList matching typed args") {
+      val list = EListImproper(EInt(1), EString("hello"), EBoolean(false))
+      // TODO there must be something better than assertTrue (spec2???)
+      val match_result = list match {
+        case EListImproper(i: EInt, s: EString, b: EBoolean) => Option((i, s, b))
+        case _                                               => None
+      }
+      assertTrue(match_result.isDefined)
+      val (i, s, b) = match_result.get
+      assertTrue(EInt(1) == i) &&
+      assertTrue(EString("hello") == s) &&
+      assertTrue(EBoolean(false) == b)
+    },
+    test("Improper EList matching type") {
+      val list = EListImproper(EInt(1), EString("hello"), EBoolean(false))
+      // TODO there must be something better than assertTrue (spec2???)
+      val match_result = list match {
+        case list: EList if !list.isProper => Option(list)
+        case _                             => None
+      }
+      assertTrue(match_result.isDefined)
+      val elements = match_result.get.elems.toArray
+      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
+      assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
+    },
+    test("Improper EList doesn't match untyped args of EListImproper") {
+      val list = EListImproper(EInt(1), EString("hello"), EBoolean(false))
+      // TODO there must be something better than assertTrue (spec2???)
+      val match_result = list match {
+        case EList(i, s, b) => Option((i, s, b))
+        case _              => None
+      }
+      assertTrue(match_result.isEmpty)
+    },
+    test("Improper EList doesn't match typed args") {
+      val list = EListImproper(EInt(1), EString("hello"), EBoolean(false))
+      // TODO there must be something better than assertTrue (spec2???)
+      val match_result = list match {
+        case EList(i: EInt, s: EString, b: EBoolean) => Option((i, s, b))
+        case _                                       => None
+      }
+      assertTrue(match_result.isEmpty)
+    },
+    test("Improper EList doesn't match type") {
+      val list = EListImproper(EInt(1), EString("hello"), EBoolean(false))
+      // TODO there must be something better than assertTrue (spec2???)
+      val match_result = list match {
+        case list: EList if list.isProper => Option(list)
+        case _                            => None
+      }
+      assertTrue(match_result.isEmpty)
+    }
+  )
+
+  val tupleSuite = suite("ETuple suite:")(
+    test("ETuple construction") {
+      val tuple    = new ETuple(List(EInt(1), EString("hello"), EBoolean(false)))
+      val elements = tuple.elems.toArray
+      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
+      assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
+    },
+    test("ETuple construction via apply of a List") {
+      val tuple    = EList(List(EInt(1), EString("hello"), EBoolean(false)))
+      val elements = tuple.elems.toArray
+      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
+      assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
+    },
+    test("ETuple construction via apply of a variable number of args") {
+      val tuple    = EList(EInt(1), EString("hello"), EBoolean(false))
+      val elements = tuple.elems.toArray
+      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
+      assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
+    },
+    test("ETuple matching untyped args") {
+      val tuple = ETuple(EInt(1), EString("hello"), EBoolean(false))
+      // TODO there must be something better than assertTrue (spec2???)
+      val match_result = tuple match {
+        case ETuple(i, s, b) => Option((i, s, b))
+        case _               => None
+      }
+      assertTrue(match_result.isDefined)
+      val (i, s, b) = match_result.get
+      assertTrue(EInt(1) == i.asInstanceOf[EInt]) &&
+      assertTrue(EString("hello") == s.asInstanceOf[EString]) &&
+      assertTrue(EBoolean(false) == b.asInstanceOf[EBoolean])
+    },
+    test("ETuple matching typed args") {
+      val tuple = ETuple(EInt(1), EString("hello"), EBoolean(false))
+      // TODO there must be something better than assertTrue (spec2???)
+      val match_result = tuple match {
+        case ETuple(i: EInt, s: EString, b: EBoolean) => Option((i, s, b))
+        case _                                        => None
+      }
+      assertTrue(match_result.isDefined)
+      val (i, s, b) = match_result.get
+      assertTrue(EInt(1) == i) &&
+      assertTrue(EString("hello") == s) &&
+      assertTrue(EBoolean(false) == b)
+    },
+    test("ETuple matching type") {
+      val tuple = ETuple(EInt(1), EString("hello"), EBoolean(false))
+      // TODO there must be something better than assertTrue (spec2???)
+      val match_result = tuple match {
+        case tuple: ETuple => Option(tuple)
+        case _             => None
+      }
+      assertTrue(match_result.isDefined)
+      val elements = match_result.get.elems.toArray
+      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
+      assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
+    }
+  )
+
   def spec = suite("CodecSpec")(
     listContainer,
     tupleContainer @@ ifPropSet("ZIOSE_TEST_Generators"),
     mapContainer,
-    termSuite
+    termSuite,
+    listSuite,
+    tupleSuite
   ).provide(environment)
 }

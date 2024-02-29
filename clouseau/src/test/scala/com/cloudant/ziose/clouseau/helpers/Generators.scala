@@ -114,7 +114,7 @@ object Generators {
     } yield {
       pairs.foreach(i => linkedHashMap.put(EAtom(Symbol(i._1)), i._2))
       (
-        ETuple(List(EAtom(Symbol("search")), EMap(linkedHashMap))),
+        ETuple(EAtom(Symbol("search")), EMap(linkedHashMap)),
         SearchRequest((keys.map(Symbol(_)) zip values.map(toScala _)).toMap)
       )
     }

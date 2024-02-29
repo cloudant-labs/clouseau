@@ -136,7 +136,14 @@ object Generators {
    * For example the `listContainerE(n, oneOf(intE, longE))` would produce list of integers.
    */
   def listContainerE(g: Gen[Any, List[ETerm]]): Gen[Any, ETerm] = suspend {
-    for { children <- g } yield EList(children)
+    for {
+      maybeIsProper <- boolean
+      children      <- g
+      isProper = {
+        if (children.size < 2) { true }
+        else { maybeIsProper }
+      }
+    } yield new EList(children, isProper)
   }
 
   /**
@@ -464,9 +471,14 @@ object Generators {
    */
   def listContainerP(g: Gen[Any, List[SamplePair]]): Gen[Any, SamplePair] = suspend {
     for {
-      children <- g
+      maybeIsProper <- boolean
+      children      <- g
+      isProper = {
+        if (children.size < 2) { true }
+        else { maybeIsProper }
+      }
       (eTerms, otpTerms) = children.unzip
-    } yield (EList(eTerms), new OtpErlangList(otpTerms.toArray))
+    } yield (new EList(eTerms, isProper), otpList(otpTerms, isProper))
   }
 
   /**
@@ -656,9 +668,14 @@ object Generators {
    */
   def listContainerEq(g: Gen[Any, List[EqPair]]): Gen[Any, EqPair] = suspend {
     for {
-      children <- g
+      maybeIsProper <- boolean
+      children      <- g
+      isProper = {
+        if (children.size < 2) { true }
+        else { maybeIsProper }
+      }
       (aTerms, bTerms) = children.unzip
-    } yield (EList(aTerms), EList(bTerms))
+    } yield (new EList(aTerms, isProper), new EList(bTerms, isProper))
   }
 
   /**
@@ -737,5 +754,15 @@ object Generators {
    */
   private def liftE(g: Gen[Any, ETerm]): Gen[Any, SamplePair] = {
     for { e <- g } yield (e, new OtpErlangList())
+  }
+
+  def otpList(otpTerms: List[OtpErlangObject], isProper: Boolean) = {
+    if (isProper) {
+      new OtpErlangList(otpTerms.toArray)
+    } else {
+      val head = otpTerms.dropRight(1)
+      val tail = otpTerms.takeRight(1).head
+      new OtpErlangList(head.toArray, tail)
+    }
   }
 }
