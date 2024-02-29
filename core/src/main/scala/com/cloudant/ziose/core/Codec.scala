@@ -80,10 +80,72 @@ object Codec {
     override def toString: String                   = s"\"$str\""
   }
 
-  case class EList(elems: List[ETerm]) extends ETerm {
-    def this(obj: OtpErlangList) = this(obj.elements.map(fromErlang).toList)
-    override def toOtpErlangObject: OtpErlangList = new OtpErlangList(elems.map(_.toOtpErlangObject).toArray)
-    override def toString: String                 = s"[${elems.mkString(",")}]"
+  class EList(val elems: List[ETerm], val isProper: Boolean = true)
+      extends ETerm
+      with scala.collection.LinearSeq[ETerm] {
+    def this(obj: OtpErlangList) = this(EList.maybeImproper(obj), obj.isProper)
+    override def hashCode: Int = elems.hashCode() + isProper.hashCode()
+    override def equals(other: Any): Boolean = {
+      other match {
+        case other: EList if other.isProper == isProper => elems.equals(other.elems)
+        case _                                          => false
+      }
+    }
+    override def toOtpErlangObject: OtpErlangList = {
+      if (isProper) {
+        new OtpErlangList(elems.map(_.toOtpErlangObject).toArray)
+      } else {
+        val head = elems.dropRight(1)
+        val tail = elems.takeRight(1).head
+        new OtpErlangList(head.map(_.toOtpErlangObject).toArray, tail.toOtpErlangObject)
+      }
+    }
+    override def toString: String = {
+      if (isProper) {
+        s"[${elems.mkString(",")}]"
+      } else {
+        val head = elems.dropRight(1)
+        val tail = elems.takeRight(1).head
+        s"[${head.mkString(",")}|$tail]"
+      }
+    }
+    override def isEmpty        = elems.isEmpty
+    override def head           = elems.head
+    override def tail           = new EList(elems.tail, isProper)
+    override def knownSize: Int = elems.knownSize
+    def ::(head: ETerm)         = new EList(head :: this.elems, isProper)
+  }
+
+  object EList {
+    def apply(xs: List[ETerm]) = new EList(xs, true)
+    def apply(xs: ETerm*)      = new EList(xs.toList, true)
+
+    def unapplySeq(x: EList): Option[List[ETerm]] = {
+      if (x.isProper) { Some(x.toList) }
+      else { None }
+    }
+
+    def maybeImproper(obj: OtpErlangList): List[ETerm] = {
+      if (obj.isProper) {
+        obj.elements.map(fromErlang).toList
+      } else {
+        val head = obj.elements.map(fromErlang).toList
+        val tail = fromErlang(obj.getLastTail)
+        head :+ tail
+      }
+    }
+  }
+
+  class EListImproper
+
+  object EListImproper {
+    def apply(xs: List[ETerm]) = new EList(xs, false)
+    def apply(xs: ETerm*)      = new EList(xs.toList, false)
+
+    def unapplySeq(x: EList): Option[List[ETerm]] = {
+      if (x.isProper) { None }
+      else { Some(x.toList) }
+    }
   }
 
   case class EMap(mapLH: mutable.LinkedHashMap[ETerm, ETerm]) extends ETerm {
