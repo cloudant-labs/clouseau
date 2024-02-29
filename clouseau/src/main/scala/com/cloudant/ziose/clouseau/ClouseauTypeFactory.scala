@@ -27,45 +27,43 @@ object ClouseauTypeFactory extends TypeFactory {
 
   def parse(term: ETerm): Option[ClouseauMessage] = {
     term match {
-      case ETuple(List(EAtom(Symbol("cleanup")), EString(dbName), EList(activeSigs))) =>
-        Some(CleanupDbMsg(dbName, activeSigs.map(_.asInstanceOf[EString].str)))
-      case ETuple(List(EAtom(Symbol("cleanup")), EString(path))) =>
+      case ETuple(EAtom(Symbol("cleanup")), EString(dbName), activeSigs: EList) =>
+        Some(CleanupDbMsg(dbName, activeSigs.toList.map(_.asInstanceOf[EString].str)))
+      case ETuple(EAtom(Symbol("cleanup")), EString(path)) =>
         Some(CleanupPathMsg(path))
-      case ETuple(List(EAtom(Symbol("close_lru_by_path")), EString(path))) =>
+      case ETuple(EAtom(Symbol("close_lru_by_path")), EString(path)) =>
         Some(CloseLRUByPathMsg(path))
-      case ETuple(List(EAtom(Symbol("commit")), ELong(seq))) =>
+      case ETuple(EAtom(Symbol("commit")), ELong(seq)) =>
         Some(CommitMsg(seq.toLong))
-      case ETuple(List(EAtom(Symbol("delete")), EString(id))) =>
+      case ETuple(EAtom(Symbol("delete")), EString(id)) =>
         Some(DeleteDocMsg(id))
-      case ETuple(List(EAtom(Symbol("disk_size")), EString(path))) =>
+      case ETuple(EAtom(Symbol("disk_size")), EString(path)) =>
         Some(DiskSizeMsg(path))
       case ETuple(
-            List(
-              EAtom(Symbol("group1")),
-              EString(query),
-              EString(field),
-              EBoolean(refresh),
-              groupSort,
-              EInt(groupOffset),
-              EInt(groupLimit)
-            )
+            EAtom(Symbol("group1")),
+            EString(query),
+            EString(field),
+            EBoolean(refresh),
+            groupSort,
+            EInt(groupOffset),
+            EInt(groupLimit)
           ) =>
         Some(Group1Msg(query, field, refresh, groupSort, groupOffset, groupLimit))
-      case ETuple(List(EAtom(Symbol("group2")), EMap(options))) =>
+      case ETuple(EAtom(Symbol("group2")), EMap(options)) =>
         Some(Group2Msg(options.foldLeft(Map.empty[Symbol, Any]) { case (map, (k, v)) =>
           map + (k.asInstanceOf[EAtom].atom -> toScala(v))
         }))
-      case ETuple(List(EAtom(Symbol("open")), peer, EString(path), options)) =>
+      case ETuple(EAtom(Symbol("open")), peer, EString(path), options) =>
         Some(OpenIndexMsg(peer.asInstanceOf[EPid], path, options))
-      case ETuple(List(EAtom(Symbol("rename")), EString(dbName))) =>
+      case ETuple(EAtom(Symbol("rename")), EString(dbName)) =>
         Some(RenamePathMsg(dbName))
-      case ETuple(List(EAtom(Symbol("search")), EMap(options))) =>
+      case ETuple(EAtom(Symbol("search")), EMap(options)) =>
         Some(SearchRequest(options.foldLeft(Map.empty[Symbol, Any]) { case (map, (k, v)) =>
           map + (k.asInstanceOf[EAtom].atom -> toScala(v))
         }))
-      case ETuple(List(EAtom(Symbol("set_purge_seq")), ELong(seq))) =>
+      case ETuple(EAtom(Symbol("set_purge_seq")), ELong(seq)) =>
         Some(SetPurgeSeqMsg(seq.toLong))
-      case ETuple(List(EAtom(Symbol("set_update_seq")), ELong(seq))) =>
+      case ETuple(EAtom(Symbol("set_update_seq")), ELong(seq)) =>
         Some(SetUpdateSeqMsg(seq.toLong))
       case _ => None
     }

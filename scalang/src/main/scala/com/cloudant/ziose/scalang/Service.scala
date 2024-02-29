@@ -253,11 +253,11 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     ctx: PContext
   ): ZIO[Any, Throwable, Unit] = {
     event.getPayload match {
-      case Some(ETuple(List(EAtom(Symbol("ping")), from: EPid, ref: ERef))) => {
+      case Some(ETuple(EAtom(Symbol("ping")), from: EPid, ref: ERef)) => {
         val address = Address.fromPid(from, self.workerId)
         adapter.send(MessageEnvelope.makeSend(address, Codec.fromScala((Symbol("pong"), ref)), self.workerId)).unit
       }
-      case Some(ETuple(List(EAtom(Symbol("$gen_call")), ETuple(List(from: EPid, ref: ERef)), request: ETerm))) => {
+      case Some(ETuple(EAtom(Symbol("$gen_call")), ETuple(from: EPid, ref: ERef), request: ETerm)) => {
         val fromPid = Pid.toScala(from)
         val result = {
           try {
@@ -280,7 +280,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           }
         } yield ()
       }
-      case Some(ETuple(List(EAtom(Symbol("$gen_cast")), request: Any))) =>
+      case Some(ETuple(EAtom(Symbol("$gen_cast")), request: ETerm)) =>
         ZIO.succeed(handleCast(adapter.toScala(request)))
       case Some(info: ETerm) => {
         try {
