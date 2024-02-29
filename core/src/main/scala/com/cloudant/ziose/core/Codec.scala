@@ -236,8 +236,8 @@ object Codec {
       map.mapLH.foldLeft(Map.empty[Any, Any]) { case (newMap, (k: ETerm, v: ETerm)) =>
         newMap + (toScala(k) -> toScala(v))
       }
-    // TODO ambiguous result
-    case binary: EBinary    => binary.payload
+    // *Important* clouseau encodes strings as binaries
+    case binary: EBinary    => binary.payload.map(_.toChar).mkString
     case bitstr: EBitString => bitstr.payload
   }
 
@@ -275,15 +275,16 @@ object Codec {
   }
 
   def fromScala(scala: Any): ETerm = scala match {
-    case e: ETerm       => e
-    case b: Boolean     => EBoolean(b)
-    case a: Symbol      => EAtom(a)
-    case i: Int         => EInt(i)
-    case l: BigInt      => ELong(l)
-    case s: String      => EString(s)
+    case e: ETerm   => e
+    case b: Boolean => EBoolean(b)
+    case a: Symbol  => EAtom(a)
+    case i: Int     => EInt(i)
+    case l: BigInt  => ELong(l)
+    // *Important* clouseau encodes strings as binaries
+    case s: String      => EBinary(s.getBytes)
+    case list: List[_]  => new EList(list.map(fromScala), true)
+    case list: Seq[_]   => new EList(List.from(list.map(fromScala)), true)
     case tuple: Product => ETuple(tuple.productIterator.map(fromScala).toList)
-    case list: List[_]  => EList(list.map(fromScala))
-    case list: Seq[_]   => EList(List.from(list.map(fromScala)))
     case m: Map[_, _] =>
       EMap(mutable.LinkedHashMap.from(m map { case (k, v) =>
         (fromScala(k), fromScala(v))
