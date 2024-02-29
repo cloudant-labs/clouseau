@@ -50,6 +50,7 @@ object Codec {
     override def toString: String                = s"<$id.$serial.$creation>"
   }
 
+  // TODO support EAtom("bla") syntax
   case class EAtom(atom: Symbol) extends ETerm {
     def this(obj: OtpErlangAtom) = this(Symbol(obj.atomValue))
     override def toOtpErlangObject: OtpErlangAtom = new OtpErlangAtom(atom.name)
