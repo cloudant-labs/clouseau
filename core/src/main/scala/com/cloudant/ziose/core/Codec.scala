@@ -164,10 +164,27 @@ object Codec {
     override def toString: String = s"#{${this.mapLH.map(_.productIterator.mkString(" => ")).mkString(",")}}"
   }
 
-  case class ETuple(elems: List[ETerm]) extends ETerm {
+  class ETuple(val elems: List[ETerm]) extends ETerm {
     def this(obj: OtpErlangTuple) = this(obj.elements.map(fromErlang).toList)
+    override def hashCode: Int = elems.hashCode()
+    override def equals(other: Any): Boolean = {
+      other match {
+        case other: ETuple => elems.equals(other.elems)
+        case _             => false
+      }
+    }
+
     override def toOtpErlangObject: OtpErlangTuple = new OtpErlangTuple(elems.map(_.toOtpErlangObject).toArray)
     override def toString: String                  = s"{${elems.mkString(",")}}"
+  }
+
+  object ETuple {
+    def apply(xs: List[ETerm]) = new ETuple(xs)
+    def apply(xs: ETerm*)      = new ETuple(xs.toList)
+
+    def unapplySeq(x: ETuple): Option[List[ETerm]] = {
+      Some(x.elems)
+    }
   }
 
   // TODO add tests
