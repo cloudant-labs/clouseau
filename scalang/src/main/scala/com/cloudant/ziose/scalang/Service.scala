@@ -258,6 +258,24 @@ trait ServiceContext[A <: Product] {
   def args: A
 }
 
+class PidSend(to: Pid, proc: Process) {
+  def !(msg: Any): Unit = {
+    proc.sendZIO(to, msg)
+  }
+}
+
+class SymSend(to: Symbol, proc: Process) {
+  def !(msg: Any): Unit = {
+    proc.sendZIO(to, msg)
+  }
+}
+
+class DestSend(to: (Symbol, Symbol), from: Pid, proc: Process) {
+  def !(msg: Any): Unit = {
+    proc.sendZIO(to, from, msg)
+  }
+}
+
 class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_, _]) extends Process()(adapter) {
 
   /**
@@ -359,22 +377,4 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
   def cast(to: Pid, msg: Any)                 = node.cast(to, msg)
   def cast(to: Symbol, msg: Any)              = node.cast(to, msg)
   def cast(to: (RegName, NodeName), msg: Any) = node.cast(to, msg)
-}
-
-class PidSend(to: Pid, proc: Process) {
-  def !(msg: Any): Unit = {
-    proc.sendZIO(to, msg)
-  }
-}
-
-class SymSend(to: Symbol, proc: Process) {
-  def !(msg: Any): Unit = {
-    proc.sendZIO(to, msg)
-  }
-}
-
-class DestSend(to: (Symbol, Symbol), from: Pid, proc: Process) {
-  def !(msg: Any): Unit = {
-    proc.sendZIO(to, from, msg)
-  }
 }
