@@ -138,11 +138,40 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
   val self    = adapter.self
   val node    = adapter.node
 
-  // Original scalang has following API functions defined
-  // - `def sendEvery(pid : Pid, msg : Any, delay : Long) =`
-  // - `def sendEvery(name : Symbol, msg : Any, delay : Long) =`
-  // - `def sendEvery(dest : (RegName, NodeName), msg : Any, delay : Long) =`
-  // TODO: Verify how we use them in Clouseau and implement (with help of `sendEveryZIO`) if we need them
+  implicit def pid2sendable(pid: core.PID): PidSend            = new PidSend(pid, this)
+  implicit def pid2sendable(pid: Pid): PidSend                 = new PidSend(pid, this)
+  implicit def sym2sendable(to: Symbol): SymSend               = new SymSend(to, this)
+  implicit def dest2sendable(dest: (Symbol, Symbol)): DestSend = new DestSend(dest, self, this)
+
+  def sendEvery(pid: Pid, msg: Any, delay: Long) = {
+    Unsafe.unsafe { implicit unsafe =>
+      runtime.unsafe
+        .run(
+          sendEveryZIO(pid, msg, delay)
+        )
+        .getOrThrowFiberFailure() // TODO: TBD should we kill the caller
+    }
+  }
+
+  def sendEvery(name: Symbol, msg: Any, delay: Long) = {
+    Unsafe.unsafe { implicit unsafe =>
+      runtime.unsafe
+        .run(
+          sendEveryZIO(name, msg, delay)
+        )
+        .getOrThrowFiberFailure() // TODO: TBD should we kill the caller
+    }
+  }
+
+  def sendEvery(dest: (RegName, NodeName), msg: Any, delay: Long) = {
+    Unsafe.unsafe { implicit unsafe =>
+      runtime.unsafe
+        .run(
+          sendEveryZIO(dest, msg, delay)
+        )
+        .getOrThrowFiberFailure() // TODO: TBD should we kill the caller
+    }
+  }
 
   def sendEveryZIO(pid: Pid, msg: Any, delay: Long) = {
     val effect = for {
