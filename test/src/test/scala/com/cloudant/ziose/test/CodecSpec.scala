@@ -20,6 +20,7 @@ import zio.test.TestAspect.ifPropSet
 import zio.test.{Gen, assertTrue, check}
 import zio.ZIO.logDebug
 import zio.{Clock, Random, ZLayer}
+import com.cloudant.ziose.core.Codec
 
 @RunWith(classOf[ZTestJUnitRunner])
 class CodecSpec extends JUnitRunnableSpec {
@@ -398,6 +399,11 @@ class CodecSpec extends JUnitRunnableSpec {
       assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
       assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
+    },
+    test("ETuple toScala/fromScala for arity 0") {
+      val term = ETuple()
+      assertTrue(() == Codec.toScala(term)) &&
+      assertTrue(term == Codec.fromScala(()).asInstanceOf[ETuple])
     }
   )
 

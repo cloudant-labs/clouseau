@@ -287,6 +287,7 @@ object Codec {
     case list: List[_]  => new EList(list.map(fromScala), true)
     case list: Seq[_]   => new EList(List.from(list.map(fromScala)), true)
     case tuple: Product => ETuple(tuple.productIterator.map(fromScala).toList)
+    case tuple: Unit    => ETuple()
     case m: Map[_, _] =>
       EMap(mutable.LinkedHashMap.from(m map { case (k, v) =>
         (fromScala(k), fromScala(v))
