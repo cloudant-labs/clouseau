@@ -328,11 +328,11 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           for {
             _ <- result match {
               case (Symbol("reply"), reply) =>
-                sendZIO(fromPid, (makeTag(ref), reply))
+                sendZIO(fromPid, (makeTag(ref), reply)) &> ZIO.unit
               case Symbol("noreply") =>
                 ZIO.succeed(())
               case reply =>
-                sendZIO(fromPid, Codec.fromScala((ref, reply)))
+                sendZIO(fromPid, Codec.fromScala((ref, reply))) &> ZIO.unit
             }
           } yield ()
         } catch {
@@ -342,24 +342,24 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
         }
       }
       case Some(ETuple(EAtom(Symbol("$gen_cast")), request: ETerm)) =>
-        ZIO.succeed(handleCast(adapter.toScala(request)))
+        ZIO.succeed(handleCast(adapter.toScala(request))) &> ZIO.unit
       case Some(info: ETerm) => {
         try {
-          return ZIO.succeed(handleInfo(adapter.toScala(info)))
+          ZIO.succeed(handleInfo(adapter.toScala(info))) &> ZIO.unit
         } catch {
           case err: Throwable => {
             println(s"onMessage Throwable ${err.getMessage()}")
-            return ZIO.fail(err)
+            ZIO.fail(err)
           }
         }
       }
       case Some(info) => {
         try {
-          return ZIO.succeed(handleInfo(info))
+          ZIO.succeed(handleInfo(info)) &> ZIO.unit
         } catch {
           case err: Throwable => {
             println(s"onMessage Throwable ${err.getMessage()}")
-            return ZIO.fail(err)
+            ZIO.fail(err)
           }
         }
       }
