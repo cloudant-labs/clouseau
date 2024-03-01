@@ -71,7 +71,7 @@ object ClouseauSupervisor extends ActorConstructor[ClouseauSupervisor] {
     ActorBuilder()
       // TODO get capacity from config
       .withCapacity(16)
-      .withName("ClouseauSupervisor")
+      .withName("sup")
       .withMaker(maker)
       .build(this)
   }
