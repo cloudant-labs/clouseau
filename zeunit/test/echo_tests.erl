@@ -17,7 +17,9 @@ onMessage_test_() ->
                 fun t_canary/0,
                 fun t_node/0,
                 fun t_echo_success/0,
-                fun t_echo_failure/0
+                fun t_echo_failure/0,
+                fun t_call_echo/0,
+                fun t_call_version/0
             ]
         }
     }.
@@ -36,6 +38,12 @@ t_echo_success() ->
 t_echo_failure() ->
     {coordinator, ?NodeZ} ! {echo, self(), unexpected_msg},
     ?assertEqual({error, timeout}, receive_msg()).
+
+t_call_echo() ->
+    ?assertEqual({echo, {}}, gen_server:call({coordinator, ?NodeZ}, {echo, {}})).
+
+t_call_version() ->
+    ?assertEqual(<<"0.1.0">>, gen_server:call({coordinator, ?NodeZ}, version)).
 
 %%%%%%%%%%%%%%% Utility Functions %%%%%%%%%%%%%%%
 setup() ->
