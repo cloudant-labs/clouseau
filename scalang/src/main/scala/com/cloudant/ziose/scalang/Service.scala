@@ -311,7 +311,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     event.getPayload match {
       case Some(ETuple(EAtom(Symbol("ping")), from: EPid, ref: ERef)) => {
         val fromPid = Pid.toScala(from)
-        sendZIO(fromPid, (Symbol("pong"), ref)) &> ZIO.unit
+        sendZIO(fromPid, (Symbol("pong"), ref))
       }
       case Some(
             ETuple(
@@ -328,11 +328,11 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           for {
             _ <- result match {
               case (Symbol("reply"), reply) =>
-                sendZIO(fromPid, (makeTag(ref), reply)) &> ZIO.unit
+                sendZIO(fromPid, (makeTag(ref), reply))
               case Symbol("noreply") =>
-                ZIO.succeed(())
+                ZIO.unit
               case reply =>
-                sendZIO(fromPid, Codec.fromScala((ref, reply))) &> ZIO.unit
+                sendZIO(fromPid, Codec.fromScala((ref, reply)))
             }
           } yield ()
         } catch {
