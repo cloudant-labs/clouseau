@@ -8,6 +8,7 @@ import core.Codec.EPid
 import core.Codec.ERef
 import core.Codec.ETerm
 import core.Codec.ETuple
+import core.Codec.EListImproper
 import core.Address
 import core.MessageEnvelope
 import core.ProcessContext
@@ -16,6 +17,9 @@ import java.util.concurrent.TimeUnit
 trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
   type RegName  = Symbol
   type NodeName = Symbol
+
+  /// We are not accessing this type directly in Clouseau
+  type Mailbox = Unit
 
   val adapter: A
   def self: Address
@@ -248,6 +252,11 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     throw new Exception(getClass.toString + " did not define an info handler.")
   }
 
+  // OTP uses improper list in `gen.erl`
+  // https://github.com/erlang/otp/blob/master/lib/stdlib/src/gen.erl#L252C11-L252C20
+  //  Tag = [alias | Mref],
+  def makeTag(ref: ERef) = EListImproper(EAtom(Symbol("alias")), ref)
+
   override def onMessage[PContext <: ProcessContext](
     event: MessageEnvelope,
     ctx: PContext
@@ -257,28 +266,33 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
         val address = Address.fromPid(from, self.workerId)
         adapter.send(MessageEnvelope.makeSend(address, Codec.fromScala((Symbol("pong"), ref)), self.workerId)).unit
       }
-      case Some(ETuple(EAtom(Symbol("$gen_call")), ETuple(from: EPid, ref: ERef), request: ETerm)) => {
+      case Some(
+            ETuple(
+              EAtom(Symbol("$gen_call")),
+              // Match on {pid(), [alias | ref()]}
+              ETuple(from: EPid, EListImproper(EAtom(Symbol("alias")), ref: ERef)),
+              request: ETerm
+            )
+          ) => {
+
         val fromPid = Pid.toScala(from)
-        val result = {
-          try {
-            handleCall((fromPid, ref), adapter.toScala(request))
-          } catch {
-            case err: Throwable => {
-              println(s"onMessage Throwable ${err}")
-              return ZIO.fail(err)
+        try {
+          val result = handleCall((fromPid, ref), adapter.toScala(request))
+          for {
+            _ <- result match {
+              case (Symbol("reply"), reply) =>
+                sendZIO(fromPid, (makeTag(ref), reply))
+              case Symbol("noreply") =>
+                ZIO.succeed(())
+              case reply =>
+                sendZIO(fromPid, Codec.fromScala((ref, reply)))
             }
+          } yield ()
+        } catch {
+          case err: Throwable => {
+            ZIO.fail(err)
           }
         }
-        for {
-          _ <- result match {
-            case (Symbol("reply"), reply) =>
-              sendZIO(fromPid, (ref, reply))
-            case Symbol("noreply") =>
-              ZIO.succeed(())
-            case reply =>
-              sendZIO(fromPid, (ref, reply))
-          }
-        } yield ()
       }
       case Some(ETuple(EAtom(Symbol("$gen_cast")), request: ETerm)) =>
         ZIO.succeed(handleCast(adapter.toScala(request)))

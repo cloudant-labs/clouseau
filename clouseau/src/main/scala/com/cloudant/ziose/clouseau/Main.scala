@@ -3,8 +3,10 @@ sbt 'clouseau/runMain com.cloudant.ziose.clouseau.Main'
  */
 package com.cloudant.ziose.clouseau
 
-import com.cloudant.ziose.core.{ActorFactory, AddressableActor, EngineWorker, Node}
-import com.cloudant.ziose.otp.{OTPActorFactory, OTPEngineWorker, OTPNode, OTPNodeConfig}
+import _root_.com.cloudant.ziose.core
+import core.{ActorFactory, AddressableActor, EngineWorker, Node}
+import _root_.com.cloudant.ziose.otp
+import otp.{OTPActorFactory, OTPEngineWorker, OTPNode, OTPNodeConfig}
 import zio.config.magnolia.deriveConfig
 import zio.config.typesafe.FromConfigSourceTypesafe
 import zio.logging.{ConsoleLoggerConfig, LogFilter, LogFormat, consoleLogger}
