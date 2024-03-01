@@ -263,8 +263,8 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
   ): ZIO[Any, Throwable, Unit] = {
     event.getPayload match {
       case Some(ETuple(EAtom(Symbol("ping")), from: EPid, ref: ERef)) => {
-        val address = Address.fromPid(from, self.workerId)
-        adapter.send(MessageEnvelope.makeSend(address, Codec.fromScala((Symbol("pong"), ref)), self.workerId)).unit
+        val fromPid = Pid.toScala(from)
+        sendZIO(fromPid, (Symbol("pong"), ref)) &> ZIO.unit
       }
       case Some(
             ETuple(
