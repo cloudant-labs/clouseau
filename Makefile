@@ -84,8 +84,12 @@ deps:
 	@echo "==> downloading dependencies..."
 	@sbt update
 
+.PHONY: all-tests
+# target: test - Run all test suites
+all-tests: test zeunit
+
 .PHONY: test
-# target: test - Run all tests
+# target: test - Run all Scala tests
 # coverage is commented out due to conflict in dependencies it can be enabled
 # when we update zio-config
 test: build mkdir-artifacts
@@ -223,7 +227,7 @@ linter-in-docker: login-artifactory-docker
 	@cp $(ARTIFACTS_DIR)/*.log $(CI_ARTIFACTS_DIR)
 
 build-in-docker: login-artifactory-docker
-	@$(call docker_func,test)
+	@$(call docker_func,all-tests)
 	@find $(ARTIFACTS_DIR)/
 	@cp -R $(ARTIFACTS_DIR)/* $(CI_ARTIFACTS_DIR)
 
