@@ -337,6 +337,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           } yield ()
         } catch {
           case err: Throwable => {
+            println(s"onMessage Throwable ${err.getMessage()}")
             ZIO.fail(err)
           }
         }
@@ -354,6 +355,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
         }
       }
       case Some(info) => {
+        println(s"nothing matched but it is not a ETerm $info")
         try {
           ZIO.succeed(handleInfo(info)) &> ZIO.unit
         } catch {
