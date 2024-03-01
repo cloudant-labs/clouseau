@@ -165,6 +165,7 @@ object Codec {
     override def toString: String = s"#{${this.mapLH.map(_.productIterator.mkString(" => ")).mkString(",")}}"
   }
 
+  // TODO switch to Array for internal container
   class ETuple(val elems: List[ETerm]) extends ETerm {
     def this(obj: OtpErlangTuple) = this(obj.elements.map(fromErlang).toList)
     override def hashCode: Int = elems.hashCode()
