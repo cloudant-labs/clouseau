@@ -14,6 +14,21 @@ import core.MessageEnvelope
 import core.ProcessContext
 import java.util.concurrent.TimeUnit
 
+trait Error                                  extends Throwable {}
+case class HandleCallCBError(err: Throwable) extends Error
+case class HandleCastCBError(err: Throwable) extends Error
+case class HandleInfoCBError(err: Throwable) extends Error
+case class UnreachableError()                extends Error
+case class HandleCallUndefined(className: String) extends Error {
+  override def toString(): String = "HandleCallUndefined(" + className + ") did not define a call handler"
+}
+case class HandleCastUndefined(className: String) extends Error {
+  override def toString(): String = "HandleCastUndefined(" + className + ") did not define a cast handler"
+}
+case class HandleInfoUndefined(className: String) extends Error {
+  override def toString(): String = "HandleInfoUndefined(" + className + ") did not define a info handler"
+}
+
 trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
   type RegName  = Symbol
   type NodeName = Symbol
@@ -282,21 +297,21 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
    * Handle a call style of message which will expect a response.
    */
   def handleCall(tag: (Pid, Any), request: Any): Any = {
-    throw new Exception(getClass.toString + " did not define a call handler.")
+    throw HandleCallUndefined(getClass.toString)
   }
 
   /**
    * Handle a cast style of message which will receive no response.
    */
   def handleCast(request: Any): Any = {
-    throw new Exception(getClass.toString + " did not define a cast handler.")
+    throw HandleCastUndefined(getClass.toString)
   }
 
   /**
    * Handle any messages that do not fit the call or cast pattern.
    */
   def handleInfo(request: Any): Any = {
-    throw new Exception(getClass.toString + " did not define an info handler.")
+    throw HandleInfoUndefined(getClass.toString)
   }
 
   // OTP uses improper list in `gen.erl`
@@ -338,34 +353,42 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
         } catch {
           case err: Throwable => {
             println(s"onMessage Throwable ${err.getMessage()}")
-            ZIO.fail(err)
+            ZIO.fail(HandleCallCBError(err))
           }
         }
       }
-      case Some(ETuple(EAtom(Symbol("$gen_cast")), request: ETerm)) =>
-        ZIO.succeed(handleCast(adapter.toScala(request))) &> ZIO.unit
-      case Some(info: ETerm) => {
+      case Some(ETuple(EAtom(Symbol("$gen_cast")), request: ETerm)) => {
         try {
-          ZIO.succeed(handleInfo(adapter.toScala(info))) &> ZIO.unit
+          ZIO.succeed(handleCast(adapter.toScala(request))).unit
         } catch {
           case err: Throwable => {
             println(s"onMessage Throwable ${err.getMessage()}")
-            ZIO.fail(err)
+            ZIO.fail(HandleCastCBError(err))
+          }
+        }
+      }
+      case Some(info: ETerm) => {
+        try {
+          ZIO.succeed(handleInfo(adapter.toScala(info))).unit
+        } catch {
+          case err: Throwable => {
+            println(s"onMessage Throwable ${err.getMessage()}")
+            ZIO.fail(HandleInfoCBError(err))
           }
         }
       }
       case Some(info) => {
         println(s"nothing matched but it is not a ETerm $info")
         try {
-          ZIO.succeed(handleInfo(info)) &> ZIO.unit
+          ZIO.succeed(handleInfo(info)).unit
         } catch {
           case err: Throwable => {
             println(s"onMessage Throwable ${err.getMessage()}")
-            ZIO.fail(err)
+            ZIO.fail(HandleInfoCBError(err))
           }
         }
       }
-      case None => ??? // shouldn't happen
+      case None => ZIO.fail(UnreachableError())
     }
   }
 
