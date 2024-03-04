@@ -43,7 +43,7 @@ t_call_echo() ->
     ?assertEqual({echo, {}}, gen_server:call({coordinator, ?NodeZ}, {echo, {}})).
 
 t_call_version() ->
-    ?assertEqual(<<"0.1.0">>, gen_server:call({coordinator, ?NodeZ}, version)).
+    ?assertEqual(<<"3.0.0">>, gen_server:call({coordinator, ?NodeZ}, version)).
 
 %%%%%%%%%%%%%%% Utility Functions %%%%%%%%%%%%%%%
 setup() ->

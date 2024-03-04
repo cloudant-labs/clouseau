@@ -1,4 +1,4 @@
-ThisBuild / version      := "0.1.0"
+ThisBuild / version      := "3.0.0"
 ThisBuild / scalaVersion := "2.13.12"
 
 updateOptions := updateOptions.value.withCachedResolution(true)
@@ -80,7 +80,7 @@ lazy val core = (project in file("core"))
   .settings(
     Seq(
       buildInfoKeys    := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
-      buildInfoPackage := "ziose.core",
+      buildInfoPackage := "com.cloudant.ziose.core",
       buildInfoObject  := "BuildInfo"
     )
   )

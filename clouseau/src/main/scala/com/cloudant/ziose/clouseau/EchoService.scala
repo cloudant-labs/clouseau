@@ -1,5 +1,16 @@
 package com.cloudant.ziose.clouseau
 
+/*
+❯ erl -setcookie cookie -name node1@127.0.0.1
+Erlang/OTP 25 [erts-13.2.2.6] [source] [64-bit] [smp:10:10] [ds:10:10:10] [async-threads:1] [jit:ns]
+
+Eshell V13.2.2.6  (abort with ^G)
+(node1@127.0.0.1)1>
+(node1@127.0.0.1)1>  gen_server:call({coordinator, 'clouseau1@127.0.0.1'}, version).
+<<"3.0.0">>
+(node1@127.0.0.1)2>
+ */
+
 import zio.{&, ZIO}
 
 import _root_.com.cloudant.ziose.scalang
@@ -9,10 +20,11 @@ import com.cloudant.ziose.core.Codec
 import Codec.{EPid, EBinary}
 import ziose.core.ActorBuilder.State
 import ziose.core.{ActorBuilder, ActorConstructor, ActorFactory, AddressableActor, EngineWorker, Node, ProcessContext}
+import ziose.core.BuildInfo
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import zio.FiberFailure
+import scala.collection.immutable.HashMap
 
 class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   override def handleInfo(request: Any): Any = {
@@ -27,7 +39,16 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
 
   override def handleCall(tag: (Pid, Any), request: Any): Any = {
     request match {
-      case (Symbol("version"))       => (Symbol("reply"), EBinary("0.1.0".getBytes))
+      case (Symbol("version")) => (Symbol("reply"), EBinary(BuildInfo.version.getBytes))
+      case (Symbol("build_info")) =>
+        (
+          Symbol("reply"),
+          HashMap(
+            Symbol("clouseau") -> BuildInfo.version,
+            Symbol("scala")    -> BuildInfo.scalaVersion,
+            Symbol("sbt")      -> BuildInfo.sbtVersion
+          )
+        )
       case (Symbol("echo"), request) => (Symbol("reply"), (Symbol("echo"), Codec.fromScala(request)))
     }
   }
