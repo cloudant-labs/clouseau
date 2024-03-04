@@ -1,4 +1,4 @@
-package com.cloudant.clouseau
+package com.cloudant.ziose.clouseau
 
 import java.io.File
 import java.io.IOException

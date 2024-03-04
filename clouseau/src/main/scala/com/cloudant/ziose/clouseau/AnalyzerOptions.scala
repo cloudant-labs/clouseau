@@ -10,7 +10,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-package com.cloudant.clouseau
+package com.cloudant.ziose.clouseau
 
 class AnalyzerOptions private (inner: Map[String, Any]) {
   def toMap = inner
