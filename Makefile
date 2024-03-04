@@ -15,6 +15,20 @@ PROJECT_VERSION := $(shell cat $(BUILD_DIR)/build.sbt | sed -e \
 	-e 's/\"//g' \
 )
 endif
+SCALA_VERSION := $(shell cat $(BUILD_DIR)/build.sbt | sed -e \
+	'/ThisBuild[[:space:]]*[/][[:space:]]*scalaVersion[[:space:]]*[:]=[[:space:]]*/!d' \
+	-e "s///g" \
+	-e 's/\"//g' \
+)
+
+SCALA_VERSION_PARTS      := $(subst ., ,$(SCALA_VERSION))
+
+SCALA_MAJOR              := $(word 1,$(SCALA_VERSION_PARTS))
+SCALA_MINOR              := $(word 2,$(SCALA_VERSION_PARTS))
+SCALA_MICRO              := $(word 3,$(SCALA_VERSION_PARTS))
+
+SCALA_SHORT_VERSION := $(SCALA_MAJOR).$(SCALA_MINOR)
+
 SUBPROJECTS := \
 	benchmarks \
 	clouseau \
@@ -124,10 +138,10 @@ check-spotbugs: build mkdir-artifacts
 cover: build
 ifeq ($(TEST),)
 	@sbt coverage +test +coverageReport +coverageAggregate
-	@open target/scala-2.13/scoverage-report/index.html
+	@open target/scala-$(SCALA_SHORT_VERSION)/scoverage-report/index.html
 else
 	@sbt coverage +${TEST}/test +${TEST}/coverageReport
-	@open ${TEST}/target/scala-2.13/scoverage-report/index.html
+	@open ${TEST}/target/scala-$(SCALA_SHORT_VERSION)/scoverage-report/index.html
 endif
 
 .PHONY: meta
@@ -266,5 +280,5 @@ version:
 .PHONY: zeunit
 # target: zeunit - `zeunit`: Run integration tests
 zeunit: jar
-	@cli start "clouseau1" "java -jar clouseau/target/scala-2.13/clouseau_2.13.12_0.1.0.jar"
+	@cli start "clouseau1" "java -jar clouseau/target/scala-$(SCALA_SHORT_VERSION)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar"
 	@cli zeunit clouseau1

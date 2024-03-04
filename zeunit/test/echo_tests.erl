@@ -19,7 +19,7 @@ onMessage_test_() ->
                 fun t_echo_success/0,
                 fun t_echo_failure/0,
                 fun t_call_echo/0,
-                fun t_call_version/0
+                fun t_call_version/0,
                 fun t_call_build_info/0
             ]
         }
@@ -44,14 +44,21 @@ t_call_echo() ->
     ?assertEqual({echo, {}}, gen_server:call({coordinator, ?NodeZ}, {echo, {}})).
 
 t_call_version() ->
-    ?assertEqual(<<"3.0.0">>, gen_server:call({coordinator, ?NodeZ}, version)).
+    Version = gen_server:call({coordinator, ?NodeZ}, version),
+    ensure_semantic(Version),
+    ?assertMatch({3, _, _}, parse_semantic(Version)).
 
 t_call_build_info() ->
-    ?assertEqual({
-        clouseau => <<"3.0.0">>,
-        sbt => <<"1.9.7">>,
-        scala => <<"2.13.12">>
-    }, gen_server:call({coordinator, ?NodeZ}, build_info)).
+    Info = gen_server:call({coordinator, ?NodeZ}, build_info),
+    #{
+        clouseau := Clouseau,
+        sbt := Sbt,
+        scala := Scala
+    } = Info,
+
+    ensure_semantic(Clouseau),
+    ensure_semantic(Sbt),
+    ensure_semantic(Scala).
 
 %%%%%%%%%%%%%%% Utility Functions %%%%%%%%%%%%%%%
 setup() ->
@@ -67,4 +74,20 @@ receive_msg() ->
         Msg -> Msg
     after 3000 ->
         {error, timeout}
+    end.
+
+ensure_semantic(BinaryVersion) when is_binary(BinaryVersion) ->
+    [?assert(is_binary_integer(E)) || E <- binary:split(BinaryVersion, <<".">>, [global])].
+
+parse_semantic(BinaryVersion) ->
+    ensure_semantic(BinaryVersion),
+    Split = binary:split(BinaryVersion, <<".">>, [global]),
+    list_to_tuple([binary_to_integer(E) || E <- binary:split(BinaryVersion, <<".">>, [global])]).
+
+
+is_binary_integer(Binary) ->
+    try binary_to_integer(Binary) of
+        _ -> true
+    catch
+        throw:badarg -> false
     end.
