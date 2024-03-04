@@ -20,6 +20,7 @@ onMessage_test_() ->
                 fun t_echo_failure/0,
                 fun t_call_echo/0,
                 fun t_call_version/0
+                fun t_call_build_info/0
             ]
         }
     }.
@@ -44,6 +45,13 @@ t_call_echo() ->
 
 t_call_version() ->
     ?assertEqual(<<"3.0.0">>, gen_server:call({coordinator, ?NodeZ}, version)).
+
+t_call_build_info() ->
+    ?assertEqual({
+        clouseau => <<"3.0.0">>,
+        sbt => <<"1.9.7">>,
+        scala => <<"2.13.12">>
+    }, gen_server:call({coordinator, ?NodeZ}, build_info)).
 
 %%%%%%%%%%%%%%% Utility Functions %%%%%%%%%%%%%%%
 setup() ->
