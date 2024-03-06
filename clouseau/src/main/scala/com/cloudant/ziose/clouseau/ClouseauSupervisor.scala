@@ -35,26 +35,39 @@ case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit a
   //   ZIO.succeed(())
   // def onTermination[C <: ProcessContext](reason: Codec.ETerm, ctx: C): UIO[Unit] =
   //   ZIO.succeed(())
-  //  val logger = LoggerFactory.getLogger("clouseau.supervisor")
-  // var manager = spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args.config.clouseau)
-  // var cleanup = spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args.config.clouseau)
-  // var analyzer = spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args.config.clouseau)
+  val logger = LoggerFactory.getLogger("clouseau.supervisor")
+  var manager = {
+    spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args)
+  }
+  var cleanup = {
+    spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args)
+  }
+  var analyzer = {
+    spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args)
+  }
   var echo = spawnAndMonitorService[EchoService, ConfigurationArgs](Symbol("coordinator"), ctx.args)
 
   override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Unit = {
-    // if (monitored == manager) {
-    //   logger.warn("manager crashed")
-    //   manager = spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args.config.clouseau)
-    // }
-    // if (monitored == cleanup) {
-    //   logger.warn("cleanup crashed")
-    //   cleanup = spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args.config.clouseau)
-    // }
-    // if (monitored == analyzer) {
-    //   logger.warn("analyzer crashed")
-    //   analyzer = spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args.config.clouseau)
-    // }
+    if (monitored == manager) {
+      logger.warn("manager crashed")
+      manager = {
+        spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args)
+      }
+    }
+    if (monitored == cleanup) {
+      logger.warn("cleanup crashed")
+      cleanup = {
+        spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args)
+      }
+    }
+    if (monitored == analyzer) {
+      logger.warn("analyzer crashed")
+      analyzer = {
+        spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args)
+      }
+    }
     if (monitored == echo) {
+      logger.warn("echo crashed")
       echo = spawnAndMonitorService[EchoService, ConfigurationArgs](Symbol("coordinator"), ctx.args)
     }
   }
@@ -63,7 +76,11 @@ case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit a
     adapter: Adapter[_, _]
   ): Pid = {
     val result = (regName, args) match {
-      case (Symbol("coordinator"), ConfigurationArgs(args)) => EchoService.start(adapter.node, "coordinator", args)
+      // case (Symbol("IndexService"), args: IndexServiceArgs) => IndexServiceBuilder.start(adapter.node, args)
+      case (Symbol("cleanup"), ConfigurationArgs(args))  => IndexCleanupServiceBuilder.start(adapter.node, args)
+      case (Symbol("analyzer"), ConfigurationArgs(args)) => AnalyzerServiceBuilder.start(adapter.node, args)
+      case (Symbol("main"), ConfigurationArgs(args))     => IndexManagerServiceBuilder.start(adapter.node, args)
+      case (Symbol("coordinator"), ConfigurationArgs(args))  => EchoService.start(adapter.node, "coordinator", args)
     }
     println(s"$regName -> $result")
     result match {
