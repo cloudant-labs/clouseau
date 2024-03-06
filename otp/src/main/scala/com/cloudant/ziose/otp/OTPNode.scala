@@ -142,7 +142,7 @@ object OTPNode {
                 } yield false
               case message =>
                 for {
-                  // _ <- Console.printLine(s"message: $msg")
+                  // _ <- Console.printLine(s"message: $message")
                   _ <- actor.onMessage(message)
                 } yield true
             }
