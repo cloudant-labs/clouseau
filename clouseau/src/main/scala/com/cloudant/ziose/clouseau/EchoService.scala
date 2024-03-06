@@ -11,20 +11,19 @@ Eshell V13.2.2.6  (abort with ^G)
 (node1@127.0.0.1)2>
  */
 
-import zio.{&, ZIO}
-
 import _root_.com.cloudant.ziose.scalang
 import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
-import _root_.com.cloudant.ziose
-import com.cloudant.ziose.core.Codec
+import _root_.com.cloudant.ziose.core
+import core.Codec
 import Codec.{EPid, EBinary}
-import ziose.core.ActorBuilder.State
-import ziose.core.{ActorBuilder, ActorConstructor, ActorFactory, AddressableActor, EngineWorker, Node, ProcessContext}
-import ziose.core.BuildInfo
+import core.ActorBuilder.State
+import core.{ActorBuilder, ActorConstructor, ProcessContext}
+import core.BuildInfo
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import scala.collection.immutable.HashMap
+import zio.{ZIO, &}
 
 class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   override def handleInfo(request: Any): Any = {
@@ -78,7 +77,7 @@ private object EchoService extends ActorConstructor[EchoService] {
     node: SNode,
     name: String,
     config: Configuration
-  ): ZIO[EngineWorker & Node & ActorFactory, Throwable, AddressableActor[_, _]] = {
+  ): ZIO[core.EngineWorker & core.Node & core.ActorFactory, Throwable, core.AddressableActor[_, _]] = {
     val ctx: ServiceContext[ConfigurationArgs] = {
       new ServiceContext[ConfigurationArgs] {
         val args: ConfigurationArgs = ConfigurationArgs(config)

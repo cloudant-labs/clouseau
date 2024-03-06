@@ -30,6 +30,9 @@ object Node {
     case class ActorFailure()               extends Error
     case class SpawnFailure(err: Throwable) extends Error
     case class Constructor(err: Throwable)  extends Error
+    case class Unknown(err: Throwable)      extends Error
+    case class Interrupt(fiberId: FiberId)  extends Error
+    case class Nothing()                    extends Error
   }
 
   def spawn[A <: Actor](

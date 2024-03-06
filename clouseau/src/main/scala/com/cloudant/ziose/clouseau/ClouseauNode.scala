@@ -1,15 +1,18 @@
 package com.cloudant.ziose.clouseau
 
-import com.cloudant.ziose.scalang.SNode
-import com.cloudant.ziose.core
+import _root_.com.cloudant.ziose.scalang
+import _root_.com.cloudant.ziose.core
 import core.ProcessContext
-import com.cloudant.ziose.scalang.Service
-import com.cloudant.ziose.scalang.Adapter
+import scalang.Service
+import scalang.Adapter
 import zio._
 import zio.Runtime
 import core.Actor
 import core.AddressableActor
 import core.ActorBuilder
+import scalang.SNode
+import zio.Exit.Failure
+import zio.Exit.Success
 
 class ClouseauNode(implicit override val runtime: Runtime[core.EngineWorker & core.Node], worker: core.EngineWorker)
     extends SNode()(runtime) { self =>
@@ -41,30 +44,40 @@ class ClouseauNode(implicit override val runtime: Runtime[core.EngineWorker & co
 
   override def spawnService[TS <: Service[A] with Actor: Tag, A <: Product](
     builder: ActorBuilder.Sealed[TS]
-  )(implicit adapter: Adapter[_, _]) = {
+  )(implicit adapter: Adapter[_, _]): core.Result[core.Node.Error, AddressableActor[TS, ProcessContext]] = {
     val result = Unsafe.unsafe { implicit unsafe =>
       runtime.unsafe
         .run(
           spawnServiceZIO[TS, A](builder)
         )
-        .getOrThrowFiberFailure()
     } // TODO: kill the caller
-    result.asInstanceOf[AddressableActor[TS, ProcessContext]]
+    result match {
+      case Failure(cause) if cause.isFailure     => core.Failure(cause.failureOption.get)
+      case Failure(cause) if cause.isDie         => core.Failure(core.Node.Error.Unknown(cause.dieOption.get))
+      case Failure(cause) if cause.isInterrupted => core.Failure(core.Node.Error.Interrupt(cause.interruptOption.get))
+      case Failure(cause) => core.Failure(core.Node.Error.Unknown(new Throwable(cause.prettyPrint)))
+      case Success(actor) => core.Success(actor.asInstanceOf[AddressableActor[TS, ProcessContext]])
+    }
   }
 
   override def spawnService[TS <: Service[A] with Actor: Tag, A <: Product](
     builder: ActorBuilder.Sealed[TS],
     reentrant: Boolean
-  )(implicit adapter: Adapter[_, _]) = {
+  )(implicit adapter: Adapter[_, _]): core.Result[core.Node.Error, AddressableActor[TS, ProcessContext]] = {
     // TODO Handle reentrant argument
     val result = Unsafe.unsafe { implicit unsafe =>
       runtime.unsafe
         .run(
           spawnServiceZIO[TS, A](builder, reentrant)
         )
-        .getOrThrowFiberFailure()
     } // TODO: kill the caller
-    result.asInstanceOf[AddressableActor[TS, ProcessContext]]
+    result match {
+      case Failure(cause) if cause.isFailure     => core.Failure(cause.failureOption.get)
+      case Failure(cause) if cause.isDie         => core.Failure(core.Node.Error.Unknown(cause.dieOption.get))
+      case Failure(cause) if cause.isInterrupted => core.Failure(core.Node.Error.Interrupt(cause.interruptOption.get))
+      case Failure(cause) => core.Failure(core.Node.Error.Unknown(new Throwable(cause.prettyPrint)))
+      case Success(actor) => core.Success(actor.asInstanceOf[AddressableActor[TS, ProcessContext]])
+    }
   }
 
   override def spawnServiceZIO[TS <: Service[A] with Actor: Tag, A <: Product](builder: ActorBuilder.Sealed[TS]) = {

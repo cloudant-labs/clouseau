@@ -28,7 +28,7 @@ trait EngineWorker extends EnqueueWithId[Engine.WorkerId, MessageEnvelope] {
 object EngineWorker {
   def spawn[A <: Actor: Tag](
     builder: ActorBuilder.Sealed[A]
-  ): ZIO[EngineWorker with Node, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
+  ): ZIO[EngineWorker & Node, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
     ZIO.serviceWithZIO[EngineWorker](_.spawn(builder))
   }
   def kind[C <: ProcessContext: Tag]: URIO[EngineWorker, String] = {

@@ -23,11 +23,11 @@ case class SNode()(implicit val runtime: Runtime[core.EngineWorker & core.Node])
   /// spawnService is overridden by ClouseauNode
   def spawnService[TS <: Service[A] with core.Actor: Tag, A <: Product](builder: core.ActorBuilder.Sealed[TS])(implicit
     adapter: Adapter[_, _]
-  ): core.AddressableActor[_, _] = ???
+  ): core.Result[core.Node.Error, core.AddressableActor[TS, core.ProcessContext]] = ???
   def spawnService[TS <: Service[A] with core.Actor: Tag, A <: Product](
     builder: core.ActorBuilder.Sealed[TS],
     reentrant: Boolean
-  )(implicit adapter: Adapter[_, _]): core.AddressableActor[_, _] = ???
+  )(implicit adapter: Adapter[_, _]): core.Result[core.Node.Error, core.AddressableActor[TS, core.ProcessContext]] = ???
   def spawnServiceZIO[TS <: Service[A] with core.Actor: Tag, A <: Product](
     builder: core.ActorBuilder.Sealed[TS]
   ): ZIO[core.EngineWorker with core.Node with core.ActorFactory, core.Node.Error, core.AddressableActor[_, _]] = ???

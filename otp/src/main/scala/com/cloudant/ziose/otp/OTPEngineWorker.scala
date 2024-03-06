@@ -9,6 +9,8 @@ import com.cloudant.ziose.core.Actor
 import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.core.EngineWorkerExchange
 import com.cloudant.ziose.core.MessageEnvelope
+import com.cloudant.ziose.core.AddressableActor
+import com.cloudant.ziose.core.ProcessContext
 
 final class OTPEngineWorker private (
   engineId: Engine.EngineId,
@@ -25,7 +27,9 @@ final class OTPEngineWorker private (
   def release: UIO[Unit] = {
     ZIO.debug(s"Released OTPEngineWorker ${name}")
   }
-  def spawn[A <: Actor](builder: ActorBuilder.Sealed[A]) = {
+  def spawn[A <: Actor](
+    builder: ActorBuilder.Sealed[A]
+  ): ZIO[Node, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
     // TODO call .withEngineId and .withWorkerId here???
     for {
       addressable <- ZIO.scoped(node.spawn(builder))
