@@ -14,8 +14,6 @@ package com.cloudant.ziose.clouseau
 
 import java.io.File
 import java.io.IOException
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import org.apache.lucene.document._
 import org.apache.lucene.index._
 import org.apache.lucene.store._
@@ -35,11 +33,13 @@ import org.apache.lucene.search.highlight.{
   SimpleFragmenter
 }
 import org.apache.lucene.analysis.Analyzer
+import _root_.com.cloudant.ziose.scalang
 import scalang._
 import collection.JavaConverters._
-import com.yammer.metrics.scala._
-import com.cloudant.clouseau.Utils._
-import org.apache.commons.configuration.Configuration
+import _root_.com.yammer.metrics.scala._
+
+import Utils._
+
 import org.apache.lucene.facet.sortedset.{
   SortedSetDocValuesReaderState,
   SortedSetDocValuesAccumulator
@@ -53,9 +53,8 @@ import org.apache.lucene.facet.search._
 import org.apache.lucene.facet.taxonomy.CategoryPath
 import org.apache.lucene.facet.params.{ FacetIndexingParams, FacetSearchParams }
 import scala.Some
-import scalang.Pid
-import com.spatial4j.core.context.SpatialContext
-import com.spatial4j.core.distance.DistanceUtils
+import _root_.com.spatial4j.core.context.SpatialContext
+import _root_.com.spatial4j.core.distance.DistanceUtils
 import java.util.HashSet
 import conversions._
 import Utils.ensureElementsType
@@ -68,19 +67,8 @@ case class HighlightParameters(highlighter: Highlighter, highlightFields: List[S
 case class TopDocs(updateSeq: Long, totalHits: Long, hits: List[Hit])
 case class Hit(order: List[Any], fields: List[Any])
 
-class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) with Instrumented {
-  import IndexService.{
-    getDrilldown,
-    getGroups,
-    getIncludeFields,
-    getListOfStringsOption,
-    getOption,
-    getRanges,
-    GroupName,
-    RangesLabel,
-    RangesName,
-    RangesQuery
-  }
+class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
+  import IndexService._
 
   var reader = DirectoryReader.open(ctx.args.writer, true)
   var updateSeq = getCommittedSeq
@@ -121,6 +109,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     internalHandleCall(tag, msg)
   }
 
+  // TODO the ClouseauTypeFactory should happen elsewhere
   def internalHandleCall(tag: (Pid, Any), msg: Any): Any = msg match {
     case request: SearchRequest =>
       search(request)
@@ -166,12 +155,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
   override def handleCast(msg: Any) = msg match {
     case ('merge, maxNumSegments: Int) =>
       debug("Forcibly merging index to no more than " + maxNumSegments + " segments.")
-      node.spawn((_) => {
+      node.spawn((_: Mailbox) => {
         ctx.args.writer.forceMerge(maxNumSegments, true)
         ctx.args.writer.commit
         forceRefresh = true
         debug("Forced merge complete.")
       })
+      ()
     case _ =>
       'ignored
   }
@@ -224,6 +214,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
           "too many fields will lead to heap exhuastion")
       }
     }
+    ()
   }
 
   override def exit(msg: Any) = {
@@ -246,13 +237,14 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
     } finally {
       super.exit(msg)
     }
+    ()
   }
 
   private def commit(newUpdateSeq: Long, newPurgeSeq: Long) = {
     if (!committing && (newUpdateSeq > updateSeq || newPurgeSeq > purgeSeq)) {
       committing = true
       val index = self
-      node.spawn((_) => {
+      node.spawn((_: Mailbox) => {
         ctx.args.writer.setCommitData((ctx.args.writer.getCommitData.asScala +
           ("update_seq" -> newUpdateSeq.toString) +
           ("purge_seq" -> newPurgeSeq.toString)).asJava)
@@ -343,6 +335,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
             case (_, Some(fieldDoc: FieldDoc), sort1: Sort) =>
               TopFieldCollector.create(sort1, limit, fieldDoc, true, false,
                 false, docsScoredInOrder)
+            case (_, Some(_), _) =>
+              throw new ParseException("invalid 'after' query")
           }
 
           val countsCollector = createCountsCollector(counts)
@@ -569,6 +563,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
         (fieldName)
       case Some(IndexService.SORT_FIELD_RE(_fieldOrder, fieldName, "number")) =>
         throw new ParseException("Group by number not supported. Group by string terms only.")
+      case Some(other) =>
+        throw new ParseException("Unrecognized group_field value: " + other)
       case None =>
         throw new ParseException("Unrecognized group_field parameter: "
           + field)
@@ -823,6 +819,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs]) extends Service(ctx) w
                 field
             }.toArray))
       }
+      case Some(_) =>
+        throw new ParseException("invalid format for 'after' option")
   }
 
   private def createSnapshot(snapshotDir: String) = {
@@ -881,9 +879,9 @@ object IndexService {
   val FP = """([-+]?[0-9]+(?:\.[0-9]+)?)"""
   val DISTANCE_RE = "^([-+])?<distance,([\\.\\w]+),([\\.\\w]+),%s,%s,(mi|km)>$".format(FP, FP).r
 
-  def start(node: Node, config: Configuration, path: String, options: AnalyzerOptions): Any = {
+  def start(node: SNode, config: Configuration, path: String, options: AnalyzerOptions)(implicit adapter: Adapter[_, _]): Any = {
     val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
-    val dir = newDirectory(config, new File(rootDir, path))
+    val dir = newDirectory(config.clouseau, new File(rootDir, path))
     try {
       SupportedAnalyzers.createAnalyzer(options) match {
         case Some(analyzer) =>
@@ -891,7 +889,7 @@ object IndexService {
           val writerConfig = new IndexWriterConfig(version, analyzer)
           writerConfig.setIndexDeletionPolicy(new ExternalSnapshotDeletionPolicy(dir))
           val writer = new IndexWriter(dir, writerConfig)
-          ('ok, node.spawnService[IndexService, IndexServiceArgs](IndexServiceArgs(config, path, queryParser, writer)))
+          IndexServiceBuilder.start(node, IndexServiceArgs(config, path, queryParser, writer))
         case None =>
           ('error, 'no_such_analyzer)
       }
@@ -901,7 +899,7 @@ object IndexService {
     }
   }
 
-  private def newDirectory(config: Configuration, path: File): FSDirectory = {
+  private def newDirectory(config: ClouseauConfiguration, path: File): FSDirectory = {
     val lockClassName = config.getString("clouseau.lock_class",
       "org.apache.lucene.store.NativeFSLockFactory")
     val lockClass = Class.forName(lockClassName)
@@ -938,6 +936,9 @@ object IndexService {
     getOption[Any](options, 'drilldown) match {
       case Some(extractor(value)) =>
         Some(value)
+      // to convince compiler that we have exhaustive search
+      case Some(_) =>
+        None
       case None =>
         None
     }
@@ -995,6 +996,9 @@ object IndexService {
     getOption[Any](options, 'ranges) match {
       case Some(extractor(value)) =>
         Some(value)
+      // to convince compiler that we have exhaustive search
+      case Some(_) =>
+        None
       case None =>
         None
     }
@@ -1018,6 +1022,9 @@ object IndexService {
     getOption[Any](options, field) match {
       case Some(extractor(value)) =>
         Some(value)
+      // to convince compiler that we have exhaustive search
+      case Some(_) =>
+        None
       case None =>
         None
     }
@@ -1065,6 +1072,9 @@ object IndexService {
     getOption[Any](options, 'groups) match {
       case Some(extractor(value)) =>
         Some(value)
+      // to convince compiler that we have exhaustive search
+      case Some(_) =>
+        None
       case None =>
         None
     }

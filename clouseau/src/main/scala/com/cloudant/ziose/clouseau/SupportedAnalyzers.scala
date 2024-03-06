@@ -14,11 +14,11 @@ package com.cloudant.ziose.clouseau
 
 import java.io.Reader
 import java.util.{ Set => JSet }
-import org.slf4j.Logger
+//import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.analysis.Tokenizer
-import org.apache.lucene.analysis.TokenStream
+//import org.apache.lucene.analysis.TokenStream
 import org.apache.lucene.analysis.Analyzer.TokenStreamComponents
 import org.apache.lucene.analysis.util.CharArraySet
 import scala.collection.JavaConverters._

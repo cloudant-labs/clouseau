@@ -19,14 +19,15 @@ import java.util.LinkedHashMap
 import java.util.{ Map => JMap }
 import java.util.Map.Entry
 import scala.collection.mutable.Map
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+import _root_.com.cloudant.ziose.scalang
+
 import scalang._
-import com.yammer.metrics.scala._
+import _root_.com.yammer.metrics.scala._
+
 import scala.collection.JavaConverters._
 import java.util.HashSet
 
-class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
+class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
 
   class LRU(initialCapacity: Int = 100, loadFactor: Float = 0.75f) {
 

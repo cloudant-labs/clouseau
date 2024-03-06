@@ -12,15 +12,14 @@
 
 package com.cloudant.ziose.clouseau
 
-import com.yammer.metrics.scala._
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import org.apache.lucene.analysis.tokenattributes._
 import scala.collection.immutable.List
-import scalang._
 import org.apache.lucene.analysis.Analyzer
 
-class AnalyzerService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
+import _root_.com.cloudant.ziose.scalang
+import scalang._
+
+class AnalyzerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
 
   val logger = LoggerFactory.getLogger("clouseau.analyzer")
 
@@ -32,6 +31,8 @@ class AnalyzerService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ct
         case None =>
           ('error, 'no_such_analyzer)
       }
+    case other => 
+      println(s"matched other $other")
   }
 
   def tokenize(text: String, analyzer: Analyzer): List[String] = {

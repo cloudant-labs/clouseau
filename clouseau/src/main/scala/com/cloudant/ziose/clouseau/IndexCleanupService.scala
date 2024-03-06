@@ -10,19 +10,18 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-package com.cloudant.clouseau
+package com.cloudant.ziose.clouseau
 
-import com.yammer.metrics.scala._
 import java.io.File
 import java.util.regex.Pattern
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.TimeZone
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+import _root_.com.cloudant.ziose.scalang
+
 import scalang._
 
-class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
+class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
 
   val logger = LoggerFactory.getLogger("clouseau.cleanup")
   val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
