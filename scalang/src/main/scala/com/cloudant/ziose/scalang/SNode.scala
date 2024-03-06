@@ -202,4 +202,7 @@ case class SNode()(implicit val runtime: Runtime[core.EngineWorker & core.Node])
       result <- adapter.call(envelope)
     } yield Codec.toScala(result.payload)
   }
+  def link(from: Pid, to: Pid) {
+    // TODO
+  }
 }
