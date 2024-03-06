@@ -84,7 +84,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   // .tap(x => printLine(s"actor stream after onMessage: $x"))
 
   def onTermination(reason: Codec.ETerm): ZIO[Any, Throwable, Unit] = {
-    println(s"AddressableActor.onTermination ${reason}")
+    println(s"AddressableActor.onTermination[${context.id}] ${reason}")
     actor.onTermination(reason, ctx)
   }
   def onMessage(message: MessageEnvelope): ZIO[Any, Throwable, Unit] = {
