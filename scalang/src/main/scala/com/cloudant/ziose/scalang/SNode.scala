@@ -37,8 +37,10 @@ case class SNode()(implicit val runtime: Runtime[core.EngineWorker & core.Node])
   ): ZIO[core.EngineWorker with core.Node with core.ActorFactory, core.Node.Error, core.AddressableActor[_, _]] = ???
 
   def spawn[T <: Process](): Pid                = ???
+  def spawn(fun: Mailbox => Unit): Pid          = ???
   def spawn[T <: Process](regName: String): Pid = ???
   def spawn[T <: Process](regName: Symbol): Pid = ???
+
   def cast(to: Pid, msg: Any)(implicit adapter: Adapter[_, _]) = {
     val address = Address.fromPid(to.fromScala, adapter.self.workerId)
     val envelope = MessageEnvelope.makeCast(
