@@ -347,7 +347,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
               case Symbol("noreply") =>
                 ZIO.unit
               case reply =>
-                sendZIO(fromPid, Codec.fromScala((ref, reply)))
+                sendZIO(fromPid, (makeTag(ref), Codec.fromScala(reply)))
             }
           } yield ()
         } catch {
