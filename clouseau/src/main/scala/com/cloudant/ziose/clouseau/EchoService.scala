@@ -23,7 +23,6 @@ import core.BuildInfo
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import scala.collection.immutable.HashMap
-import zio.{ZIO, &}
 
 class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   override def handleInfo(request: Any): Any = {
@@ -77,12 +76,17 @@ private object EchoService extends ActorConstructor[EchoService] {
     node: SNode,
     name: String,
     config: Configuration
-  ): ZIO[core.EngineWorker & core.Node & core.ActorFactory, Throwable, core.AddressableActor[_, _]] = {
+  )(implicit
+    adapter: Adapter[_, _]
+  ): Any = {
     val ctx: ServiceContext[ConfigurationArgs] = {
       new ServiceContext[ConfigurationArgs] {
         val args: ConfigurationArgs = ConfigurationArgs(config)
       }
     }
-    node.spawnServiceZIO[EchoService, ConfigurationArgs](make(node, ctx, name))
+    node.spawnService[EchoService, ConfigurationArgs](make(node, ctx, name)) match {
+      case core.Success(actor)  => (Symbol("ok"), Pid.toScala(actor.self.pid))
+      case core.Failure(reason) => reason
+    }
   }
 }

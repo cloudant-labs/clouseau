@@ -26,6 +26,7 @@ import com.cloudant.ziose.core.Actor
 import com.cloudant.ziose.core.EngineWorker
 import com.cloudant.ziose.core.AddressableActor
 import com.cloudant.ziose.core.ActorFactory
+import com.cloudant.ziose.scalang.Pid
 
 case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _])
     extends Service(ctx)
@@ -38,6 +39,7 @@ case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit a
   // var manager = spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args.config.clouseau)
   // var cleanup = spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args.config.clouseau)
   // var analyzer = spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args.config.clouseau)
+  var echo = spawnAndMonitorService[EchoService, ConfigurationArgs](Symbol("coordinator"), ctx.args)
 
   override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Unit = {
     // if (monitored == manager) {
@@ -52,14 +54,30 @@ case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit a
     //   logger.warn("analyzer crashed")
     //   analyzer = spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args.config.clouseau)
     // }
+    if (monitored == echo) {
+      echo = spawnAndMonitorService[EchoService, ConfigurationArgs](Symbol("coordinator"), ctx.args)
+    }
   }
 
-  // private def spawnAndMonitorService[T <: Service[A, _ <: ProcessContext], A <: Product](regName: Symbol, args: A)(implicit mf: Manifest[T]): Pid = {
-  //   val pid = node.spawnService[T, A](regName, args, reentrant = false)
-  //   monitor(pid)
-  //   pid
-  // }
+  private def spawnAndMonitorService[TS <: Service[A] with Actor: Tag, A <: Product](regName: Symbol, args: A)(implicit
+    adapter: Adapter[_, _]
+  ): Pid = {
+    val result = (regName, args) match {
+      case (Symbol("coordinator"), ConfigurationArgs(args)) => EchoService.start(adapter.node, "coordinator", args)
+    }
+    println(s"$regName -> $result")
+    result match {
+      case (Symbol("ok"), pidUntyped) => {
+        val pid = pidUntyped.asInstanceOf[Pid]
+        println(pid)
+        monitor(pid)
+        pid
+      };
+      case e => throw new Throwable(s"cannot start ${e.toString()}")
+    }
+  }
 
+  def monitor(pid: Pid): Unit = () // TODO implement it when we have monitors
 }
 
 object ClouseauSupervisor extends ActorConstructor[ClouseauSupervisor] {

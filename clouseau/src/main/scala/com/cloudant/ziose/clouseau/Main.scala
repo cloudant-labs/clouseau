@@ -38,13 +38,13 @@ object Main extends ZIOAppDefault {
     } yield index
   }
 
-  private def startCoordinator(
+  private def startSupervisor(
     node: ClouseauNode,
     config: AppConfiguration
   ): RIO[EngineWorker & Node & ActorFactory, AddressableActor[_, _]] = {
     val clouseauCfg: ClouseauConfiguration = config.clouseau.get
     val nodeCfg: OTPNodeConfig             = config.node
-    EchoService.start(node, "coordinator", Configuration(clouseauCfg, nodeCfg))
+    ClouseauSupervisor.start(node, Configuration(clouseauCfg, nodeCfg))
   }
 
   private def main(nodeCfg: AppConfiguration): RIO[EngineWorker & Node & ActorFactory, Unit] = {
@@ -55,7 +55,7 @@ object Main extends ZIOAppDefault {
       _      <- otp_node.monitorRemoteNode(remote_node)
       worker <- ZIO.service[EngineWorker]
       node   <- ZIO.succeed(new ClouseauNode()(runtime, worker))
-      _      <- startCoordinator(node, nodeCfg)
+      _      <- startSupervisor(node, nodeCfg)
       _      <- worker.awaitShutdown
     } yield ()
   }
