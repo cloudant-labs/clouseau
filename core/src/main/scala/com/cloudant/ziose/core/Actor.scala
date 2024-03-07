@@ -68,19 +68,6 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
         e
       }
     }
-    .ensuringWith {
-      case Exit.Success(result) => ZIO.succeed(result)
-      case Exit.Failure(cause) if cause.isFailure => {
-        ZIO.succeed(onTermination(Codec.fromScala((Symbol("failure"), cause.failures.toString()))))
-      }
-      case Exit.Failure(cause) if cause.isDie => {
-        ZIO.succeed(onTermination(Codec.fromScala((Symbol("die"), cause.dieOption.toString()))))
-      }
-      case Exit.Failure(cause) => {
-        ZIO.succeed(onTermination(Codec.fromScala((Symbol("unknown"), cause.toString()))))
-      }
-      // TODO - decide how we expose other options to onTermination callback
-    }
   // .tap(x => printLine(s"actor stream after onMessage: $x"))
 
   def onTermination(reason: Codec.ETerm): ZIO[Any, Throwable, Unit] = {
