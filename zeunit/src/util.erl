@@ -1,12 +1,57 @@
 -module(util).
--export([a2l/1, l2a/1]).
+-export([a2l/1, l2a/1, b2l/1, l2b/1, b2t/1, t2b/1, to_binary/1]).
+-export([get_value/2, get_value/3]).
+-export([seconds/1, receive_msg/0, receive_msg/1]).
 -export([check/1, check/2, wait_value/3]).
 
--define(TIMEOUT, 5).
+-define(TIMEOUT, 3).
 
 a2l(V) -> atom_to_list(V).
-
 l2a(V) -> list_to_atom(V).
+
+b2l(V) -> binary_to_list(V).
+l2b(V) -> list_to_binary(V).
+
+b2t(V) -> binary_to_term(V).
+t2b(V) -> term_to_binary(V).
+
+to_binary(V) when is_binary(V) ->
+    V;
+to_binary(V) when is_list(V) ->
+    try
+        l2b(V)
+    catch
+        _:_ ->
+            l2b(io_lib:format("~p", [V]))
+    end;
+to_binary(V) when is_atom(V) ->
+    l2b(a2l(V));
+to_binary(V) ->
+    l2b(io_lib:format("~p", [V])).
+
+get_value(Key, List) ->
+    get_value(Key, List, undefined).
+
+get_value(Key, List, Default) ->
+    case lists:keysearch(Key, 1, List) of
+        {value, {K, Value}} when K =:= Key ->
+            Value;
+        false ->
+            Default
+    end.
+
+seconds(N) when is_integer(N) ->
+    N * 1000.
+
+receive_msg() ->
+    receive_msg(seconds(?TIMEOUT)).
+
+receive_msg(Timeout) ->
+    receive
+        Msg -> Msg
+    after Timeout ->
+        {error, timeout}
+    end.
 
 check(Node) -> check(Node, ?TIMEOUT).
 

@@ -47,11 +47,10 @@ object Main extends ZIOAppDefault {
     EchoService.start(node, "coordinator", Configuration(clouseauCfg, nodeCfg))
   }
 
-  private def main(nodesCfg: NodeCfg): RIO[EngineWorker & Node & ActorFactory, Unit] = {
+  private def main(nodeCfg: AppConfiguration): RIO[EngineWorker & Node & ActorFactory, Unit] = {
     for {
       runtime  <- ZIO.runtime[EngineWorker & Node & ActorFactory]
       otp_node <- ZIO.service[Node]
-      nodeCfg     = nodesCfg.config.head
       remote_node = s"node${nodeCfg.node.name.last}@${nodeCfg.node.domain}"
       _      <- otp_node.monitorRemoteNode(remote_node)
       worker <- ZIO.service[EngineWorker]
@@ -68,10 +67,11 @@ object Main extends ZIOAppDefault {
     for {
       nodeIdx  <- getNodeIdx
       nodesCfg <- getConfig("app.conf")
-      node = nodesCfg.config(nodeIdx).node
-      name = s"${node.name}@${node.domain}"
+      nodeCfg = nodesCfg.config(nodeIdx)
+      node    = nodeCfg.node
+      name    = s"${node.name}@${node.domain}"
       _ <- ZIO
-        .scoped(main(nodesCfg))
+        .scoped(main(nodeCfg))
         .provide(
           OTPActorFactory.live(name, node),
           OTPNode.live(name, engineId, workerId, node),
