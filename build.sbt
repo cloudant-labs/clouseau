@@ -12,10 +12,6 @@ val versions: Map[String, String] = Map(
 //  "zio.nio"     -> "2.0.2",
 )
 
-def jinterface = Def.setting {
-  sys.env.getOrElse("JINTERFACE_VSN", sys.error("Please define JINTERFACE_VSN"))
-}
-
 lazy val luceneComponents = Seq(
   // The single % is for java libraries
   // the %% appends the version of scala used, and should be used for scala libraries;
@@ -72,6 +68,9 @@ lazy val commonSettings = Seq(
   scalacOptions ++= Seq("-Ywarn-unused:imports")
 )
 
+lazy val vendor = (project in file("vendor"))
+  .settings(commonSettings *)
+
 lazy val core = (project in file("core"))
   .settings(commonSettings *)
   .settings(dependencyCheckSkip := false)
@@ -85,16 +84,13 @@ lazy val core = (project in file("core"))
     )
   )
   .settings(
-    Compile / unmanagedJars ++=
-      (file("deps/") * s"jinterface-${jinterface.value}.jar").classpath
-  )
-  .settings(
     dependencyCheckAssemblyAnalyzerEnabled := Some(false),
     dependencyCheckFormats                 := Seq("XML", "JSON")
   )
   .settings(
     scalacOptions ++= Seq("-deprecation", "-feature")
   )
+  .dependsOn(vendor)
 
 lazy val benchmarks = (project in file("benchmarks"))
   .settings(commonSettings *)
@@ -138,8 +134,7 @@ lazy val root = (project in file("."))
   .settings(
     scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports"),
     inThisBuild(List(organization := "com.cloudant")),
-    name          := "ziose",
-    unmanagedBase := baseDirectory.value / "deps"
+    name          := "ziose"
   )
   .settings(
     Compile / console / scalacOptions -= "-Ywarn-unused:imports"

@@ -36,6 +36,7 @@ SUBPROJECTS := \
 	experiments \
 	otp \
 	scalang \
+	vendor
 BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%TZ")
 ERL_EPMD_ADDRESS?=127.0.0.1
 # tput in docker require TERM variable
