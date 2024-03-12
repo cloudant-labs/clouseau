@@ -2,6 +2,7 @@ package com.cloudant.ziose.core
 
 import com.ericsson.otp.erlang._
 import scala.collection.mutable
+import java.nio.charset.StandardCharsets
 
 // TODO https://murraytodd.medium.com/putting-it-all-together-with-type-classes-d6b545202803
 // TODO https://medium.com/beingprofessional/use-of-implicit-to-transform-case-classes-in-scala-47a72dfa9450
@@ -200,6 +201,13 @@ object Codec {
 
   // TODO add tests
   case class EBinary(payload: Array[Byte]) extends ETerm {
+    override def hashCode: Int = payload.toList.hashCode()
+    override def equals(other: Any): Boolean = {
+      other match {
+        case other: EBinary => payload.toList.equals(other.payload.toList)
+        case _              => false
+      }
+    }
     def this(obj: OtpErlangBinary) = this(obj.binaryValue())
     override def toOtpErlangObject: OtpErlangObject = {
       new OtpErlangBinary(payload)
@@ -239,7 +247,7 @@ object Codec {
         newMap + (toScala(k) -> toScala(v))
       }
     // *Important* clouseau encodes strings as binaries
-    case binary: EBinary    => binary.payload.map(_.toChar).mkString
+    case binary: EBinary    => new String(binary.payload, StandardCharsets.UTF_8)
     case bitstr: EBitString => bitstr.payload
   }
 
@@ -283,7 +291,7 @@ object Codec {
     case i: Int     => EInt(i)
     case l: BigInt  => ELong(l)
     // *Important* clouseau encodes strings as binaries
-    case s: String      => EBinary(s.getBytes)
+    case s: String      => EBinary(s.getBytes(StandardCharsets.UTF_8))
     case list: List[_]  => new EList(list.map(fromScala), true)
     case list: Seq[_]   => new EList(List.from(list.map(fromScala)), true)
     case tuple: Product => ETuple(tuple.productIterator.map(fromScala).toList)

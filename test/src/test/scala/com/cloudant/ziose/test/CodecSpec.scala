@@ -9,7 +9,19 @@
  */
 package com.cloudant.ziose.test
 
-import com.cloudant.ziose.core.Codec.{EList, EMap, ETerm, ETuple, EString, EBoolean, EListImproper, EInt, fromErlang}
+import com.cloudant.ziose.core.Codec.{
+  EAtom,
+  EBinary,
+  EBoolean,
+  EInt,
+  EList,
+  EListImproper,
+  EMap,
+  ETerm,
+  ETuple,
+  EString,
+  fromErlang
+}
 import com.cloudant.ziose.test.helpers.Generators._
 import com.cloudant.ziose.test.helpers.Utils
 import com.ericsson.otp.erlang.{OtpErlangList, OtpErlangMap, OtpErlangObject, OtpErlangTuple}
@@ -21,6 +33,7 @@ import zio.test.{Gen, assertTrue, check}
 import zio.ZIO.logDebug
 import zio.{Clock, Random, ZLayer}
 import com.cloudant.ziose.core.Codec
+import java.nio.charset.StandardCharsets
 
 @RunWith(classOf[ZTestJUnitRunner])
 class CodecSpec extends JUnitRunnableSpec {
@@ -404,6 +417,36 @@ class CodecSpec extends JUnitRunnableSpec {
       val term = ETuple()
       assertTrue(() == Codec.toScala(term)) &&
       assertTrue(term == Codec.fromScala(()).asInstanceOf[ETuple])
+    },
+    test("EBinary is encoded as UTF8 fromScala/toScala") {
+      val s: String     = new String("some text here".getBytes(), StandardCharsets.UTF_8)
+      val term: EBinary = Codec.fromScala(s).asInstanceOf[EBinary]
+      assertTrue(s == Codec.toScala(term).asInstanceOf[String])
+    },
+    test("EBinary is encoded as UTF8 constructor") {
+      val s: String     = new String("some text here".getBytes(), StandardCharsets.UTF_8)
+      val term: EBinary = EBinary(s.getBytes())
+      assertTrue(s == Codec.toScala(term).asInstanceOf[String])
+    },
+    test("EBinary is encoded as UTF8 fromScala") {
+      val s: String     = new String("some text here".getBytes(), StandardCharsets.UTF_8)
+      val term: EBinary = EBinary(s.getBytes())
+      assertTrue(term == Codec.fromScala(s).asInstanceOf[EBinary])
+    },
+    test("EString is encoded as UTF8 toScala") {
+      val s: String     = new String("some text here".getBytes(), StandardCharsets.UTF_8)
+      val term: EString = EString(s)
+      assertTrue(s == Codec.toScala(term).asInstanceOf[String])
+    },
+    test("EAtom is encoded as UTF8 fromScala/toScala") {
+      val s: Symbol   = Symbol(new String("some text here".getBytes(), StandardCharsets.UTF_8))
+      val term: EAtom = Codec.fromScala(s).asInstanceOf[EAtom]
+      assertTrue(s == Codec.toScala(term).asInstanceOf[Symbol])
+    },
+    test("EAtom is encoded as UTF8 constructor") {
+      val s: Symbol   = Symbol(new String("some text here".getBytes(), StandardCharsets.UTF_8))
+      val term: EAtom = EAtom(s)
+      assertTrue(s == Codec.toScala(term).asInstanceOf[Symbol])
     }
   )
 
