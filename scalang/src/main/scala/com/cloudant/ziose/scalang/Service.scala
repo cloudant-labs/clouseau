@@ -14,7 +14,7 @@ import core.MessageEnvelope
 import core.ProcessContext
 import java.util.concurrent.TimeUnit
 
-trait Error                                  extends Throwable {}
+trait Error                                  extends Throwable
 case class HandleCallCBError(err: Throwable) extends Error
 case class HandleCastCBError(err: Throwable) extends Error
 case class HandleInfoCBError(err: Throwable) extends Error

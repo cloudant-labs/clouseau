@@ -36,5 +36,5 @@ sealed abstract class Result[+E, +T] extends Product { self =>
     case Failure(err) => ZIO.fail(err)
   }
 }
-final case class Success[E, +T](value: T)  extends Result[E, T] {}
-final case class Failure[+E, T](reason: E) extends Result[E, T] {}
+final case class Success[E, +T](value: T)  extends Result[E, T]
+final case class Failure[+E, T](reason: E) extends Result[E, T]

@@ -27,7 +27,7 @@ abstract class OTPNode() extends Node {
 }
 
 object OTPNode {
-  class AccessKey {}
+  class AccessKey
   object AccessKey {
     private[OTPNode] def create(): AccessKey = new AccessKey
   }
@@ -79,8 +79,8 @@ object OTPNode {
     type Response = R
   }
 
-  case class CloseNode()                                                  extends Command[Response.CloseNode] {}
-  case class PingNode(nodeName: String, timeout: Option[Duration] = None) extends Command[Response.PingNode]  {}
+  case class CloseNode()                                                  extends Command[Response.CloseNode]
+  case class PingNode(nodeName: String, timeout: Option[Duration] = None) extends Command[Response.PingNode]
   case class CreateMbox(name: Option[String] = None)                      extends Command[Response.CreateMbox]
   case class Register(mbox: OtpMbox, name: String)                        extends Command[Response.Register]
   case class ListNames()                                                  extends Command[Response.ListNames]
@@ -91,19 +91,19 @@ object OTPNode {
       extends Command[Response.StopActor]
   // case class MonitorNode(name: String, timeout: Option[Duration] = None) extends Command[Response.MonitorNode]
 
-  protected trait Response {}
+  protected trait Response
 
   object Response {
-    case class CloseNode(result: Unit)                  extends Response {}
-    case class PingNode(result: Boolean)                extends Response {}
-    case class CreateMbox(result: OtpMbox)              extends Response {}
-    case class Register(result: Boolean)                extends Response {}
-    case class ListNames(result: List[String])          extends Response {}
-    case class LookUpName(result: Option[OtpErlangPid]) extends Response {}
-    // case class CloseMbox(result: Unit)                  extends Response {}
-    case class StartActor(result: Codec.EPid) extends Response {}
-    case class StopActor(result: Unit)        extends Response {}
-    // case class MonitorNode(result: Unit)                extends Response {}
+    case class CloseNode(result: Unit)                  extends Response
+    case class PingNode(result: Boolean)                extends Response
+    case class CreateMbox(result: OtpMbox)              extends Response
+    case class Register(result: Boolean)                extends Response
+    case class ListNames(result: List[String])          extends Response
+    case class LookUpName(result: Option[OtpErlangPid]) extends Response
+    // case class CloseMbox(result: Unit)                  extends Response
+    case class StartActor(result: Codec.EPid) extends Response
+    case class StopActor(result: Unit)        extends Response
+    // case class MonitorNode(result: Unit)                extends Response
   }
 
   class NodeProcess private (
