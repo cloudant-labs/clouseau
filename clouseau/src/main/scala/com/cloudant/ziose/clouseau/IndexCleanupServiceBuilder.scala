@@ -23,7 +23,7 @@ import core.ActorBuilder
 object IndexCleanupServiceBuilder extends ActorConstructor[IndexCleanupService] {
   def make(node: SNode, service_ctx: ServiceContext[ConfigurationArgs]) = {
     def maker[PContext <: ProcessContext](process_context: PContext): IndexCleanupService = {
-      new IndexCleanupService(service_ctx)(new Adapter(process_context, node, ClouseauTypeFactory))
+      new IndexCleanupService(service_ctx)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
     ActorBuilder()

@@ -100,7 +100,7 @@ case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit a
 object ClouseauSupervisor extends ActorConstructor[ClouseauSupervisor] {
   def make(node: SNode, service_ctx: ServiceContext[ConfigurationArgs]) = {
     def maker[PContext <: ProcessContext](process_context: PContext): ClouseauSupervisor = {
-      ClouseauSupervisor(service_ctx)(new Adapter(process_context, node, ClouseauTypeFactory))
+      ClouseauSupervisor(service_ctx)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
     ActorBuilder()

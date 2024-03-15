@@ -23,7 +23,7 @@ import core.ActorBuilder
 object IndexServiceBuilder extends ActorConstructor[IndexService] {
   def make(node: SNode, service_ctx: ServiceContext[IndexServiceArgs]) = {
     def maker[PContext <: ProcessContext](process_context: PContext): IndexService = {
-      new IndexService(service_ctx)(new Adapter(process_context, node, ClouseauTypeFactory))
+      new IndexService(service_ctx)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
     ActorBuilder()

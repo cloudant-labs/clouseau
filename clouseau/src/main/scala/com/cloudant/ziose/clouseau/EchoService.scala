@@ -61,7 +61,7 @@ private object EchoService extends ActorConstructor[EchoService] {
     name: String
   ): ActorBuilder.Builder[EchoService, State.Spawnable] = {
     def maker[PContext <: ProcessContext](process_context: PContext): EchoService = {
-      new EchoService(service_context)(new Adapter(process_context, node, ClouseauTypeFactory))
+      new EchoService(service_context)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
     ActorBuilder()
