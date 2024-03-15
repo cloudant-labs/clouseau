@@ -20,8 +20,6 @@ import core.ProcessContext
 import core.ActorConstructor
 import core.ActorBuilder
 
-trait AnalyzerServiceBuilder {}
-
 object AnalyzerServiceBuilder extends ActorConstructor[AnalyzerService] {
   def make(node: SNode, service_ctx: ServiceContext[ConfigurationArgs]) = {
     def maker[PContext <: ProcessContext](process_context: PContext): AnalyzerService = {
