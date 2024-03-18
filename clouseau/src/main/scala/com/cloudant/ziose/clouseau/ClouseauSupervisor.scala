@@ -45,7 +45,7 @@ case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit a
   var analyzer = {
     spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args)
   }
-  var echo = spawnAndMonitorService[EchoService, ConfigurationArgs](Symbol("coordinator"), ctx.args)
+  var init = spawnAndMonitorService[InitService, ConfigurationArgs](Symbol("init"), ctx.args)
 
   override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Unit = {
     if (monitored == manager) {
@@ -66,9 +66,9 @@ case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit a
         spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args)
       }
     }
-    if (monitored == echo) {
-      logger.warn("echo crashed")
-      echo = spawnAndMonitorService[EchoService, ConfigurationArgs](Symbol("coordinator"), ctx.args)
+    if (monitored == init) {
+      logger.warn("init crashed")
+      init = spawnAndMonitorService[EchoService, ConfigurationArgs](Symbol("init"), ctx.args)
     }
   }
 
@@ -80,7 +80,7 @@ case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit a
       case (Symbol("cleanup"), ConfigurationArgs(args))  => IndexCleanupServiceBuilder.start(adapter.node, args)
       case (Symbol("analyzer"), ConfigurationArgs(args)) => AnalyzerServiceBuilder.start(adapter.node, args)
       case (Symbol("main"), ConfigurationArgs(args))     => IndexManagerServiceBuilder.start(adapter.node, args)
-      case (Symbol("coordinator"), ConfigurationArgs(args))  => EchoService.start(adapter.node, "coordinator", args)
+      case (Symbol("init"), ConfigurationArgs(args))  => InitService.start(adapter.node, "init", args)
     }
     println(s"$regName -> $result")
     result match {

@@ -6,7 +6,10 @@
 setup() ->
     {ok, _} = net_kernel:start(?NodeT, #{name_domain => longnames}),
     true = erlang:set_cookie(?NodeT, ?COOKIE),
-    pong = util:check(?NodeZ).
+    pong = util:check(?NodeZ),
+    {ok, Pid} = gen_server:call({init, ?NodeZ}, {spawn, echo, echo}),
+    Pid.
 
-teardown(_) ->
+teardown(Pid) ->
+    exit(Pid, normal),
     ok = net_kernel:stop().

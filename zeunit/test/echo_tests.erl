@@ -11,6 +11,7 @@ echo_service_test_() ->
             [
                 fun t_echo/0,
                 fun t_echo_failure/0,
+                fun t_echo_spawn/0,
                 fun t_call_echo/0,
                 fun t_call_version/0,
                 fun t_call_build_info/0
@@ -19,24 +20,30 @@ echo_service_test_() ->
     }.
 
 t_echo() ->
-    {coordinator, ?NodeZ} ! {echo, self(), erlang:system_time(microsecond), 1},
+    {echo, ?NodeZ} ! {echo, self(), erlang:system_time(microsecond), 1},
     {Symbol, Pid, _, _, _, Seq} = util:receive_msg(),
     ?assertEqual({Symbol, Pid, Seq}, {echo_reply, self(), 1}).
 
 t_echo_failure() ->
-    {coordinator, ?NodeZ} ! {echo, self(), unexpected_msg},
+    {echo, ?NodeZ} ! {echo, self(), unexpected_msg},
     ?assertEqual({error, timeout}, util:receive_msg(100)).
 
+t_echo_spawn() ->
+    {init, ?NodeZ} ! {spawn, self(), echo, echoX},
+    ({_, _, Pid} = Message) = util:receive_msg(),
+    exit(Pid, normal),
+    ?assertMatch({spawned, echoX, _}, Message).
+
 t_call_echo() ->
-    ?assertEqual({echo, {}}, gen_server:call({coordinator, ?NodeZ}, {echo, {}})).
+    ?assertEqual({echo, {}}, gen_server:call({echo, ?NodeZ}, {echo, {}})).
 
 t_call_version() ->
-    Version = gen_server:call({coordinator, ?NodeZ}, version),
+    Version = gen_server:call({init, ?NodeZ}, version),
     ensure_semantic(Version),
     ?assertMatch({3, _, _}, parse_semantic(Version)).
 
 t_call_build_info() ->
-    Info = gen_server:call({coordinator, ?NodeZ}, build_info),
+    Info = gen_server:call({init, ?NodeZ}, build_info),
     #{
         clouseau := Clouseau,
         sbt := Sbt,
