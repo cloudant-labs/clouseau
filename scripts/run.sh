@@ -33,6 +33,8 @@ run::stop() {
   if pgrep -F "$pid_file" >/dev/null; then
     pkill -F "$pid_file"
     rm -f "$pid_file"
+  else
+    rm -f "$pid_file"
   fi
 }
 
