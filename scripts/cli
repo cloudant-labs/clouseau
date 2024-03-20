@@ -198,8 +198,8 @@ stop)
 zeunit)
   ensure_args 1 "help_topic zeunit" "$@"
   name=$1
-  run::health-check "$name"
   trap 'run::stop "$name"' EXIT
+  run::health-check "$name" || exit 1
   shift
   run::eunit "$@"
   exit $?
