@@ -52,7 +52,8 @@ lazy val commonSettings = Seq(
 //    "org.slf4j"      % "slf4j-nop"              % "2.0.9"
   ),
   assembly / assemblyMergeStrategy := {
-    case PathList("META-INF", _*)                        => MergeStrategy.discard
+    case PathList("META-INF", "services", xs @ _*) if xs.last.contains("org.apache.lucene") => MergeStrategy.preferProject
+    case PathList("META-INF", "MANIFEST.MF")             => MergeStrategy.discard
     case PathList("NOTICE", _*)                          => MergeStrategy.discard
     case PathList(ps @ _*) if Assembly.isReadme(ps.last) => MergeStrategy.discard
     case _                                               => MergeStrategy.deduplicate
