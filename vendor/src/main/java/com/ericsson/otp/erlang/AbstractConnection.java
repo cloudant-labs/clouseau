@@ -76,6 +76,9 @@ public abstract class AbstractConnection extends Thread {
     protected static final int exitTTTag = 13;
     protected static final int regSendTTTag = 16;
     protected static final int exit2TTTag = 18;
+    protected static final int monitorTag = 19;
+    protected static final int demonitorTag = 20;
+    protected static final int monitorExitTag = 21;
     protected static final int unlinkIdTag = 35;
     protected static final int unlinkIdAckTag = 36;
 
@@ -497,7 +500,7 @@ public abstract class AbstractConnection extends Thread {
     /* used internally when "processes" terminate */
     protected void sendExit(final OtpErlangPid from, final OtpErlangPid dest,
             final OtpErlangObject reason) throws IOException {
-        sendExit(exitTag, from, dest, reason);
+        sendExit(exitTag, from, dest, null, reason);
     }
 
     /**
@@ -514,11 +517,16 @@ public abstract class AbstractConnection extends Thread {
      */
     protected void sendExit2(final OtpErlangPid from, final OtpErlangPid dest,
             final OtpErlangObject reason) throws IOException {
-        sendExit(exit2Tag, from, dest, reason);
+        sendExit(exit2Tag, from, dest, null, reason);
     }
 
-    private void sendExit(final int tag, final OtpErlangPid from,
-            final OtpErlangPid dest, final OtpErlangObject reason)
+    protected void sendMonitorExit(final OtpErlangObject from, final OtpErlangPid dest,
+            final OtpErlangRef ref, final OtpErlangObject reason) throws IOException {
+        sendExit(monitorExitTag, from, dest, ref, reason);
+    }
+
+    private void sendExit(final int tag, final OtpErlangObject from,
+            final OtpErlangPid dest, final OtpErlangRef ref, final OtpErlangObject reason)
             throws IOException {
         if (!connected) {
             throw new IOException("Not connected");
@@ -532,10 +540,13 @@ public abstract class AbstractConnection extends Thread {
         header.write1(version);
 
         // header
-        header.write_tuple_head(4);
+        header.write_tuple_head((ref != null) ? 5 : 4);
         header.write_long(tag);
         header.write_any(from);
         header.write_any(dest);
+        if (ref != null) {
+            header.write_any(ref);
+        }
         header.write_any(reason);
 
         // fix up length in preamble
@@ -599,6 +610,7 @@ public abstract class AbstractConnection extends Thread {
 
                 // got a real message (really)
                 OtpErlangObject reason = null;
+                OtpErlangRef ref = null;
                 OtpErlangAtom cookie = null;
                 OtpErlangObject tmp = null;
                 OtpErlangTuple head = null;
@@ -743,6 +755,69 @@ public abstract class AbstractConnection extends Thread {
                     reason = head.elementAt(4);
 
                     deliver(new OtpMsg(tag, from, to, reason));
+                    break;
+
+                case monitorTag: // { MONITOR_P, FromPid, ToProc, Ref }
+                    if (head.elementAt(3) == null) {
+                        break receive_loop;
+                    }
+                    if (traceLevel >= ctrlThreshold) {
+                        System.out.println("<- " + headerType(head) + " "
+                                           + head);
+                    }
+
+                    from = (OtpErlangPid) head.elementAt(1);
+                    tmp = (OtpErlangObject) head.elementAt(2);
+                    ref = (OtpErlangRef) head.elementAt(3);
+
+                    if (tmp instanceof OtpErlangPid) {
+                        to = (OtpErlangPid) tmp;
+                        deliver(new OtpMsg(tag, from, to, ref));
+                    } else
+                    if (tmp instanceof OtpErlangAtom) {
+                        toName = (OtpErlangAtom) tmp;
+                        deliver(new OtpMsg(tag, from, toName.atomValue(), ref));
+                    }
+                    break;
+
+                case demonitorTag: // { DEMONITOR_P, FromPid, ToProc, Ref }
+                    if (head.elementAt(3) == null) {
+                        break receive_loop;
+                    }
+                    if (traceLevel >= ctrlThreshold) {
+                        System.out.println("<- " + headerType(head) + " "
+                                           + head);
+                    }
+
+                    from = (OtpErlangPid) head.elementAt(1);
+                    tmp = (OtpErlangObject) head.elementAt(2);
+                    ref = (OtpErlangRef) head.elementAt(3);
+
+                    if (tmp instanceof OtpErlangPid) {
+                        to = (OtpErlangPid) tmp;
+                        deliver(new OtpMsg(tag, from, to, ref));
+                    } else
+                    if (tmp instanceof OtpErlangAtom) {
+                        toName = (OtpErlangAtom) tmp;
+                        deliver(new OtpMsg(tag, from, toName.atomValue(), ref));
+                    }
+                    break;
+
+                case monitorExitTag: // { MONITOR_P_EXIT, FromProc, ToPid, Ref, Reason }
+                    if (head.elementAt(4) == null) {
+                        break receive_loop;
+                    }
+                    if (traceLevel >= ctrlThreshold) {
+                        System.out.println("<- " + headerType(head) + " "
+                                           + head);
+                    }
+
+                    from = (OtpErlangPid) head.elementAt(1);
+                    to = (OtpErlangPid) head.elementAt(2);
+                    ref = (OtpErlangRef) head.elementAt(3);
+                    reason = head.elementAt(4);
+
+                    deliver(new OtpMsg(tag, from, to, ref, reason));
                     break;
 
                 case linkTag: // { LINK, FromPid, ToPid}
@@ -987,6 +1062,15 @@ public abstract class AbstractConnection extends Thread {
 
         case exit2TTTag:
             return "EXIT2_TT";
+
+        case monitorTag:
+            return "MONITOR_P";
+
+        case demonitorTag:
+            return "DEMONITOR_P";
+
+        case monitorExitTag:
+            return "MONITOR_EXIT_P";
         }
 
         return "(unknown type)";

@@ -570,7 +570,16 @@ public class OtpNode extends OtpLocalNode {
                 }
                 mbox = mboxes.get(name);
             } else {
-                mbox = mboxes.get(m.getRecipientPid());
+                final String name = m.getRecipientName();
+                if ((t == OtpMsg.monitorTag || t == OtpMsg.demonitorTag)
+                    && name != null && name.equals("net_kernel")) {
+                    return true;
+                }
+		if (name != null) {
+                    mbox = mboxes.get(name);
+                } else {
+                    mbox = mboxes.get(m.getRecipientPid());
+                }
             }
 
             if (mbox == null) {

@@ -113,26 +113,42 @@ public class OtpCookedConnection extends AbstractConnection {
 
     /*
      * pass the message to the node for final delivery. Note that the connection
-     * itself needs to know about links (in case of connection failure), so we
-     * snoop for link/unlink too here.
+     * itself needs to know about links (in case of connection failure) and monitors,
+     * so we snoop for link/unlink/monitor too here.
      */
     @Override
     public void deliver(final OtpMsg msg) {
         final boolean delivered = self.deliver(msg);
 
-        switch (msg.type()) {
-        case OtpMsg.linkTag:
-            if (!delivered) {
-                try {
-                    // no such pid - send exit to sender
+        if (!delivered) {
+            try {
+                // no such pid - send exit to sender
+                switch (msg.type()) {
+                case OtpMsg.monitorTag:
+                    Object tmp = msg.getRecipient();
+                    OtpErlangObject recipient = null;
+
+                    if (tmp instanceof OtpErlangPid) {
+                        recipient = (OtpErlangPid) tmp;
+                    } else
+                    if (tmp instanceof String) {
+                        recipient = new OtpErlangAtom((String) tmp);
+                    }
+
+                    if (recipient != null) {
+                        super.sendMonitorExit(recipient, msg.getSenderPid(), msg.getRef(),
+                                new OtpErlangAtom("noproc"));
+                    }
+                    break;
+                case OtpMsg.linkTag:
                     super.sendExit(msg.getRecipientPid(), msg.getSenderPid(),
                             new OtpErlangAtom("noproc"));
-                } catch (final IOException e) {
+                    break;
+                default:
+                    break;
                 }
+            } catch (final IOException e) {
             }
-            break;
-        default:
-            break;
         }
 
         return;
@@ -188,6 +204,14 @@ public class OtpCookedConnection extends AbstractConnection {
             final OtpErlangObject reason) {
         try {
             super.sendExit2(from, to, reason);
+        } catch (final Exception e) {
+        }
+    }
+
+    void monitor_exit(final OtpErlangPid from, final OtpErlangPid to,
+            final OtpErlangRef ref, final OtpErlangObject reason) {
+        try {
+            super.sendMonitorExit(from, to, ref, reason);
         } catch (final Exception e) {
         }
     }

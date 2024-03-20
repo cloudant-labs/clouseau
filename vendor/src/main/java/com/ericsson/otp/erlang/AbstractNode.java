@@ -121,6 +121,8 @@ public class AbstractNode implements OtpTransportFactory {
     int distLow = 6; // Cannot talk to nodes before OTP 23
     private int creation = 0x710000;
     long flags = mandatoryFlags
+        | dFlagDistMonitor
+        | dFlagDistMonitorName
         | dFlagUnlinkId
         | dFlagV4PidsRefs
         | dFlagMandatory25Digest;

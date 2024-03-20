@@ -578,6 +578,24 @@ public class OtpMbox {
         }
     }
 
+    public synchronized void monitor_exit(final OtpErlangPid to, final OtpErlangRef ref,
+        final OtpErlangObject reason) {
+        try {
+            final String node = to.node();
+            if (node.equals(home.node())) {
+                final OtpMsg msg = new OtpMsg(OtpMsg.monitorExitTag, self, to, ref, reason);
+                home.deliver(msg);
+            } else {
+                final OtpCookedConnection conn = home.getConnection(node);
+                if (conn == null) {
+                    return;
+                }
+                conn.monitor_exit(self, to, ref, reason);
+            }
+        } catch (final Exception e) {
+        }
+    }
+
     /**
      * <p>
      * Get information about all processes and/or mail boxes currently
