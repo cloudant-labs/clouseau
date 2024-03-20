@@ -116,6 +116,15 @@ lazy val clouseau = (project in file("clouseau"))
     assembly / assemblyJarName              := s"${name.value}_${scalaVersion.value}_${version.value}.jar",
     assemblyPackageScala / assembleArtifact := true
   )
+  .settings(
+    console / initialCommands := """
+      import com.cloudant.ziose._
+      import org.apache.lucene
+      import com.cloudant.ziose.scalang.Pid
+      import com.cloudant.ziose.scalang.Reference
+    """,
+    Compile / console / scalacOptions ~= { _.filterNot(Set("-Ywarn-unused-import", "-Ywarn-unused:imports")) },
+  )
   .dependsOn(core)
   .dependsOn(scalang)
   .dependsOn(otp)
@@ -142,3 +151,5 @@ lazy val root = (project in file("."))
   .dependsOn(core)
 
 run := (clouseau / Compile / run).evaluated
+
+addCommandAlias("repl", "clouseau / console")
