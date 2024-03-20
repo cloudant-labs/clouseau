@@ -30,12 +30,8 @@ run::stop() {
 
   [ ! -f "$pid_file" ] && console::errorLn "Not found PID file!" && exit 1
 
-  if pgrep -F "$pid_file" >/dev/null; then
-    pkill -F "$pid_file"
-    rm -f "$pid_file"
-  else
-    rm -f "$pid_file"
-  fi
+  pkill -F "$pid_file"
+  rm -f "$pid_file"
 }
 
 run::health-check() {
