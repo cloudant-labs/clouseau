@@ -72,6 +72,16 @@ object MessageEnvelope {
     def getPayload = Some(payload)
   }
 
+  case class Monitor(from: Option[Codec.EPid], to: Address, ref: Codec.ERef, workerId: Engine.WorkerId)
+      extends MessageEnvelope {
+    def getPayload = None
+  }
+
+  case class Demonitor(from: Option[Codec.EPid], to: Address, ref: Codec.ERef, workerId: Engine.WorkerId)
+      extends MessageEnvelope {
+    def getPayload = None
+  }
+
   // For debugging and testing only
   def makeSend(recipient: Address, msg: Codec.ETerm, workerId: Engine.WorkerId) = {
     Send(None, recipient, msg, workerId)
@@ -104,8 +114,10 @@ object MessageEnvelope {
       case OtpMsg.exitTag => Exit(Some(getSenderPid(msg)), getRecipient(msg, workerId), getMsg(msg), workerId)
       // The unlinkId is not exposed. However it should be handled by OtpMbox.deliver
       // case OtpMsg.unlinkTag => Unlink(Some(getSenderPid(msg)), getRecipientPid(msg), ???)
-      case OtpMsg.regSendTag => Send(Some(getSenderPid(msg)), getRecipient(msg, workerId), getMsg(msg), workerId)
-      case OtpMsg.exit2Tag   => Exit(Some(getSenderPid(msg)), getRecipient(msg, workerId), getMsg(msg), workerId)
+      case OtpMsg.regSendTag   => Send(Some(getSenderPid(msg)), getRecipient(msg, workerId), getMsg(msg), workerId)
+      case OtpMsg.exit2Tag     => Exit(Some(getSenderPid(msg)), getRecipient(msg, workerId), getMsg(msg), workerId)
+      case OtpMsg.monitorTag   => Monitor(Some(getSenderPid(msg)), getRecipient(msg, workerId), getRef(msg), workerId)
+      case OtpMsg.demonitorTag => Demonitor(Some(getSenderPid(msg)), getRecipient(msg, workerId), getRef(msg), workerId)
     }
   }
 
@@ -128,6 +140,10 @@ object MessageEnvelope {
 
   private def getRecipientPid(msg: OtpMsg): Codec.EPid = {
     Codec.fromErlang(msg.getRecipientPid()).asInstanceOf[Codec.EPid]
+  }
+
+  private def getRef(msg: OtpMsg): Codec.ERef = {
+    Codec.fromErlang(msg.getRef()).asInstanceOf[Codec.ERef]
   }
 
   private def makePidAddress(pid: OtpErlangPid, workerId: Engine.WorkerId): Address = {

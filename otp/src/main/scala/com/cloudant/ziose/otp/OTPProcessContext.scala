@@ -13,13 +13,16 @@ import com.cloudant.ziose.core.PID
 import com.cloudant.ziose.core.MessageEnvelope
 import com.cloudant.ziose.core.Address
 
+import collection.mutable.Set
+
 class OTPProcessContext private (
   val name: Option[String],
   val mailbox: OTPMailbox,
   val engineId: Engine.EngineId,
   val workerId: Engine.WorkerId,
   private val nodeName: String,
-  private val mbox: OtpMbox
+  private val mbox: OtpMbox,
+  private val monitorers: Set[Product2[Codec.EPid, Codec.ERef]]
 ) extends ProcessContext {
   val id   = mailbox.id
   val self = PID(new Codec.EPid(mailbox.externalMailbox.self), workerId)
@@ -71,6 +74,31 @@ class OTPProcessContext private (
   // Since it should only be used from OTPNode
   def mailbox(accessKey: OTPNode.AccessKey): OtpMbox = mbox
   def start(scope: Scope)                            = mailbox.start(scope)
+
+  def addMonitorer(from: Option[Codec.EPid], ref: Codec.ERef): UIO[Unit] = for {
+    _ <- from match {
+      case Some(pid) =>
+        ZIO.succeed(monitorers += Tuple2(pid, ref))
+      case None =>
+        ZIO.succeed(())
+    }
+  } yield ()
+
+  def removeMonitorer(from: Option[Codec.EPid], ref: Codec.ERef): UIO[Unit] = for {
+    _ <- from match {
+      case Some(pid) =>
+        ZIO.succeed(monitorers -= Tuple2(pid, ref))
+      case None =>
+        ZIO.succeed(())
+    }
+  } yield ()
+
+  def notifyMonitorers(reason: Codec.ETerm) = {
+    // println(s"monitorers: $monitorers")
+    for (Tuple2(monitorer, ref) <- monitorers) {
+      mailbox.sendMonitorExit(monitorer, ref, reason)
+    }
+  }
 }
 
 object OTPProcessContext {
@@ -143,7 +171,8 @@ object OTPProcessContext {
       engineId.get,
       workerId.get,
       nodeName.get,
-      otpMbox.get
+      otpMbox.get,
+      Set()
     )
   }
 

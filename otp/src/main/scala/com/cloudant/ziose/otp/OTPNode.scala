@@ -47,7 +47,7 @@ object OTPNode {
       service <- for {
         _           <- ZIO.debug(s"Creating OtpNode(${name}, ${cfg.cookie})") // TODO remove cookie
         nodeProcess <- NodeProcess.make(name, cfg.cookie, queue, accessKey)
-        _           <- nodeProcess.stream.runDrain.forever.fork
+        _           <- nodeProcess.stream.runDrain.fork
         scope       <- ZIO.scope
         service = unsafeMake(queue, nodeProcess, scope, factory, ctx)
         _ <- service.acquire
@@ -140,6 +140,22 @@ object OTPNode {
                   // _ <- Console.printLine(s"exit: $reason")
                   _ <- stopActor(actor.asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]], Some(reason))
                 } yield false
+              case MessageEnvelope.Monitor(monitorer, monitored, ref, workerId) =>
+                for {
+                  // _ <- Console.printLine(s"monitor: monitorer=$monitorer, monitored=$monitored, ref=$ref, worker=$workerId")
+                  _ <- actor
+                    .asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]]
+                    .ctx
+                    .addMonitorer(monitorer, ref)
+                } yield true
+              case MessageEnvelope.Demonitor(monitorer, monitored, ref, workerId) =>
+                for {
+                  // _ <- Console.printLine(s"demonitor: monitorer=$monitorer, monitored=$monitored, ref=$ref, worker=$workerId")
+                  _ <- actor
+                    .asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]]
+                    .ctx
+                    .removeMonitorer(monitorer, ref)
+                } yield true
               case message =>
                 for {
                   // _ <- Console.printLine(s"message: $message")
@@ -174,13 +190,20 @@ object OTPNode {
           for {
             _ <- actor.onTermination(term).catchAll(_ => ZIO.unit)
             _ <- actor.ctx.shutdown
-            _ <- ZIO.succeedBlocking(node.closeMbox(mbox, term.toOtpErlangObject))
+            _ <- ZIO.succeedBlocking {
+              actor.ctx.notifyMonitorers(term)
+              node.closeMbox(mbox, term.toOtpErlangObject)
+            }
           } yield ()
         case None =>
+          val term = Codec.EAtom(Symbol("normal"))
           for {
-            _ <- actor.onTermination(Codec.EAtom(Symbol("normal"))).catchAll(_ => ZIO.unit)
+            _ <- actor.onTermination(term).catchAll(_ => ZIO.unit)
             _ <- actor.ctx.shutdown
-            _ <- ZIO.succeedBlocking(node.closeMbox(mbox))
+            _ <- ZIO.succeedBlocking {
+              actor.ctx.notifyMonitorers(term)
+              node.closeMbox(mbox)
+            }
           } yield ()
       }
     } yield ()

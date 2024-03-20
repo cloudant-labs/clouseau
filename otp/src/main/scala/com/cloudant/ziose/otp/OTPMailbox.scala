@@ -228,6 +228,10 @@ class OTPMailbox private (
     _ <- ZStream.fromQueueWithShutdown(internalMailbox).mapZIO(compositeMailbox.offer(_)).runDrain.forkIn(scope)
     _ <- remoteStream.mapZIO(compositeMailbox.offer(_)).runDrain.forkIn(scope)
   } yield ()
+
+  def sendMonitorExit(to: Codec.EPid, ref: Codec.ERef, reason: Codec.ETerm) = {
+    externalMailbox.monitor_exit(to.toOtpErlangObject, ref.toOtpErlangObject, reason.toOtpErlangObject)
+  }
 }
 
 object OTPMailbox {
