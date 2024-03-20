@@ -16,7 +16,7 @@ run::start() {
   hash=$(run::get_hash "$1")
   local pid_file="${TMP_DIR}/${hash}.pid"
 
-  [ -f "$pid_file" ] && console::errorLn "PID file already exist!" && exit 1
+  [ -f "$pid_file" ] && console::errorLn "PID file already exist!" && return 1
 
   shift
   $@ &
