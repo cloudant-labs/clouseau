@@ -30,7 +30,7 @@ run::stop() {
 
   [ ! -f "$pid_file" ] && console::errorLn "Not found PID file!" && exit 1
 
-  pkill -F "$pid_file"
+  pkill -F "$pid_file" && console::infoLn "Stopping \"${1}\"...."
   rm -f "$pid_file"
 }
 
