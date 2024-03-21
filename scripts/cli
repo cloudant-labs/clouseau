@@ -185,10 +185,11 @@ fmt)
   ;;
 start)
   ensure_args 2 "help_topic start" "$@"
-  run::start "$@"
-  rc=$?
-  [ $rc ] || console::errorLn "\tYou can use 'cli stop $1' to stop the service"
-  exit $rc
+  if ! run::start "$@"; then
+    console::errorLn "\n\tYou can use 'cli stop $1' to stop the service"
+    exit 1
+  fi
+  exit 0
   ;;
 stop)
   ensure_args 1 "help_topic stop" "$@"
