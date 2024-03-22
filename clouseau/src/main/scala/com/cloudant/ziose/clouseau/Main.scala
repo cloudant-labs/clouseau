@@ -10,18 +10,18 @@ import otp.{OTPActorFactory, OTPEngineWorker, OTPNode, OTPNodeConfig}
 import zio.config.magnolia.deriveConfig
 import zio.config.typesafe.FromConfigSourceTypesafe
 import zio.logging.{ConsoleLoggerConfig, LogFilter, LogFormat, consoleLogger}
-import zio.{&, ConfigProvider, IO, RIO, Runtime, System, Task, ZIO, ZIOAppDefault}
+import zio.{&, ConfigProvider, IO, RIO, Runtime, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import java.io.FileNotFoundException
 
 object Main extends ZIOAppDefault {
   final case class NodeCfg(config: List[AppConfiguration])
 
-  def getConfig(path: String): IO[FileNotFoundException, NodeCfg] = {
+  def getConfig(pathToCfgFile: String): IO[FileNotFoundException, NodeCfg] = {
     ConfigProvider
-      .fromHoconFilePath(path)
+      .fromHoconFilePath(pathToCfgFile)
       .load(deriveConfig[NodeCfg])
-      .orElseFail(new FileNotFoundException(s"File Not Found: $path"))
+      .orElseFail(new FileNotFoundException(s"File Not Found: $pathToCfgFile"))
   }
 
   def getNodeIdx: Task[Int] = {
@@ -63,10 +63,10 @@ object Main extends ZIOAppDefault {
   private val workerId: Int = 1
   private val engineId: Int = 1
 
-  private val app: Task[Unit] = {
+  private def app(cfgFile: String): Task[Unit] = {
     for {
       nodeIdx  <- getNodeIdx
-      nodesCfg <- getConfig("app.conf")
+      nodesCfg <- getConfig(cfgFile)
       nodeCfg = nodesCfg.config(nodeIdx)
       node    = nodeCfg.node
       name    = s"${node.name}@${node.domain}"
@@ -83,5 +83,10 @@ object Main extends ZIOAppDefault {
   private val logger = Runtime.removeDefaultLoggers >>>
     consoleLogger(ConsoleLoggerConfig(LogFormat.colored, LogFilter.acceptAll))
 
-  def run: IO[Any, Unit] = ZIO.scoped(app).provide(logger)
+  override def run: ZIO[ZIOAppArgs & Scope, Any, Unit] = {
+    for {
+      cfgFile <- getArgs.map(_.headOption.getOrElse("app.conf"))
+      _       <- ZIO.scoped(app(cfgFile)).provide(logger)
+    } yield ()
+  }
 }

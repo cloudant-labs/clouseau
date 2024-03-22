@@ -18,7 +18,7 @@ class MainSpec extends JUnitRunnableSpec {
     suite("getConfig")(
       test("getConfig success") {
         for {
-          nodes <- Main.getConfig("clouseau/src/test/resources/testApp.conf")
+          nodes <- Main.getConfig("src/test/resources/testApp.conf")
           node1 = nodes.config.head
           node2 = nodes.config(1)
         } yield assertTrue(

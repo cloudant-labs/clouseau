@@ -38,21 +38,22 @@ lazy val commonSettings = Seq(
     "dev.zio"       %% "zio-config-magnolia"    % versions("zio.config"),
     "dev.zio"       %% "zio-config-typesafe"    % versions("zio.config"),
     "dev.zio"       %% "zio-logging"            % versions("zio.logging"),
+    "dev.zio"       %% "zio-logging-slf4j"      % versions("zio.logging"),
     "dev.zio"       %% "zio-metrics-dropwizard" % versions("zio.metrics"),
     "dev.zio"       %% "zio-streams"            % versions("zio"),
     "dev.zio"       %% "zio-test"               % versions("zio") % Test,
     "dev.zio"       %% "zio-test-junit"         % versions("zio") % Test,
     "com.github.sbt" % "junit-interface"        % "0.13.3"        % Test,
-    "junit"          % "junit"                  % "4.13.2"        % Test,
+    "junit"          % "junit"                  % "4.13.2"        % Test
 //    "dev.zio"       %% "zio-macros"             % versions("zio"),
 //    "dev.zio"       %% "zio-nio"                % versions("zio.nio"),
-    "dev.zio"       %% "zio-logging-slf4j"      % versions("zio.logging"),
 //    "dev.zio"       %% "zio-config-refined"     % versions("zio.config"),
 //    "dev.zio"       %% "zio-config-yaml"        % versions("zio.config"),
 //    "org.slf4j"      % "slf4j-nop"              % "2.0.9"
   ),
   assembly / assemblyMergeStrategy := {
-    case PathList("META-INF", "services", xs @ _*) if xs.last.contains("org.apache.lucene") => MergeStrategy.preferProject
+    case PathList("META-INF", "services", xs @ _*) if xs.last.contains("org.apache.lucene") =>
+      MergeStrategy.preferProject
     case PathList("META-INF", "MANIFEST.MF")             => MergeStrategy.discard
     case PathList("NOTICE", _*)                          => MergeStrategy.discard
     case PathList(ps @ _*) if Assembly.isReadme(ps.last) => MergeStrategy.discard
@@ -124,7 +125,15 @@ lazy val clouseau = (project in file("clouseau"))
       import com.cloudant.ziose.scalang.Pid
       import com.cloudant.ziose.scalang.Reference
     """,
-    Compile / console / scalacOptions ~= { _.filterNot(Set("-Ywarn-unused-import", "-Ywarn-unused:imports")) },
+    Compile / console / scalacOptions ~= { _.filterNot(Set("-Ywarn-unused-import", "-Ywarn-unused:imports")) }
+  )
+  .settings(
+    fork := true,
+    (Compile / run / forkOptions) := (Compile / run / forkOptions).value.withWorkingDirectory(
+      (ThisBuild / baseDirectory).value
+    ),
+    (Test / forkOptions) := (Test / forkOptions).value.withWorkingDirectory(baseDirectory.value),
+    outputStrategy       := Some(StdoutOutput)
   )
   .dependsOn(core)
   .dependsOn(scalang)
@@ -144,13 +153,14 @@ lazy val root = (project in file("."))
   .settings(
     scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports"),
     inThisBuild(List(organization := "com.cloudant")),
-    name          := "ziose"
+    name := "ziose"
   )
   .settings(
     Compile / console / scalacOptions -= "-Ywarn-unused:imports"
   )
   .dependsOn(core)
 
-run := (clouseau / Compile / run).evaluated
+Global / onChangedBuildSource := ReloadOnSourceChanges
+run                           := (clouseau / Compile / run).evaluated
 
 addCommandAlias("repl", "clouseau / console")
