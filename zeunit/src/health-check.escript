@@ -49,7 +49,7 @@ check_ping(Node) ->
     case util:check_ping(Node, ?PING_TIMEOUT_IN_MS) of
         pong ->
             ok("Node is accessible");
-        V ->
+        _ ->
             nok("Node is not responding")
     end.
 
