@@ -18,7 +18,7 @@ main(Args) ->
         CurDir = filename:dirname(escript:script_name()),
         Util = filename:join([CurDir, "util.erl"]),
         {ok, util} = compile:file(Util),
-        pong = util:check(Node, ?TIMEOUT_IN_MS),
+        pong = util:check_ping(Node, ?TIMEOUT_IN_MS),
         log(success)
     catch
         _:_ ->
