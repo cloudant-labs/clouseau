@@ -10,7 +10,8 @@
 -define(ANSI_RED, "31").
 -define(ANSI_GREEN, "32").
 
--define(TIMEOUT_IN_MS, 30000).
+-define(PING_TIMEOUT_IN_MS, 10000).
+-define(SERVICE_TIMEOUT_IN_MS, 10000).
 
 main(Args) ->
     Node = get_node(Args),
@@ -18,7 +19,8 @@ main(Args) ->
         CurDir = filename:dirname(escript:script_name()),
         Util = filename:join([CurDir, "util.erl"]),
         {ok, util} = compile:file(Util),
-        pong = util:check_ping(Node, ?TIMEOUT_IN_MS),
+        ok = check_ping(Node),
+        ok = check_service(Node),
         log(success)
     catch
         _:_ ->
@@ -33,6 +35,31 @@ get_node(Args) ->
             Other -> Other
         end,
     list_to_atom(Name ++ "@" ++ ?HOST).
+
+check_service(Node) ->
+    case util:check_service(Node, ?SERVICE_TIMEOUT_IN_MS) of
+        Version when is_binary(Version) ->
+            ok("Service is live");
+        _ ->
+            nok("Service unavailable")
+    end.
+
+
+check_ping(Node) ->
+    case util:check_ping(Node, ?PING_TIMEOUT_IN_MS) of
+        pong ->
+            ok("Node is accessible");
+        V ->
+            nok("Node is not responding")
+    end.
+
+ok(Text) ->
+    log_colored(?ANSI_GREEN, success, Text),
+    ok.
+
+nok(Text) ->
+    log_colored(?ANSI_RED, failure, Text),
+    nok.
 
 log(success) ->
     log_colored(?ANSI_GREEN, success, "Ziose Node Health Check");

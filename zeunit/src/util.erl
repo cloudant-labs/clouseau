@@ -2,9 +2,15 @@
 -export([a2l/1, l2a/1, b2l/1, l2b/1, b2t/1, t2b/1, to_binary/1]).
 -export([get_value/2, get_value/3]).
 -export([seconds/1, receive_msg/0, receive_msg/1]).
--export([check_ping/1, check_ping/2, wait_value/3]).
+-export([
+    check_ping/1, check_ping/2,
+    check_service/1, check_service/2,
+    wait_value/3
+]).
 
 -define(TIMEOUT_IN_MS, 3000).
+-define(PING_TIMEOUT_IN_MS, 3000).
+-define(SERVICE_TIMEOUT_IN_MS, 3000).
 
 a2l(V) -> atom_to_list(V).
 l2a(V) -> list_to_atom(V).
@@ -53,10 +59,27 @@ receive_msg(TimeoutInMs) ->
         {error, timeout}
     end.
 
-check_ping(Node) -> check_ping(Node, ?TIMEOUT_IN_MS).
+
+check_ping(Node) -> check_ping(Node, ?PING_TIMEOUT_IN_MS).
 
 check_ping(Node, TimeoutInMs) when is_atom(Node) ->
     wait_value(fun() -> net_adm:ping(Node) end, pong, TimeoutInMs).
+
+check_service(Node) ->
+    check_service(Node, ?SERVICE_TIMEOUT_IN_MS).
+
+check_service(Node, TimeoutInMs) when is_atom(Node) ->
+    wait(
+        fun() ->
+            try gen_server:call({init, Node}, version) of
+                timeout -> wait;
+                Version -> Version
+            catch
+                _:_ -> wait
+            end
+        end,
+        TimeoutInMs
+    ).
 
 wait_value(Fun, Value, TimeoutInMs) ->
     wait(
