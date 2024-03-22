@@ -21,10 +21,10 @@ main(Args) ->
         {ok, util} = compile:file(Util),
         ok = check_ping(Node),
         ok = check_service(Node),
-        log(success)
+        ok("Ziose Node Health Check")
     catch
         _:_ ->
-            log(failure),
+            nok("Ziose Node Health Check FAILED"),
             halt(1)
     end.
 
@@ -60,11 +60,6 @@ ok(Text) ->
 nok(Text) ->
     log_colored(?ANSI_RED, failure, Text),
     nok.
-
-log(success) ->
-    log_colored(?ANSI_GREEN, success, "Ziose Node Health Check");
-log(failure) ->
-    log_colored(?ANSI_RED, failure, "Ziose Node Health Check FAILED").
 
 log_colored(Color, Status, Text) ->
     io:fwrite("[~s~s~s] ~s~n", [?ANSI_COLORED ++ Color ++ "m", Status, ?ANSI_RESET, Text]).
