@@ -56,9 +56,7 @@ receive_msg(TimeoutInMs) ->
 check(Node) -> check(Node, ?TIMEOUT_IN_MS).
 
 check(Node, TimeoutInMs) when is_atom(Node) ->
-    wait_value(fun() -> net_adm:ping(Node) end, pong, TimeoutInMs);
-check(Node, TimeoutInMs) ->
-    wait_value(fun() -> net_adm:ping(l2a(Node)) end, pong, TimeoutInMs).
+    wait_value(fun() -> net_adm:ping(Node) end, pong, TimeoutInMs).
 
 wait_value(Fun, Value, TimeoutInMs) ->
     wait(

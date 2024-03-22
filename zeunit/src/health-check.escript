@@ -32,7 +32,7 @@ get_node(Args) ->
             "" -> ?NAME;
             Other -> Other
         end,
-    Name ++ "@" ++ ?HOST.
+    list_to_atom(Name ++ "@" ++ ?HOST).
 
 log(success) ->
     log_colored(?ANSI_GREEN, success, "Ziose Node Health Check");
