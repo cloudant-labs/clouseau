@@ -27,3 +27,5 @@ tmp/
 # vscode
 .metals
 .vscode
+
+erl_crash.dump
