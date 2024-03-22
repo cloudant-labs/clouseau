@@ -50,7 +50,7 @@ seconds(N) when is_integer(N) ->
     N * 1000.
 
 receive_msg() ->
-    receive_msg(seconds(?TIMEOUT_IN_MS)).
+    receive_msg(?TIMEOUT_IN_MS).
 
 receive_msg(TimeoutInMs) ->
     receive
