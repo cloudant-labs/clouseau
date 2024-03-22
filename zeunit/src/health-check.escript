@@ -44,7 +44,6 @@ check_service(Node) ->
             nok("Service unavailable")
     end.
 
-
 check_ping(Node) ->
     case util:check_ping(Node, ?PING_TIMEOUT_IN_MS) of
         pong ->
