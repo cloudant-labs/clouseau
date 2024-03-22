@@ -4,7 +4,7 @@
 -export([seconds/1, receive_msg/0, receive_msg/1]).
 -export([check/1, check/2, wait_value/3]).
 
--define(TIMEOUT, 3).
+-define(TIMEOUT_IN_MS, 3000).
 
 a2l(V) -> atom_to_list(V).
 l2a(V) -> list_to_atom(V).
@@ -44,23 +44,23 @@ seconds(N) when is_integer(N) ->
     N * 1000.
 
 receive_msg() ->
-    receive_msg(seconds(?TIMEOUT)).
+    receive_msg(seconds(?TIMEOUT_IN_MS)).
 
-receive_msg(Timeout) ->
+receive_msg(TimeoutInMs) ->
     receive
         Msg -> Msg
-    after Timeout ->
+    after TimeoutInMs ->
         {error, timeout}
     end.
 
-check(Node) -> check(Node, ?TIMEOUT).
+check(Node) -> check(Node, ?TIMEOUT_IN_MS).
 
-check(Node, Timeout) when is_atom(Node) ->
-    wait_value(fun() -> net_adm:ping(Node) end, pong, Timeout);
-check(Node, Timeout) ->
-    wait_value(fun() -> net_adm:ping(l2a(Node)) end, pong, Timeout).
+check(Node, TimeoutInMs) when is_atom(Node) ->
+    wait_value(fun() -> net_adm:ping(Node) end, pong, TimeoutInMs);
+check(Node, TimeoutInMs) ->
+    wait_value(fun() -> net_adm:ping(l2a(Node)) end, pong, TimeoutInMs).
 
-wait_value(Fun, Value, Timeout) ->
+wait_value(Fun, Value, TimeoutInMs) ->
     wait(
         fun() ->
             case Fun() of
@@ -68,24 +68,24 @@ wait_value(Fun, Value, Timeout) ->
                 _ -> wait
             end
         end,
-        Timeout * 1000
+        TimeoutInMs
     ).
 
 now_us() ->
     {MegaSecs, Secs, MicroSecs} = os:timestamp(),
     (MegaSecs * 1000000 + Secs) * 1000000 + MicroSecs.
 
-wait(Fun, Timeout) ->
+wait(Fun, TimeoutInMs) ->
     Now = now_us(),
-    wait(Fun, Timeout * 1000, 50, Now, Now).
+    wait(Fun, TimeoutInMs * 1000, 50, Now, Now).
 
-wait(_Fun, Timeout, _Delay, Started, Prev) when Prev - Started > Timeout ->
+wait(_Fun, TimeoutInUs, _DelayInMs, Started, Prev) when Prev - Started > TimeoutInUs ->
     timeout;
-wait(Fun, Timeout, Delay, Started, _Prev) ->
+wait(Fun, TimeoutInUs, DelayInMs, Started, _Prev) ->
     case Fun() of
         wait ->
-            ok = timer:sleep(Delay),
-            wait(Fun, Timeout, Delay, Started, now_us());
+            ok = timer:sleep(DelayInMs),
+            wait(Fun, TimeoutInUs, DelayInMs, Started, now_us());
         Else ->
             Else
     end.
