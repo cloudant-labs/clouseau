@@ -1,5 +1,5 @@
 {application, zeunit, [
-    {description, ""},
+    {description, "ziose erlang based tests"},
     {vsn, "1"},
     {registered, []},
     {applications, [
