@@ -2,9 +2,9 @@
 
 -define(COOKIE, cookie).
 -define(HOST, "127.0.0.1").
--define(NodeT, list_to_atom("node1@" ++ ?HOST)).
 -define(NodeZ, list_to_atom("clouseau1@" ++ ?HOST)).
 
+%% Test DEFinition For Each”
 -ifndef(TDEF_FE).
 -define(TDEF_FE(Name), fun(Arg) -> {atom_to_list(Name), ?_test(Name(Arg))} end).
 -define(TDEF_FE(Name, Timeout), fun(Arg) ->
