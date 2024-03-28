@@ -288,3 +288,12 @@ zeunit: jar
  # target: eshell - `eshell`: Start erlang shell
  eshell:
 	@cd zeunit && $(REBAR) shell --name eshell@127.0.0.1
+
+ .PHONY: jconsole
+ # target: jconsole - `jconsole`: Connect jconsole to running Clouseau
+jconsole: CLOUSEAU_PID := $(shell jps -l | grep -F com.cloudant.ziose.clouseau.Main | cut -d' ' -f1)
+jconsole:
+	@[ "${CLOUSEAU_PID}" ] \
+		|| ( echo '>>>>> clouseau is not running' ; exit 1 )
+	@jconsole $(CLOUSEAU_PID)
+
