@@ -43,6 +43,13 @@ ERL_EPMD_ADDRESS?=127.0.0.1
 # tput in docker require TERM variable
 TERM?=xterm
 
+# Rebar options
+suites=
+tests=
+
+# We use `suites` instead of `module` to be compatible with CouchDB
+EUNIT_OPTS := "--module=$(suites) --test=$(tests)"
+
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
 	OS=linux
@@ -283,6 +290,7 @@ version:
 # target: zeunit - `zeunit`: Run integration tests
 zeunit: jar
 	@cli start "clouseau1" "java -jar clouseau/target/scala-$(SCALA_SHORT_VERSION)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar"
+	@cli zeunit clouseau1 "$(EUNIT_OPTS)"
 
  .PHONY: eshell
  # target: eshell - `eshell`: Start erlang shell
