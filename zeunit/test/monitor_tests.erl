@@ -6,8 +6,8 @@ monitor_test_() ->
         "Test support for remote monitors",
         {
             setup,
-            fun test_util:setup/0,
-            fun test_util:teardown/1,
+            fun setup/0,
+            fun teardown/1,
             [
                 fun t_monitor_pid_noproc/0,
                 fun t_monitor_name_noproc/0,
@@ -57,3 +57,12 @@ t_demonitor_name() ->
     demonitor(Ref),
     exit(Pid, reason),
     ?assertEqual({error, timeout}, util:receive_msg()).
+
+%%%%%%%%%%%%%%% Setup Functions %%%%%%%%%%%%%%%
+
+setup() ->
+    ?assert(test_util:wait_healthy(),  "Init service is not ready"),
+    ok.
+
+teardown(_) ->
+    ok.
