@@ -1,10 +1,8 @@
 package com.cloudant.ziose.clouseau
 
 import scala.collection.JavaConverters._
-
 import com.cloudant.ziose.core.Codec._
-import com.cloudant.ziose.scalang.TypeFactory
-
+import com.cloudant.ziose.scalang.{Adapter, Pid, TypeFactory}
 import org.apache.lucene.document.Document
 import org.apache.lucene.document.StringField
 import org.apache.lucene.document.Field.Store
@@ -15,7 +13,6 @@ import org.apache.lucene.document.Field.TermVector
 import org.apache.lucene.document.Field
 import org.apache.lucene.facet.taxonomy.CategoryPath
 import com.cloudant.ziose.core.Codec
-import com.cloudant.ziose.scalang.Pid
 
 class TermReader // we could just have a reference to mailbox here
 // but we should not remove abstraction
@@ -41,12 +38,12 @@ object ClouseauTypeFactory extends TypeFactory {
   type T = ClouseauMessage
   val logger = LoggerFactory.getLogger("clouseau.tf")
 
-  def parse(term: ETerm): Option[ClouseauMessage] = {
+  def parse(term: ETerm)(implicit adapter: Adapter[_, _]): Option[ClouseauMessage] = {
     term match {
       case ETuple(EAtom(Symbol("cleanup")), EString(dbName), activeSigs: EList) =>
         Some(CleanupDbMsg(dbName, activeSigs.toList.map(_.asInstanceOf[EString].str)))
-      case ETuple(EAtom(Symbol("cleanup")), EString(path)) =>
-        Some(CleanupPathMsg(path))
+      case ETuple(EAtom(Symbol("cleanup")), path: EBinary) =>
+        Some(CleanupPathMsg(toScala(path).toString))
       case ETuple(EAtom(Symbol("close_lru_by_path")), EString(path)) =>
         Some(CloseLRUByPathMsg(path))
       case ETuple(EAtom(Symbol("commit")), ELong(seq)) =>
@@ -126,7 +123,9 @@ object ClouseauTypeFactory extends TypeFactory {
     }
   }
 
-  private def constructField(name: String, value: String, store: Store, index: Index, tv: TermVector): Option[Field] = {
+  private def constructField(name: String, value: String, store: Store, index: Index, tv: TermVector)(implicit
+    adapter: Adapter[_, _]
+  ): Option[Field] = {
     try {
       Some(new Field(name, value, store, index, tv))
     } catch {

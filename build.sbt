@@ -6,7 +6,7 @@ updateOptions := updateOptions.value.withCachedResolution(true)
 val versions: Map[String, String] = Map(
   "zio"         -> "2.0.21",
   "zio.config"  -> "4.0.0-RC16",
-  "zio.logging" -> "2.1.14",
+  "zio.logging" -> "2.2.2",
   "zio.metrics" -> "2.3.1",
   "jmx"         -> "1.12.3",
   "lucene"      -> "4.6.1-cloudant1"
@@ -38,7 +38,6 @@ lazy val commonSettings = Seq(
     "dev.zio"       %% "zio-config-magnolia"               % versions("zio.config"),
     "dev.zio"       %% "zio-config-typesafe"               % versions("zio.config"),
     "dev.zio"       %% "zio-logging"                       % versions("zio.logging"),
-    "dev.zio"       %% "zio-logging-slf4j"                 % versions("zio.logging"),
     "dev.zio"       %% "zio-metrics-connectors-micrometer" % versions("zio.metrics"),
     "dev.zio"       %% "zio-streams"                       % versions("zio"),
     "io.micrometer"  % "micrometer-registry-jmx"           % versions("jmx"),

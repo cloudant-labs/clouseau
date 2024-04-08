@@ -26,9 +26,11 @@ class ClouseauTypeFactorySpec extends JUnitRunnableSpec {
           for {
             _     <- logDebug(term.toString)
             event <- succeed(parse(term))
-          } yield assertTrue(event.isDefined) &&
-            assertTrue(event.get.isInstanceOf[ClouseauMessage]) &&
-            assertTrue(event.get == msg)
+          } yield assertTrue(
+            event.isDefined,
+            event.get.isInstanceOf[ClouseauMessage],
+            event.get == msg
+          )
         }
       ).provideLayer(environment),
       test("Undefined ClouseauMessage type should return None") {

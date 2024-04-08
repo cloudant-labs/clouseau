@@ -9,8 +9,7 @@ import _root_.com.cloudant.ziose.otp
 import otp.{OTPActorFactory, OTPEngineWorker, OTPNode, OTPNodeConfig}
 import zio.config.magnolia.deriveConfig
 import zio.config.typesafe.FromConfigSourceTypesafe
-import zio.logging.{ConsoleLoggerConfig, LogFilter, LogFormat, consoleLogger}
-import zio.{&, ConfigProvider, IO, RIO, Runtime, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault}
+import zio.{&, ConfigProvider, IO, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import java.io.FileNotFoundException
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
@@ -66,6 +65,7 @@ object Main extends ZIOAppDefault {
 
   private val workerId: Int = 1
   private val engineId: Int = 1
+  private val logger        = LoggerFactory.getZioLogger("clouseau.main")
 
   private def app(cfgFile: String, metricsRegistry: ScalangMeterRegistry): Task[Unit] = {
     for {
@@ -74,6 +74,7 @@ object Main extends ZIOAppDefault {
       nodeCfg = nodesCfg.config(nodeIdx)
       node    = nodeCfg.node
       name    = s"${node.name}@${node.domain}"
+      _ <- logger.info("Clouseau running as " + name)
       _ <- ZIO
         .scoped(main(nodeCfg, metricsRegistry))
         .provide(
@@ -84,9 +85,6 @@ object Main extends ZIOAppDefault {
     } yield ()
   }
 
-  private val logger = Runtime.removeDefaultLoggers >>>
-    consoleLogger(ConsoleLoggerConfig(LogFormat.colored, LogFilter.acceptAll))
-
   override def run: ZIO[ZIOAppArgs & Scope, Any, Unit] = {
     for {
       cfgFile <- getArgs.map(_.headOption.getOrElse("app.conf"))
@@ -94,7 +92,7 @@ object Main extends ZIOAppDefault {
       _ <- ZIO
         .scoped(app(cfgFile, metricsRegistry))
         .provide(
-          logger,
+          LoggerFactory.loggerDefault,
           // TODO: Figure out how to construct complex layer and hide it in
           // ClouseauMetrics module. Because we don't want to leak anything
           // micrometer out of ClouseauMetrics

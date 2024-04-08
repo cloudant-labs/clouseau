@@ -13,6 +13,7 @@
 .envrc.local
 .gradle/
 .history
+_build
 artifacts
 build/
 gradle/

@@ -19,7 +19,7 @@ case class Adapter[C <: ProcessContext, F <: TypeFactory](ctx: C, node: SNode, f
   def demonitor(ref: Codec.ERef)           = ctx.demonitor(ref)
   def makeRef()                            = ctx.makeRef()
   def toScala(term: Codec.ETerm): Any = {
-    factory.parse(term) match {
+    factory.parse(term)(this) match {
       case Some(msg) => msg
       case None      => Codec.toScala(term)
     }
