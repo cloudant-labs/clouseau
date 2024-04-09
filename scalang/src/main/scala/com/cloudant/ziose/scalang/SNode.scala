@@ -11,7 +11,9 @@ import zio.ZIO
 import zio.Runtime
 import zio.&
 
-case class SNode()(implicit val runtime: Runtime[core.EngineWorker & core.Node]) {
+case class SNode(val metricsRegistry: ScalangMeterRegistry)(implicit
+  val runtime: Runtime[core.EngineWorker & core.Node]
+) {
   type RegName  = Symbol
   type NodeName = Symbol
 

@@ -13,6 +13,7 @@ import zio.logging.{ConsoleLoggerConfig, LogFilter, LogFormat, consoleLogger}
 import zio.{&, ConfigProvider, IO, RIO, Runtime, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import java.io.FileNotFoundException
+import com.cloudant.ziose.scalang.ScalangMeterRegistry
 
 object Main extends ZIOAppDefault {
   final case class NodeCfg(config: List[AppConfiguration])
@@ -47,14 +48,17 @@ object Main extends ZIOAppDefault {
     ClouseauSupervisor.start(node, Configuration(clouseauCfg, nodeCfg))
   }
 
-  private def main(nodeCfg: AppConfiguration): RIO[EngineWorker & Node & ActorFactory, Unit] = {
+  private def main(
+    nodeCfg: AppConfiguration,
+    metricsRegistry: ScalangMeterRegistry
+  ): RIO[EngineWorker & Node & ActorFactory, Unit] = {
     for {
       runtime  <- ZIO.runtime[EngineWorker & Node & ActorFactory]
       otp_node <- ZIO.service[Node]
       remote_node = s"node${nodeCfg.node.name.last}@${nodeCfg.node.domain}"
       _      <- otp_node.monitorRemoteNode(remote_node)
       worker <- ZIO.service[EngineWorker]
-      node   <- ZIO.succeed(new ClouseauNode()(runtime, worker))
+      node   <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry))
       _      <- startSupervisor(node, nodeCfg)
       _      <- worker.awaitShutdown
     } yield ()
@@ -63,7 +67,7 @@ object Main extends ZIOAppDefault {
   private val workerId: Int = 1
   private val engineId: Int = 1
 
-  private def app(cfgFile: String): Task[Unit] = {
+  private def app(cfgFile: String, metricsRegistry: ScalangMeterRegistry): Task[Unit] = {
     for {
       nodeIdx  <- getNodeIdx
       nodesCfg <- getConfig(cfgFile)
@@ -71,7 +75,7 @@ object Main extends ZIOAppDefault {
       node    = nodeCfg.node
       name    = s"${node.name}@${node.domain}"
       _ <- ZIO
-        .scoped(main(nodeCfg))
+        .scoped(main(nodeCfg, metricsRegistry))
         .provide(
           OTPActorFactory.live(name, node),
           OTPNode.live(name, engineId, workerId, node),
@@ -86,7 +90,8 @@ object Main extends ZIOAppDefault {
   override def run: ZIO[ZIOAppArgs & Scope, Any, Unit] = {
     for {
       cfgFile <- getArgs.map(_.headOption.getOrElse("app.conf"))
-      _       <- ZIO.scoped(app(cfgFile)).provide(logger)
+      metricsRegistry = new ScalangMeterRegistry()
+      _ <- ZIO.scoped(app(cfgFile, metricsRegistry)).provide(logger)
     } yield ()
   }
 }

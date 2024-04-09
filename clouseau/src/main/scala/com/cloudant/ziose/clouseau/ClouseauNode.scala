@@ -13,9 +13,13 @@ import core.ActorBuilder
 import scalang.SNode
 import zio.Exit.Failure
 import zio.Exit.Success
+import com.cloudant.ziose.scalang.ScalangMeterRegistry
 
-class ClouseauNode(implicit override val runtime: Runtime[core.EngineWorker & core.Node], worker: core.EngineWorker)
-    extends SNode()(runtime) { self =>
+class ClouseauNode(implicit
+  override val runtime: Runtime[core.EngineWorker & core.Node],
+  worker: core.EngineWorker,
+  metricsRegistry: ScalangMeterRegistry
+) extends SNode(metricsRegistry)(runtime) {
   /*
    * Each service would need to implement a constructor in the following form
    *
