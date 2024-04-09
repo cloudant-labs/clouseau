@@ -3,6 +3,7 @@ package com.cloudant.ziose.core
 import com.ericsson.otp.erlang._
 import scala.collection.mutable
 import java.nio.charset.StandardCharsets
+import scala.collection.AbstractMap
 
 // TODO https://murraytodd.medium.com/putting-it-all-together-with-type-classes-d6b545202803
 // TODO https://medium.com/beingprofessional/use-of-implicit-to-transform-case-classes-in-scala-47a72dfa9450
@@ -296,6 +297,11 @@ object Codec {
     case list: Seq[_]   => new EList(List.from(list.map(fromScala)), true)
     case tuple: Product => ETuple(tuple.productIterator.map(fromScala).toList)
     case tuple: Unit    => ETuple()
+    // TODO Add test for HashMap (which implements AbstractMap)
+    case m: AbstractMap[_, _] =>
+      EMap(mutable.LinkedHashMap.from(m map { case (k, v) =>
+        (fromScala(k), fromScala(v))
+      }))
     case m: Map[_, _] =>
       EMap(mutable.LinkedHashMap.from(m map { case (k, v) =>
         (fromScala(k), fromScala(v))
