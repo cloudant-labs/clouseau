@@ -77,6 +77,18 @@ object Codec {
     override def toString: String                 = s"$long"
   }
 
+  case class EFloat(float: Float) extends ETerm {
+    def this(obj: OtpErlangFloat) = this(obj.floatValue())
+    override def toOtpErlangObject: OtpErlangFloat = new OtpErlangFloat(float)
+    override def toString: String                  = s"$float"
+  }
+
+  case class EDouble(double: Double) extends ETerm {
+    def this(obj: OtpErlangDouble) = this(obj.doubleValue())
+    override def toOtpErlangObject: OtpErlangDouble = new OtpErlangDouble(double)
+    override def toString: String                   = s"$double"
+  }
+
   case class EString(str: String) extends ETerm {
     def this(obj: OtpErlangString) = this(obj.stringValue)
     override def toOtpErlangObject: OtpErlangString = new OtpErlangString(str)
@@ -223,6 +235,8 @@ object Codec {
       case otpAtom: OtpErlangAtom       => new EAtom(otpAtom)
       case otpInt: OtpErlangInt         => new EInt(otpInt)
       case otpLong: OtpErlangLong       => new ELong(otpLong)
+      case otpFloat: OtpErlangFloat     => new EFloat(otpFloat)
+      case otpDouble: OtpErlangDouble   => new EDouble(otpDouble)
       case otpString: OtpErlangString   => new EString(otpString)
       case otpList: OtpErlangList       => new EList(otpList)
       case otpMap: OtpErlangMap         => new EMap(otpMap)
@@ -238,6 +252,8 @@ object Codec {
     case a: EAtom      => a.atom
     case i: EInt       => i.int
     case l: ELong      => l.long
+    case f: EFloat     => f.float
+    case d: EDouble    => d.double
     case s: EString    => s.str
     case pid: EPid     => pid
     case ref: ERef     => ref.obj
@@ -291,6 +307,10 @@ object Codec {
     case a: Symbol  => EAtom(a)
     case i: Int     => EInt(i)
     case l: BigInt  => ELong(l)
+    // TODO Add test for Long
+    case l: Long   => ELong(l)
+    case f: Float  => EFloat(f)
+    case d: Double => EDouble(d)
     // *Important* clouseau encodes strings as binaries
     case s: String      => EBinary(s.getBytes(StandardCharsets.UTF_8))
     case list: List[_]  => new EList(list.map(fromScala), true)
