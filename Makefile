@@ -108,7 +108,7 @@ deps:
 	@sbt update
 
 .PHONY: all-tests
-# target: test - Run all test suites
+# target: all-tests - Run all test suites
 all-tests: test zeunit
 
 .PHONY: test
