@@ -22,7 +22,6 @@ import scala.collection.mutable.Map
 import _root_.com.cloudant.ziose.scalang
 
 import scalang._
-import _root_.com.yammer.metrics.scala._
 
 import scala.collection.JavaConverters._
 import java.util.HashSet

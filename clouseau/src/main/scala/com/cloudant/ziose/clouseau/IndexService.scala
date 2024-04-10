@@ -36,7 +36,6 @@ import org.apache.lucene.analysis.Analyzer
 import _root_.com.cloudant.ziose.scalang
 import scalang._
 import collection.JavaConverters._
-import _root_.com.yammer.metrics.scala._
 
 import Utils._
 
