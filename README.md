@@ -102,13 +102,12 @@ service-oriented networks.
 remote machine.
 
 **How to monitor metrics using `jconsole`:**
-1. Run `Hello.scala` first, `gradle run -PmainClass=Hello`
-2. Open another terminal and type `jconsole`
-3. Connect to `com.cloudant.ziose.experiments.Hello`
-4. Select MBeans -> metrics -> times, it will display the metrics as shown in the image below.
 
-![jmx.png](jmx.png)
+1. Run clouseau first, `make clouseau1`
+2. Open another terminal and type `make jconsole`
+3. Select MBeans -> `com.cloudant.clouseau`
 
+![jmx.png](assets/jmx.png)
 
 # Using `sbt`
 
