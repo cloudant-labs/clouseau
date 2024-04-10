@@ -20,7 +20,7 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
         val reply = (Symbol("echo_reply"), from, ts, self.pid, now(), seq)
         send(from, reply)
       case msg =>
-        println(s"[Echo][WARNING] Unexpected message: $msg ...")
+        println(s"[Echo][WARNING][handleInfo] Unexpected message: $msg ...")
     }
   }
 
@@ -28,7 +28,7 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
     request match {
       case (Symbol("echo"), request) => (Symbol("reply"), (Symbol("echo"), Codec.fromScala(request)))
       case msg =>
-        println(s"[Echo][WARNING] Unexpected message: $msg ...")
+        println(s"[Echo][WARNING][handleCall] Unexpected message: $msg ...")
 
     }
   }

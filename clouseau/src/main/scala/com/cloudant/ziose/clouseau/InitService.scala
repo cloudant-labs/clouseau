@@ -51,7 +51,7 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
         }
         send(from, response)
       case msg =>
-        println(s"[Init][WARNING] Unexpected message: $msg ...")
+        println(s"[Init][WARNING][handleInfo] Unexpected message: $msg ...")
     }
   }
 
@@ -74,7 +74,7 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
         }
         (Symbol("reply"), result)
       case msg =>
-        println(s"[Init][WARNING] Unexpected message: $msg ...")
+        println(s"[Init][WARNING][handleCall] Unexpected message: $msg ...")
     }
   }
 
