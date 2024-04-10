@@ -293,6 +293,7 @@ class DestSend(to: (Symbol, Symbol), from: Pid, proc: Process) {
 
 class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_, _]) extends Process()(adapter) {
   def metricsRegistry = adapter.node.metricsRegistry
+  val metrics         = MetricsGroup(getClass, metricsRegistry)
 
   /**
    * Handle a call style of message which will expect a response.

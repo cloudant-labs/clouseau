@@ -90,8 +90,18 @@ object Main extends ZIOAppDefault {
   override def run: ZIO[ZIOAppArgs & Scope, Any, Unit] = {
     for {
       cfgFile <- getArgs.map(_.headOption.getOrElse("app.conf"))
-      metricsRegistry = new ScalangMeterRegistry()
-      _ <- ZIO.scoped(app(cfgFile, metricsRegistry)).provide(logger)
+      metricsRegistry = ClouseauMetrics.makeRegistry
+      _ <- ZIO
+        .scoped(app(cfgFile, metricsRegistry))
+        .provide(
+          logger,
+          // TODO: Figure out how to construct complex layer and hide it in
+          // ClouseauMetrics module. Because we don't want to leak anything
+          // micrometer out of ClouseauMetrics
+          zio.ZLayer.succeed(metricsRegistry),
+          zio.ZLayer.succeed(zio.metrics.connectors.micrometer.MicrometerConfig.default),
+          zio.metrics.connectors.micrometer.micrometerLayer
+        )
     } yield ()
   }
 }
