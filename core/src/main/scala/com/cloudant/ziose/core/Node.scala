@@ -24,15 +24,19 @@ object Node {
   trait Error extends Throwable
 
   object Error {
-    case class Disconnected()               extends Error
-    case class NoSuchActor()                extends Error
-    case class NameInUse(name: String)      extends Error
+    case class Disconnected() extends Error
+    case class NoSuchActor()  extends Error
+    case class NameInUse(name: String) extends Error with Codec.FromScala {
+      def fromScala: Codec.ETerm = Codec.fromScala((Symbol("name_in_use"), Symbol(name)))
+    }
     case class ActorFailure()               extends Error
     case class SpawnFailure(err: Throwable) extends Error
-    case class Constructor(err: Throwable)  extends Error
-    case class Unknown(err: Throwable)      extends Error
-    case class Interrupt(fiberId: FiberId)  extends Error
-    case class Nothing()                    extends Error
+    case class Constructor(err: Throwable) extends Error with Codec.FromScala {
+      def fromScala: Codec.ETerm = Codec.fromScala((Symbol("bad_constructor"), err.getMessage()))
+    }
+    case class Unknown(err: Throwable)     extends Error
+    case class Interrupt(fiberId: FiberId) extends Error
+    case class Nothing()                   extends Error
   }
 
   def spawn[A <: Actor](

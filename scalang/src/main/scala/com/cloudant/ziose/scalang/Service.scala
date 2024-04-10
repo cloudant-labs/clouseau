@@ -343,7 +343,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           for {
             _ <- result match {
               case (Symbol("reply"), reply) =>
-                sendZIO(fromPid, (makeTag(ref), reply))
+                sendZIO(fromPid, (makeTag(ref), Codec.fromScala(reply)))
               case Symbol("noreply") =>
                 ZIO.unit
               case reply =>

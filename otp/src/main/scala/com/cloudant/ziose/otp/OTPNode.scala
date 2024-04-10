@@ -271,12 +271,8 @@ object OTPNode {
           envelope <- Envelope[Command[R], Node.Error, R](command)
           _        <- queue.offer(envelope)
           response <- envelope.await.foldZIO(
-            failure => {
-              ZIO.fail(Error.ActorFailure().asInstanceOf[E])
-            },
-            success => {
-              ZIO.succeed(success.asInstanceOf[R])
-            }
+            failure => ZIO.fail(failure),
+            success => ZIO.succeed(success.asInstanceOf[R])
           )
         } yield response
       }

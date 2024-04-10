@@ -55,6 +55,7 @@ class ClouseauNode(implicit override val runtime: Runtime[core.EngineWorker & co
       case Failure(cause) if cause.isFailure     => core.Failure(cause.failureOption.get)
       case Failure(cause) if cause.isDie         => core.Failure(core.Node.Error.Unknown(cause.dieOption.get))
       case Failure(cause) if cause.isInterrupted => core.Failure(core.Node.Error.Interrupt(cause.interruptOption.get))
+      case Failure(cause: core.Node.Error)       => core.Failure(cause)
       case Failure(cause) => core.Failure(core.Node.Error.Unknown(new Throwable(cause.prettyPrint)))
       case Success(actor) => core.Success(actor.asInstanceOf[AddressableActor[TS, ProcessContext]])
     }
@@ -75,6 +76,7 @@ class ClouseauNode(implicit override val runtime: Runtime[core.EngineWorker & co
       case Failure(cause) if cause.isFailure     => core.Failure(cause.failureOption.get)
       case Failure(cause) if cause.isDie         => core.Failure(core.Node.Error.Unknown(cause.dieOption.get))
       case Failure(cause) if cause.isInterrupted => core.Failure(core.Node.Error.Interrupt(cause.interruptOption.get))
+      case Failure(cause: core.Node.Error)       => core.Failure(cause)
       case Failure(cause) => core.Failure(core.Node.Error.Unknown(new Throwable(cause.prettyPrint)))
       case Success(actor) => core.Success(actor.asInstanceOf[AddressableActor[TS, ProcessContext]])
     }
