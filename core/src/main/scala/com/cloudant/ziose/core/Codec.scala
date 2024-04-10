@@ -302,11 +302,12 @@ object Codec {
   }
 
   def fromScala(scala: Any): ETerm = scala match {
-    case e: ETerm   => e
-    case b: Boolean => EBoolean(b)
-    case a: Symbol  => EAtom(a)
-    case i: Int     => EInt(i)
-    case l: BigInt  => ELong(l)
+    case e: ETerm       => e
+    case any: FromScala => any.fromScala
+    case b: Boolean     => EBoolean(b)
+    case a: Symbol      => EAtom(a)
+    case i: Int         => EInt(i)
+    case l: BigInt      => ELong(l)
     // TODO Add test for Long
     case l: Long   => ELong(l)
     case f: Float  => EFloat(f)
@@ -326,7 +327,6 @@ object Codec {
       EMap(mutable.LinkedHashMap.from(m map { case (k, v) =>
         (fromScala(k), fromScala(v))
       }))
-    case any: FromScala => fromScala(any)
     // This is ambiguous how we can distinguish bitstr from binary?
     case binary: Array[Byte] => EBinary(binary)
   }
