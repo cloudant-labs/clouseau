@@ -352,7 +352,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           } yield ()
         } catch {
           case err: Throwable => {
-            println(s"onMessage Throwable ${err.getMessage()}")
+            printThrowable("onMessage[$gen_call]", err)
             ZIO.fail(HandleCallCBError(err))
           }
         }
@@ -362,7 +362,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           ZIO.succeed(handleCast(adapter.toScala(request))).unit
         } catch {
           case err: Throwable => {
-            println(s"onMessage Throwable ${err.getMessage()}")
+            printThrowable("onMessage[$gen_cast]", err)
             ZIO.fail(HandleCastCBError(err))
           }
         }
@@ -372,7 +372,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           ZIO.succeed(handleInfo(adapter.toScala(info))).unit
         } catch {
           case err: Throwable => {
-            println(s"onMessage Throwable ${err.getMessage()}")
+            printThrowable("onMessage[ETerm]", err)
             ZIO.fail(HandleInfoCBError(err))
           }
         }
@@ -383,7 +383,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           ZIO.succeed(handleInfo(info)).unit
         } catch {
           case err: Throwable => {
-            println(s"onMessage Throwable ${err.getMessage()}")
+            printThrowable("onMessage[$gen_call]", err)
             ZIO.fail(HandleInfoCBError(err))
           }
         }
@@ -402,4 +402,9 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
   def cast(to: Pid, msg: Any)                 = node.cast(to, msg)
   def cast(to: Symbol, msg: Any)              = node.cast(to, msg)
   def cast(to: (RegName, NodeName), msg: Any) = node.cast(to, msg)
+
+  def printThrowable(location: String, err: Throwable) = {
+    println(s"$location Throwable ${err.getMessage()}:")
+    err.getStackTrace().foreach(e => println(s"  ${e.toString()}"))
+  }
 }
