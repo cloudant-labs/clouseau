@@ -26,12 +26,21 @@ import scala.collection.immutable.HashMap
 
 class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   println("[Init] Created")
+  val spawnedSuccess = metrics.counter("spawned.success")
+  val spawnedFailure = metrics.counter("spawned.failure")
+  val spawnedTimer   = metrics.timer("spawned.timer")
 
   private def spawnEcho(id: Symbol): Either[Any, Codec.EPid] = {
     val ConfigurationArgs(args) = ctx.args
-    EchoService.start(adapter.node, id.name, args) match {
-      case (Symbol("ok"), pidUntyped) => Right(pidUntyped.asInstanceOf[Pid].fromScala)
-      case reason                     => Left(reason)
+    spawnedTimer.time(EchoService.start(adapter.node, id.name, args)) match {
+      case (Symbol("ok"), pidUntyped) => {
+        spawnedSuccess += 1
+        Right(pidUntyped.asInstanceOf[Pid].fromScala)
+      }
+      case reason: core.Node.Error => {
+        spawnedFailure += 1
+        Left(reason)
+      }
     }
   }
 
@@ -73,6 +82,9 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
           case Left(reason) => (Symbol("error"), reason)
         }
         (Symbol("reply"), result)
+      case Symbol("metrics") => {
+        (Symbol("ok"), metrics.dumpAsSymbolValuePairs())
+      }
       case msg =>
         println(s"[Init][WARNING][handleCall] Unexpected message: $msg ...")
     }

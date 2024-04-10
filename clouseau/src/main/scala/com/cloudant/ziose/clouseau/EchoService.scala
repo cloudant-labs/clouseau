@@ -14,10 +14,14 @@ import java.time.temporal.ChronoUnit
 class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   println("[Echo] Created")
 
+  val echoTimer: metrics.Timer = metrics.timer("echo.response_time")
+
   override def handleInfo(request: Any): Any = {
     request match {
       case (Symbol("echo"), from: EPid, ts: BigInt, seq: BigInt) =>
-        val reply = (Symbol("echo_reply"), from, ts, self.pid, now(), seq)
+        val reply = echoTimer.time(
+          (Symbol("echo_reply"), from, ts, self.pid, now(), seq)
+        )
         send(from, reply)
       case msg =>
         println(s"[Echo][WARNING][handleInfo] Unexpected message: $msg ...")
