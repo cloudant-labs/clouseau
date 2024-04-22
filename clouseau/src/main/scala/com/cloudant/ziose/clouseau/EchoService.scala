@@ -12,7 +12,8 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
-  println("[Echo] Created")
+  val logger = LoggerFactory.getLogger("clouseau.EchoService")
+  logger.debug("[Echo] Created")
 
   val echoTimer: metrics.Timer = metrics.timer("echo.response_time")
 
@@ -24,7 +25,7 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
         )
         send(from, reply)
       case msg =>
-        println(s"[Echo][WARNING][handleInfo] Unexpected message: $msg ...")
+        logger.info(s"[Echo][WARNING][handleInfo] Unexpected message: $msg ...")
     }
   }
 
@@ -32,8 +33,7 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
     request match {
       case (Symbol("echo"), request) => (Symbol("reply"), (Symbol("echo"), Codec.fromScala(request)))
       case msg =>
-        println(s"[Echo][WARNING][handleCall] Unexpected message: $msg ...")
-
+        logger.info(s"[Echo][WARNING][handleCall] Unexpected message: $msg ...")
     }
   }
 
@@ -41,6 +41,8 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
 }
 
 private object EchoService extends ActorConstructor[EchoService] {
+  val logger = LoggerFactory.getLogger("clouseau.EchoServiceBuilder")
+
   private def make(
     node: SNode,
     service_context: ServiceContext[ConfigurationArgs],
@@ -58,13 +60,7 @@ private object EchoService extends ActorConstructor[EchoService] {
       .build(this)
   }
 
-  def start(
-    node: SNode,
-    name: String,
-    config: Configuration
-  )(implicit
-    adapter: Adapter[_, _]
-  ): Any = {
+  def start(node: SNode, name: String, config: Configuration)(implicit adapter: Adapter[_, _]): Any = {
     val ctx: ServiceContext[ConfigurationArgs] = {
       new ServiceContext[ConfigurationArgs] {
         val args: ConfigurationArgs = ConfigurationArgs(config)
@@ -72,7 +68,7 @@ private object EchoService extends ActorConstructor[EchoService] {
     }
     node.spawnService[EchoService, ConfigurationArgs](make(node, ctx, name)) match {
       case core.Success(actor) =>
-        println(s"[Echo] Started $name")
+        logger.debug(s"[Echo] Started $name")
         (Symbol("ok"), Pid.toScala(actor.self.pid))
       case core.Failure(reason) => reason
     }

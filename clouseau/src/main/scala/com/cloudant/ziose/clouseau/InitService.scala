@@ -25,7 +25,9 @@ import java.time.temporal.ChronoUnit
 import scala.collection.immutable.HashMap
 
 class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
-  println("[Init] Created")
+  val logger = LoggerFactory.getLogger("clouseau.InitService")
+  logger.debug("[Init] Created")
+
   val spawnedSuccess = metrics.counter("spawned.success")
   val spawnedFailure = metrics.counter("spawned.failure")
   val spawnedTimer   = metrics.timer("spawned.timer")
@@ -47,7 +49,7 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
   override def handleInfo(request: Any): Any = {
     request match {
       case Symbol("shutdown") =>
-        println("[Init] Stopping")
+        logger.debug("[Init] Stopping")
         exit("shutdown")
       case (Symbol("spawn"), from: Codec.EPid, Symbol("echo"), id: Symbol) =>
         // This is a simplistic solution to make it possible for the
@@ -60,7 +62,7 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
         }
         send(from, response)
       case msg =>
-        println(s"[Init][WARNING][handleInfo] Unexpected message: $msg ...")
+        logger.info(s"[Init][WARNING][handleInfo] Unexpected message: $msg ...")
     }
   }
 
@@ -86,7 +88,7 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
         (Symbol("ok"), metrics.dumpAsSymbolValuePairs())
       }
       case msg =>
-        println(s"[Init][WARNING][handleCall] Unexpected message: $msg ...")
+        logger.info(s"[Init][WARNING][handleCall] Unexpected message: $msg ...")
     }
   }
 
@@ -94,6 +96,8 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
 }
 
 private object InitService extends ActorConstructor[InitService] {
+  val logger = LoggerFactory.getLogger("clouseau.InitServiceBuilder")
+
   private def make(
     node: SNode,
     service_context: ServiceContext[ConfigurationArgs],
@@ -125,7 +129,7 @@ private object InitService extends ActorConstructor[InitService] {
     }
     node.spawnService[InitService, ConfigurationArgs](make(node, ctx, name)) match {
       case core.Success(actor) =>
-        println(s"[Init] Started $name")
+        logger.debug(s"[Init] Started $name")
         (Symbol("ok"), Pid.toScala(actor.self.pid))
       case core.Failure(reason) => reason
     }

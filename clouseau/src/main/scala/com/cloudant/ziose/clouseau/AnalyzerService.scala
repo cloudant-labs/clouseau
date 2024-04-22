@@ -32,7 +32,7 @@ class AnalyzerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: 
           ('error, 'no_such_analyzer)
       }
     case other =>
-      println(s"[Analyzer][WARNING][handleCall] Unexpected message: $other ...")
+      logger.info(s"[Analyzer][WARNING][handleCall] Unexpected message: $other ...")
   }
 
   def tokenize(text: String, analyzer: Analyzer): List[String] = {

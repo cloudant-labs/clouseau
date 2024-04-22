@@ -82,15 +82,14 @@ case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit a
       case (Symbol("main"), ConfigurationArgs(args))     => IndexManagerServiceBuilder.start(adapter.node, args)
       case (Symbol("init"), ConfigurationArgs(args))  => InitService.start(adapter.node, "init", args)
     }
-    println(s"$regName -> $result")
+    logger.debug(s"$regName -> $result")
     result match {
-      case (Symbol("ok"), pidUntyped) => {
+      case (Symbol("ok"), pidUntyped) =>
         val pid = pidUntyped.asInstanceOf[Pid]
-        println(pid)
+        logger.debug(pid.toString)
         monitor(pid)
         pid
-      };
-      case e => throw new Throwable(s"cannot start ${e.toString()}")
+      case e => throw new Throwable(s"cannot start ${e.toString}")
     }
   }
 
