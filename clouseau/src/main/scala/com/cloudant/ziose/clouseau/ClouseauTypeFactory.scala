@@ -1,18 +1,15 @@
 package com.cloudant.ziose.clouseau
 
-import scala.collection.JavaConverters._
-import com.cloudant.ziose.core.Codec._
-import com.cloudant.ziose.scalang.{Adapter, Pid, TypeFactory}
-import org.apache.lucene.document.Document
-import org.apache.lucene.document.StringField
-import org.apache.lucene.document.Field.Store
+import com.cloudant.ziose._
+import core.Codec._
+import scalang.{Adapter, Pid, TypeFactory}
+import org.apache.lucene.document.Field.{Index, Store, TermVector}
+import org.apache.lucene.document.{Document, Field, StringField}
 import org.apache.lucene.facet.params.FacetIndexingParams
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetFields
-import org.apache.lucene.document.Field.Index
-import org.apache.lucene.document.Field.TermVector
-import org.apache.lucene.document.Field
 import org.apache.lucene.facet.taxonomy.CategoryPath
-import com.cloudant.ziose.core.Codec
+
+import scala.collection.JavaConverters._
 
 class TermReader // we could just have a reference to mailbox here
 // but we should not remove abstraction
@@ -42,8 +39,8 @@ object ClouseauTypeFactory extends TypeFactory {
     term match {
       case ETuple(EAtom(Symbol("cleanup")), EString(dbName), activeSigs: EList) =>
         Some(CleanupDbMsg(dbName, activeSigs.toList.map(_.asInstanceOf[EString].str)))
-      case ETuple(EAtom(Symbol("cleanup")), path: EBinary) =>
-        Some(CleanupPathMsg(toScala(path).toString))
+      case ETuple(EAtom(Symbol("cleanup")), EString(path)) =>
+        Some(CleanupPathMsg(path))
       case ETuple(EAtom(Symbol("close_lru_by_path")), EString(path)) =>
         Some(CloseLRUByPathMsg(path))
       case ETuple(EAtom(Symbol("commit")), ELong(seq)) =>
@@ -70,7 +67,7 @@ object ClouseauTypeFactory extends TypeFactory {
         var doc = new Document()
         doc.add(new StringField("_id", id, Store.YES))
         for (fieldE <- fields) {
-          val fieldS = Codec.toScala(fieldE)
+          val fieldS = toScala(fieldE)
           fieldS match {
             case (name: String, value: String, options: List[(String, Any) @unchecked]) =>
               val map = {

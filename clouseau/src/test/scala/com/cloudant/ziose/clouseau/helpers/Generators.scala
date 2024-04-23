@@ -22,7 +22,7 @@ object Generators {
   def cleanupPathMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       path <- alphaNumericString
-    } yield (ETuple(EAtom(Symbol("cleanup")), EBinary(path.getBytes)), CleanupPathMsg(path))
+    } yield (ETuple(EAtom(Symbol("cleanup")), EString(path)), CleanupPathMsg(path))
   }
 
   def closeLRUByPathMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
