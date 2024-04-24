@@ -6,9 +6,9 @@ import zio.Runtime
 case object InvalidAdapter extends Exception
 
 class Adapter[C <: ProcessContext, F <: TypeFactory] private (
-  process_ctx: Option[C] = None,
-  snode: Option[SNode] = None,
-  type_factory: Option[F] = None
+  process_ctx: Option[C],
+  snode: Option[SNode],
+  type_factory: Option[F]
 ) {
   def ctx: C      = process_ctx.getOrElse(throw InvalidAdapter)
   def node: SNode = snode.getOrElse(throw InvalidAdapter)
@@ -43,5 +43,5 @@ object Adapter {
     new Adapter(Some(ctx), Some(node), Some(factory))
   }
 
-  val mockAdapter: Adapter[_, _] = new Adapter
+  val mockAdapter: Adapter[_, _] = new Adapter(None, None, None)
 }
