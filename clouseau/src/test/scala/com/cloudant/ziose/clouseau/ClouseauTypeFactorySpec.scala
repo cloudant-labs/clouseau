@@ -6,6 +6,7 @@ package com.cloudant.ziose.clouseau
 
 import ClouseauTypeFactory._
 import com.cloudant.ziose.core.Codec._
+import com.cloudant.ziose.scalang.Adapter
 import com.cloudant.ziose.test.helpers.Utils
 import helpers.Generators._
 import org.junit.runner.RunWith
@@ -18,6 +19,7 @@ import zio.ZIO._
 class ClouseauTypeFactorySpec extends JUnitRunnableSpec {
   val logger      = Utils.logger
   val environment = ZLayer.succeed(Clock.ClockLive) ++ ZLayer.succeed(Random.RandomLive) ++ logger
+  val adapter     = Adapter.mockAdapter
 
   def spec = {
     suite("TypeFactory term encoding")(
@@ -25,7 +27,7 @@ class ClouseauTypeFactorySpec extends JUnitRunnableSpec {
         check(anyMessagePairGen(4)) { case (term, msg) =>
           for {
             _     <- logDebug(term.toString)
-            event <- succeed(parse(term))
+            event <- succeed(parse(term)(adapter))
           } yield assertTrue(
             event.isDefined,
             event.get.isInstanceOf[ClouseauMessage],
@@ -35,7 +37,7 @@ class ClouseauTypeFactorySpec extends JUnitRunnableSpec {
       ).provideLayer(environment),
       test("Undefined ClouseauMessage type should return None") {
         for {
-          event <- succeed(parse(ETuple(EAtom(Symbol("wrong")))))
+          event <- succeed(parse(ETuple(EAtom(Symbol("wrong"))))(adapter))
         } yield assertTrue(event.isEmpty)
       }
     )
