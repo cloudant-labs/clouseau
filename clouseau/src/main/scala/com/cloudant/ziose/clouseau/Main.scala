@@ -3,16 +3,15 @@ sbt 'clouseau/runMain com.cloudant.ziose.clouseau.Main'
  */
 package com.cloudant.ziose.clouseau
 
-import _root_.com.cloudant.ziose.core
+import _root_.com.cloudant.ziose._
 import core.{ActorFactory, AddressableActor, EngineWorker, Node}
-import _root_.com.cloudant.ziose.otp
 import otp.{OTPActorFactory, OTPEngineWorker, OTPNode, OTPNodeConfig}
+import scalang.ScalangMeterRegistry
 import zio.config.magnolia.deriveConfig
 import zio.config.typesafe.FromConfigSourceTypesafe
 import zio.{&, ConfigProvider, IO, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import java.io.FileNotFoundException
-import com.cloudant.ziose.scalang.ScalangMeterRegistry
 
 object Main extends ZIOAppDefault {
   final case class NodeCfg(config: List[AppConfiguration])
@@ -89,16 +88,12 @@ object Main extends ZIOAppDefault {
     for {
       cfgFile <- getArgs.map(_.headOption.getOrElse("app.conf"))
       metricsRegistry = ClouseauMetrics.makeRegistry
+      metricsLayer    = ClouseauMetrics.makeLayer(metricsRegistry)
       _ <- ZIO
         .scoped(app(cfgFile, metricsRegistry))
         .provide(
           LoggerFactory.loggerDefault,
-          // TODO: Figure out how to construct complex layer and hide it in
-          // ClouseauMetrics module. Because we don't want to leak anything
-          // micrometer out of ClouseauMetrics
-          zio.ZLayer.succeed(metricsRegistry),
-          zio.ZLayer.succeed(zio.metrics.connectors.micrometer.MicrometerConfig.default),
-          zio.metrics.connectors.micrometer.micrometerLayer
+          metricsLayer
         )
     } yield ()
   }
