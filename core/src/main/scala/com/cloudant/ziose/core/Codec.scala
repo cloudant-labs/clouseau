@@ -1,9 +1,9 @@
 package com.cloudant.ziose.core
 
 import com.ericsson.otp.erlang._
-import scala.collection.mutable
+
 import java.nio.charset.StandardCharsets
-import scala.collection.AbstractMap
+import scala.collection.{AbstractMap, mutable}
 
 // TODO https://murraytodd.medium.com/putting-it-all-together-with-type-classes-d6b545202803
 // TODO https://medium.com/beingprofessional/use-of-implicit-to-transform-case-classes-in-scala-47a72dfa9450
@@ -52,11 +52,23 @@ object Codec {
     override def toString: String                = s"<$id.$serial.$creation>"
   }
 
-  // TODO support EAtom("bla") syntax
-  case class EAtom(atom: Symbol) extends ETerm {
-    def this(obj: OtpErlangAtom) = this(Symbol(obj.atomValue))
+  class EAtom(val atom: Symbol) extends ETerm {
+    override def hashCode(): Int = atom.hashCode()
+    override def equals(other: Any): Boolean = other match {
+      case other: EAtom => atom == other.atom
+      case _            => false
+    }
+
     override def toOtpErlangObject: OtpErlangAtom = new OtpErlangAtom(atom.name)
     override def toString: String                 = this.toOtpErlangObject.toString
+  }
+
+  object EAtom {
+    def apply(atom: Symbol)       = new EAtom(atom)
+    def apply(obj: OtpErlangAtom) = new EAtom(Symbol(obj.atomValue))
+    def apply(str: String)        = new EAtom(Symbol(str))
+
+    def unapply(eAtom: EAtom): Option[Symbol] = Some(eAtom.atom)
   }
 
   case class EBoolean(boolean: Boolean) extends ETerm {
@@ -232,7 +244,7 @@ object Codec {
     obj match {
       case otpPid: OtpErlangPid         => new EPid(otpPid)
       case otpBoolean: OtpErlangBoolean => new EBoolean(otpBoolean)
-      case otpAtom: OtpErlangAtom       => new EAtom(otpAtom)
+      case otpAtom: OtpErlangAtom       => EAtom(otpAtom)
       case otpInt: OtpErlangInt         => new EInt(otpInt)
       case otpLong: OtpErlangLong       => new ELong(otpLong)
       case otpFloat: OtpErlangFloat     => new EFloat(otpFloat)

@@ -352,6 +352,10 @@ object Generators {
     for { s <- alphaNumericString } yield (EAtom(Symbol(s)), new OtpErlangAtom(s))
   }
 
+  def atomSP: Gen[Any, SamplePair] = {
+    for { s <- alphaNumericString } yield (EAtom(s), new OtpErlangAtom(s))
+  }
+
   /**
    * A generator of tuples (EBoolean, OtpErlangBoolean).
    *
