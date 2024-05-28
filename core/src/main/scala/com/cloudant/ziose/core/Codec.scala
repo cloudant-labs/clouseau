@@ -246,6 +246,19 @@ object Codec {
     override def toString: String = s"<<${payload.mkString(",")}>>"
   }
 
+  /*
+  jInterface represent all of the following types as one
+
+    - [OtpErlangLong](https://github.com/erlang/otp/blob/b8d646f77d6f33e6aa06c38cb9da2c9ac2dc9d9b/lib/jinterface/java_src/com/ericsson/otp/erlang/OtpInputStream.java#L1225) represents any of
+      - OtpExternal.smallIntTag:
+      - OtpExternal.intTag:
+      - OtpExternal.smallBigTag:
+      - OtpExternal.largeBigTag:
+    - OtpErlangAtom
+      - OtpErlangAtom
+      - OtpErlangBoolean
+   */
+
   def fromErlang(obj: Any): ETerm = {
     obj match {
       case otpPid: OtpErlangPid                              => new EPid(otpPid)
@@ -253,17 +266,20 @@ object Codec {
       case otpAtom: OtpErlangAtom if otpAtom == trueOtpAtom  => new EBoolean(true)
       case otpAtom: OtpErlangAtom if otpAtom == falseOtpAtom => new EBoolean(false)
       case otpAtom: OtpErlangAtom                            => EAtom(otpAtom)
-      case otpInt: OtpErlangInt                              => new EInt(otpInt)
-      case otpLong: OtpErlangLong                            => new ELong(otpLong)
-      case otpFloat: OtpErlangFloat                          => new EFloat(otpFloat)
-      case otpDouble: OtpErlangDouble                        => new EDouble(otpDouble)
-      case otpString: OtpErlangString                        => new EString(otpString)
-      case otpList: OtpErlangList                            => new EList(otpList)
-      case otpMap: OtpErlangMap                              => new EMap(otpMap)
-      case otpTuple: OtpErlangTuple                          => new ETuple(otpTuple)
-      case otpRef: OtpErlangRef                              => new ERef(otpRef)
-      case otpBinary: OtpErlangBinary                        => new EBinary(otpBinary)
-      case otpBitstr: OtpErlangBitstr                        => new EBitString(otpBitstr)
+      case otpLong: OtpErlangLong =>
+        otpLong.bitLength() match {
+          case int if int < 32 => new EInt(otpLong.intValue)
+          case _               => new ELong(otpLong.bigIntegerValue)
+        }
+      case otpFloat: OtpErlangFloat   => new EFloat(otpFloat)
+      case otpDouble: OtpErlangDouble => new EDouble(otpDouble)
+      case otpString: OtpErlangString => new EString(otpString)
+      case otpList: OtpErlangList     => new EList(otpList)
+      case otpMap: OtpErlangMap       => new EMap(otpMap)
+      case otpTuple: OtpErlangTuple   => new ETuple(otpTuple)
+      case otpRef: OtpErlangRef       => new ERef(otpRef)
+      case otpBinary: OtpErlangBinary => new EBinary(otpBinary)
+      case otpBitstr: OtpErlangBitstr => new EBitString(otpBitstr)
     }
   }
 
