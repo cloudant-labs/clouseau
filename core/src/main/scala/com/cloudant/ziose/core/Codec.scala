@@ -77,6 +77,12 @@ object Codec {
     override def toString: String                    = s"$boolean"
   }
 
+  val trueAtom  = EAtom("true")
+  val falseAtom = EAtom("false")
+
+  val trueOtpAtom  = trueAtom.toOtpErlangObject
+  val falseOtpAtom = falseAtom.toOtpErlangObject
+
   case class EInt(int: Int) extends ETerm {
     def this(obj: OtpErlangInt) = this(obj.intValue)
     override def toOtpErlangObject: OtpErlangInt = new OtpErlangInt(int)
@@ -242,20 +248,22 @@ object Codec {
 
   def fromErlang(obj: Any): ETerm = {
     obj match {
-      case otpPid: OtpErlangPid         => new EPid(otpPid)
-      case otpBoolean: OtpErlangBoolean => new EBoolean(otpBoolean)
-      case otpAtom: OtpErlangAtom       => EAtom(otpAtom)
-      case otpInt: OtpErlangInt         => new EInt(otpInt)
-      case otpLong: OtpErlangLong       => new ELong(otpLong)
-      case otpFloat: OtpErlangFloat     => new EFloat(otpFloat)
-      case otpDouble: OtpErlangDouble   => new EDouble(otpDouble)
-      case otpString: OtpErlangString   => new EString(otpString)
-      case otpList: OtpErlangList       => new EList(otpList)
-      case otpMap: OtpErlangMap         => new EMap(otpMap)
-      case otpTuple: OtpErlangTuple     => new ETuple(otpTuple)
-      case otpRef: OtpErlangRef         => new ERef(otpRef)
-      case otpBinary: OtpErlangBinary   => new EBinary(otpBinary)
-      case otpBitstr: OtpErlangBitstr   => new EBitString(otpBitstr)
+      case otpPid: OtpErlangPid                              => new EPid(otpPid)
+      case otpBoolean: OtpErlangBoolean                      => new EBoolean(otpBoolean)
+      case otpAtom: OtpErlangAtom if otpAtom == trueOtpAtom  => new EBoolean(true)
+      case otpAtom: OtpErlangAtom if otpAtom == falseOtpAtom => new EBoolean(false)
+      case otpAtom: OtpErlangAtom                            => EAtom(otpAtom)
+      case otpInt: OtpErlangInt                              => new EInt(otpInt)
+      case otpLong: OtpErlangLong                            => new ELong(otpLong)
+      case otpFloat: OtpErlangFloat                          => new EFloat(otpFloat)
+      case otpDouble: OtpErlangDouble                        => new EDouble(otpDouble)
+      case otpString: OtpErlangString                        => new EString(otpString)
+      case otpList: OtpErlangList                            => new EList(otpList)
+      case otpMap: OtpErlangMap                              => new EMap(otpMap)
+      case otpTuple: OtpErlangTuple                          => new ETuple(otpTuple)
+      case otpRef: OtpErlangRef                              => new ERef(otpRef)
+      case otpBinary: OtpErlangBinary                        => new EBinary(otpBinary)
+      case otpBitstr: OtpErlangBitstr                        => new EBitString(otpBitstr)
     }
   }
 
