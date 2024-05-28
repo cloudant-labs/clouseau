@@ -244,6 +244,7 @@ object Codec {
       new OtpErlangBinary(payload)
     }
     override def toString: String = s"<<${payload.mkString(",")}>>"
+    def asString: String          = new String(payload, StandardCharsets.UTF_8)
   }
 
   /*
