@@ -1,5 +1,6 @@
 package com.cloudant.ziose.clouseau.helpers
 
+import com.cloudant.ziose.core.Codec
 import com.cloudant.ziose.core.Codec._
 import scala.collection.mutable
 import com.cloudant.ziose.clouseau._
@@ -14,7 +15,7 @@ object Generators {
       dbName     <- alphaNumericString
       activeSigs <- listOf(alphaNumericString)
     } yield (
-      ETuple(EAtom(Symbol("cleanup")), EString(dbName), EList(activeSigs.map(EString))),
+      ETuple(EAtom(Symbol("cleanup")), EBinary(dbName), EList(activeSigs.map(EBinary.apply(_)))),
       CleanupDbMsg(dbName, activeSigs)
     )
   }
@@ -22,13 +23,13 @@ object Generators {
   def cleanupPathMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       path <- alphaNumericString
-    } yield (ETuple(EAtom(Symbol("cleanup")), EString(path)), CleanupPathMsg(path))
+    } yield (ETuple(EAtom(Symbol("cleanup")), EBinary(path)), CleanupPathMsg(path))
   }
 
   def closeLRUByPathMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       path <- alphaNumericString
-    } yield (ETuple(EAtom(Symbol("close_lru_by_path")), EString(path)), CloseLRUByPathMsg(path))
+    } yield (ETuple(EAtom(Symbol("close_lru_by_path")), EBinary(path)), CloseLRUByPathMsg(path))
   }
 
   def commitMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
@@ -40,13 +41,13 @@ object Generators {
   def deleteDocMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       id <- alphaNumericString
-    } yield (ETuple(EAtom(Symbol("delete")), EString(id)), DeleteDocMsg(id))
+    } yield (ETuple(EAtom(Symbol("delete")), EBinary(id)), DeleteDocMsg(id))
   }
 
   def diskSizeMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       path <- alphaNumericString
-    } yield (ETuple(EAtom(Symbol("disk_size")), EString(path)), DiskSizeMsg(path))
+    } yield (ETuple(EAtom(Symbol("disk_size")), EBinary(path)), DiskSizeMsg(path))
   }
 
   def group1MsgPairGen(depth: Int): Gen[Any, (ETerm, ClouseauMessage)] = {
@@ -60,8 +61,8 @@ object Generators {
     } yield (
       ETuple(
         EAtom(Symbol("group1")),
-        EString(query),
-        EString(field),
+        EBinary(query),
+        EBinary(field),
         EBoolean(refresh),
         groupSort,
         EInt(groupOffset),
@@ -81,7 +82,7 @@ object Generators {
       pairs.foreach(i => linkedHashMap.put(EAtom(Symbol(i._1)), i._2))
       (
         ETuple(EAtom(Symbol("group2")), EMap(linkedHashMap)),
-        Group2Msg((keys.map(Symbol(_)) zip values.map(toScala _)).toMap)
+        Group2Msg((keys.map(Symbol(_)) zip values.map(Codec.toScala(_))).toMap)
       )
     }
   }
@@ -92,7 +93,7 @@ object Generators {
       path    <- alphaNumericString
       options <- anyE(depth)
     } yield (
-      ETuple(EAtom(Symbol("open")), pid, EString(path), options),
+      ETuple(EAtom(Symbol("open")), pid, EBinary(path), options),
       OpenIndexMsg(pid.asInstanceOf[EPid], path, options)
     )
   }
@@ -100,7 +101,7 @@ object Generators {
   def renamePathMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       dbName <- alphaNumericString
-    } yield (ETuple(EAtom(Symbol("rename")), EString(dbName)), RenamePathMsg(dbName))
+    } yield (ETuple(EAtom(Symbol("rename")), EBinary(dbName)), RenamePathMsg(dbName))
   }
 
   def searchRequestPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
@@ -113,7 +114,7 @@ object Generators {
       pairs.foreach(i => linkedHashMap.put(EAtom(Symbol(i._1)), i._2))
       (
         ETuple(EAtom(Symbol("search")), EMap(linkedHashMap)),
-        SearchRequest((keys.map(Symbol(_)) zip values.map(toScala _)).toMap)
+        SearchRequest((keys.map(Symbol(_)) zip values.map(Codec.toScala(_))).toMap)
       )
     }
   }

@@ -232,11 +232,11 @@ object Codec {
   }
 
   // TODO add tests
-  case class EBinary(payload: Array[Byte]) extends ETerm {
+  class EBinary(payload: Array[Byte]) extends ETerm {
     override def hashCode: Int = payload.toList.hashCode()
     override def equals(other: Any): Boolean = {
       other match {
-        case other: EBinary => payload.toList.equals(other.payload.toList)
+        case other: EBinary => payload.toList.equals(other.asBytes.toList)
         case _              => false
       }
     }
@@ -246,6 +246,16 @@ object Codec {
     }
     override def toString: String = s"<<${payload.mkString(",")}>>"
     def asString: String          = new String(payload, StandardCharsets.UTF_8)
+    def asBytes: Array[Byte]      = payload
+  }
+
+  object EBinary {
+    def apply(atom: Symbol)         = new EBinary(atom.name.getBytes())
+    def apply(obj: OtpErlangBinary) = new EBinary(obj.binaryValue())
+    def apply(str: String)          = new EBinary(str.getBytes())
+    def apply(bytes: Array[Byte])   = new EBinary(bytes)
+
+    def unapply(eBinary: EBinary): Option[Array[Byte]] = Some(eBinary.asBytes)
   }
 
   /*
