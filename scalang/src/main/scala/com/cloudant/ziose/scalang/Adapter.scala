@@ -30,12 +30,40 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
   def monitor(monitored: Address)     = ctx.monitor(monitored)
   def demonitor(ref: Codec.ERef)      = ctx.demonitor(ref)
   def makeRef(): Codec.ERef           = ctx.makeRef()
-  def toScala(term: Codec.ETerm): Any = {
-    factory.parse(term)(this) match {
+  def toScala(tuple: Codec.ETuple): Any = {
+    factory.parse(tuple)(this) match {
       case Some(msg) => msg
-      case None      => Codec.toScala(term)
+      case None      => Codec.product(tuple.elems.map(toScala))
     }
   }
+  def toScala(term: Codec.ETerm): Any = {
+    Codec.toScala(
+      term,
+      {
+        case tuple: Codec.ETuple => Some(toScala(tuple))
+        case pid: Codec.EPid     => Some(Pid.toScala(pid))
+        case ref: Codec.ERef     => Some(Reference.toScala(ref))
+      }
+    )
+  }
+  def fromScala(term: Any): Codec.ETerm = {
+    Codec.fromScala(
+      term,
+      {
+        case (alias @ Codec.EListImproper(Codec.EAtom(Symbol("alias")), ref: Codec.ERef), reply: Any) =>
+          Codec.ETuple(alias, reply.asInstanceOf[Codec.ETerm])
+        case (ref: Codec.ERef, reply: Any) =>
+          Codec.ETuple(makeTag(ref), fromScala(reply))
+        case pid: Pid       => pid.fromScala
+        case ref: Reference => ref.fromScala
+      }
+    )
+  }
+
+  // OTP uses improper list in `gen.erl`
+  // https://github.com/erlang/otp/blob/master/lib/stdlib/src/gen.erl#L252C11-L252C20
+  //  Tag = [alias | Mref],
+  def makeTag(ref: Codec.ERef) = Codec.EListImproper(Codec.EAtom(Symbol("alias")), ref)
 }
 
 object Adapter {
