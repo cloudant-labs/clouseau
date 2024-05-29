@@ -38,7 +38,8 @@ object ClouseauTypeFactory extends TypeFactory {
   def parse(term: ETerm)(implicit adapter: Adapter[_, _]): Option[ClouseauMessage] = {
     term match {
       case ETuple(EAtom(Symbol("cleanup")), dbName: EBinary, activeSigs: EList) =>
-        Some(CleanupDbMsg(dbName.asString, activeSigs.toList.map(_.asInstanceOf[EBinary].str)))
+        val sigs = activeSigs.collect { case sig: EBinary => sig.asString }.toList
+        Some(CleanupDbMsg(dbName.asString, sigs))
       case ETuple(EAtom(Symbol("cleanup")), path: EBinary) =>
         Some(CleanupPathMsg(path.asString))
       case ETuple(EAtom(Symbol("close_lru_by_path")), path: EBinary) =>
