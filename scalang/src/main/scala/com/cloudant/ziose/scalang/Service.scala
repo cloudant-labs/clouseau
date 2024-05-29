@@ -59,18 +59,18 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
 
   def sendZIO(pid: Pid, msg: Any) = {
     val address  = Address.fromPid(pid.fromScala, self.workerId)
-    val envelope = MessageEnvelope.makeSend(address, Codec.fromScala(msg), self.workerId)
+    val envelope = MessageEnvelope.makeSend(address, adapter.fromScala(msg), self.workerId)
     adapter.send(envelope)
   }
   def sendZIO(name: RegName, msg: Any) = {
     val address  = Address.fromName(Codec.EAtom(name), self.workerId)
-    val envelope = MessageEnvelope.makeSend(address, Codec.fromScala(msg), self.workerId)
+    val envelope = MessageEnvelope.makeSend(address, adapter.fromScala(msg), self.workerId)
     adapter.send(envelope)
   }
   def sendZIO(dest: (RegName, NodeName), from: Pid, msg: Any) = {
     val (name, node) = dest
     val address      = Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(node), self.workerId)
-    val envelope     = MessageEnvelope.makeRegSend(from.fromScala, address, Codec.fromScala(msg), self.workerId)
+    val envelope     = MessageEnvelope.makeRegSend(from.fromScala, address, adapter.fromScala(msg), self.workerId)
     adapter.send(envelope)
   }
 
@@ -85,7 +85,7 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
 
   def exit(reason: Any) = {
     Unsafe.unsafe { implicit unsafe =>
-      adapter.runtime.unsafe.run(adapter.exit(Codec.fromScala(reason)))
+      adapter.runtime.unsafe.run(adapter.exit(adapter.fromScala(reason)))
     }
     ()
   }
@@ -237,7 +237,7 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
   def onMessage[PContext <: ProcessContext](event: MessageEnvelope, ctx: PContext): ZIO[Any, Throwable, Unit] = {
     event.getPayload match {
       case None        => ZIO.succeed(handleMessage(()))
-      case Some(value) => ZIO.succeed(handleMessage(Codec.toScala(value)))
+      case Some(value) => ZIO.succeed(handleMessage(adapter.toScala(value)))
     }
   }
 
@@ -345,11 +345,11 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           for {
             _ <- result match {
               case (Symbol("reply"), reply) =>
-                sendZIO(fromPid, (makeTag(ref), Codec.fromScala(reply)))
+                sendZIO(fromPid, (makeTag(ref), adapter.fromScala(reply)))
               case Symbol("noreply") =>
                 ZIO.unit
               case reply =>
-                sendZIO(fromPid, (makeTag(ref), Codec.fromScala(reply)))
+                sendZIO(fromPid, (makeTag(ref), adapter.fromScala(reply)))
             }
           } yield ()
         } catch {
@@ -382,7 +382,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
       case Some(info) => {
         println(s"nothing matched but it is not a ETerm $info")
         try {
-          ZIO.succeed(handleInfo(info)).unit
+          ZIO.succeed(handleInfo(adapter.toScala(info))).unit
         } catch {
           case err: Throwable => {
             printThrowable("onMessage[$gen_call]", err)

@@ -31,7 +31,7 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
 
   override def handleCall(tag: (Pid, Any), request: Any): Any = {
     request match {
-      case (Symbol("echo"), request) => (Symbol("reply"), (Symbol("echo"), Codec.fromScala(request)))
+      case (Symbol("echo"), request) => (Symbol("reply"), (Symbol("echo"), adapter.fromScala(request)))
       case msg =>
         logger.info(s"[Echo][WARNING][handleCall] Unexpected message: $msg ...")
     }

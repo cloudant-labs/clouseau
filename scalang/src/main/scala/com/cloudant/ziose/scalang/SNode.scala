@@ -49,7 +49,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
       Codec.EAtom(Symbol("$gen_cast")),
       adapter.self.pid,
       address,
-      Codec.fromScala(msg),
+      adapter.fromScala(msg),
       adapter.self.workerId
     )
     for {
@@ -62,7 +62,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
       Codec.EAtom(Symbol("$gen_cast")),
       adapter.self.pid,
       address,
-      Codec.fromScala(msg),
+      adapter.fromScala(msg),
       adapter.self.workerId
     )
     for {
@@ -76,7 +76,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
       Codec.EAtom(Symbol("$gen_cast")),
       adapter.self.pid,
       address,
-      Codec.fromScala(msg),
+      adapter.fromScala(msg),
       adapter.self.workerId
     )
     for {
@@ -104,13 +104,13 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
       Codec.EAtom(Symbol("$gen_call")),
       from.fromScala,
       address,
-      Codec.fromScala(msg),
+      adapter.fromScala(msg),
       None,
       adapter.self.workerId
     )
     for {
       result <- adapter.call(envelope)
-    } yield Codec.toScala(result.payload)
+    } yield adapter.toScala(result.payload)
   }
   def call(from: Pid, to: Pid, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
     // assume the pid is on the same worker
@@ -120,13 +120,13 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
       Codec.EAtom(Symbol("$gen_call")),
       from.fromScala,
       address,
-      Codec.fromScala(msg),
+      adapter.fromScala(msg),
       Some(duration),
       adapter.self.workerId
     )
     for {
       result <- adapter.call(envelope)
-    } yield Codec.toScala(result.payload)
+    } yield adapter.toScala(result.payload)
   }
   def call(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
     // assume the pid is on the same worker
@@ -143,13 +143,13 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
       Codec.EAtom(Symbol("$gen_call")),
       from.fromScala,
       address,
-      Codec.fromScala(msg),
+      adapter.fromScala(msg),
       None,
       adapter.self.workerId
     )
     for {
       result <- adapter.call(envelope)
-    } yield Codec.toScala(result.payload)
+    } yield adapter.toScala(result.payload)
   }
   def call(from: Pid, to: Symbol, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
     // assume the pid is on the same worker
@@ -159,13 +159,13 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
       Codec.EAtom(Symbol("$gen_call")),
       from.fromScala,
       address,
-      Codec.fromScala(msg),
+      adapter.fromScala(msg),
       Some(duration),
       adapter.self.workerId
     )
     for {
       result <- adapter.call(envelope)
-    } yield Codec.toScala(result.payload)
+    } yield adapter.toScala(result.payload)
   }
   def call(to: (RegName, NodeName), msg: Any)(implicit adapter: Adapter[_, _]): Any = {
     call(self, to, msg)
@@ -180,13 +180,13 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
       Codec.EAtom(Symbol("$gen_call")),
       adapter.self.pid,
       address,
-      Codec.fromScala(msg),
+      adapter.fromScala(msg),
       None,
       adapter.self.workerId
     )
     for {
       result <- adapter.call(envelope)
-    } yield Codec.toScala(result.payload)
+    } yield adapter.toScala(result.payload)
   }
   def call(from: Pid, to: (RegName, NodeName), msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
     val (name, nodeName) = to
@@ -196,13 +196,13 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
       Codec.EAtom(Symbol("$gen_call")),
       adapter.self.pid,
       address,
-      Codec.fromScala(msg),
+      adapter.fromScala(msg),
       Some(duration),
       adapter.self.workerId
     )
     for {
       result <- adapter.call(envelope)
-    } yield Codec.toScala(result.payload)
+    } yield adapter.toScala(result.payload)
   }
   def link(from: Pid, to: Pid) {
     // TODO
