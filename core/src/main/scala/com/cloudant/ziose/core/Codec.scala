@@ -4,6 +4,7 @@ import com.ericsson.otp.erlang._
 
 import java.nio.charset.StandardCharsets
 import scala.collection.{AbstractMap, mutable}
+import scala.language.implicitConversions
 
 // TODO https://murraytodd.medium.com/putting-it-all-together-with-type-classes-d6b545202803
 // TODO https://medium.com/beingprofessional/use-of-implicit-to-transform-case-classes-in-scala-47a72dfa9450
@@ -284,25 +285,48 @@ object Codec {
     }
   }
 
-  def toScala(obj: ETerm): Any = obj match {
-    case b: EBoolean   => b.boolean
-    case a: EAtom      => a.atom
-    case i: EInt       => i.int
-    case l: ELong      => l.long
-    case f: EFloat     => f.float
-    case d: EDouble    => d.double
-    case s: EString    => s.str
-    case pid: EPid     => pid
-    case ref: ERef     => ref.obj
-    case list: EList   => list.elems.map(toScala)
-    case tuple: ETuple => product(tuple.elems.map(toScala))
-    case map: EMap =>
-      map.mapLH.foldLeft(Map.empty[Any, Any]) { case (newMap, (k: ETerm, v: ETerm)) =>
-        newMap + (toScala(k) -> toScala(v))
-      }
-    // *Important* clouseau encodes strings as binaries
-    case binary: EBinary    => new String(binary.payload, StandardCharsets.UTF_8)
-    case bitstr: EBitString => bitstr.payload
+  object ENeverMatch extends ETerm {
+    def toOtpErlangObject = new OtpErlangAtom("never match")
+  }
+
+  def toScala(
+    obj: ETerm,
+    top: PartialFunction[ETerm, Option[Any]] = { case ENeverMatch => None },
+    bottom: PartialFunction[ETerm, Option[Any]] = { case ENeverMatch => None }
+  ): Any = {
+    val topRule    = top.Extractor
+    val bottomRule = bottom.Extractor
+    obj match {
+      case topRule(e) =>
+        e match {
+          case Some(o) => o
+          case None    => obj
+        }
+      case b: EBoolean   => b.boolean
+      case a: EAtom      => a.atom
+      case i: EInt       => i.int
+      case l: ELong      => l.long
+      case f: EFloat     => f.float
+      case d: EDouble    => d.double
+      case s: EString    => s.str
+      case pid: EPid     => pid
+      case ref: ERef     => ref.obj
+      case list: EList   => list.elems.map(e => toScala(e, top, bottom))
+      case tuple: ETuple => product(tuple.elems.map(e => toScala(e, top, bottom)))
+      case map: EMap =>
+        map.mapLH.foldLeft(Map.empty[Any, Any]) { case (newMap, (k: ETerm, v: ETerm)) =>
+          newMap + (toScala(k, top, bottom) -> toScala(v, top, bottom))
+        }
+      // *Important* clouseau encodes strings as binaries
+      case binary: EBinary    => binary.asString
+      case bitstr: EBitString => bitstr.payload
+      case bottomRule(e) =>
+        e match {
+          case Some(o) => o
+          case None    => obj
+        }
+      case ENeverMatch => ()
+    }
   }
 
   def product(list: List[_]): Any = list match {
@@ -338,41 +362,63 @@ object Codec {
     case list: List[_] => new BigTuple(list)
   }
 
-  def fromScala(scala: Any): ETerm = scala match {
-    case e: ETerm       => e
-    case any: FromScala => any.fromScala
-    case b: Boolean     => EBoolean(b)
-    case a: Symbol      => EAtom(a)
-    case i: Int         => EInt(i)
-    case l: BigInt      => ELong(l)
-    // TODO Add test for Long
-    case l: Long =>
-      l match {
-        case int if int.isValidInt => EInt(int.intValue())
-        case _                     => ELong(l)
-      }
-    case f: Float  => EFloat(f)
-    case d: Double => EDouble(d)
-    // *Important* clouseau encodes strings as binaries
-    case s: String      => EBinary(s.getBytes(StandardCharsets.UTF_8))
-    case list: List[_]  => new EList(list.map(fromScala), true)
-    case list: Seq[_]   => new EList(List.from(list.map(fromScala)), true)
-    case tuple: Product => ETuple(tuple.productIterator.map(fromScala).toList)
-    case tuple: Unit    => ETuple()
-    // TODO Add test for HashMap (which implements AbstractMap)
-    case m: AbstractMap[_, _] =>
-      EMap(mutable.LinkedHashMap.from(m map { case (k, v) =>
-        (fromScala(k), fromScala(v))
-      }))
-    case m: Map[_, _] =>
-      EMap(mutable.LinkedHashMap.from(m map { case (k, v) =>
-        (fromScala(k), fromScala(v))
-      }))
-    // This is ambiguous how we can distinguish bitstr from binary?
-    case binary: Array[Byte] => EBinary(binary)
+  case class NeverMatch()
+
+  def fromScala(
+    scala: Any,
+    top: PartialFunction[Any, ETerm] = { case NeverMatch => EAtom(Symbol("never match")) },
+    bottom: PartialFunction[Any, ETerm] = { case NeverMatch => EAtom(Symbol("never match")) }
+  ): ETerm = {
+    val topRule    = top.Extractor
+    val bottomRule = bottom.Extractor
+    scala match {
+      case topRule(e)     => e
+      case e: ETerm       => e
+      case any: FromScala => any.fromScala
+      case b: Boolean     => EBoolean(b)
+      case a: Symbol      => EAtom(a)
+      case i: Int         => EInt(i)
+      case l: BigInt      => ELong(l.bigInteger)
+      // TODO Add test for Long
+      case l: Long =>
+        l match {
+          case int if int.isValidInt => EInt(int.intValue())
+          case _                     => ELong(l)
+        }
+      case f: Float  => EFloat(f)
+      case d: Double => EDouble(d)
+      // *Important* clouseau encodes strings as binaries
+      case s: String      => EBinary(s.getBytes(StandardCharsets.UTF_8))
+      case list: List[_]  => new EList(list.map(e => fromScala(e, top, bottom)), true)
+      case list: Seq[_]   => new EList(List.from(list.map(e => fromScala(e, top, bottom))), true)
+      case tuple: Product => ETuple(tuple.productIterator.map(e => fromScala(e, top, bottom)).toList)
+      case tuple: Unit    => ETuple()
+      // TODO Add test for HashMap (which implements AbstractMap)
+      case m: AbstractMap[_, _] =>
+        EMap(mutable.LinkedHashMap.from(m map { case (k, v) =>
+          (fromScala(k), fromScala(v))
+        }))
+      case m: Map[_, _] =>
+        EMap(mutable.LinkedHashMap.from(m map { case (k, v) =>
+          (fromScala(k), fromScala(v))
+        }))
+      // This is ambiguous how we can distinguish bitstr from binary?
+      case binary: Array[Byte] => EBinary(binary)
+      case bottomRule(e)       => e
+    }
   }
 
   trait FromScala {
     def fromScala: ETerm
+  }
+
+  class ExtendedPF[A, B](val pf: PartialFunction[A, B]) {
+    object Extractor {
+      def unapply(a: A): Option[B] = pf.lift(a)
+    }
+  }
+
+  implicit def extendPartialFunction[A, B](pf: PartialFunction[A, B]): ExtendedPF[A, B] = {
+    new ExtendedPF(pf)
   }
 }
