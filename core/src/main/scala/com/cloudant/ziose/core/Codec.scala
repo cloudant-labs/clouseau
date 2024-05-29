@@ -346,7 +346,11 @@ object Codec {
     case i: Int         => EInt(i)
     case l: BigInt      => ELong(l)
     // TODO Add test for Long
-    case l: Long   => ELong(l)
+    case l: Long =>
+      l match {
+        case int if int.isValidInt => EInt(int.intValue())
+        case _                     => ELong(l)
+      }
     case f: Float  => EFloat(f)
     case d: Double => EDouble(d)
     // *Important* clouseau encodes strings as binaries
