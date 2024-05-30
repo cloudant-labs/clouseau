@@ -319,22 +319,22 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
   // OTP uses improper list in `gen.erl`
   // https://github.com/erlang/otp/blob/master/lib/stdlib/src/gen.erl#L252C11-L252C20
   //  Tag = [alias | Mref],
-  def makeTag(ref: ERef) = EListImproper(EAtom(Symbol("alias")), ref)
+  def makeTag(ref: ERef) = EListImproper(EAtom("alias"), ref)
 
   override def onMessage[PContext <: ProcessContext](
     event: MessageEnvelope,
     ctx: PContext
   ): ZIO[Any, Throwable, Unit] = {
     event.getPayload match {
-      case Some(ETuple(EAtom(Symbol("ping")), from: EPid, ref: ERef)) => {
+      case Some(ETuple(EAtom("ping"), from: EPid, ref: ERef)) => {
         val fromPid = Pid.toScala(from)
         sendZIO(fromPid, (Symbol("pong"), ref))
       }
       case Some(
             ETuple(
-              EAtom(Symbol("$gen_call")),
+              EAtom("$gen_call"),
               // Match on {pid(), [alias | ref()]}
-              ETuple(from: EPid, EListImproper(EAtom(Symbol("alias")), ref: ERef)),
+              ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)),
               request: ETerm
             )
           ) => {
@@ -359,7 +359,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           }
         }
       }
-      case Some(ETuple(EAtom(Symbol("$gen_cast")), request: ETerm)) => {
+      case Some(ETuple(EAtom("$gen_cast"), request: ETerm)) => {
         try {
           ZIO.succeed(handleCast(adapter.toScala(request))).unit
         } catch {

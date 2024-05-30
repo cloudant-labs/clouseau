@@ -298,8 +298,8 @@ object OTPMailbox {
 
   private def mockMessage(workerId: Engine.WorkerId) = {
     MessageEnvelope.makeSend(
-      Address.fromName(Codec.EAtom(Symbol("some")), workerId),
-      Codec.EAtom(Symbol("hello")),
+      Address.fromName(Codec.EAtom("some"), workerId),
+      Codec.EAtom("hello"),
       workerId
     )
   }

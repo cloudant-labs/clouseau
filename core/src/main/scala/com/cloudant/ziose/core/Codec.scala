@@ -69,7 +69,7 @@ object Codec {
     def apply(obj: OtpErlangAtom) = new EAtom(Symbol(obj.atomValue))
     def apply(str: String)        = new EAtom(Symbol(str))
 
-    def unapply(eAtom: EAtom): Option[Symbol] = Some(eAtom.atom)
+    def unapply(eAtom: EAtom): Option[String] = Some(eAtom.atom.name)
   }
 
   case class EBoolean(boolean: Boolean) extends ETerm {
@@ -376,8 +376,8 @@ object Codec {
 
   def fromScala(
     scala: Any,
-    top: PartialFunction[Any, ETerm] = { case NeverMatch => EAtom(Symbol("never match")) },
-    bottom: PartialFunction[Any, ETerm] = { case NeverMatch => EAtom(Symbol("never match")) }
+    top: PartialFunction[Any, ETerm] = { case NeverMatch => EAtom("never match") },
+    bottom: PartialFunction[Any, ETerm] = { case NeverMatch => EAtom("never match") }
   ): ETerm = {
     val topRule    = top.Extractor
     val bottomRule = bottom.Extractor

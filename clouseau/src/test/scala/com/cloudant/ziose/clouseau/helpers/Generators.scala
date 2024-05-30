@@ -15,7 +15,7 @@ object Generators {
       dbName     <- alphaNumericString
       activeSigs <- listOf(alphaNumericString)
     } yield (
-      ETuple(EAtom(Symbol("cleanup")), EBinary(dbName), EList(activeSigs.map(EBinary.apply(_)))),
+      ETuple(EAtom("cleanup"), EBinary(dbName), EList(activeSigs.map(EBinary.apply(_)))),
       CleanupDbMsg(dbName, activeSigs)
     )
   }
@@ -23,31 +23,31 @@ object Generators {
   def cleanupPathMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       path <- alphaNumericString
-    } yield (ETuple(EAtom(Symbol("cleanup")), EBinary(path)), CleanupPathMsg(path))
+    } yield (ETuple(EAtom("cleanup"), EBinary(path)), CleanupPathMsg(path))
   }
 
   def closeLRUByPathMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       path <- alphaNumericString
-    } yield (ETuple(EAtom(Symbol("close_lru_by_path")), EBinary(path)), CloseLRUByPathMsg(path))
+    } yield (ETuple(EAtom("close_lru_by_path"), EBinary(path)), CloseLRUByPathMsg(path))
   }
 
   def commitMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       seq <- long(Long.MinValue, Long.MaxValue)
-    } yield (ETuple(EAtom(Symbol("commit")), ELong(seq)), CommitMsg(seq))
+    } yield (ETuple(EAtom("commit"), ELong(seq)), CommitMsg(seq))
   }
 
   def deleteDocMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       id <- alphaNumericString
-    } yield (ETuple(EAtom(Symbol("delete")), EBinary(id)), DeleteDocMsg(id))
+    } yield (ETuple(EAtom("delete"), EBinary(id)), DeleteDocMsg(id))
   }
 
   def diskSizeMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       path <- alphaNumericString
-    } yield (ETuple(EAtom(Symbol("disk_size")), EBinary(path)), DiskSizeMsg(path))
+    } yield (ETuple(EAtom("disk_size"), EBinary(path)), DiskSizeMsg(path))
   }
 
   def group1MsgPairGen(depth: Int): Gen[Any, (ETerm, ClouseauMessage)] = {
@@ -60,7 +60,7 @@ object Generators {
       groupLimit     <- int(0, 10)
     } yield (
       ETuple(
-        EAtom(Symbol("group1")),
+        EAtom("group1"),
         EBinary(query),
         EBinary(field),
         EBoolean(refresh),
@@ -79,9 +79,9 @@ object Generators {
       linkedHashMap = mutable.LinkedHashMap.empty[ETerm, ETerm]
       pairs         = keys zip values
     } yield {
-      pairs.foreach(i => linkedHashMap.put(EAtom(Symbol(i._1)), i._2))
+      pairs.foreach(i => linkedHashMap.put(EAtom(i._1), i._2))
       (
-        ETuple(EAtom(Symbol("group2")), EMap(linkedHashMap)),
+        ETuple(EAtom("group2"), EMap(linkedHashMap)),
         Group2Msg((keys.map(Symbol(_)) zip values.map(Codec.toScala(_))).toMap)
       )
     }
@@ -93,7 +93,7 @@ object Generators {
       path    <- alphaNumericString
       options <- anyE(depth)
     } yield (
-      ETuple(EAtom(Symbol("open")), pid, EBinary(path), options),
+      ETuple(EAtom("open"), pid, EBinary(path), options),
       OpenIndexMsg(pid.asInstanceOf[EPid], path, options)
     )
   }
@@ -101,7 +101,7 @@ object Generators {
   def renamePathMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       dbName <- alphaNumericString
-    } yield (ETuple(EAtom(Symbol("rename")), EBinary(dbName)), RenamePathMsg(dbName))
+    } yield (ETuple(EAtom("rename"), EBinary(dbName)), RenamePathMsg(dbName))
   }
 
   def searchRequestPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
@@ -111,9 +111,9 @@ object Generators {
       linkedHashMap = mutable.LinkedHashMap.empty[ETerm, ETerm]
       pairs         = keys zip values
     } yield {
-      pairs.foreach(i => linkedHashMap.put(EAtom(Symbol(i._1)), i._2))
+      pairs.foreach(i => linkedHashMap.put(EAtom(i._1), i._2))
       (
-        ETuple(EAtom(Symbol("search")), EMap(linkedHashMap)),
+        ETuple(EAtom("search"), EMap(linkedHashMap)),
         SearchRequest((keys.map(Symbol(_)) zip values.map(Codec.toScala(_))).toMap)
       )
     }
@@ -122,13 +122,13 @@ object Generators {
   def setPurgeSeqMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       seq <- long(Long.MinValue, Long.MaxValue)
-    } yield (ETuple(EAtom(Symbol("set_purge_seq")), ELong(seq)), SetPurgeSeqMsg(seq))
+    } yield (ETuple(EAtom("set_purge_seq"), ELong(seq)), SetPurgeSeqMsg(seq))
   }
 
   def setUpdateSeqMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       seq <- long(Long.MinValue, Long.MaxValue)
-    } yield (ETuple(EAtom(Symbol("set_update_seq")), ELong(seq)), SetUpdateSeqMsg(seq))
+    } yield (ETuple(EAtom("set_update_seq"), ELong(seq)), SetUpdateSeqMsg(seq))
   }
 
   def anyMessagePairGen(depth: Int): Gen[Any, (ETerm, ClouseauMessage)] = {

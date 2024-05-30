@@ -37,21 +37,21 @@ object ClouseauTypeFactory extends TypeFactory {
 
   def parse(term: ETerm)(implicit adapter: Adapter[_, _]): Option[ClouseauMessage] = {
     term match {
-      case ETuple(EAtom(Symbol("cleanup")), dbName: EBinary, activeSigs: EList) =>
+      case ETuple(EAtom("cleanup"), dbName: EBinary, activeSigs: EList) =>
         val sigs = activeSigs.collect { case sig: EBinary => sig.asString }.toList
         Some(CleanupDbMsg(dbName.asString, sigs))
-      case ETuple(EAtom(Symbol("cleanup")), path: EBinary) =>
+      case ETuple(EAtom("cleanup"), path: EBinary) =>
         Some(CleanupPathMsg(path.asString))
-      case ETuple(EAtom(Symbol("close_lru_by_path")), path: EBinary) =>
+      case ETuple(EAtom("close_lru_by_path"), path: EBinary) =>
         Some(CloseLRUByPathMsg(path.asString))
-      case ETuple(EAtom(Symbol("commit")), ELong(seq)) =>
+      case ETuple(EAtom("commit"), ELong(seq)) =>
         Some(CommitMsg(seq.toLong))
-      case ETuple(EAtom(Symbol("delete")), id: EBinary) =>
+      case ETuple(EAtom("delete"), id: EBinary) =>
         Some(DeleteDocMsg(id.asString))
-      case ETuple(EAtom(Symbol("disk_size")), path: EBinary) =>
+      case ETuple(EAtom("disk_size"), path: EBinary) =>
         Some(DiskSizeMsg(path.asString))
       case ETuple(
-            EAtom(Symbol("group1")),
+            EAtom("group1"),
             query: EBinary,
             field: EBinary,
             EBoolean(refresh),
@@ -60,11 +60,11 @@ object ClouseauTypeFactory extends TypeFactory {
             EInt(groupLimit)
           ) =>
         Some(Group1Msg(query.asString, field.asString, refresh, groupSort, groupOffset, groupLimit))
-      case ETuple(EAtom(Symbol("group2")), EMap(options)) =>
+      case ETuple(EAtom("group2"), EMap(options)) =>
         Some(Group2Msg(options.foldLeft(Map.empty[Symbol, Any]) { case (map, (k, v)) =>
           map + (k.asInstanceOf[EAtom].atom -> toScala(v))
         }))
-      case ETuple(EAtom(Symbol("update")), id: EBinary, fields: EList) => { // TODO verify maybe it should be EBinary(id)
+      case ETuple(EAtom("update"), id: EBinary, fields: EList) => { // TODO verify maybe it should be EBinary(id)
         var doc = new Document()
         doc.add(new StringField("_id", id.asString, Store.YES))
         for (fieldE <- fields) {
@@ -105,17 +105,17 @@ object ClouseauTypeFactory extends TypeFactory {
         val docId = doc.getField("_id").stringValue
         Some(UpdateDocMsg(docId, doc))
       }
-      case ETuple(EAtom(Symbol("open")), peer, path: EBinary, options) =>
+      case ETuple(EAtom("open"), peer, path: EBinary, options) =>
         Some(OpenIndexMsg(peer.asInstanceOf[EPid], path.asString, options))
-      case ETuple(EAtom(Symbol("rename")), dbName: EBinary) =>
+      case ETuple(EAtom("rename"), dbName: EBinary) =>
         Some(RenamePathMsg(dbName.asString))
-      case ETuple(EAtom(Symbol("search")), EMap(options)) =>
+      case ETuple(EAtom("search"), EMap(options)) =>
         Some(SearchRequest(options.foldLeft(Map.empty[Symbol, Any]) { case (map, (k, v)) =>
           map + (k.asInstanceOf[EAtom].atom -> toScala(v))
         }))
-      case ETuple(EAtom(Symbol("set_purge_seq")), ELong(seq)) =>
+      case ETuple(EAtom("set_purge_seq"), ELong(seq)) =>
         Some(SetPurgeSeqMsg(seq.toLong))
-      case ETuple(EAtom(Symbol("set_update_seq")), ELong(seq)) =>
+      case ETuple(EAtom("set_update_seq"), ELong(seq)) =>
         Some(SetUpdateSeqMsg(seq.toLong))
       case other => None
     }

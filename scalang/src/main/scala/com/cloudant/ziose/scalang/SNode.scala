@@ -46,7 +46,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   def cast(to: Pid, msg: Any)(implicit adapter: Adapter[_, _]) = {
     val address = Address.fromPid(to.fromScala, adapter.self.workerId)
     val envelope = MessageEnvelope.makeCast(
-      Codec.EAtom(Symbol("$gen_cast")),
+      Codec.EAtom("$gen_cast"),
       adapter.self.pid,
       address,
       adapter.fromScala(msg),
@@ -59,7 +59,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   def cast(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]) = {
     val address = Address.fromName(Codec.EAtom(to), adapter.self.workerId)
     val envelope = MessageEnvelope.makeCast(
-      Codec.EAtom(Symbol("$gen_cast")),
+      Codec.EAtom("$gen_cast"),
       adapter.self.pid,
       address,
       adapter.fromScala(msg),
@@ -73,7 +73,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
     val (name, nodeName) = to
     val address          = Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), adapter.self.workerId)
     val envelope = MessageEnvelope.makeCast(
-      Codec.EAtom(Symbol("$gen_cast")),
+      Codec.EAtom("$gen_cast"),
       adapter.self.pid,
       address,
       adapter.fromScala(msg),
@@ -101,7 +101,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
     // assume the pid is on the same worker
     val address = Address.fromPid(to.fromScala, adapter.self.workerId)
     val envelope = MessageEnvelope.makeCall(
-      Codec.EAtom(Symbol("$gen_call")),
+      Codec.EAtom("$gen_call"),
       from.fromScala,
       address,
       adapter.fromScala(msg),
@@ -117,7 +117,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
     val address  = Address.fromPid(to.fromScala, adapter.self.workerId)
     val duration = Duration(timeout, TimeUnit.MILLISECONDS)
     val envelope = MessageEnvelope.makeCall(
-      Codec.EAtom(Symbol("$gen_call")),
+      Codec.EAtom("$gen_call"),
       from.fromScala,
       address,
       adapter.fromScala(msg),
@@ -140,7 +140,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
     // assume the pid is on the same worker
     val address = Address.fromName(Codec.EAtom(to), adapter.self.workerId)
     val envelope = MessageEnvelope.makeCall(
-      Codec.EAtom(Symbol("$gen_call")),
+      Codec.EAtom("$gen_call"),
       from.fromScala,
       address,
       adapter.fromScala(msg),
@@ -156,7 +156,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
     val address  = Address.fromName(Codec.EAtom(to), adapter.self.workerId)
     val duration = Duration(timeout, TimeUnit.MILLISECONDS)
     val envelope = MessageEnvelope.makeCall(
-      Codec.EAtom(Symbol("$gen_call")),
+      Codec.EAtom("$gen_call"),
       from.fromScala,
       address,
       adapter.fromScala(msg),
@@ -177,7 +177,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
     val (name, nodeName) = to
     val address          = Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), adapter.self.workerId)
     val envelope = MessageEnvelope.makeCall(
-      Codec.EAtom(Symbol("$gen_call")),
+      Codec.EAtom("$gen_call"),
       adapter.self.pid,
       address,
       adapter.fromScala(msg),
@@ -193,7 +193,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
     val address          = Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), adapter.self.workerId)
     val duration         = Duration(timeout, TimeUnit.MILLISECONDS)
     val envelope = MessageEnvelope.makeCall(
-      Codec.EAtom(Symbol("$gen_call")),
+      Codec.EAtom("$gen_call"),
       adapter.self.pid,
       address,
       adapter.fromScala(msg),

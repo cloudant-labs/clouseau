@@ -50,7 +50,7 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
     Codec.fromScala(
       term,
       {
-        case (alias @ Codec.EListImproper(Codec.EAtom(Symbol("alias")), ref: Codec.ERef), reply: Any) =>
+        case (alias @ Codec.EListImproper(Codec.EAtom("alias"), ref: Codec.ERef), reply: Any) =>
           Codec.ETuple(alias, reply.asInstanceOf[Codec.ETerm])
         case (ref: Codec.ERef, reply: Any) =>
           Codec.ETuple(makeTag(ref), fromScala(reply))
@@ -63,7 +63,7 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
   // OTP uses improper list in `gen.erl`
   // https://github.com/erlang/otp/blob/master/lib/stdlib/src/gen.erl#L252C11-L252C20
   //  Tag = [alias | Mref],
-  def makeTag(ref: Codec.ERef) = Codec.EListImproper(Codec.EAtom(Symbol("alias")), ref)
+  def makeTag(ref: Codec.ERef) = Codec.EListImproper(Codec.EAtom("alias"), ref)
 }
 
 object Adapter {

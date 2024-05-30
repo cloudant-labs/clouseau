@@ -37,7 +37,7 @@ class ClouseauTypeFactorySpec extends JUnitRunnableSpec {
       ).provideLayer(environment),
       test("Undefined ClouseauMessage type should return None") {
         for {
-          event <- succeed(parse(ETuple(EAtom(Symbol("wrong"))))(adapter))
+          event <- succeed(parse(ETuple(EAtom("wrong")))(adapter))
         } yield assertTrue(event.isEmpty)
       }
     )

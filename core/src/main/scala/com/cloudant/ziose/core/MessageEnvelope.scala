@@ -127,9 +127,9 @@ object MessageEnvelope {
       case exit: OtpErlangExit =>
         (Some(Codec.fromErlang(exit.pid).asInstanceOf[Codec.EPid]), Codec.fromErlang(exit.reason))
       case decode: OtpErlangDecodeException =>
-        (None, new Codec.EAtom(Symbol("term_decode_error")))
+        (None, Codec.EAtom("term_decode_error"))
       case range: OtpErlangRangeException =>
-        (None, new Codec.EAtom(Symbol("term_range_error")))
+        (None, Codec.EAtom("term_range_error"))
     }
     MessageEnvelope.Exit(from, address, reason, 0)
   }

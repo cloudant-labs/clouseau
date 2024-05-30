@@ -196,7 +196,7 @@ object OTPNode {
             }
           } yield ()
         case None =>
-          val term = Codec.EAtom(Symbol("normal"))
+          val term = Codec.EAtom("normal")
           for {
             _ <- actor.onTermination(term).catchAll(_ => ZIO.unit)
             _ <- actor.ctx.shutdown

@@ -22,7 +22,7 @@ object Generators {
    * A generator of ETerm objects representing EAtom variant. Shrinks toward the "" (empty string) atom.
    */
   def atomE: Gen[Any, ETerm] = {
-    for { xs <- alphaNumericString } yield EAtom(Symbol(xs))
+    for { xs <- alphaNumericString } yield EAtom(xs)
   }
 
   /**
@@ -349,7 +349,7 @@ object Generators {
    * Shrinks toward the (EAtom(''), OtpErlangAtom('')) (empty string) atom.
    */
   def atomP: Gen[Any, SamplePair] = {
-    for { s <- alphaNumericString } yield (EAtom(Symbol(s)), new OtpErlangAtom(s))
+    for { s <- alphaNumericString } yield (EAtom(s), new OtpErlangAtom(s))
   }
 
   def atomSP: Gen[Any, SamplePair] = {
@@ -555,7 +555,7 @@ object Generators {
    * Shrinks toward the (EAtom(''), EAtom('')) (empty string) atom.
    */
   def atomEq: Gen[Any, EqPair] = {
-    for { s <- alphaNumericString } yield (EAtom(Symbol(s)), EAtom(Symbol(s)))
+    for { s <- alphaNumericString } yield (EAtom(s), EAtom(s))
   }
 
   /**
