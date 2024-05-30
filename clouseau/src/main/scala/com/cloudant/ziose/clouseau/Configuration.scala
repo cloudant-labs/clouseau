@@ -21,11 +21,15 @@ final case class ClouseauConfiguration(
   idle_check_interval_secs: Option[Int],
   max_indexes_open: Option[Int],
   field_cache_metrics: Option[Boolean],
-  commit_interval_secs: Option[Int]
+  commit_interval_secs: Option[Int],
+  lock_class: Option[String],
+  dir_class: Option[String]
 ) {
   def getString(key: String, default: String) = key match {
-    case "clouseau.dir" => dir.getOrElse(default).asInstanceOf[String]
-    case _              => throw new Exception(s"Unexpected String key '$key'")
+    case "clouseau.dir"        => dir.getOrElse(default).asInstanceOf[String]
+    case "clouseau.lock_class" => lock_class.getOrElse(default).asInstanceOf[String]
+    case "clouseau.dir_class"  => dir_class.getOrElse(default).asInstanceOf[String]
+    case _                     => throw new Exception(s"Unexpected String key '$key'")
   }
   def getInt(key: String, default: Int) = key match {
     case "clouseau.idle_check_interval_secs" => idle_check_interval_secs.getOrElse(default)
