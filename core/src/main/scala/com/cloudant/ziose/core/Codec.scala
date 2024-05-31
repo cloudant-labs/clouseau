@@ -44,6 +44,7 @@ object Codec {
   }
   object ERef {
     def apply(node: String, ids: Array[Int], creation: Int) = new ERef(new OtpErlangRef(node, ids, creation))
+    def apply(obj: OtpErlangRef): ERef                      = new ERef(obj)
     def unapply(x: ERef): Option[(String, Array[Int], Int)] = Some((x.obj.node, x.obj.ids, x.obj.creation))
   }
 
@@ -51,6 +52,11 @@ object Codec {
     def this(obj: OtpErlangPid) = this(obj.node, obj.id, obj.serial, obj.creation)
     override def toOtpErlangObject: OtpErlangPid = new OtpErlangPid(node, id, serial, creation)
     override def toString: String                = s"<$id.$serial.$creation>"
+  }
+
+  object EPid {
+    def apply(node: String, id: Int, serial: Int, creation: Int) = new EPid(node, id, serial, creation)
+    def apply(obj: OtpErlangPid): EPid                           = new EPid(obj.node, obj.id, obj.serial, obj.creation)
   }
 
   class EAtom(val atom: Symbol) extends ETerm {
@@ -78,6 +84,11 @@ object Codec {
     override def toString: String                    = s"$boolean"
   }
 
+  object EBoolean {
+    def apply(boolean: Boolean)      = new EBoolean(boolean)
+    def apply(obj: OtpErlangBoolean) = new EBoolean(obj.booleanValue)
+  }
+
   val trueAtom  = EAtom("true")
   val falseAtom = EAtom("false")
 
@@ -97,21 +108,36 @@ object Codec {
   }
 
   case class EFloat(float: Float) extends ETerm {
-    def this(obj: OtpErlangFloat) = this(obj.floatValue())
+    def this(obj: OtpErlangFloat) = this(obj.floatValue)
     override def toOtpErlangObject: OtpErlangFloat = new OtpErlangFloat(float)
     override def toString: String                  = s"$float"
   }
 
+  object EFloat {
+    def apply(float: Float)        = new EFloat(float)
+    def apply(obj: OtpErlangFloat) = new EFloat(obj.floatValue)
+  }
+
   case class EDouble(double: Double) extends ETerm {
-    def this(obj: OtpErlangDouble) = this(obj.doubleValue())
+    def this(obj: OtpErlangDouble) = this(obj.doubleValue)
     override def toOtpErlangObject: OtpErlangDouble = new OtpErlangDouble(double)
     override def toString: String                   = s"$double"
+  }
+
+  object EDouble {
+    def apply(double: Double)       = new EDouble(double)
+    def apply(obj: OtpErlangDouble) = new EDouble(obj.doubleValue)
   }
 
   case class EString(str: String) extends ETerm {
     def this(obj: OtpErlangString) = this(obj.stringValue)
     override def toOtpErlangObject: OtpErlangString = new OtpErlangString(str)
     override def toString: String                   = s"\"$str\""
+  }
+
+  object EString {
+    def apply(str: String)          = new EString(str)
+    def apply(obj: OtpErlangString) = new EString(obj.stringValue)
   }
 
   class EList(val elems: List[ETerm], val isProper: Boolean = true)
@@ -151,8 +177,10 @@ object Codec {
   }
 
   object EList {
-    def apply(xs: List[ETerm]) = new EList(xs, true)
-    def apply(xs: ETerm*)      = new EList(xs.toList, true)
+    def apply(xs: List[ETerm])                    = new EList(xs, true)
+    def apply(xs: List[ETerm], isProper: Boolean) = new EList(xs, isProper)
+    def apply(xs: ETerm*)                         = new EList(xs.toList, true)
+    def apply(obj: OtpErlangList)                 = new EList(maybeImproper(obj), obj.isProper)
 
     def unapplySeq(x: EList): Option[List[ETerm]] = {
       if (x.isProper) { Some(x.toList) }
@@ -198,6 +226,10 @@ object Codec {
     override def toString: String = s"#{${this.mapLH.map(_.productIterator.mkString(" => ")).mkString(",")}}"
   }
 
+  object EMap {
+    def apply(obj: OtpErlangMap): EMap = new EMap(obj)
+  }
+
   // TODO switch to Array for internal container
   class ETuple(val elems: List[ETerm]) extends ETerm {
     def this(obj: OtpErlangTuple) = this(obj.elements.map(fromErlang).toList)
@@ -214,8 +246,9 @@ object Codec {
   }
 
   object ETuple {
-    def apply(xs: List[ETerm]) = new ETuple(xs)
-    def apply(xs: ETerm*)      = new ETuple(xs.toList)
+    def apply(xs: List[ETerm])             = new ETuple(xs)
+    def apply(xs: ETerm*)                  = new ETuple(xs.toList)
+    def apply(obj: OtpErlangTuple): ETuple = new ETuple(obj)
 
     def unapplySeq(x: ETuple): Option[List[ETerm]] = {
       Some(x.elems)
@@ -224,11 +257,15 @@ object Codec {
 
   // TODO add tests
   case class EBitString(payload: Array[Byte]) extends ETerm {
-    def this(obj: OtpErlangBitstr) = this(obj.binaryValue())
+    def this(obj: OtpErlangBitstr) = this(obj.binaryValue)
     override def toOtpErlangObject: OtpErlangObject = {
       new OtpErlangBitstr(payload)
     }
     override def toString: String = s"<<${payload.mkString(",")}>>"
+  }
+
+  object EBitString {
+    def apply(obj: OtpErlangBitstr): EBitString = new EBitString(obj.binaryValue)
   }
 
   // TODO add tests
@@ -240,7 +277,7 @@ object Codec {
         case _              => false
       }
     }
-    def this(obj: OtpErlangBinary) = this(obj.binaryValue())
+    def this(obj: OtpErlangBinary) = this(obj.binaryValue)
     override def toOtpErlangObject: OtpErlangObject = {
       new OtpErlangBinary(payload)
     }
@@ -251,7 +288,7 @@ object Codec {
 
   object EBinary {
     def apply(atom: Symbol)         = new EBinary(atom.name.getBytes())
-    def apply(obj: OtpErlangBinary) = new EBinary(obj.binaryValue())
+    def apply(obj: OtpErlangBinary) = new EBinary(obj.binaryValue)
     def apply(str: String)          = new EBinary(str.getBytes())
     def apply(bytes: Array[Byte])   = new EBinary(bytes)
 
@@ -273,25 +310,25 @@ object Codec {
 
   def fromErlang(obj: Any): ETerm = {
     obj match {
-      case otpPid: OtpErlangPid                              => new EPid(otpPid)
-      case otpBoolean: OtpErlangBoolean                      => new EBoolean(otpBoolean)
-      case otpAtom: OtpErlangAtom if otpAtom == trueOtpAtom  => new EBoolean(true)
-      case otpAtom: OtpErlangAtom if otpAtom == falseOtpAtom => new EBoolean(false)
+      case otpPid: OtpErlangPid                              => EPid(otpPid)
+      case otpBoolean: OtpErlangBoolean                      => EBoolean(otpBoolean)
+      case otpAtom: OtpErlangAtom if otpAtom == trueOtpAtom  => EBoolean(true)
+      case otpAtom: OtpErlangAtom if otpAtom == falseOtpAtom => EBoolean(false)
       case otpAtom: OtpErlangAtom                            => EAtom(otpAtom)
       case otpLong: OtpErlangLong =>
         otpLong.bitLength() match {
-          case int if int < 32 => new EInt(otpLong.intValue)
-          case _               => new ELong(otpLong.bigIntegerValue)
+          case int if int < 32 => EInt(otpLong.intValue)
+          case _               => ELong(otpLong.bigIntegerValue)
         }
-      case otpFloat: OtpErlangFloat   => new EFloat(otpFloat)
-      case otpDouble: OtpErlangDouble => new EDouble(otpDouble)
-      case otpString: OtpErlangString => new EString(otpString)
-      case otpList: OtpErlangList     => new EList(otpList)
-      case otpMap: OtpErlangMap       => new EMap(otpMap)
-      case otpTuple: OtpErlangTuple   => new ETuple(otpTuple)
-      case otpRef: OtpErlangRef       => new ERef(otpRef)
-      case otpBinary: OtpErlangBinary => new EBinary(otpBinary)
-      case otpBitstr: OtpErlangBitstr => new EBitString(otpBitstr)
+      case otpFloat: OtpErlangFloat   => EFloat(otpFloat)
+      case otpDouble: OtpErlangDouble => EDouble(otpDouble)
+      case otpString: OtpErlangString => EString(otpString)
+      case otpList: OtpErlangList     => EList(otpList)
+      case otpMap: OtpErlangMap       => EMap(otpMap)
+      case otpTuple: OtpErlangTuple   => ETuple(otpTuple)
+      case otpRef: OtpErlangRef       => ERef(otpRef)
+      case otpBinary: OtpErlangBinary => EBinary(otpBinary)
+      case otpBitstr: OtpErlangBitstr => EBitString(otpBitstr)
     }
   }
 
@@ -392,15 +429,15 @@ object Codec {
       // TODO Add test for Long
       case l: Long =>
         l match {
-          case int if int.isValidInt => EInt(int.intValue())
+          case int if int.isValidInt => EInt(int.intValue)
           case _                     => ELong(l)
         }
       case f: Float  => EFloat(f)
       case d: Double => EDouble(d)
       // *Important* clouseau encodes strings as binaries
       case s: String      => EBinary(s.getBytes(StandardCharsets.UTF_8))
-      case list: List[_]  => new EList(list.map(e => fromScala(e, top, bottom)), true)
-      case list: Seq[_]   => new EList(List.from(list.map(e => fromScala(e, top, bottom))), true)
+      case list: List[_]  => EList(list.map(e => fromScala(e, top, bottom)), true)
+      case list: Seq[_]   => EList(List.from(list.map(e => fromScala(e, top, bottom))), true)
       case tuple: Product => ETuple(tuple.productIterator.map(e => fromScala(e, top, bottom)).toList)
       case tuple: Unit    => ETuple()
       // TODO Add test for HashMap (which implements AbstractMap)
