@@ -4,7 +4,7 @@ import com.cloudant.ziose._
 import core.Codec._
 import scalang.{Adapter, Pid, TypeFactory}
 import org.apache.lucene.document.Field.{Index, Store, TermVector}
-import org.apache.lucene.document.{Document, Field, StringField}
+import org.apache.lucene.document.{Document, Field, StringField, DoubleField, DoubleDocValuesField}
 import org.apache.lucene.facet.params.FacetIndexingParams
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetFields
 import org.apache.lucene.facet.taxonomy.CategoryPath
@@ -99,6 +99,48 @@ object ClouseauTypeFactory extends TypeFactory {
                   }
                 case None =>
                   'ok
+              }
+            case (name: String, value: Boolean, options: List[(String, Any) @unchecked]) =>
+              val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
+              constructField(name, value.toString, toStore(map), Index.NOT_ANALYZED, toTermVector(map)) match {
+                case Some(field) =>
+                  doc.add(field)
+                case None =>
+                  'ok
+              }
+            case (name: String, value: Double, options: List[(String, Any) @unchecked]) =>
+              val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
+              doc.add(new DoubleField(name, value, toStore(map)))
+              if (isFacet(map)) {
+                doc.add(new DoubleDocValuesField(name, value))
+              }
+            case (name: String, value: Integer, options: List[(String, Any) @unchecked]) =>
+              val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
+              val doubleValue = value.doubleValue
+              doc.add(new DoubleField(name, doubleValue, toStore(map)))
+              if (isFacet(map)) {
+                doc.add(new DoubleDocValuesField(name, doubleValue))
+              }
+            case (name: String, value: Float, options: List[(String, Any) @unchecked]) =>
+              val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
+              val doubleValue = value.doubleValue
+              doc.add(new DoubleField(name, doubleValue, toStore(map)))
+              if (isFacet(map)) {
+                doc.add(new DoubleDocValuesField(name, doubleValue))
+              }
+            case (name: String, value: Long, options: List[(String, Any) @unchecked]) =>
+              val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
+              val doubleValue = value.doubleValue
+              doc.add(new DoubleField(name, doubleValue, toStore(map)))
+              if (isFacet(map)) {
+                doc.add(new DoubleDocValuesField(name, doubleValue))
+              }
+            case (name: String, value: BigInt, options: List[(String, Any) @unchecked]) =>
+              val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
+              val doubleValue = value.doubleValue
+              doc.add(new DoubleField(name, doubleValue, toStore(map)))
+              if (isFacet(map)) {
+                doc.add(new DoubleDocValuesField(name, doubleValue))
               }
           }
         }
