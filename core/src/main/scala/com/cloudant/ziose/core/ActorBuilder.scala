@@ -1,5 +1,7 @@
 package com.cloudant.ziose.core
 
+import com.cloudant.ziose.macros.checkEnv
+
 trait ActorBuilder[A <: Actor]
 
 object ActorBuilder {
@@ -118,6 +120,15 @@ object ActorBuilder {
       val constructor = maker.get.asInstanceOf[C => A]
       AddressableActor(constructor(ctx), ctx)
     }
+
+    @checkEnv(System.getProperty("env"))
+    def toStringMacro: List[String] = List(
+      s"${getClass.getSimpleName}",
+      s"capacity=$capacity",
+      s"name=$name",
+      s"constructor=$constructor",
+      s"maker=$maker"
+    )
   }
 
   object Builder {
@@ -125,5 +136,4 @@ object ActorBuilder {
   }
 
   def apply[A <: Actor]() = Builder[A]()
-
 }

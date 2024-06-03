@@ -1,6 +1,5 @@
 package com.cloudant.ziose.otp
 
-import zio._
 import com.cloudant.ziose.core.Engine
 import com.cloudant.ziose.core.EngineWorker
 import com.cloudant.ziose.core.ActorBuilder
@@ -11,6 +10,8 @@ import com.cloudant.ziose.core.EngineWorkerExchange
 import com.cloudant.ziose.core.MessageEnvelope
 import com.cloudant.ziose.core.AddressableActor
 import com.cloudant.ziose.core.ProcessContext
+import com.cloudant.ziose.macros.checkEnv
+import zio.{ConfigProvider, Duration, Queue, UIO, ZIO, ZLayer}
 
 final class OTPEngineWorker private (
   engineId: Engine.EngineId,
@@ -36,6 +37,16 @@ final class OTPEngineWorker private (
     } yield addressable
   }
   def kind = ZIO.succeed("OTP")
+
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"engineId=$engineId",
+    s"workerId=$workerId",
+    s"name=$name",
+    s"node=$node",
+    s"exchange=$exchange"
+  )
 }
 
 object OTPEngineWorker {

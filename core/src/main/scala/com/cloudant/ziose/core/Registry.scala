@@ -1,6 +1,7 @@
 package com.cloudant.ziose.core
 
-import zio._
+import com.cloudant.ziose.macros.checkEnv
+import zio.{Ref, Scope, UIO, ZIO}
 
 private[core] case class State[K, E](index: Int = 0, size: Int = 0, entries: Map[K, E])
 
@@ -84,6 +85,12 @@ class Registry[K, M, E <: EnqueueWithId[K, M]](private val state: Ref[State[K, E
   def size: UIO[Int] = for {
     s <- state.get
   } yield s.entries.size
+
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"state=$state"
+  )
 }
 
 object Registry {

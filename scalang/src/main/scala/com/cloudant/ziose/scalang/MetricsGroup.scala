@@ -5,6 +5,7 @@ import scala.collection.JavaConverters._
 import zio.metrics.Metric
 import zio.metrics.MetricState
 import com.cloudant.ziose.core.ZioSupport
+import com.cloudant.ziose.macros.checkEnv
 import com.codahale.metrics.MetricFilter
 import scala.collection.immutable.HashMap
 import com.codahale.metrics
@@ -178,4 +179,13 @@ case class MetricsGroup(klass: Class[_], metricsRegistry: ScalangMeterRegistry) 
     meters ++ timers
   }
 
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"klass=$klass",
+    s"metricsRegistry=$metricsRegistry",
+    s"rateUnit=$rateUnit",
+    s"durationUnit=$durationUnit",
+    s"durationFactor=$durationFactor"
+  )
 }

@@ -4,12 +4,9 @@ import com.cloudant.ziose.core
 import core.Address
 import core.MessageEnvelope
 import core.Codec
-import zio.Duration
 import java.util.concurrent.TimeUnit
-import zio.Tag
-import zio.ZIO
-import zio.Runtime
-import zio.&
+import com.cloudant.ziose.macros.checkEnv
+import zio.{&, Duration, Runtime, Tag, ZIO}
 
 case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   val runtime: Runtime[core.EngineWorker & core.Node]
@@ -207,4 +204,11 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   def link(from: Pid, to: Pid) {
     // TODO
   }
+
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"metricsRegistry=$metricsRegistry",
+    s"runtime=$runtime"
+  )
 }

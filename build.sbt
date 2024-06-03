@@ -9,6 +9,7 @@ val versions: Map[String, String] = Map(
   "zio.logging" -> "2.2.2",
   "zio.metrics" -> "2.3.1",
   "jmx"         -> "1.12.3",
+  "reflect"     -> "2.13.14",
   "lucene"      -> "4.6.1-cloudant1"
 )
 
@@ -41,6 +42,7 @@ lazy val commonSettings = Seq(
     "dev.zio"       %% "zio-metrics-connectors-micrometer" % versions("zio.metrics"),
     "dev.zio"       %% "zio-streams"                       % versions("zio"),
     "io.micrometer"  % "micrometer-registry-jmx"           % versions("jmx"),
+    "org.scala-lang" % "scala-reflect"                     % versions("reflect"),
     "dev.zio"       %% "zio-test"                          % versions("zio") % Test,
     "dev.zio"       %% "zio-test-junit"                    % versions("zio") % Test,
     "com.github.sbt" % "junit-interface"                   % "0.13.3"        % Test,
@@ -62,7 +64,7 @@ lazy val commonSettings = Seq(
   testFrameworks                          := Seq(new TestFramework("com.novocode.junit.JUnitFramework")),
   dependencyCheckAssemblyAnalyzerEnabled  := Some(false),
   dependencyCheckFormats                  := Seq("XML", "JSON"),
-  scalacOptions ++= Seq("-Ywarn-unused:imports")
+  scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports")
 )
 
 lazy val vendor = (project in file("vendor"))
@@ -87,6 +89,7 @@ lazy val core = (project in file("core"))
   .settings(
     scalacOptions ++= Seq("-deprecation", "-feature")
   )
+  .dependsOn(macros)
   .dependsOn(vendor)
 
 lazy val benchmarks = (project in file("benchmarks"))
@@ -99,10 +102,12 @@ lazy val otp = (project in file("otp"))
   )
   .enablePlugins(plugins.JUnitXmlReportPlugin)
   .dependsOn(core)
+  .dependsOn(macros)
   .dependsOn(test % "test->test")
 lazy val scalang = (project in file("scalang"))
   .settings(commonSettings *)
   .dependsOn(core)
+  .dependsOn(macros)
 lazy val clouseau = (project in file("clouseau"))
   .settings(commonSettings *)
   .settings(
@@ -131,8 +136,9 @@ lazy val clouseau = (project in file("clouseau"))
     outputStrategy       := Some(StdoutOutput)
   )
   .dependsOn(core)
-  .dependsOn(scalang)
+  .dependsOn(macros)
   .dependsOn(otp)
+  .dependsOn(scalang)
   .dependsOn(test % "test->test")
 
 lazy val test = (project in file("test"))
@@ -142,8 +148,11 @@ lazy val test = (project in file("test"))
   )
   .dependsOn(core)
 
+lazy val macros = (project in file("macros"))
+  .settings(commonSettings *)
+
 lazy val root = (project in file("."))
-  .aggregate(benchmarks, core, clouseau, test, otp)
+  .aggregate(benchmarks, core, clouseau, macros, otp, test)
   .enablePlugins(plugins.JUnitXmlReportPlugin)
   .settings(
     scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports"),

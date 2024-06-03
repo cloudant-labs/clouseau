@@ -1,13 +1,13 @@
 package com.cloudant.ziose.otp
 
-import zio._
-
 import com.cloudant.ziose.core.ActorFactory
 import com.cloudant.ziose.core.Actor
 import com.cloudant.ziose.core.ActorBuilder
 import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.core.AddressableActor
 import com.cloudant.ziose.core.ProcessContext
+import com.cloudant.ziose.macros.checkEnv
+import zio.{UIO, ZIO, ZLayer}
 
 class OTPActorFactory(name: String) extends ActorFactory {
   def acquire: UIO[Unit] = {
@@ -25,6 +25,12 @@ class OTPActorFactory(name: String) extends ActorFactory {
       // _ <- ZIO.debug(s"OTPActorFactory creating new actor (${builder.name})")
     } yield builder.toActor(ctx)
   }
+
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"name=$name"
+  )
 }
 
 object OTPActorFactory {

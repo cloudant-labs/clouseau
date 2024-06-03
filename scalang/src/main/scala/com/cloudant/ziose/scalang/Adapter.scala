@@ -1,6 +1,7 @@
 package com.cloudant.ziose.scalang
 
 import com.cloudant.ziose.core.{Address, Codec, MessageEnvelope, PID, ProcessContext}
+import com.cloudant.ziose.macros.checkEnv
 import zio.Runtime
 
 case object InvalidAdapter extends Exception
@@ -64,6 +65,17 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
   // https://github.com/erlang/otp/blob/master/lib/stdlib/src/gen.erl#L252C11-L252C20
   //  Tag = [alias | Mref],
   def makeTag(ref: Codec.ERef) = Codec.EListImproper(Codec.EAtom("alias"), ref)
+
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"ctx=$ctx",
+    s"node=$node",
+    s"factory=$factory",
+    s"runtime=$runtime",
+    s"name=$name",
+    s"self=$self"
+  )
 }
 
 object Adapter {

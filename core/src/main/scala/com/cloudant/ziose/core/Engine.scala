@@ -18,7 +18,8 @@ EngineWorker needs Engine
 
  */
 
-import zio._
+import com.cloudant.ziose.macros.checkEnv
+import zio.{Queue, Scope, UIO, ZIO}
 
 class Engine(exchange: EngineExchange) {
   val engineId: Engine.EngineId = 1
@@ -46,6 +47,13 @@ class Engine(exchange: EngineExchange) {
   def offer(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
     exchange.offer(msg)
   }
+
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"exchange=$exchange",
+    s"engineId=$engineId"
+  )
 
   // def run = {
   //   for {
@@ -84,7 +92,6 @@ object Engine {
       exchange <- EngineExchange.makeWithQueue(queue)
     } yield new Engine(exchange)
   }
-
 }
 
 object Supervisor {

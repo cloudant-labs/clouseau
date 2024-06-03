@@ -80,7 +80,7 @@ case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit a
       case (Symbol("cleanup"), ConfigurationArgs(args))  => IndexCleanupServiceBuilder.start(adapter.node, args)
       case (Symbol("analyzer"), ConfigurationArgs(args)) => AnalyzerServiceBuilder.start(adapter.node, args)
       case (Symbol("main"), ConfigurationArgs(args))     => IndexManagerServiceBuilder.start(adapter.node, args)
-      case (Symbol("init"), ConfigurationArgs(args))  => InitService.start(adapter.node, "init", args)
+      case (Symbol("init"), ConfigurationArgs(args))     => InitService.start(adapter.node, "init", args)
     }
     logger.debug(s"$regName -> $result")
     result match {

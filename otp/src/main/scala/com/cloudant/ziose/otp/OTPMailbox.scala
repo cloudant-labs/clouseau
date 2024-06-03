@@ -1,8 +1,5 @@
 package com.cloudant.ziose.otp
 
-import zio._
-import zio.stream.ZStream
-
 import com.cloudant.ziose.core.Mailbox
 
 import com.ericsson.otp.erlang.{OtpMbox, OtpErlangException}
@@ -14,6 +11,9 @@ import com.cloudant.ziose.core.Engine
 import com.cloudant.ziose.core.PID
 import com.cloudant.ziose.core.Name
 import com.cloudant.ziose.core.NameOnNode
+import com.cloudant.ziose.macros.checkEnv
+import zio.{Queue, Scope, Trace, UIO, ZIO}
+import zio.stream.ZStream
 
 /*
  * - def stream: - is used by Actor to retrieve messages
@@ -232,6 +232,19 @@ class OTPMailbox private (
   def sendMonitorExit(to: Codec.EPid, ref: Codec.ERef, reason: Codec.ETerm) = {
     externalMailbox.monitor_exit(to.toOtpErlangObject, ref.toOtpErlangObject, reason.toOtpErlangObject)
   }
+
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"id=$id",
+    s"compositeMailbox=$compositeMailbox",
+    s"internalMailbox=$internalMailbox",
+    s"remoteStream=$remoteStream",
+    s"externalMailbox=$externalMailbox",
+    s"stream=$stream",
+    s"compositeMailbox.capacity=$capacity",
+    s"compositeMailbox.size=$size"
+  )
 }
 
 object OTPMailbox {
@@ -303,5 +316,4 @@ object OTPMailbox {
       workerId
     )
   }
-
 }

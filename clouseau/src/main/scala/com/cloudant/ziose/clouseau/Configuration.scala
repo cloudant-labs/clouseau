@@ -1,5 +1,6 @@
 package com.cloudant.ziose.clouseau
 
+import com.cloudant.ziose.macros.checkEnv
 import zio.Config
 import _root_.com.cloudant.ziose.otp
 import otp.OTPNodeConfig
@@ -48,6 +49,19 @@ final case class ClouseauConfiguration(
     case "field_cache_metrics"    => field_cache_metrics.getOrElse(default)
     case _                        => throw new Exception(s"Unexpected Boolean key '$key'")
   }
+
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"dir=$dir",
+    s"search_allowed_timeout_msecs=$search_allowed_timeout_msecs",
+    s"count_fields=$count_fields",
+    s"close_if_idle=$close_if_idle",
+    s"idle_check_interval_secs=$idle_check_interval_secs",
+    s"max_indexes_open=$max_indexes_open",
+    s"field_cache_metrics=$field_cache_metrics",
+    s"commit_interval_secs=$commit_interval_secs"
+  )
 }
 
 object ClouseauConfiguration {

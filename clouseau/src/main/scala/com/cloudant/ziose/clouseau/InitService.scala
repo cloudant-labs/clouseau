@@ -11,6 +11,7 @@ Eshell V13.2.2.6  (abort with ^G)
 (node1@127.0.0.1)2>
  */
 
+import com.cloudant.ziose.macros.checkEnv
 import _root_.com.cloudant.ziose.scalang
 import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
 import _root_.com.cloudant.ziose.core
@@ -20,8 +21,6 @@ import core.ActorBuilder.State
 import core.{ActorBuilder, ActorConstructor, ProcessContext}
 import core.BuildInfo
 
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 import scala.collection.immutable.HashMap
 
 class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
@@ -92,7 +91,12 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
     }
   }
 
-  private def now(): BigInt = ChronoUnit.MICROS.between(Instant.EPOCH, Instant.now())
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"ctx=$ctx",
+    s"adapter=$adapter"
+  )
 }
 
 private object InitService extends ActorConstructor[InitService] {

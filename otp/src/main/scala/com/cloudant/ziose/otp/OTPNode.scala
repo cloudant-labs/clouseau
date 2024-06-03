@@ -1,13 +1,10 @@
 package com.cloudant.ziose.otp
 
-import zio.stream.ZStream
-
 import com.cloudant.ziose.core.Node.Error
 import java.time.Duration
 import com.cloudant.ziose.core.ProcessContext
 import com.cloudant.ziose.core.ActorBuilder
 import com.cloudant.ziose.core.Actor
-import zio._
 import com.cloudant.ziose.core.Engine
 import com.cloudant.ziose.core.Codec
 import com.cloudant.ziose.core.Node
@@ -20,6 +17,9 @@ import com.cloudant.ziose.core.Result
 import com.cloudant.ziose.core.AddressableActor
 import com.cloudant.ziose.core.ActorFactory
 import com.cloudant.ziose.core.MessageEnvelope
+import com.cloudant.ziose.macros.checkEnv
+import zio.stream.ZStream
+import zio.{Promise, Queue, Schedule, Scope, Trace, UIO, ZIO, ZLayer, durationInt}
 
 abstract class OTPNode() extends Node {
   def acquire: UIO[Unit]
@@ -64,7 +64,7 @@ object OTPNode {
     def succeed(result: Response)              = promise.succeed(result.asInstanceOf[R])
     def fail(reason: Node.Error): UIO[Boolean] = promise.fail(reason.asInstanceOf[E])
     def await                                  = promise.await
-    override def toString(): String            = s"OTPNode.Envelope(${command})"
+    override def toString: String              = s"OTPNode.Envelope($command)"
   }
 
   protected object Envelope {
@@ -239,6 +239,14 @@ object OTPNode {
         }
       }
     }
+
+    @checkEnv(System.getProperty("env"))
+    def toStringMacro: List[String] = List(
+      s"${getClass.getSimpleName}",
+      s"node=$node",
+      s"queue=$queue",
+      s"accessKey=$accessKey"
+    )
   }
 
   object NodeProcess {

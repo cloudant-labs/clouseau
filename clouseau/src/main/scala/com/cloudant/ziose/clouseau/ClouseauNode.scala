@@ -5,8 +5,6 @@ import _root_.com.cloudant.ziose.core
 import core.ProcessContext
 import scalang.Service
 import scalang.Adapter
-import zio._
-import zio.Runtime
 import core.Actor
 import core.AddressableActor
 import core.ActorBuilder
@@ -14,6 +12,8 @@ import scalang.SNode
 import zio.Exit.Failure
 import zio.Exit.Success
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
+import com.cloudant.ziose.macros.checkEnv
+import zio.{&, Runtime, Tag, Unsafe}
 
 class ClouseauNode(implicit
   override val runtime: Runtime[core.EngineWorker & core.Node],
@@ -101,4 +101,12 @@ class ClouseauNode(implicit
       addressable <- worker.spawn[TS](builder)
     } yield addressable
   }
+
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"runtime=$runtime",
+    s"worker=$worker",
+    s"metricsRegistry=$metricsRegistry"
+  )
 }

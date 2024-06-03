@@ -1,6 +1,5 @@
 package com.cloudant.ziose.scalang
 
-import zio._
 import _root_.com.cloudant.ziose.core
 import core.Codec
 import core.Codec.EAtom
@@ -12,21 +11,43 @@ import core.Codec.EListImproper
 import core.Address
 import core.MessageEnvelope
 import core.ProcessContext
+import com.cloudant.ziose.macros.checkEnv
+import zio.{Duration, Runtime, Schedule, UIO, Unsafe, ZIO}
+
 import java.util.concurrent.TimeUnit
 
-trait Error                                  extends Throwable
-case class HandleCallCBError(err: Throwable) extends Error
-case class HandleCastCBError(err: Throwable) extends Error
-case class HandleInfoCBError(err: Throwable) extends Error
-case class UnreachableError()                extends Error
+trait Error extends Throwable
+
+case class HandleCallCBError(err: Throwable) extends Error {
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"Error.${getClass.getSimpleName}",
+    s"err=${err.getMessage}"
+  )
+}
+case class HandleCastCBError(err: Throwable) extends Error {
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"Error.${getClass.getSimpleName}",
+    s"err=${err.getMessage}"
+  )
+}
+case class HandleInfoCBError(err: Throwable) extends Error {
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"Error.${getClass.getSimpleName}",
+    s"err=${err.getMessage}"
+  )
+}
+case class UnreachableError() extends Error
 case class HandleCallUndefined(className: String) extends Error {
-  override def toString(): String = "HandleCallUndefined(" + className + ") did not define a call handler"
+  override def toString: String = s"Error.${getClass.getSimpleName}($className) did not define a call handler"
 }
 case class HandleCastUndefined(className: String) extends Error {
-  override def toString(): String = "HandleCastUndefined(" + className + ") did not define a cast handler"
+  override def toString: String = s"Error.${getClass.getSimpleName}($className)did not define a cast handler"
 }
 case class HandleInfoUndefined(className: String) extends Error {
-  override def toString(): String = "HandleInfoUndefined(" + className + ") did not define a info handler"
+  override def toString: String = s"Error.${getClass.getSimpleName}($className) did not define a info handler"
 }
 
 trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
@@ -267,6 +288,16 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
    * Subclasses wishing to trap monitor exits should override this method.
    */
   def trapMonitorExit(monitored: Any, ref: Reference, reason: Any) = ()
+
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"adapter=$adapter",
+    s"runtime=$runtime",
+    s"name=$name",
+    s"self=$self",
+    s"node=$node"
+  )
 }
 
 trait ServiceContext[A <: Product] {
@@ -277,18 +308,40 @@ class PidSend(to: Pid, proc: Process) {
   def !(msg: Any): Unit = {
     proc.sendZIO(to, msg)
   }
+
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"to=$to",
+    s"proc=$proc"
+  )
 }
 
 class SymSend(to: Symbol, proc: Process) {
   def !(msg: Any): Unit = {
     proc.sendZIO(to, msg)
   }
+
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"to=$to",
+    s"proc=$proc"
+  )
 }
 
 class DestSend(to: (Symbol, Symbol), from: Pid, proc: Process) {
   def !(msg: Any): Unit = {
     proc.sendZIO(to, from, msg)
   }
+
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"to=$to",
+    s"from=$from",
+    s"proc=$proc"
+  )
 }
 
 class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_, _]) extends Process()(adapter) {
@@ -409,4 +462,13 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     println(s"$location Throwable ${err.getMessage()}:")
     err.getStackTrace().foreach(e => println(s"  ${e.toString()}"))
   }
+
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"ctx=$ctx",
+    s"adapter=$adapter",
+    s"metricsRegistry=$metricsRegistry",
+    s"metrics=$metrics"
+  )
 }

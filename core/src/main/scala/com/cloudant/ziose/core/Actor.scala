@@ -1,6 +1,7 @@
 package com.cloudant.ziose.core
 
-import zio._
+import com.cloudant.ziose.macros.checkEnv
+import zio.{Duration, Scope, Trace, UIO, ZIO}
 
 /*
  * This is the trait which implements actors. An Actor is a low level construct
@@ -97,6 +98,15 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     ctx.size
   }
   def start(scope: Scope) = ctx.start(scope)
+
+  @checkEnv(System.getProperty("env"))
+  def toStringMacro: List[String] = List(
+    s"${getClass.getSimpleName}",
+    s"id=${ctx.id}",
+    s"name=${ctx.name}",
+    s"self=${ctx.self}",
+    s"actor=${actor.getClass.getSimpleName}@${Integer.toHexString(hashCode)}"
+  )
 }
 
 object AddressableActor {
