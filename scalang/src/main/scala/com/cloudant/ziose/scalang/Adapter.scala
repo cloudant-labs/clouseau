@@ -83,5 +83,6 @@ object Adapter {
     new Adapter(Some(ctx), Some(node), Some(factory))
   }
 
-  val mockAdapter: Adapter[_, _] = new Adapter(None, None, None)
+  val mockAdapter: Adapter[_, _]                                          = new Adapter(None, None, None)
+  def mockAdapterWithFactory[F <: TypeFactory](factory: F): Adapter[_, _] = new Adapter(None, None, Some(factory))
 }

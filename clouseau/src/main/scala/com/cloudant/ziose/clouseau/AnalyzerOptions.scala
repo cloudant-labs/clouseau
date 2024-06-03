@@ -12,7 +12,8 @@
 
 package com.cloudant.ziose.clouseau
 
-class AnalyzerOptions private (inner: Map[String, Any]) {
+// Use case class to be able to compare the options objects for equality
+case class AnalyzerOptions private (inner: Map[String, Any]) {
   def toMap = inner
 }
 

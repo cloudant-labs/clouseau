@@ -19,7 +19,7 @@ import zio.ZIO._
 class ClouseauTypeFactorySpec extends JUnitRunnableSpec {
   val logger      = Utils.logger
   val environment = ZLayer.succeed(Clock.ClockLive) ++ ZLayer.succeed(Random.RandomLive) ++ logger
-  val adapter     = Adapter.mockAdapter
+  val adapter     = Adapter.mockAdapterWithFactory(ClouseauTypeFactory)
 
   def spec = {
     suite("TypeFactory term encoding")(

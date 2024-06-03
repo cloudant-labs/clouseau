@@ -176,6 +176,25 @@ object Generators {
   }
 
   /**
+   * A generator of ETerm objects representing EMap.
+   *
+   * The type of the keys and values are defined by passed generators.
+   *
+   * For example the `mapKVContainerE(n, stringE, oneOf(intE, longE))` would produce map where keys are strings and
+   * values are integers.
+   */
+  def mapKVContainerE(kg: Gen[Any, ETerm], vg: Gen[Any, List[ETerm]]): Gen[Any, ETerm] = suspend {
+    for {
+      values <- vg
+      keys   <- listOfN(values.size)(kg)
+      elements = keys.zip(values)
+      emap = elements.foldLeft(mutable.LinkedHashMap.empty[ETerm, ETerm]) { case (a, (k, v)) =>
+        a += (k -> v)
+      }
+    } yield EMap(emap)
+  }
+
+  /**
    * A generator of OtpErlangObject objects representing OtpErlangAtom variant.
    *
    * Shrinks toward the "" (empty string) atom.

@@ -91,10 +91,10 @@ object Generators {
     for {
       pid     <- pidE
       path    <- alphaNumericString
-      options <- anyE(depth)
+      options <- analyzerOptionsGen(depth)
     } yield (
       ETuple(EAtom("open"), pid, EBinary(path), options),
-      OpenIndexMsg(pid.asInstanceOf[EPid], path, options)
+      OpenIndexMsg(pid.asInstanceOf[EPid], path, AnalyzerOptions.from(Codec.toScala(options)).get)
     )
   }
 
@@ -150,4 +150,25 @@ object Generators {
       )
     }
   }
+
+  def optionValueGen(depth: Int): Gen[Any, ETerm] = {
+    termE(depth, oneOf(stringE, atomE, booleanE, intE, longE))
+  }
+
+  def keyValuePairEGen(depth: Int): Gen[Any, ETerm] = {
+    for {
+      key   <- stringE
+      value <- optionValueGen(depth)
+    } yield ETuple(key, value)
+  }
+
+  def analyzerOptionsGen(depth: Int): Gen[Any, ETerm] = {
+    oneOf(
+      stringE,
+      mapKVContainerE(stringE, listOf(optionValueGen(depth))),
+      listContainerE(listOfN(1)(stringE)),
+      listContainerE(listOf(keyValuePairEGen(depth)))
+    )
+  }
+
 }
