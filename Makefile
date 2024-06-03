@@ -305,3 +305,7 @@ jconsole:
 		|| ( echo '>>>>> clouseau is not running' ; exit 1 )
 	@jconsole $(CLOUSEAU_PID)
 
+.PHONY: jlist
+ # target: jlist - `jlist`: List clouseau related java processes
+jlist:
+	@jps -l | grep com.cloudant.ziose | exit 0
