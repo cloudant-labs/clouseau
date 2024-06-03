@@ -303,6 +303,8 @@ jconsole: CLOUSEAU_PID := $(shell jps -l | grep -F com.cloudant.ziose.clouseau.M
 jconsole:
 	@[ "${CLOUSEAU_PID}" ] \
 		|| ( echo '>>>>> clouseau is not running' ; exit 1 )
+	@[ "${CLOUSEAU_PID}" = "${CLOUSEAU_PID%[[:space:]]*}" ] \
+		|| ( echo '>>>>> more than one instance of clouseau is running' ; exit 1 )		
 	@jconsole $(CLOUSEAU_PID)
 
 .PHONY: jlist
