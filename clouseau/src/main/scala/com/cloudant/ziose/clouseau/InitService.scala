@@ -12,14 +12,10 @@ Eshell V13.2.2.6  (abort with ^G)
  */
 
 import com.cloudant.ziose.macros.checkEnv
-import _root_.com.cloudant.ziose.scalang
-import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
-import _root_.com.cloudant.ziose.core
-import core.Codec
-import Codec.EBinary
+import com.cloudant.ziose.{core, scalang}
 import core.ActorBuilder.State
-import core.{ActorBuilder, ActorConstructor, ProcessContext}
-import core.BuildInfo
+import core.{ActorBuilder, ActorConstructor, BuildInfo, Codec, ProcessContext}
+import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
 
 import scala.collection.immutable.HashMap
 
@@ -50,7 +46,7 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
       case Symbol("shutdown") =>
         logger.debug("[Init] Stopping")
         exit("shutdown")
-      case (Symbol("spawn"), from: Codec.EPid, Symbol("echo"), id: Symbol) =>
+      case (Symbol("spawn"), from: Pid, Symbol("echo"), id: Symbol) =>
         // This is a simplistic solution to make it possible for the
         // requestor to get the context of the response without
         // requiring an Erlang ref or monitor.  It is meant to be used
@@ -67,7 +63,7 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
 
   override def handleCall(tag: (Pid, Any), request: Any): Any = {
     request match {
-      case (Symbol("version")) => (Symbol("reply"), EBinary(BuildInfo.version.getBytes))
+      case (Symbol("version")) => (Symbol("reply"), Codec.EBinary(BuildInfo.version.getBytes))
       case (Symbol("build_info")) =>
         (
           Symbol("reply"),

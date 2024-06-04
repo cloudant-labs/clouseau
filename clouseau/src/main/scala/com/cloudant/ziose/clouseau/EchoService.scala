@@ -1,13 +1,10 @@
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.macros.checkEnv
-import _root_.com.cloudant.ziose.scalang
-import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
-import _root_.com.cloudant.ziose.core
-import core.Codec
-import Codec.EPid
+import com.cloudant.ziose.{core, scalang}
 import core.ActorBuilder.State
 import core.{ActorBuilder, ActorConstructor, ProcessContext}
+import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -20,7 +17,7 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
 
   override def handleInfo(request: Any): Any = {
     request match {
-      case (Symbol("echo"), from: EPid, ts: BigInt, seq: BigInt) =>
+      case (Symbol("echo"), from: Pid, ts: BigInt, seq: Int) =>
         val reply = echoTimer.time(
           (Symbol("echo_reply"), from, ts, self.pid, now(), seq)
         )
