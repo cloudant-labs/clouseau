@@ -106,7 +106,7 @@ object Main extends ZIOAppDefault {
     val factory = OTPActorFactory.live(name, nodeCfg)
     val node    = OTPNode.live(name, engineId, workerId, nodeCfg)
     val worker  = OTPEngineWorker.live(engineId, workerId, name, nodeCfg)
-    factory ++ (factory >>> node) ++ (factory >>> node >>> worker)
+    factory >+> node >+> worker
   }
 
   def testEnvironment: ZLayer[Any, Throwable, EngineWorker & Node & ActorFactory & OTPNodeConfig] = {
