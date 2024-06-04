@@ -310,4 +310,4 @@ jconsole:
 .PHONY: jlist
 # target: jlist - `jlist`: List clouseau related java processes
 jlist:
-	@jps -l | grep com.cloudant.ziose | exit 0
+	@jps -l | grep com.cloudant.ziose || exit 0
