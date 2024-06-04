@@ -12,6 +12,9 @@ import zio.config.typesafe.FromConfigSourceTypesafe
 import zio.{&, ConfigProvider, IO, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import java.io.FileNotFoundException
+import zio.ZLayer
+import com.cloudant.ziose.core.Engine.EngineId
+import com.cloudant.ziose.core.Engine.WorkerId
 
 object Main extends ZIOAppDefault {
   final case class NodeCfg(config: List[AppConfiguration])
@@ -76,11 +79,7 @@ object Main extends ZIOAppDefault {
       _ <- logger.info("Clouseau running as " + name)
       _ <- ZIO
         .scoped(main(nodeCfg, metricsRegistry))
-        .provide(
-          OTPActorFactory.live(name, node),
-          OTPNode.live(name, engineId, workerId, node),
-          OTPEngineWorker.live(engineId, workerId, name, node)
-        )
+        .provide(nodeLayers(engineId, workerId, node))
     } yield ()
   }
 
@@ -97,4 +96,35 @@ object Main extends ZIOAppDefault {
         )
     } yield ()
   }
+
+  def nodeLayers(
+    engineId: EngineId,
+    workerId: WorkerId,
+    nodeCfg: OTPNodeConfig
+  ): ZLayer[Any, Throwable, EngineWorker & Node & ActorFactory] = {
+    val name    = s"${nodeCfg.name}@${nodeCfg.domain}"
+    val factory = OTPActorFactory.live(name, nodeCfg)
+    val node    = OTPNode.live(name, engineId, workerId, nodeCfg)
+    val worker  = OTPEngineWorker.live(engineId, workerId, name, nodeCfg)
+    factory ++ (factory >>> node) ++ (factory >>> node >>> worker)
+  }
+
+  def testEnvironment: ZLayer[Any, Throwable, EngineWorker & Node & ActorFactory & OTPNodeConfig] = {
+    val nodeCfg = OTPNodeConfig("test", "127.0.0.1", "testCookie")
+    nodeLayers(engineId, workerId, nodeCfg) ++ ZLayer.succeed(nodeCfg)
+  }
+
+  def testClouseauNode: ZIO[EngineWorker & Node & ActorFactory & OTPNodeConfig, Throwable, ClouseauNode] = for {
+    runtime  <- ZIO.runtime[EngineWorker & Node & ActorFactory]
+    otp_node <- ZIO.service[Node]
+    worker   <- ZIO.service[EngineWorker]
+    metricsRegistry = ClouseauMetrics.makeRegistry
+    node    <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry))
+    nodeCfg <- ZIO.service[OTPNodeConfig]
+  } yield node
+
+  def testConfiguration: ZIO[OTPNodeConfig, Throwable, Configuration] = for {
+    nodeCfg <- ZIO.service[OTPNodeConfig]
+  } yield Configuration(ClouseauConfiguration.default, nodeCfg)
+
 }

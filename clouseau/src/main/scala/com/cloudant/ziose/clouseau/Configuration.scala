@@ -66,6 +66,18 @@ final case class ClouseauConfiguration(
 
 object ClouseauConfiguration {
   val config: Config[ClouseauConfiguration] = deriveConfig[ClouseauConfiguration]
+  val default = ClouseauConfiguration(
+    None,
+    None,
+    None,
+    None,
+    None,
+    None,
+    None,
+    None,
+    None,
+    None
+  )
 }
 
 case class Configuration(clouseau: ClouseauConfiguration, workers: OTPNodeConfig) {

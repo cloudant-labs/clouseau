@@ -8,6 +8,7 @@ import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import zio.{&, ZIO}
 
 class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   val logger = LoggerFactory.getLogger("clouseau.EchoService")
@@ -77,4 +78,18 @@ private object EchoService extends ActorConstructor[EchoService] {
       case core.Failure(reason) => reason
     }
   }
+
+  def startZIO(
+    node: SNode,
+    name: String,
+    config: Configuration
+  ): ZIO[core.EngineWorker & core.Node & core.ActorFactory, core.Node.Error, core.AddressableActor[_, _]] = {
+    val ctx: ServiceContext[ConfigurationArgs] = {
+      new ServiceContext[ConfigurationArgs] {
+        val args: ConfigurationArgs = ConfigurationArgs(config)
+      }
+    }
+    node.spawnServiceZIO[EchoService, ConfigurationArgs](make(node, ctx, name))
+  }
+
 }

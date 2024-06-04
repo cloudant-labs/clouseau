@@ -12,6 +12,8 @@ import zio.test.{Spec, TestSystem, assert, assertTrue}
 
 import java.io.FileNotFoundException
 
+import com.cloudant.ziose.core
+
 @RunWith(classOf[ZTestJUnitRunner])
 class MainSpec extends JUnitRunnableSpec {
   val getConfigSuite: Spec[Any, FileNotFoundException] = {
@@ -68,7 +70,19 @@ class MainSpec extends JUnitRunnableSpec {
     )
   }
 
+  val serviceSpawnSuite: Spec[Any, Throwable] = {
+    suite("serviceSpawn")(
+      test("Start Echo")(
+        for {
+          node <- Main.testClouseauNode
+          cfg  <- Main.testConfiguration
+          zio  <- EchoService.startZIO(node, "echo", cfg)
+        } yield assertTrue(zio.isInstanceOf[core.AddressableActor[_, _]])
+      )
+    ).provideLayer(Main.testEnvironment)
+  }
+
   def spec: Spec[Any, Throwable] = {
-    suite("MainSpec")(getConfigSuite, nodeIdxSuite)
+    suite("MainSpec")(getConfigSuite, nodeIdxSuite, serviceSpawnSuite)
   }
 }
