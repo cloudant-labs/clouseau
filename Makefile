@@ -287,18 +287,18 @@ version:
 	@echo $(PROJECT_VERSION)
 
 .PHONY: zeunit
-# target: zeunit - `zeunit`: Run integration tests
+# target: zeunit - Run integration tests
 zeunit: jar
 	@cli start "clouseau1" "java -jar clouseau/target/scala-$(SCALA_SHORT_VERSION)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar"
 	@cli zeunit clouseau1 "$(EUNIT_OPTS)"
 
  .PHONY: eshell
-# target: eshell - `eshell`: Start erlang shell
+# target: eshell - Start erlang shell
  eshell:
 	@cd zeunit && $(REBAR) shell --name eshell@127.0.0.1
 
  .PHONY: jconsole
-# target: jconsole - `jconsole`: Connect jconsole to running Clouseau
+# target: jconsole - Connect jconsole to running Clouseau
 jconsole: CLOUSEAU_PID := $(shell jps -l | grep -F com.cloudant.ziose.clouseau.Main | cut -d' ' -f1)
 jconsole:
 	@[ "${CLOUSEAU_PID}" ] \
@@ -308,6 +308,6 @@ jconsole:
 	@jconsole $(CLOUSEAU_PID)
 
 .PHONY: jlist
-# target: jlist - `jlist`: List clouseau related java processes
+# target: jlist - List clouseau related java processes
 jlist:
 	@jps -l | grep com.cloudant.ziose || exit 0
