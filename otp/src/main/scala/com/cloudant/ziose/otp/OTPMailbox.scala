@@ -3,7 +3,7 @@ package com.cloudant.ziose.otp
 import collection.mutable.HashMap
 import com.cloudant.ziose.core.Mailbox
 
-import com.ericsson.otp.erlang.{OtpMbox, OtpErlangException}
+import com.ericsson.otp.erlang.{OtpMbox, OtpMboxListener, OtpErlangException}
 
 import com.cloudant.ziose.core.Codec
 import com.cloudant.ziose.core.Address
@@ -144,12 +144,13 @@ import zio.stream.ZStream
 
 class OTPMailbox private (
   val id: PID,
+  val mbox: OtpMbox,
   private val compositeMailbox: Queue[MessageEnvelope],
   private val internalMailbox: Queue[MessageEnvelope],
+  private val externalMailbox: Queue[MessageEnvelope],
   private val remoteStream: ZStream[Any, Throwable, MessageEnvelope],
-  val externalMailbox: OtpMbox,
   private val s: ZStream[Any, Throwable, MessageEnvelope]
-) extends Mailbox {
+) extends Mailbox with OtpMboxListener {
 
   private val inProgressCalls: HashMap[Codec.ERef, Codec.EPid] = HashMap()
   private val callResults: HashMap[Codec.ERef, Codec.ETerm]    = HashMap()
@@ -274,25 +275,48 @@ class OTPMailbox private (
     // println(s"OTPMailbox.send($msg)")
     ZIO.succeed(message.to match {
       case PID(pid, _workerId, _workerNodeName) =>
-        externalMailbox.send(
+        mbox.send(
           pid.toOtpErlangObject,
           message.payload.toOtpErlangObject
         ) // TODO bypass jinterface for local
       case Name(name, _workerId, _workerNodeName) =>
-        externalMailbox.send(name.toString, message.payload.toOtpErlangObject) // TODO bypass jinterface for local
+        mbox.send(name.toString, message.payload.toOtpErlangObject) // TODO bypass jinterface for local
       case NameOnNode(name, node, _workerId, _workerNodeName) =>
-        externalMailbox.send(name.toString, node.toString, message.payload.toOtpErlangObject)
+        mbox.send(name.toString, node.toString, message.payload.toOtpErlangObject)
     })
   }
 
   def start(scope: Scope) = for {
     _ <- ZIO.addFinalizer(shutdown)
     _ <- ZStream.fromQueueWithShutdown(internalMailbox).mapZIO(compositeMailbox.offer(_)).runDrain.forkIn(scope)
-    _ <- remoteStream.mapZIO(compositeMailbox.offer(_)).runDrain.forkIn(scope)
+    _ <- ZStream.fromQueueWithShutdown(externalMailbox).mapZIO(compositeMailbox.offer(_)).runDrain.forkIn(scope)
+    _ <- ZIO.succeed(mbox.subscribe(this))
   } yield ()
 
   def sendMonitorExit(to: Codec.EPid, ref: Codec.ERef, reason: Codec.ETerm) = {
-    externalMailbox.monitor_exit(to.toOtpErlangObject, ref.toOtpErlangObject, reason.toOtpErlangObject)
+    mbox.monitor_exit(to.toOtpErlangObject, ref.toOtpErlangObject, reason.toOtpErlangObject)
+  }
+
+  private def readMessage = {
+    try {
+      // TODO: Ignore "net_kernel" events
+      val message = mbox.receiveMsg
+      MessageEnvelope.fromOtpMsg(message, workerId)
+    } catch {
+      case otpException: OtpErlangException => {
+        val pid = Codec.fromErlang(mbox.self).asInstanceOf[Codec.EPid]
+        MessageEnvelope.fromOtpException(otpException, pid, workerId)
+      }
+    }
+  }
+
+  def onMessageReceived = {
+    Unsafe.unsafe { implicit unsafe =>
+      Runtime.default.unsafe.run(for {
+        message <- ZIO.succeed(readMessage)
+        _       <- externalMailbox.offer(message)
+      } yield ())
+    }
   }
 
   @checkEnv(System.getProperty("env"))
@@ -321,63 +345,30 @@ class OTPMailbox private (
 object OTPMailbox {
   def make(ctx_builder: OTPProcessContext.Ready): UIO[OTPMailbox] = {
     // It is safe to use .get because we require Ready state
-    val externalMailbox = ctx_builder.getMbox()
+    val mbox            = ctx_builder.getMbox()
     val workerId        = ctx_builder.getWorkerId()
     val capacity        = ctx_builder.getCapacity()
     val nodeName        = ctx_builder.getNodeName()
     val pid             = Codec.fromErlang(externalMailbox.self).asInstanceOf[Codec.EPid]
     val address         = Address.fromPid(pid, workerId, nodeName)
     val remoteStream    = messageEnvelopeStream(externalMailbox, address)
-    def createMailbox(compositeMailbox: Queue[MessageEnvelope], internalMailbox: Queue[MessageEnvelope]): OTPMailbox = {
+    def createMailbox(compositeMailbox: Queue[MessageEnvelope], internalMailbox: Queue[MessageEnvelope], externalMailbox: Queue[MessageEnvelope]): OTPMailbox = {
       val aggregatedStream = ZStream.fromQueueWithShutdown(compositeMailbox)
-      new OTPMailbox(address, compositeMailbox, internalMailbox, remoteStream, externalMailbox, aggregatedStream)
+      new OTPMailbox(address, workerId, mbox, compositeMailbox, internalMailbox, externalMailbox, aggregatedStream)
     }
     capacity match {
       case None =>
         for {
           compositeMailbox <- Queue.unbounded[MessageEnvelope]
           internalMailbox  <- Queue.unbounded[MessageEnvelope]
-        } yield createMailbox(compositeMailbox, internalMailbox)
+          externalMailbox  <- Queue.unbounded[MessageEnvelope]
+        } yield createMailbox(compositeMailbox, internalMailbox, externalMailbox)
       case Some(capacity) =>
         for {
           compositeMailbox <- Queue.bounded[MessageEnvelope](capacity)
           internalMailbox  <- Queue.bounded[MessageEnvelope](capacity)
-        } yield createMailbox(compositeMailbox, internalMailbox)
-    }
-  }
-
-  private def messageEnvelopeStream(
-    externalMailbox: OtpMbox,
-    address: PID
-  ): ZStream[Any, Throwable, MessageEnvelope] = {
-    ZStream
-      .repeatZIO(readMessage(externalMailbox, address))
-      .collect { case Some(message) => message }
-    // .tap(x => Console.printLine(s"mailbox ETerm stream: $x"))
-  }
-  // Here I tried to parse events in parallel fibers turned out it is a bit slower (BUT not by much).
-  // otpMsgStream(mbox).mapZIOPar(100)(msg => ZIO.succeed(MessageEnvelope.fromOtpMsg(msg, workerId, LocalAddress)))
-
-  // TODO 1. set timeout 0 to leave attemptBlocking section as fast as we can
-  // TODO 2. return up to chunk size messages from attemptBlocking and flatten outside
-  // TODO 3. put a rate limit on consumer side
-  private def readMessage(
-    externalMailbox: OtpMbox,
-    address: Address
-  ): ZIO[Any, Throwable, Option[MessageEnvelope]] = {
-    ZIO.attemptBlocking {
-      try {
-        // TODO: Ignore "net_kernel" events
-        // very small timeout so we leave the blocking section sooner
-        val message = externalMailbox.receiveMsg(1)
-        Some(MessageEnvelope.fromOtpMsg(message, address))
-      } catch {
-        case _: java.lang.InterruptedException => None
-        case otpException: OtpErlangException => {
-          val pid = Codec.fromErlang(externalMailbox.self).asInstanceOf[Codec.EPid]
-          Some(MessageEnvelope.fromOtpException(otpException, pid, address))
-        }
-      }
+          externalMailbox  <- Queue.bounded[MessageEnvelope](capacity)
+        } yield createMailbox(compositeMailbox, internalMailbox, externalMailbox)
     }
   }
 }

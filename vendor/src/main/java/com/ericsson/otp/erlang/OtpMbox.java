@@ -19,6 +19,9 @@
  */
 package com.ericsson.otp.erlang;
 
+import java.util.Set;
+import java.util.HashSet;
+
 /**
  * <p>
  * Provides a simple mechanism for exchanging messages with Erlang processes or
@@ -84,6 +87,7 @@ public class OtpMbox {
     GenericQueue queue;
     String name;
     Links links;
+    Set<OtpMboxListener> listeners;
     private long unlink_id;
 
     // package constructor: called by OtpNode:createMbox(name)
@@ -95,6 +99,7 @@ public class OtpMbox {
         this.unlink_id = 1;
         queue = new GenericQueue();
         links = new Links(10);
+        listeners = new HashSet<OtpMboxListener>();
     }
 
     // package constructor: called by OtpNode:createMbox()
@@ -741,6 +746,9 @@ public class OtpMbox {
             break;
         default:
             queue.put(m);
+            for (OtpMboxListener listener: listeners) {
+                listener.onMessageReceived();
+            }
             break;
         }
     }
@@ -816,5 +824,13 @@ public class OtpMbox {
                 }
             }
         }
+    }
+
+    public synchronized void subscribe(OtpMboxListener listener) {
+        listeners.add(listener);
+    }
+
+    public synchronized void unsubscribe(OtpMboxListener listener) {
+        listeners.remove(listener);
     }
 }

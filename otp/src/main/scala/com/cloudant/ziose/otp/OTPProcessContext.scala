@@ -28,7 +28,7 @@ class OTPProcessContext private (
   val engineId: Engine.EngineId = worker.engineId
   val workerId: Engine.WorkerId = worker.id
   val nodeName: Symbol          = worker.nodeName
-  val self                      = PID(new Codec.EPid(mailbox.externalMailbox.self), worker.id, worker.nodeName)
+  val self                      = PID(new Codec.EPid(mbox.self), worker.id, worker.nodeName)
 
   override def toString: String = name match {
     case Some(n) => s"OTPProcessContext(${n}.${worker.id}.${worker.engineId}@${nodeName})"
