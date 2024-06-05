@@ -9,10 +9,9 @@ import otp.{OTPActorFactory, OTPEngineWorker, OTPNode, OTPNodeConfig}
 import scalang.ScalangMeterRegistry
 import zio.config.magnolia.deriveConfig
 import zio.config.typesafe.FromConfigSourceTypesafe
-import zio.{&, ConfigProvider, IO, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault}
+import zio.{&, ConfigProvider, IO, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault, TaskLayer, ZLayer}
 
 import java.io.FileNotFoundException
-import zio.ZLayer
 import com.cloudant.ziose.core.Engine.EngineId
 import com.cloudant.ziose.core.Engine.WorkerId
 
@@ -101,7 +100,7 @@ object Main extends ZIOAppDefault {
     engineId: EngineId,
     workerId: WorkerId,
     nodeCfg: OTPNodeConfig
-  ): ZLayer[Any, Throwable, EngineWorker & Node & ActorFactory] = {
+  ): TaskLayer[EngineWorker & Node & ActorFactory] = {
     val name    = s"${nodeCfg.name}@${nodeCfg.domain}"
     val factory = OTPActorFactory.live(name, nodeCfg)
     val node    = OTPNode.live(name, engineId, workerId, nodeCfg)
@@ -109,7 +108,7 @@ object Main extends ZIOAppDefault {
     factory >+> node >+> worker
   }
 
-  def testEnvironment: ZLayer[Any, Throwable, EngineWorker & Node & ActorFactory & OTPNodeConfig] = {
+  def testEnvironment: TaskLayer[EngineWorker & Node & ActorFactory & OTPNodeConfig] = {
     val nodeCfg = OTPNodeConfig("test", "127.0.0.1", "testCookie")
     nodeLayers(engineId, workerId, nodeCfg) ++ ZLayer.succeed(nodeCfg)
   }
