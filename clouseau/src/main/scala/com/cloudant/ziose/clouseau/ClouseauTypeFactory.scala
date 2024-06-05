@@ -148,11 +148,9 @@ object ClouseauTypeFactory extends TypeFactory {
         Some(UpdateDocMsg(docId, doc))
       }
       case ETuple(EAtom("open"), peer, path: EBinary, options) =>
-        AnalyzerOptions.from(adapter.toScala(options)) match {
-          case Some(options) =>
-            Some(OpenIndexMsg(peer.asInstanceOf[EPid], path.asString, options))
-          case None => None
-        }
+        AnalyzerOptions
+          .from(adapter.toScala(options))
+          .flatMap(options => Some(OpenIndexMsg(peer.asInstanceOf[EPid], path.asString, options)))
       case ETuple(EAtom("rename"), dbName: EBinary) =>
         Some(RenamePathMsg(dbName.asString))
       case ETuple(EAtom("search"), EMap(options)) =>
