@@ -71,9 +71,7 @@ object ClouseauTypeFactory extends TypeFactory {
           val fieldS = toScala(fieldE)
           fieldS match {
             case (name: String, value: String, options: List[(String, Any) @unchecked]) =>
-              val map = {
-                options.collect { case t @ (key: String, value: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
-              }
+              val map = options.collect { case t @ (key: String, value: Any) => t }.toMap
               // case ETuple(List(EString(name), EString(value), EList(options))) =>
               // val map = options.collect { case t @ ETuple(List(EString(key), value: ETerm)) => (key, Codec.toScala(value)) }.asInstanceOf[List[(String, Any)]].toMap
               constructField(name, value, toStore(map), toIndex(map), toTermVector(map)) match {
@@ -101,7 +99,7 @@ object ClouseauTypeFactory extends TypeFactory {
                   'ok
               }
             case (name: String, value: Boolean, options: List[(String, Any) @unchecked]) =>
-              val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
+              val map = options.collect { case t @ (_: String, _: Any) => t }.toMap
               constructField(name, value.toString, toStore(map), Index.NOT_ANALYZED, toTermVector(map)) match {
                 case Some(field) =>
                   doc.add(field)
@@ -109,34 +107,34 @@ object ClouseauTypeFactory extends TypeFactory {
                   'ok
               }
             case (name: String, value: Double, options: List[(String, Any) @unchecked]) =>
-              val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
+              val map = options.collect { case t @ (_: String, _: Any) => t }.toMap
               doc.add(new DoubleField(name, value, toStore(map)))
               if (isFacet(map)) {
                 doc.add(new DoubleDocValuesField(name, value))
               }
             case (name: String, value: Integer, options: List[(String, Any) @unchecked]) =>
-              val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
+              val map         = options.collect { case t @ (_: String, _: Any) => t }.toMap
               val doubleValue = value.doubleValue
               doc.add(new DoubleField(name, doubleValue, toStore(map)))
               if (isFacet(map)) {
                 doc.add(new DoubleDocValuesField(name, doubleValue))
               }
             case (name: String, value: Float, options: List[(String, Any) @unchecked]) =>
-              val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
+              val map         = options.collect { case t @ (_: String, _: Any) => t }.toMap
               val doubleValue = value.doubleValue
               doc.add(new DoubleField(name, doubleValue, toStore(map)))
               if (isFacet(map)) {
                 doc.add(new DoubleDocValuesField(name, doubleValue))
               }
             case (name: String, value: Long, options: List[(String, Any) @unchecked]) =>
-              val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
+              val map         = options.collect { case t @ (_: String, _: Any) => t }.toMap
               val doubleValue = value.doubleValue
               doc.add(new DoubleField(name, doubleValue, toStore(map)))
               if (isFacet(map)) {
                 doc.add(new DoubleDocValuesField(name, doubleValue))
               }
             case (name: String, value: BigInt, options: List[(String, Any) @unchecked]) =>
-              val map = options.collect { case t @ (_: String, _: Any) => t }.asInstanceOf[List[(String, Any)]].toMap
+              val map         = options.collect { case t @ (_: String, _: Any) => t }.toMap
               val doubleValue = value.doubleValue
               doc.add(new DoubleField(name, doubleValue, toStore(map)))
               if (isFacet(map)) {
