@@ -125,6 +125,6 @@ object Main extends ZIOAppDefault {
 
   def testConfiguration: ZIO[OTPNodeConfig, Throwable, Configuration] = for {
     nodeCfg <- ZIO.service[OTPNodeConfig]
-  } yield Configuration(ClouseauConfiguration.default, nodeCfg)
+  } yield Configuration(ClouseauConfiguration(), nodeCfg)
 
 }

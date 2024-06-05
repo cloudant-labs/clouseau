@@ -15,16 +15,16 @@ object AppConfiguration {
 final case class RootDir(value: String) extends AnyVal
 
 final case class ClouseauConfiguration(
-  dir: Option[RootDir],
-  search_allowed_timeout_msecs: Option[Long],
-  count_fields: Option[Boolean],
-  close_if_idle: Option[Boolean],
-  idle_check_interval_secs: Option[Int],
-  max_indexes_open: Option[Int],
-  field_cache_metrics: Option[Boolean],
-  commit_interval_secs: Option[Int],
-  lock_class: Option[String],
-  dir_class: Option[String]
+  dir: Option[RootDir] = None,
+  search_allowed_timeout_msecs: Option[Long] = None,
+  count_fields: Option[Boolean] = None,
+  close_if_idle: Option[Boolean] = None,
+  idle_check_interval_secs: Option[Int] = None,
+  max_indexes_open: Option[Int] = None,
+  field_cache_metrics: Option[Boolean] = None,
+  commit_interval_secs: Option[Int] = None,
+  lock_class: Option[String] = None,
+  dir_class: Option[String] = None
 ) {
   def getString(key: String, default: String) = key match {
     case "clouseau.dir"        => dir.getOrElse(default).asInstanceOf[String]
@@ -66,18 +66,6 @@ final case class ClouseauConfiguration(
 
 object ClouseauConfiguration {
   val config: Config[ClouseauConfiguration] = deriveConfig[ClouseauConfiguration]
-  val default = ClouseauConfiguration(
-    None,
-    None,
-    None,
-    None,
-    None,
-    None,
-    None,
-    None,
-    None,
-    None
-  )
 }
 
 case class Configuration(clouseau: ClouseauConfiguration, workers: OTPNodeConfig) {
