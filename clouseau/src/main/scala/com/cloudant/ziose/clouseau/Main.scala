@@ -114,12 +114,10 @@ object Main extends ZIOAppDefault {
   }
 
   def testClouseauNode: ZIO[EngineWorker & Node & ActorFactory & OTPNodeConfig, Throwable, ClouseauNode] = for {
-    runtime  <- ZIO.runtime[EngineWorker & Node & ActorFactory]
-    otp_node <- ZIO.service[Node]
-    worker   <- ZIO.service[EngineWorker]
+    runtime <- ZIO.runtime[EngineWorker & Node & ActorFactory]
+    worker  <- ZIO.service[EngineWorker]
     metricsRegistry = ClouseauMetrics.makeRegistry
-    node    <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry))
-    nodeCfg <- ZIO.service[OTPNodeConfig]
+    node <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry))
   } yield node
 
   def testConfiguration: ZIO[OTPNodeConfig, Throwable, Configuration] = for {
