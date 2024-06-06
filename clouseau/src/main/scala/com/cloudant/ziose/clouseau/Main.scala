@@ -97,11 +97,6 @@ object Main extends ZIOAppDefault {
     } yield ()
   }
 
-  def testEnvironment: TaskLayer[EngineWorker & Node & ActorFactory & OTPNodeConfig] = {
-    val nodeCfg = OTPNodeConfig("test", "127.0.0.1", "testCookie")
-    OTPLayers.nodeLayers(engineId, workerId, nodeCfg) ++ ZLayer.succeed(nodeCfg)
-  }
-
   def testClouseauNode: ZIO[EngineWorker & Node & ActorFactory & OTPNodeConfig, Throwable, ClouseauNode] = for {
     runtime <- ZIO.runtime[EngineWorker & Node & ActorFactory]
     worker  <- ZIO.service[EngineWorker]

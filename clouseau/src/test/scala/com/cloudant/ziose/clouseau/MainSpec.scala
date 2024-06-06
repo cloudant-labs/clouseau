@@ -10,9 +10,9 @@ import zio.test.TestSystem.{Data, DefaultData}
 import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
 import zio.test.{Spec, TestSystem, assert, assertTrue}
 
-import java.io.FileNotFoundException
-
 import com.cloudant.ziose.core
+
+import java.io.FileNotFoundException
 
 @RunWith(classOf[ZTestJUnitRunner])
 class MainSpec extends JUnitRunnableSpec {
@@ -79,7 +79,7 @@ class MainSpec extends JUnitRunnableSpec {
           zio  <- EchoService.startZIO(node, "echo", cfg)
         } yield assertTrue(zio.isInstanceOf[core.AddressableActor[_, _]])
       )
-    ).provideLayer(Main.testEnvironment)
+    ).provideLayer(Utils.testEnvironment(1, 1))
   }
 
   def spec: Spec[Any, Throwable] = {

@@ -15,6 +15,8 @@ package com.cloudant.ziose.clouseau
 import org.apache.lucene.index.Term
 import org.apache.lucene.util.BytesRef
 import org.apache.lucene.util.NumericUtils
+import com.cloudant.ziose.otp
+import com.cloudant.ziose.core.Engine
 
 object Utils {
 
@@ -80,4 +82,8 @@ object Utils {
       }
     }
   }
+
+  def testEnvironment(engineId: Engine.EngineId, workerId: Engine.WorkerId) =
+    otp.Utils.testEnvironment(engineId, workerId)
+
 }
