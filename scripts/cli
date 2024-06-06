@@ -199,9 +199,11 @@ stop)
 zeunit)
   ensure_args 1 "help_topic zeunit" "$@"
   name=$1
+  cookie=$(echo "$2" | sed 's/.*=//g')
   trap 'run::stop "$name"' EXIT
-  run::health-check "$name" || exit 1
+  run::health-check "$name" "$cookie" || exit 1
   shift
+  [ -z "$cookie" ] && shift
   run::eunit "$@"
   exit $?
   ;;

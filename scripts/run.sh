@@ -35,7 +35,8 @@ run::stop() {
 }
 
 run::health-check() {
-  escript "${ZEUNIT_DIR}/src/health-check.escript" "$1"
+  [ -z "$2" ] && escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "$1" ||
+  escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "$1" "-setcookie" "$2"
 }
 
 run::eunit() {

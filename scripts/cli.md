@@ -71,10 +71,11 @@ cli stop "clouseau"
 
 ### `zeunit`: Run zeunit tests
 
-* `cli zeunit [name] [suites=] [tests=]` - Run zeunit tests using specified `suites` and `tests`
+* `cli zeunit [name] [cookie=cookie] [suites=] [tests=]` - Run zeunit tests using specified `cookie`, `suites` and `tests`
 
 ```bash
 cli zeunit clouseau1 # Run all zeunit tests
+cli zeunit clouseau1 cookie=secret # Use specified cookie
 cli zeunit clouseau1 suites=echo_tests # Run specified tests only
 ```
 

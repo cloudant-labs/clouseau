@@ -43,12 +43,14 @@ ERL_EPMD_ADDRESS?=127.0.0.1
 # tput in docker require TERM variable
 TERM?=xterm
 
+node_name?=clouseau1
+cookie=
 # Rebar options
 suites=
 tests=
 
 # We use `suites` instead of `module` to be compatible with CouchDB
-EUNIT_OPTS := "--module=$(suites) --test=$(tests)"
+EUNIT_OPTS := "--setcookie=$(cookie) --module=$(suites) --test=$(tests)"
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
@@ -287,15 +289,17 @@ version:
 	@echo $(PROJECT_VERSION)
 
 .PHONY: zeunit
-# target: zeunit - Run integration tests
+# target: zeunit - Run integration tests, eg: `make zeunit [cookie=cookie]`
 zeunit: jar
-	@cli start "clouseau1" "java -jar clouseau/target/scala-$(SCALA_SHORT_VERSION)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar"
-	@cli zeunit clouseau1 "$(EUNIT_OPTS)"
+	@cli start $(node_name) "java -jar clouseau/target/scala-$(SCALA_SHORT_VERSION)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar"
+	@cli zeunit $(node_name) "$(EUNIT_OPTS)"
 
 .PHONY: eshell
 # target: eshell - Start erlang shell
 eshell:
-	@cd zeunit && $(REBAR) shell --name eshell@127.0.0.1
+	@[ -z $(cookie) ] \
+ 	&& (cd zeunit && $(REBAR) shell --name eshell@127.0.0.1) \
+ 	|| (cd zeunit && $(REBAR) shell --name eshell@127.0.0.1 --setcookie $(cookie))
 
 .PHONY: jconsole
 # target: jconsole - Connect jconsole to running Clouseau

@@ -5,23 +5,26 @@ package com.cloudant.ziose.clouseau
 
 import _root_.com.cloudant.ziose._
 import core.{ActorFactory, AddressableActor, EngineWorker, Node}
-import otp.OTPNodeConfig
+import otp.{OTPLayers, OTPNodeConfig}
 import scalang.ScalangMeterRegistry
 import zio.config.magnolia.deriveConfig
 import zio.config.typesafe.FromConfigSourceTypesafe
-import zio.{&, ConfigProvider, IO, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault}
+import zio.{&, Config, ConfigProvider, IO, RIO, Scope, System, Task, UIO, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import java.io.FileNotFoundException
-import com.cloudant.ziose.otp.OTPLayers
+import scala.reflect.io.File
 
 object Main extends ZIOAppDefault {
-  final case class NodeCfg(config: List[AppConfiguration])
+  private val defaultCfgFile: String = "app.conf"
 
-  def getConfig(pathToCfgFile: String): IO[FileNotFoundException, NodeCfg] = {
-    ConfigProvider
-      .fromHoconFilePath(pathToCfgFile)
-      .load(deriveConfig[NodeCfg])
-      .orElseFail(new FileNotFoundException(s"File Not Found: $pathToCfgFile"))
+  def getCfgFile(args: Option[String]): UIO[String] = {
+    args match {
+      case Some(file) =>
+        if (File(file).exists) ZIO.succeed(file)
+        else ZIO.die(new FileNotFoundException(s"The system cannot find the file specified"))
+      case None =>
+        ZIO.succeed(defaultCfgFile)
+    }
   }
 
   def getNodeIdx: Task[Int] = {
@@ -36,6 +39,14 @@ object Main extends ZIOAppDefault {
         }
       }
     } yield index
+  }
+
+  final case class NodeCfg(config: List[AppConfiguration])
+
+  def getConfig(pathToCfgFile: String): IO[Config.Error, NodeCfg] = {
+    ConfigProvider
+      .fromHoconFilePath(pathToCfgFile)
+      .load(deriveConfig[NodeCfg])
   }
 
   private def startSupervisor(
@@ -81,9 +92,10 @@ object Main extends ZIOAppDefault {
     } yield ()
   }
 
-  override def run: ZIO[ZIOAppArgs & Scope, Any, Unit] = {
+  override def run: RIO[ZIOAppArgs & Scope, Unit] = {
     for {
-      cfgFile <- getArgs.map(_.headOption.getOrElse("app.conf"))
+      args    <- getArgs.map(_.headOption)
+      cfgFile <- getCfgFile(args)
       metricsRegistry = ClouseauMetrics.makeRegistry
       metricsLayer    = ClouseauMetrics.makeLayer(metricsRegistry)
       _ <- ZIO
@@ -94,5 +106,4 @@ object Main extends ZIOAppDefault {
         )
     } yield ()
   }
-
 }

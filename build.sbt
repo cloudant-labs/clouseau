@@ -108,6 +108,19 @@ lazy val scalang = (project in file("scalang"))
   .settings(commonSettings *)
   .dependsOn(core)
   .dependsOn(macros)
+
+lazy val cookie: Option[String] = Option(System.getProperty("cookie"))
+lazy val env: Option[String]    = Option(System.getProperty("env"))
+lazy val node: Option[String]   = Option(System.getProperty("node"))
+lazy val composedOptions: Seq[String] = {
+  lazy val options: Seq[String] = Seq(
+    env.map("-Denv=" + _).getOrElse("-Denv=prod"),
+    node.map("-Dnode=" + _).getOrElse("-Dnode=1")
+  )
+  if (cookie.isEmpty) options
+  else options ++ cookie.map("-Dcookie=" + _).toSeq
+}
+
 lazy val clouseau = (project in file("clouseau"))
   .settings(commonSettings *)
   .settings(
@@ -129,6 +142,7 @@ lazy val clouseau = (project in file("clouseau"))
   )
   .settings(
     fork := true,
+    javaOptions ++= composedOptions,
     (Compile / run / forkOptions) := (Compile / run / forkOptions).value.withWorkingDirectory(
       (ThisBuild / baseDirectory).value
     ),
