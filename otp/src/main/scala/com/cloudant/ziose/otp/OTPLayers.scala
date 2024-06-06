@@ -1,6 +1,8 @@
 package com.cloudant.ziose.otp
 
-import com.cloudant.ziose.core.Engine
+import zio.{&, TaskLayer}
+
+import com.cloudant.ziose.core.{Engine, EngineWorker, Node, ActorFactory}
 
 // TODO: I couldn't make it to work (tried in ClouseauEchoExperiment), so maybe we need to remove it.
 
@@ -16,5 +18,17 @@ object OTPLayers {
   def liveNode(engineId: Engine.EngineId, workerId: Engine.WorkerId, cfg: OTPNodeConfig) = {
     val name = s"${cfg.name}${engineId}.${workerId}@${cfg.domain}"
     OTPNode.live(name, engineId, workerId, cfg)
+  }
+
+  def nodeLayers(
+    engineId: Engine.EngineId,
+    workerId: Engine.WorkerId,
+    nodeCfg: OTPNodeConfig
+  ): TaskLayer[EngineWorker & Node & ActorFactory] = {
+    val name    = s"${nodeCfg.name}@${nodeCfg.domain}"
+    val factory = OTPActorFactory.live(name, nodeCfg)
+    val node    = OTPNode.live(name, engineId, workerId, nodeCfg)
+    val worker  = OTPEngineWorker.live(engineId, workerId, name, nodeCfg)
+    factory >+> node >+> worker
   }
 }

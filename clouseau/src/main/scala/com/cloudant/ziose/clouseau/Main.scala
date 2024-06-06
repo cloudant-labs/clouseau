@@ -14,6 +14,7 @@ import zio.{&, ConfigProvider, IO, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZI
 import java.io.FileNotFoundException
 import com.cloudant.ziose.core.Engine.EngineId
 import com.cloudant.ziose.core.Engine.WorkerId
+import com.cloudant.ziose.otp.OTPLayers
 
 object Main extends ZIOAppDefault {
   final case class NodeCfg(config: List[AppConfiguration])
@@ -78,7 +79,7 @@ object Main extends ZIOAppDefault {
       _ <- logger.info("Clouseau running as " + name)
       _ <- ZIO
         .scoped(main(nodeCfg, metricsRegistry))
-        .provide(nodeLayers(engineId, workerId, node))
+        .provide(OTPLayers.nodeLayers(engineId, workerId, node))
     } yield ()
   }
 
@@ -96,21 +97,9 @@ object Main extends ZIOAppDefault {
     } yield ()
   }
 
-  def nodeLayers(
-    engineId: EngineId,
-    workerId: WorkerId,
-    nodeCfg: OTPNodeConfig
-  ): TaskLayer[EngineWorker & Node & ActorFactory] = {
-    val name    = s"${nodeCfg.name}@${nodeCfg.domain}"
-    val factory = OTPActorFactory.live(name, nodeCfg)
-    val node    = OTPNode.live(name, engineId, workerId, nodeCfg)
-    val worker  = OTPEngineWorker.live(engineId, workerId, name, nodeCfg)
-    factory >+> node >+> worker
-  }
-
   def testEnvironment: TaskLayer[EngineWorker & Node & ActorFactory & OTPNodeConfig] = {
     val nodeCfg = OTPNodeConfig("test", "127.0.0.1", "testCookie")
-    nodeLayers(engineId, workerId, nodeCfg) ++ ZLayer.succeed(nodeCfg)
+    OTPLayers.nodeLayers(engineId, workerId, nodeCfg) ++ ZLayer.succeed(nodeCfg)
   }
 
   def testClouseauNode: ZIO[EngineWorker & Node & ActorFactory & OTPNodeConfig, Throwable, ClouseauNode] = for {
