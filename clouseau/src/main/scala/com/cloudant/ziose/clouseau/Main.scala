@@ -3,10 +3,9 @@ sbt 'clouseau/runMain com.cloudant.ziose.clouseau.Main'
  */
 package com.cloudant.ziose.clouseau
 
-import _root_.com.cloudant.ziose._
-import core.{ActorFactory, AddressableActor, EngineWorker, Node}
-import otp.{OTPLayers, OTPNodeConfig}
-import scalang.ScalangMeterRegistry
+import com.cloudant.ziose.core.{ActorFactory, AddressableActor, EngineWorker, Node}
+import com.cloudant.ziose.otp.{OTPLayers, OTPNodeConfig}
+import com.cloudant.ziose.scalang.ScalangMeterRegistry
 import zio.config.magnolia.deriveConfig
 import zio.config.typesafe.FromConfigSourceTypesafe
 import zio.{&, Config, ConfigProvider, IO, RIO, Scope, System, Task, UIO, ZIO, ZIOAppArgs, ZIOAppDefault}

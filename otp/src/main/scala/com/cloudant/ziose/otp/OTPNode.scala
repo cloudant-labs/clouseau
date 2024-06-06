@@ -1,25 +1,25 @@
 package com.cloudant.ziose.otp
 
-import com.cloudant.ziose.core.Node.Error
-import java.time.Duration
-import com.cloudant.ziose.core.ProcessContext
-import com.cloudant.ziose.core.ActorBuilder
-import com.cloudant.ziose.core.Actor
-import com.cloudant.ziose.core.Engine
-import com.cloudant.ziose.core.Codec
-import com.cloudant.ziose.core.Node
-import com.ericsson.otp.erlang.{OtpNode, OtpMbox, OtpErlangPid, OtpErlangRef}
-import com.cloudant.ziose.core.Success
-import com.cloudant.ziose.core.Failure
-import com.cloudant.ziose.core.Result
-import com.cloudant.ziose.core.AddressableActor
-import com.cloudant.ziose.core.ActorFactory
-import com.cloudant.ziose.core.MessageEnvelope
+import com.cloudant.ziose.core.{
+  Actor,
+  ActorBuilder,
+  ActorFactory,
+  AddressableActor,
+  Codec,
+  Engine,
+  Failure,
+  MessageEnvelope,
+  Node,
+  ProcessContext,
+  Result,
+  Success
+}
 import com.cloudant.ziose.macros.checkEnv
-import zio.stream.ZStream
-import zio.{Promise, Queue, Schedule, Scope, Trace, UIO, ZIO, ZLayer, durationInt}
+import com.ericsson.otp.erlang.{OtpErlangPid, OtpErlangRef, OtpMbox, OtpNode}
+import zio.stream.{UStream, ZStream}
+import zio.{&, Duration, IO, Promise, Queue, RIO, RLayer, Schedule, Scope, Trace, UIO, URIO, ZIO, ZLayer, durationInt}
 
-abstract class OTPNode() extends Node {
+abstract class OTPNode extends Node {
   def acquire: UIO[Unit]
   def release: UIO[Unit]
 }
@@ -29,12 +29,13 @@ object OTPNode {
   object AccessKey {
     private[OTPNode] def create(): AccessKey = new AccessKey
   }
+
   def live(
     name: String,
     engineId: Engine.EngineId,
     workerId: Engine.WorkerId,
     cfg: OTPNodeConfig
-  ): ZLayer[ActorFactory, Throwable, Node] = ZLayer.scoped {
+  ): RLayer[ActorFactory, Node] = ZLayer.scoped {
     // TODO: Add name format validation (for example '.' is not allowed)
     for {
       _       <- ZIO.debug("Constructing OTPNode")
@@ -44,7 +45,7 @@ object OTPNode {
       accessKey = AccessKey.create()
       cookie    = cfg.cookieVal
       service <- for {
-        _           <- ZIO.debug(s"Creating OtpNode(${name}, ${cookie})") // TODO remove cookie
+        _           <- ZIO.debug(s"Creating OtpNode($name, $cookie)")
         nodeProcess <- NodeProcess.make(name, cookie, queue, accessKey)
         _           <- nodeProcess.stream.runDrain.fork
         scope       <- ZIO.scope
@@ -60,14 +61,14 @@ object OTPNode {
     promise: Promise[E, R],
     val command: C
   ) {
-    def succeed(result: Response)              = promise.succeed(result.asInstanceOf[R])
-    def fail(reason: Node.Error): UIO[Boolean] = promise.fail(reason.asInstanceOf[E])
-    def await                                  = promise.await
-    override def toString: String              = s"OTPNode.Envelope($command)"
+    def succeed(result: Response): UIO[Boolean] = promise.succeed(result.asInstanceOf[R])
+    def fail(reason: Node.Error): UIO[Boolean]  = promise.fail(reason.asInstanceOf[E])
+    def await: IO[E, R]                         = promise.await
+    override def toString: String               = s"OTPNode.Envelope($command)"
   }
 
   protected object Envelope {
-    def apply[C <: Command[R], E <: Node.Error, R <: Response](command: C) = {
+    def apply[C <: Command[R], E <: Node.Error, R <: Response](command: C): UIO[Envelope[C, E, R]] = {
       for {
         promise <- Promise.make[E, R]
       } yield new Envelope[C, E, R](promise, command)
@@ -112,21 +113,23 @@ object OTPNode {
     private val queue: Queue[Envelope[Command[_], _, _]],
     accessKey: AccessKey
   ) {
-    val DEFAULT_PING_TIMEOUT                 = 61.seconds
-    val DEFAULT_REMOTE_NODE_MONITOR_INTERVAL = 61.seconds
-    def release()                            = close()
-    def createMbox(name: String)             = node.createMbox(name)
-    def close()                              = node.close
-    def stream                               = ZStream.fromQueueWithShutdown(queue).mapZIO(loop)
-    def monitorRemoteNode(name: String, timeout: Option[Duration]) = ZStream((name, timeout))
-      .schedule(Schedule.spaced(DEFAULT_REMOTE_NODE_MONITOR_INTERVAL))
-      .mapZIO(checkRemoteNode)
-    def checkRemoteNode(spec: (String, Option[Duration])) = {
-      ZIO.succeedBlocking(node.ping(spec._1, spec._2.getOrElse(DEFAULT_PING_TIMEOUT).toMillis()))
+    val DEFAULT_PING_TIMEOUT: Duration                 = 61.seconds
+    val DEFAULT_REMOTE_NODE_MONITOR_INTERVAL: Duration = 61.seconds
+    def release(): Unit                                = close()
+    def createMbox(name: String): OtpMbox              = node.createMbox(name)
+    def close(): Unit                                  = node.close()
+    def stream: ZStream[Scope, Nothing, Unit]          = ZStream.fromQueueWithShutdown(queue).mapZIO(loop)
+    def monitorRemoteNode(name: String, timeout: Option[Duration]): UStream[Boolean] = {
+      ZStream((name, timeout))
+        .schedule(Schedule.spaced(DEFAULT_REMOTE_NODE_MONITOR_INTERVAL))
+        .mapZIO(checkRemoteNode)
     }
-    def loop(event: Envelope[Command[_], _, _]): ZIO[Scope, Nothing, Unit] = for {
+    def checkRemoteNode(spec: (String, Option[Duration])): UIO[Boolean] = {
+      ZIO.succeedBlocking(node.ping(spec._1, spec._2.getOrElse(DEFAULT_PING_TIMEOUT).toMillis))
+    }
+    def loop(event: Envelope[Command[_], _, _]): URIO[Scope, Unit] = for {
       _ <- event.command match {
-        case StartActor(actor: AddressableActor[_, _]) => {
+        case StartActor(actor: AddressableActor[_, _]) =>
           for {
             // TODO I don't like the fact we use `asInstanceOf` here
             // _ <- ZIO.addFinalizer(
@@ -170,13 +173,11 @@ object OTPNode {
             // _ <- actor.stream.runDrain.forever.forkScoped
             _ <- event.succeed(Response.StartActor(actor.self.pid))
           } yield ()
-        }
-        case _ => {
+        case _ =>
           handleCommand(event.command) match {
             case Success(response) => event.succeed(response)
             case Failure(reason)   => event.fail(reason)
           }
-        }
       }
     } yield ()
 
@@ -184,12 +185,12 @@ object OTPNode {
       actor: AddressableActor[A, OTPProcessContext],
       reason: Option[Codec.ETerm]
     ): UIO[Unit] = for {
-      _ <- ZIO.debug(s"stopping actor ${actor.id.toString()}")
+      _ <- ZIO.debug(s"stopping actor ${actor.id.toString}")
       mbox = actor.ctx.mailbox(accessKey)
       _ <- reason match {
         case Some(term) =>
           for {
-            _ <- actor.onTermination(term).catchAll(_ => ZIO.unit)
+            _ <- actor.onTermination(term).ignore
             _ <- actor.ctx.shutdown
             _ <- ZIO.succeedBlocking {
               actor.ctx.notifyMonitorers(term)
@@ -199,7 +200,7 @@ object OTPNode {
         case None =>
           val term = Codec.EAtom("normal")
           for {
-            _ <- actor.onTermination(term).catchAll(_ => ZIO.unit)
+            _ <- actor.onTermination(term).ignore
             _ <- actor.ctx.shutdown
             _ <- ZIO.succeedBlocking {
               actor.ctx.notifyMonitorers(term)
@@ -211,34 +212,30 @@ object OTPNode {
 
     def handleCommand(command: Command[_]): Result[_ <: Node.Error, Response] = {
       command match {
-        case cmd @ CloseNode() => {
+        case cmd @ CloseNode() =>
           node.close()
           Success(Response.CloseNode(()))
-        }
         case cmd @ PingNode(nodeName, None) =>
-          Success(Response.PingNode(node.ping(nodeName, DEFAULT_PING_TIMEOUT.toMillis())))
+          Success(Response.PingNode(node.ping(nodeName, DEFAULT_PING_TIMEOUT.toMillis)))
         case cmd @ PingNode(nodeName, Some(timeout)) =>
           Success(Response.PingNode(node.ping(nodeName, timeout.toMillis)))
         case CreateMbox(None) => Success(Response.CreateMbox(node.createMbox()))
-        case CreateMbox(Some(name)) => {
+        case CreateMbox(Some(name)) =>
           node.createMbox(name) match {
             case null          => Failure(Node.Error.NameInUse(name))
             case mbox: OtpMbox => Success(Response.CreateMbox(mbox))
           }
-        }
         case MakeRef()                             => Success(Response.MakeRef(node.createRef()))
         case Register(mbox: OtpMbox, name: String) => Success(Response.Register(node.registerName(name, mbox)))
-        case ListNames()                           => Success(Response.ListNames(node.getNames().toList))
-        case LookUpName(name: String) => {
+        case ListNames()                           => Success(Response.ListNames(node.getNames.toList))
+        case LookUpName(name: String) =>
           node.whereis(name) match {
             case null => Success(Response.LookUpName(None))
             case pid  => Success(Response.LookUpName(Some(pid)))
           }
-        }
-        case StopActor(actor, reason: Option[Codec.ETerm]) => {
+        case StopActor(actor, reason: Option[Codec.ETerm]) =>
           stopActor(actor, reason)
           Success(Response.StopActor(()))
-        }
       }
     }
 
@@ -257,7 +254,7 @@ object OTPNode {
       cookie: String,
       queue: Queue[Envelope[Command[_], _, _]],
       accessKey: AccessKey
-    )(implicit trace: Trace): ZIO[Scope, Throwable, NodeProcess] = {
+    )(implicit trace: Trace): RIO[Scope, NodeProcess] = {
       ZIO.acquireRelease(
         ZIO.attemptBlocking(
           new NodeProcess(new OtpNode(name, cookie), queue, accessKey)
@@ -276,37 +273,33 @@ object OTPNode {
     new OTPNode {
       def call[E <: Node.Error, R <: Response](
         command: Command[R]
-      )(implicit trace: Trace): ZIO[Any, _ <: Node.Error, R] = {
+      )(implicit trace: Trace): IO[_ <: Node.Error, R] = {
         for {
           envelope <- Envelope[Command[R], Node.Error, R](command)
           _        <- queue.offer(envelope)
           response <- envelope.await.foldZIO(
             failure => ZIO.fail(failure),
-            success => ZIO.succeed(success.asInstanceOf[R])
+            success => ZIO.succeed(success)
           )
         } yield response
       }
 
-      def acquire: UIO[Unit] = {
-        ZIO.debug(s"Acquired OTPNode")
-      }
-      def release: UIO[Unit] = {
-        ZIO.debug(s"Released OTPNode")
-      }
+      def acquire: UIO[Unit] = ZIO.debug(s"Acquired OTPNode")
+      def release: UIO[Unit] = ZIO.debug(s"Released OTPNode")
 
-      override def close = {
+      override def close: IO[_ <: Node.Error, Unit] = {
         for {
           response <- call(CloseNode()).map(v => v.result)
         } yield response
       }
 
-      override def ping(nodeName: String, timeout: Option[Duration] = None): ZIO[Any, _ <: Node.Error, Boolean] = {
+      override def ping(nodeName: String, timeout: Option[Duration] = None): IO[_ <: Node.Error, Boolean] = {
         for {
           response <- call(PingNode(nodeName, timeout)).map(v => v.result)
         } yield response
       }
 
-      private def createMbox(name: Option[String] = None): ZIO[Any, _ <: Node.Error, OtpMbox] = {
+      private def createMbox(name: Option[String] = None): IO[_ <: Node.Error, OtpMbox] = {
         for {
           response <- call(CreateMbox(name)).map(v => v.result)
         } yield response
@@ -343,7 +336,10 @@ object OTPNode {
         } yield response
       }
 
-      def stopActor(actor: AddressableActor[_ <: Actor, _ <: ProcessContext], reason: Option[Codec.ETerm]) = {
+      def stopActor(
+        actor: AddressableActor[_ <: Actor, _ <: ProcessContext],
+        reason: Option[Codec.ETerm]
+      ): IO[_ <: Node.Error, Unit] = {
         for {
           // TODO I don't like the fact we use `asInstanceOf` here
           _ <- call(StopActor(actor.asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]], reason))
@@ -353,7 +349,7 @@ object OTPNode {
       }
 
       // TODO prevent attempts to run multiple monitors for the same node
-      def monitorRemoteNode(name: String, timeout: Option[Duration] = None) = {
+      def monitorRemoteNode(name: String, timeout: Option[Duration] = None): UIO[Unit] = {
         val loop = process.monitorRemoteNode(name, timeout).runDrain.forever
         for {
           _ <- (for {
@@ -364,7 +360,7 @@ object OTPNode {
 
       private def startActor[A <: Actor](
         actor: AddressableActor[A, _ <: ProcessContext]
-      ): ZIO[Node with Scope, _ <: Node.Error, AddressableActor[_, _]] = for {
+      ): ZIO[Node & Scope, _ <: Node.Error, AddressableActor[_, _]] = for {
         _ <- call(StartActor(actor))
       } yield actor
 
@@ -376,7 +372,7 @@ object OTPNode {
        */
       def spawn[A <: Actor](
         builder: ActorBuilder.Sealed[A]
-      ): ZIO[Node with Scope, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
+      ): ZIO[Node & Scope, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
         for {
           mbox <- createMbox(builder.name)
           context <- ctx
@@ -386,7 +382,7 @@ object OTPNode {
           // TODO: Consider removing builder argument, since it is available from the context and builder can use it
           addressable <- f
             .create[A, OTPProcessContext](builder, context)
-            .mapError(e => Error.Constructor(e))
+            .mapError(e => Node.Error.Constructor(e))
             .foldZIO(
               e => ZIO.fail(e),
               actor => startActor[A](actor)

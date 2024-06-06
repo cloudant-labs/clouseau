@@ -1,9 +1,7 @@
 package com.cloudant.ziose.otp
 
+import com.cloudant.ziose.core.{ActorFactory, Engine, EngineWorker, Node}
 import zio.{&, TaskLayer, ZLayer}
-
-import com.cloudant.ziose.core.{Engine, EngineWorker, Node, ActorFactory}
-import com.cloudant.ziose.otp.{OTPLayers, OTPNodeConfig}
 
 object Utils {
   def testEnvironment(
