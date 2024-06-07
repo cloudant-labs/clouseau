@@ -15,7 +15,12 @@ package com.cloudant.ziose.clouseau
 import org.apache.lucene.index.Term
 import org.apache.lucene.util.BytesRef
 import org.apache.lucene.util.NumericUtils
+import zio.{&, ZIO}
+import com.cloudant.ziose.core.EngineWorker
+import com.cloudant.ziose.core.Node
+import com.cloudant.ziose.core.ActorFactory
 import com.cloudant.ziose.otp
+import com.cloudant.ziose.otp.OTPNodeConfig
 import com.cloudant.ziose.core.Engine
 
 object Utils {
@@ -82,6 +87,17 @@ object Utils {
       }
     }
   }
+
+  def clouseauNode: ZIO[EngineWorker & Node & ActorFactory & OTPNodeConfig, Throwable, ClouseauNode] = for {
+    runtime <- ZIO.runtime[EngineWorker & Node & ActorFactory]
+    worker  <- ZIO.service[EngineWorker]
+    metricsRegistry = ClouseauMetrics.makeRegistry
+    node <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry))
+  } yield node
+
+  def defaultConfig: ZIO[OTPNodeConfig, Throwable, Configuration] = for {
+    nodeCfg <- ZIO.service[OTPNodeConfig]
+  } yield Configuration(ClouseauConfiguration(), nodeCfg)
 
   def testEnvironment(engineId: Engine.EngineId, workerId: Engine.WorkerId, nodeName: String = "test") =
     otp.Utils.testEnvironment(engineId, workerId, nodeName)

@@ -5,15 +5,13 @@ package com.cloudant.ziose.clouseau
 
 import _root_.com.cloudant.ziose._
 import core.{ActorFactory, AddressableActor, EngineWorker, Node}
-import otp.{OTPActorFactory, OTPEngineWorker, OTPNode, OTPNodeConfig}
+import otp.OTPNodeConfig
 import scalang.ScalangMeterRegistry
 import zio.config.magnolia.deriveConfig
 import zio.config.typesafe.FromConfigSourceTypesafe
-import zio.{&, ConfigProvider, IO, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault, TaskLayer, ZLayer}
+import zio.{&, ConfigProvider, IO, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import java.io.FileNotFoundException
-import com.cloudant.ziose.core.Engine.EngineId
-import com.cloudant.ziose.core.Engine.WorkerId
 import com.cloudant.ziose.otp.OTPLayers
 
 object Main extends ZIOAppDefault {
@@ -96,16 +94,5 @@ object Main extends ZIOAppDefault {
         )
     } yield ()
   }
-
-  def testClouseauNode: ZIO[EngineWorker & Node & ActorFactory & OTPNodeConfig, Throwable, ClouseauNode] = for {
-    runtime <- ZIO.runtime[EngineWorker & Node & ActorFactory]
-    worker  <- ZIO.service[EngineWorker]
-    metricsRegistry = ClouseauMetrics.makeRegistry
-    node <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry))
-  } yield node
-
-  def testConfiguration: ZIO[OTPNodeConfig, Throwable, Configuration] = for {
-    nodeCfg <- ZIO.service[OTPNodeConfig]
-  } yield Configuration(ClouseauConfiguration(), nodeCfg)
 
 }

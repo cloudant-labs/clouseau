@@ -74,8 +74,8 @@ class MainSpec extends JUnitRunnableSpec {
     suite("serviceSpawn")(
       test("Start Echo")(
         for {
-          node <- Main.testClouseauNode
-          cfg  <- Main.testConfiguration
+          node <- Utils.testClouseauNode
+          cfg  <- Utils.testConfiguration
           zio  <- EchoService.startZIO(node, "echo", cfg)
         } yield assertTrue(zio.isInstanceOf[core.AddressableActor[_, _]])
       )
