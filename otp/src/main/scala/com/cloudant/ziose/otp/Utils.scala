@@ -8,9 +8,10 @@ import com.cloudant.ziose.otp.{OTPLayers, OTPNodeConfig}
 object Utils {
   def testEnvironment(
     engineId: Engine.EngineId,
-    workerId: Engine.WorkerId
+    workerId: Engine.WorkerId,
+    nodeName: String = "test"
   ): TaskLayer[EngineWorker & Node & ActorFactory & OTPNodeConfig] = {
-    val nodeCfg = OTPNodeConfig("test", "127.0.0.1", "testCookie")
+    val nodeCfg = OTPNodeConfig(nodeName, "127.0.0.1", "testCookie")
     OTPLayers.nodeLayers(engineId, workerId, nodeCfg) ++ ZLayer.succeed(nodeCfg)
   }
 }

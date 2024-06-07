@@ -83,7 +83,7 @@ object Utils {
     }
   }
 
-  def testEnvironment(engineId: Engine.EngineId, workerId: Engine.WorkerId) =
-    otp.Utils.testEnvironment(engineId, workerId)
+  def testEnvironment(engineId: Engine.EngineId, workerId: Engine.WorkerId, nodeName: String = "test") =
+    otp.Utils.testEnvironment(engineId, workerId, nodeName)
 
 }
