@@ -46,6 +46,8 @@ class ClouseauNode(implicit
    * ```
    */
 
+  val workerId = worker.id
+
   override def spawnService[TS <: Service[A] with Actor: Tag, A <: Product](
     builder: ActorBuilder.Sealed[TS]
   )(implicit adapter: Adapter[_, _]): core.Result[core.Node.Error, AddressableActor[TS, ProcessContext]] = {

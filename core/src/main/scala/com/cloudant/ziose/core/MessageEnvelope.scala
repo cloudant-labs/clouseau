@@ -52,6 +52,37 @@ object MessageEnvelope {
     workerId: Engine.WorkerId
   ) extends MessageEnvelope {
     def getPayload = Some(payload)
+    def toResponse(payload: Option[Codec.ETerm]): Response = {
+      payload match {
+        case Some(p) =>
+          Response(
+            from = from,
+            to = to,
+            tag = tag,
+            payload = Some(p),
+            reason = None,
+            workerId = workerId
+          )
+        case None if timeout.isDefined =>
+          Response(
+            from = from,
+            to = to,
+            tag = tag,
+            payload = None,
+            reason = Some(Node.Error.Timeout(timeout.get)),
+            workerId = workerId
+          )
+        case None =>
+          Response(
+            from = from,
+            to = to,
+            tag = tag,
+            payload = None,
+            reason = Some(Node.Error.Nothing()),
+            workerId = workerId
+          )
+      }
+    }
   }
   case class Cast(
     from: Option[Codec.EPid],
@@ -66,10 +97,16 @@ object MessageEnvelope {
     from: Option[Codec.EPid],
     to: Address,
     tag: Codec.EAtom,
-    payload: Codec.ETerm,
-    workerId: Engine.WorkerId
+    payload: Option[Codec.ETerm],
+    workerId: Engine.WorkerId,
+    reason: Option[_ <: Node.Error]
   ) extends MessageEnvelope {
-    def getPayload = Some(payload)
+    def getPayload = payload
+    def isError    = reason.isDefined
+    def isSuccess  = reason.isEmpty
+    def getCaller  = from.get
+    // when makeCall is used the Address is a PID
+    def getCallee = to.asInstanceOf[PID].pid
   }
 
   case class Monitor(from: Option[Codec.EPid], to: Address, ref: Codec.ERef, workerId: Engine.WorkerId)

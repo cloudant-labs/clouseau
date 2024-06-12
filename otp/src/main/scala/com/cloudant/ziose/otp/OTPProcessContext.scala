@@ -14,6 +14,7 @@ import com.cloudant.ziose.core.MessageEnvelope
 import com.cloudant.ziose.core.Address
 
 import collection.mutable.Set
+import com.cloudant.ziose.core.Node
 
 class OTPProcessContext private (
   val name: Option[String],
@@ -60,7 +61,7 @@ class OTPProcessContext private (
 
   def stream: ZStream[Any, Throwable, MessageEnvelope] = mailbox.stream
 
-  def call(msg: MessageEnvelope.Call): UIO[MessageEnvelope.Response] = {
+  def call(msg: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response] = {
     mailbox.call(msg)
   }
   def cast(msg: MessageEnvelope.Cast): UIO[Unit] = {

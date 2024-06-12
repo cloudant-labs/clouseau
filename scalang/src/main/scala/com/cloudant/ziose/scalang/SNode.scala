@@ -107,7 +107,13 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
     )
     for {
       result <- adapter.call(envelope)
-    } yield adapter.toScala(result.payload)
+    } yield {
+      if (result.isSuccess) {
+        adapter.toScala(result.getPayload.get)
+      } else {
+        (Symbol("error"), result.reason)
+      }
+    }
   }
   def call(from: Pid, to: Pid, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
     // assume the pid is on the same worker
@@ -123,7 +129,13 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
     )
     for {
       result <- adapter.call(envelope)
-    } yield adapter.toScala(result.payload)
+    } yield {
+      if (result.isSuccess) {
+        adapter.toScala(result.getPayload.get)
+      } else {
+        (Symbol("error"), result.reason)
+      }
+    }
   }
   def call(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
     // assume the pid is on the same worker
@@ -146,7 +158,13 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
     )
     for {
       result <- adapter.call(envelope)
-    } yield adapter.toScala(result.payload)
+    } yield {
+      if (result.isSuccess) {
+        adapter.toScala(result.getPayload.get)
+      } else {
+        (Symbol("error"), result.reason)
+      }
+    }
   }
   def call(from: Pid, to: Symbol, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
     // assume the pid is on the same worker
@@ -162,7 +180,13 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
     )
     for {
       result <- adapter.call(envelope)
-    } yield adapter.toScala(result.payload)
+    } yield {
+      if (result.isSuccess) {
+        adapter.toScala(result.getPayload.get)
+      } else {
+        (Symbol("error"), result.reason)
+      }
+    }
   }
   def call(to: (RegName, NodeName), msg: Any)(implicit adapter: Adapter[_, _]): Any = {
     call(self, to, msg)
@@ -183,7 +207,13 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
     )
     for {
       result <- adapter.call(envelope)
-    } yield adapter.toScala(result.payload)
+    } yield {
+      if (result.isSuccess) {
+        adapter.toScala(result.getPayload.get)
+      } else {
+        (Symbol("error"), result.reason)
+      }
+    }
   }
   def call(from: Pid, to: (RegName, NodeName), msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
     val (name, nodeName) = to
@@ -199,7 +229,13 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
     )
     for {
       result <- adapter.call(envelope)
-    } yield adapter.toScala(result.payload)
+    } yield {
+      if (result.isSuccess) {
+        adapter.toScala(result.getPayload.get)
+      } else {
+        (Symbol("error"), result.reason)
+      }
+    }
   }
   def link(from: Pid, to: Pid) {
     // TODO

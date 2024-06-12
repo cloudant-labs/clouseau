@@ -19,14 +19,14 @@ import zio.stream.ZStream
  */
 
 trait Mailbox extends EnqueueWithId[Address, MessageEnvelope] {
-  val stream: ZStream[Any, Throwable, MessageEnvelope]
+  def stream: ZStream[Any, Throwable, MessageEnvelope]
   def start(scope: Scope): ZIO[Any with Scope, Nothing, Unit]
   def exit(reason: Codec.ETerm): ZIO[Any with Scope, Nothing, Unit]
   def unlink(to: Codec.EPid): ZIO[Any with Scope, Nothing, Boolean]
   def link(to: Codec.EPid): ZIO[Any with Scope, Nothing, Boolean]
   def monitor(monitored: Address): Codec.ERef
   def demonitor(ref: Codec.ERef): ZIO[Any with Scope, Nothing, Boolean]
-  def call(msg: MessageEnvelope.Call)(implicit trace: zio.Trace): UIO[MessageEnvelope.Response]
+  def call(msg: MessageEnvelope.Call)(implicit trace: zio.Trace): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response]
   def cast(msg: MessageEnvelope.Cast)(implicit trace: zio.Trace): UIO[Unit]
   def send(msg: MessageEnvelope.Send)(implicit trace: zio.Trace): UIO[Unit]
 }

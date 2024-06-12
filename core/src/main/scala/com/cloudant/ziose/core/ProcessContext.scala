@@ -9,7 +9,7 @@ trait ProcessContext extends EnqueueWithId[Address, MessageEnvelope] {
   val engineId: Engine.EngineId
   def name: Option[String]
   def self: PID
-  def call(msg: MessageEnvelope.Call): UIO[MessageEnvelope.Response]
+  def call(msg: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response]
   def cast(msg: MessageEnvelope.Cast): UIO[Unit]
   def send(msg: MessageEnvelope.Send): UIO[Unit]
   def stream: ZStream[Any, Throwable, MessageEnvelope]
