@@ -166,8 +166,28 @@ class OTPMailbox private (
   def offerAll[A1 <: MessageEnvelope](as: Iterable[A1])(implicit trace: zio.Trace): UIO[zio.Chunk[A1]] = {
     internalMailbox.offerAll(as)
   }
-  def size(implicit trace: zio.Trace): UIO[Int] = {
-    compositeMailbox.size
+
+  // There is no easy way to account for externalMailbox
+  // without consuming messages
+  def size(implicit trace: zio.Trace): UIO[Int] = for {
+    composite <- compositeMailboxSize
+    internal  <- internalMailboxSize
+  } yield composite + internal
+
+  def compositeMailboxSize(implicit trace: Trace): UIO[Int] = {
+    // there is a bug in zio.Queue it can return negative
+    // size if there are no consumers
+    for {
+      size <- compositeMailbox.size
+    } yield 0 max size
+  }
+
+  def internalMailboxSize(implicit trace: Trace): UIO[Int] = {
+    // there is a bug in zio.Queue it can return negative
+    // size if there are no consumers
+    for {
+      size <- internalMailbox.size
+    } yield 0 max size
   }
 
   /*
