@@ -8,9 +8,7 @@ import com.cloudant.ziose.core.Actor
 import com.cloudant.ziose.core.Engine
 import com.cloudant.ziose.core.Codec
 import com.cloudant.ziose.core.Node
-import com.ericsson.otp.erlang.OtpMbox
-import com.ericsson.otp.erlang.OtpErlangPid
-import com.ericsson.otp.erlang.OtpNode
+import com.ericsson.otp.erlang.{OtpNode, OtpMbox, OtpErlangPid, OtpErlangRef}
 import com.cloudant.ziose.core.Success
 import com.cloudant.ziose.core.Failure
 import com.cloudant.ziose.core.Result
@@ -82,6 +80,7 @@ object OTPNode {
   case class CloseNode()                                                  extends Command[Response.CloseNode]
   case class PingNode(nodeName: String, timeout: Option[Duration] = None) extends Command[Response.PingNode]
   case class CreateMbox(name: Option[String] = None)                      extends Command[Response.CreateMbox]
+  case class MakeRef()                                                    extends Command[Response.MakeRef]
   case class Register(mbox: OtpMbox, name: String)                        extends Command[Response.Register]
   case class ListNames()                                                  extends Command[Response.ListNames]
   case class LookUpName(name: String)                                     extends Command[Response.LookUpName]
@@ -97,6 +96,7 @@ object OTPNode {
     case class CloseNode(result: Unit)                  extends Response
     case class PingNode(result: Boolean)                extends Response
     case class CreateMbox(result: OtpMbox)              extends Response
+    case class MakeRef(result: OtpErlangRef)            extends Response
     case class Register(result: Boolean)                extends Response
     case class ListNames(result: List[String])          extends Response
     case class LookUpName(result: Option[OtpErlangPid]) extends Response
@@ -225,6 +225,7 @@ object OTPNode {
             case mbox: OtpMbox => Success(Response.CreateMbox(mbox))
           }
         }
+        case MakeRef()                             => Success(Response.MakeRef(node.createRef()))
         case Register(mbox: OtpMbox, name: String) => Success(Response.Register(node.registerName(name, mbox)))
         case ListNames()                           => Success(Response.ListNames(node.getNames().toList))
         case LookUpName(name: String) => {
@@ -308,6 +309,12 @@ object OTPNode {
         for {
           response <- call(CreateMbox(name)).map(v => v.result)
         } yield response
+      }
+
+      override def makeRef(): ZIO[Any, _ <: Node.Error, Codec.ERef] = {
+        for {
+          ref <- call(MakeRef()).map(v => v.result)
+        } yield Codec.ERef(ref)
       }
 
       // this is problematic since our context is generic ProcessContext

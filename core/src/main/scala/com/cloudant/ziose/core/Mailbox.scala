@@ -26,7 +26,6 @@ trait Mailbox extends EnqueueWithId[Address, MessageEnvelope] {
   def link(to: Codec.EPid): ZIO[Any with Scope, Nothing, Boolean]
   def monitor(monitored: Address): Codec.ERef
   def demonitor(ref: Codec.ERef): ZIO[Any with Scope, Nothing, Boolean]
-  def makeRef(): Codec.ERef
   def call(msg: MessageEnvelope.Call)(implicit trace: zio.Trace): UIO[MessageEnvelope.Response]
   def cast(msg: MessageEnvelope.Cast)(implicit trace: zio.Trace): UIO[Unit]
   def send(msg: MessageEnvelope.Send)(implicit trace: zio.Trace): UIO[Unit]

@@ -18,6 +18,5 @@ trait ProcessContext extends EnqueueWithId[Address, MessageEnvelope] {
   def link(to: Codec.EPid): ZIO[Any with Scope, Nothing, Boolean]
   def monitor(monitored: Address): Codec.ERef
   def demonitor(ref: Codec.ERef): ZIO[Any with Scope, Nothing, Boolean]
-  def makeRef(): Codec.ERef
   def start(scope: Scope): ZIO[Any with zio.Scope, Nothing, Unit]
 }

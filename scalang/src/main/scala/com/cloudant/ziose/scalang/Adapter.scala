@@ -30,7 +30,6 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
   def link(to: Codec.EPid)            = ctx.link(to)
   def monitor(monitored: Address)     = ctx.monitor(monitored)
   def demonitor(ref: Codec.ERef)      = ctx.demonitor(ref)
-  def makeRef(): Codec.ERef           = ctx.makeRef()
   def toScala(tuple: Codec.ETuple): Any = {
     factory.parse(tuple)(this) match {
       case Some(msg) => msg

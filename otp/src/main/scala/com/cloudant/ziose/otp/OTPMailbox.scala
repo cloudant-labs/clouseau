@@ -196,7 +196,6 @@ class OTPMailbox private (
    * [ ] - link
    * [ ] - monitor
    * [ ] - demonitor
-   * [ ] - makeRef
    */
   def exit(reason: Codec.ETerm): UIO[Unit] = {
     // println(s"OTPMailbox.exit($reason), id = $id")
@@ -209,7 +208,6 @@ class OTPMailbox private (
   def link(to: Codec.EPid)                    = ???
   def monitor(monitored: Address): Codec.ERef = ???
   def demonitor(ref: Codec.ERef)              = ???
-  def makeRef(): Codec.ERef                   = ???
 
   /**
    * @param msg

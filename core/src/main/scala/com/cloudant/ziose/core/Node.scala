@@ -19,6 +19,7 @@ trait Node {
     reason: Option[Codec.ETerm] = None
   ): ZIO[Node, _ <: Node.Error, Unit]
   def monitorRemoteNode(name: String, timeout: Option[Duration] = None): ZIO[Node, _ <: Node.Error, Unit]
+  def makeRef(): ZIO[Any, _ <: Node.Error, Codec.ERef]
 }
 
 object Node {

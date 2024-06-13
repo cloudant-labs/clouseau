@@ -57,7 +57,6 @@ class OTPProcessContext private (
   def link(to: Codec.EPid)                    = mailbox.link(to)
   def monitor(monitored: Address): Codec.ERef = mailbox.monitor(monitored)
   def demonitor(ref: Codec.ERef)              = mailbox.demonitor(ref)
-  def makeRef(): Codec.ERef                   = mailbox.makeRef()
 
   def stream: ZStream[Any, Throwable, MessageEnvelope] = mailbox.stream
 
