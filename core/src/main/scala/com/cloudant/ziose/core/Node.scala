@@ -1,12 +1,12 @@
 package com.cloudant.ziose.core
 
 import com.cloudant.ziose.macros.checkEnv
-import zio.{Duration, FiberId, Scope, ZIO}
+import zio.{&, Duration, FiberId, Scope, ZIO}
 
 trait Node {
   def spawn[A <: Actor](
     builder: ActorBuilder.Sealed[A]
-  ): ZIO[Node with Scope, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]]
+  ): ZIO[Scope & Node & EngineWorker, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]]
   def close: ZIO[Node, _ <: Node.Error, Unit]
   def ping(nodeName: String, timeout: Option[Duration] = None): ZIO[Node, _ <: Node.Error, Boolean]
   // def register[E <: Node.Error](actor: Actor, name: String): ZIO[Node, E, Boolean]
@@ -56,7 +56,7 @@ object Node {
 
   def spawn[A <: Actor](
     builder: ActorBuilder.Sealed[A]
-  ): ZIO[Node with Scope, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
+  ): ZIO[Scope & Node & EngineWorker, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
     ZIO.serviceWithZIO[Node](_.spawn(builder))
   }
 

@@ -18,6 +18,7 @@ import com.cloudant.ziose.macros.checkEnv
 import com.ericsson.otp.erlang.{OtpErlangPid, OtpErlangRef, OtpMbox, OtpNode}
 import zio.stream.{UStream, ZStream}
 import zio.{&, Duration, IO, Promise, Queue, RIO, RLayer, Schedule, Scope, Trace, UIO, URIO, ZIO, ZLayer, durationInt}
+import com.cloudant.ziose.core.EngineWorker
 
 abstract class OTPNode extends Node {
   def acquire: UIO[Unit]
@@ -40,7 +41,7 @@ object OTPNode {
     for {
       _       <- ZIO.debug("Constructing OTPNode")
       factory <- ZIO.service[ActorFactory]
-      ctx = OTPProcessContext.builder(Symbol(name), engineId, workerId)
+      ctx = OTPProcessContext.builder(Symbol(name))
       queue <- Queue.unbounded[Envelope[Command[_], _, _]].withFinalizer(_.shutdown)
       accessKey = AccessKey.create()
       cookie    = cfg.cookieVal
@@ -372,11 +373,13 @@ object OTPNode {
        */
       def spawn[A <: Actor](
         builder: ActorBuilder.Sealed[A]
-      ): ZIO[Node & Scope, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
+      ): ZIO[Scope & Node & EngineWorker, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
         for {
-          mbox <- createMbox(builder.name)
+          mbox   <- createMbox(builder.name)
+          worker <- ZIO.service[EngineWorker]
           context <- ctx
             .withOtpMbox(mbox)
+            .withWorker(worker.asInstanceOf[OTPEngineWorker])
             .withBuilder(builder)
             .build()
           // TODO: Consider removing builder argument, since it is available from the context and builder can use it

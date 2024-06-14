@@ -7,12 +7,15 @@ case class NameAlreadyInUse(name: String) extends EngineWorkerError
 
 trait EngineWorker extends EnqueueWithId[Engine.WorkerId, MessageEnvelope] {
   type Context <: ProcessContext
+  val id: Engine.WorkerId
+  val nodeName: Symbol
+  val engineId: Engine.EngineId
   val exchange: EngineWorkerExchange
   def acquire: UIO[Unit]
   def release: UIO[Unit]
   def spawn[A <: Actor](
     builder: ActorBuilder.Sealed[A]
-  ): ZIO[Node, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]]
+  ): ZIO[Node & EngineWorker, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]]
   def kind: URIO[EngineWorker, String]
   override def awaitShutdown(implicit trace: Trace): UIO[Unit]         = exchange.awaitShutdown
   def isShutdown(implicit trace: Trace): UIO[Boolean]                  = exchange.isShutdown

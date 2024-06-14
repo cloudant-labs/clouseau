@@ -11,26 +11,26 @@ import com.cloudant.ziose.core.MessageEnvelope
 import com.cloudant.ziose.core.AddressableActor
 import com.cloudant.ziose.core.ProcessContext
 import com.cloudant.ziose.macros.checkEnv
-import zio.{ConfigProvider, Duration, Queue, UIO, ZIO, ZLayer}
+import zio.{&, ConfigProvider, Duration, Queue, UIO, ZIO, ZLayer}
 
 final class OTPEngineWorker private (
-  engineId: Engine.EngineId,
+  val engineId: Engine.EngineId,
   workerId: Engine.WorkerId,
-  name: String,
+  val nodeName: Symbol,
   node: Node,
   val exchange: EngineWorkerExchange
 ) extends EngineWorker {
   type Context = OTPProcessContext
   val id = workerId
   def acquire: UIO[Unit] = {
-    ZIO.debug(s"Acquired OTPEngineWorker ${name}")
+    ZIO.debug(s"Acquired OTPEngineWorker ${nodeName}")
   }
   def release: UIO[Unit] = {
-    ZIO.debug(s"Released OTPEngineWorker ${name}")
+    ZIO.debug(s"Released OTPEngineWorker ${nodeName}")
   }
   def spawn[A <: Actor](
     builder: ActorBuilder.Sealed[A]
-  ): ZIO[Node, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
+  ): ZIO[Node & EngineWorker, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
     // TODO call .withEngineId and .withWorkerId here???
     for {
       addressable <- ZIO.scoped(node.spawn(builder))
@@ -43,7 +43,7 @@ final class OTPEngineWorker private (
     s"${getClass.getSimpleName}",
     s"engineId=$engineId",
     s"workerId=$workerId",
-    s"name=$name",
+    s"nodeName=$nodeName",
     s"node=$node",
     s"exchange=$exchange"
   )
@@ -61,7 +61,7 @@ object OTPEngineWorker {
       node     <- ZIO.service[Node]
       queue    <- Queue.bounded[MessageEnvelope](16) // TODO retrieve capacity from config
       exchange <- EngineWorkerExchange.makeWithQueue(queue)
-      service = new OTPEngineWorker(engineId, workerId, name, node, exchange)
+      service = new OTPEngineWorker(engineId, workerId, Symbol(name), node, exchange)
       _ <- service.acquire
       _ <- ZIO.succeed(ZIO.addFinalizer(service.release))
       _ <- ZIO.debug("Adding OTPEngineWorker to the environment")
