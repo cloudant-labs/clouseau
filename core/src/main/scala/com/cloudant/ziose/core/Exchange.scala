@@ -16,6 +16,18 @@ import zio.{Duration, Enqueue, Queue, Scope, Trace, UIO, ZIO}
 
 class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], val registry: Registry[K, M, E], val keyFn: M => K)
     extends Exchange.WithConstructor[K, M, E] {
+  def add(entity: E): UIO[Unit] = {
+    registry.add(entity)
+  }
+  def remove(key: K): ZIO[Any, Nothing, Option[E]] = {
+    registry.remove(key)
+  }
+  def replace(entity: E): ZIO[Any, Nothing, Option[E]] = {
+    registry.replace(entity)
+  }
+  def isKnown(key: K): UIO[Boolean] = {
+    registry.isKnown(key)
+  }
   def capacity: Int                        = queue.capacity
   def foreach(fn: E => Unit): UIO[Unit]    = registry.foreach(fn)
   def map[B](fn: E => B): UIO[Iterable[B]] = registry.map(fn)

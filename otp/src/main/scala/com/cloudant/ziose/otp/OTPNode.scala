@@ -361,7 +361,7 @@ object OTPNode {
 
       private def startActor[A <: Actor](
         actor: AddressableActor[A, _ <: ProcessContext]
-      ): ZIO[Node & Scope, _ <: Node.Error, AddressableActor[_, _]] = for {
+      ): ZIO[Scope & Node & EngineWorker, _ <: Node.Error, AddressableActor[_, _]] = for {
         _ <- call(StartActor(actor))
       } yield actor
 

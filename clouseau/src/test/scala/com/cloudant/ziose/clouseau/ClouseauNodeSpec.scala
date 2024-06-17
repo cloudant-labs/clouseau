@@ -168,10 +168,38 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
     ) @@ TestAspect.withLiveClock
   }
 
+  val processSpawnSuite: Spec[Any, Throwable] = {
+    suite("processSpawn")(
+      test("no longer registered after termination")(
+        for {
+          node            <- Utils.clouseauNode
+          cfg             <- Utils.defaultConfig
+          worker          <- ZIO.service[core.EngineWorker]
+          actor           <- EchoService.startZIO(node, "echo", cfg)
+          knownAfterStart <- worker.exchange.isKnown(actor.id)
+          ctx = actor.ctx.asInstanceOf[OTPProcessContext]
+          _ <- ctx.exit(core.Codec.EAtom("kill it"))
+          _ <- ZIO.sleep(1.seconds)
+          knownAfterKill <- worker.exchange
+            .isKnown(actor.id)
+            .repeatWhile(_ == true)
+            .timeout(2.seconds)
+        } yield assertTrue(
+          knownAfterStart == true,
+          knownAfterKill.isDefined,
+          knownAfterKill.get == false
+        )
+      )
+    ).provideLayer(
+      Utils.testEnvironment(1, 1, "serviceCommunication")
+    ) @@ TestAspect.withLiveClock
+  }
+
   def spec: Spec[Any, Throwable] = {
     suite("ClouseauNodeSpec")(
       serviceSpawnSuite,
-      serviceCommunicationSuite
+      serviceCommunicationSuite,
+      processSpawnSuite
     )
   }
 }

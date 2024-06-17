@@ -71,10 +71,10 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     }
   // .tap(x => printLine(s"actor stream after onMessage: $x"))
 
-  def onTermination(reason: Codec.ETerm): ZIO[Any, Throwable, Unit] = {
-    println(s"AddressableActor.onTermination[${context.id}] ${reason}")
-    actor.onTermination(reason, ctx)
-  }
+  def onTermination(reason: Codec.ETerm): ZIO[Any, Throwable, Unit] = for {
+    _ <- ctx.worker.unregister(self)
+    _ <- actor.onTermination(reason, ctx)
+  } yield ()
   def onMessage(message: MessageEnvelope): ZIO[Any, Throwable, Unit] = {
     actor.onMessage(message, ctx)
   }
@@ -97,7 +97,10 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   def size(implicit trace: zio.Trace): UIO[Int] = {
     ctx.size
   }
-  def start(scope: Scope) = ctx.start(scope)
+  def start(scope: Scope) = for {
+    _ <- ctx.worker.register(this)
+    _ <- ctx.start(scope)
+  } yield ()
 
   @checkEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(

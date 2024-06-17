@@ -31,8 +31,8 @@ class OTPProcessContext private (
   val self                      = PID(new Codec.EPid(mailbox.externalMailbox.self), worker.id, worker.nodeName)
 
   override def toString: String = name match {
-    case Some(n) => s"OTPProcessContext(${n}.${workerId}.${engineId}@${nodeName})"
-    case None    => s"OTPProcessContext(${self.pid}.${workerId}.${engineId}@${nodeName})"
+    case Some(n) => s"OTPProcessContext(${n}.${worker.id}.${worker.engineId}@${nodeName})"
+    case None    => s"OTPProcessContext(${self.pid}.${worker.id}.${worker.engineId}@${nodeName})"
   }
 
   def capacity: Int = mailbox.capacity

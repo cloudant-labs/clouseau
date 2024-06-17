@@ -5,8 +5,8 @@ import zio.stream.ZStream
 
 trait ProcessContext extends EnqueueWithId[Address, MessageEnvelope] {
   val id: Address // FIXME
-  val workerId: Engine.WorkerId
-  val engineId: Engine.EngineId
+  // Only accessed from AddressableActor
+  val worker: EngineWorker
   def name: Option[String]
   def self: PID
   def call(msg: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response]

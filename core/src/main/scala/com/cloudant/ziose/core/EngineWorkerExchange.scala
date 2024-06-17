@@ -22,6 +22,23 @@ class EngineWorkerExchange private (
   override def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
     exchange.awaitShutdown
   }
+  def add(entity: EnqueueWithId[Address, MessageEnvelope]): UIO[Unit] = {
+    exchange.add(entity)
+  }
+
+  def remove(key: Address): ZIO[Any, Nothing, Option[EnqueueWithId[Address, MessageEnvelope]]] = {
+    exchange.remove(key)
+  }
+
+  def isKnown(key: Address): UIO[Boolean] = {
+    exchange.isKnown(key)
+  }
+
+  def replace(
+    entity: EnqueueWithId[Address, MessageEnvelope]
+  ): ZIO[Any, Nothing, Option[EnqueueWithId[Address, MessageEnvelope]]] = {
+    exchange.replace(entity)
+  }
   def capacity = exchange.capacity
   def isShutdown(implicit trace: Trace): UIO[Boolean] = {
     exchange.isShutdown

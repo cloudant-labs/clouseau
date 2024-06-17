@@ -86,6 +86,10 @@ class Registry[K, M, E <: EnqueueWithId[K, M]](private val state: Ref[State[K, E
     s <- state.get
   } yield s.entries.size
 
+  def isKnown(key: K): UIO[Boolean] = for {
+    s <- state.get
+  } yield s.entries.contains(key)
+
   @checkEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",

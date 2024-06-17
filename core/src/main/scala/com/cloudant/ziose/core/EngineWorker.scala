@@ -13,6 +13,10 @@ trait EngineWorker extends EnqueueWithId[Engine.WorkerId, MessageEnvelope] {
   val exchange: EngineWorkerExchange
   def acquire: UIO[Unit]
   def release: UIO[Unit]
+  def register(entity: EnqueueWithId[Address, MessageEnvelope]): UIO[Unit] = exchange.add(entity)
+  def unregister(addr: Address): ZIO[Any, Nothing, Option[EnqueueWithId[Address, MessageEnvelope]]] = {
+    exchange.remove(addr)
+  }
   def spawn[A <: Actor](
     builder: ActorBuilder.Sealed[A]
   ): ZIO[Node & EngineWorker, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]]
