@@ -91,6 +91,8 @@ private object PingPongService extends core.ActorConstructor[PingPongService] {
 @RunWith(classOf[ZTestJUnitRunner])
 class ClouseauNodeSpec extends JUnitRunnableSpec {
   def dummyCaller(testName: String) = core.Name(core.Codec.EAtom("test"), 1, Symbol(testName))
+  val TIMEOUT                       = 2.seconds
+  val WAIT_DURATION                 = 500.milliseconds
   val serviceSpawnSuite: Spec[Any, Throwable] = {
     suite("serviceSpawn")(
       test("Start Echo")(
@@ -120,7 +122,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             actor.self.pid,
             actor.id,
             payload,
-            Some(3.seconds),
+            Some(TIMEOUT),
             dummyCaller("serviceCommunication.Call")
           )
           result <- ctx.call(callMsg)
@@ -145,7 +147,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             actor.self.pid,
             actor.id,
             payload,
-            Some(3.seconds),
+            Some(TIMEOUT),
             dummyCaller("serviceCommunication.Call")
           )
           result  <- ctx.call(callMsg)
@@ -179,11 +181,11 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           knownAfterStart <- worker.exchange.isKnown(actor.id)
           ctx = actor.ctx.asInstanceOf[OTPProcessContext]
           _ <- ctx.exit(core.Codec.EAtom("kill it"))
-          _ <- ZIO.sleep(1.seconds)
+          _ <- ZIO.sleep(WAIT_DURATION)
           knownAfterKill <- worker.exchange
             .isKnown(actor.id)
             .repeatWhile(_ == true)
-            .timeout(2.seconds)
+            .timeout(TIMEOUT)
         } yield assertTrue(
           knownAfterStart == true,
           knownAfterKill.isDefined,
