@@ -12,7 +12,7 @@ package com.cloudant.ziose.core
 import com.cloudant.ziose.macros.checkEnv
 import zio.Console._
 import zio.stream.ZStream
-import zio.{Duration, Enqueue, Queue, Scope, Trace, UIO, ZIO}
+import zio.{Enqueue, Queue, Scope, Trace, UIO, ZIO}
 
 class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], val registry: Registry[K, M, E], val keyFn: M => K)
     extends Exchange.WithConstructor[K, M, E] {
@@ -57,24 +57,7 @@ class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], val registry
     }
   }
 
-  /*
-    Starts the exchange process in the scope of the caller
-   */
-
-  def run = {
-    val exchangeLoop = stream
-      // TODO make it configurable
-      .groupedWithin(3, Duration.fromMillis(50))
-      .runDrain
-      .forever
-    for {
-      _ <- (for {
-        _ <- ZIO.addFinalizer(shutdown)
-        _ <- exchangeLoop.fork
-      } yield ()).fork
-      _ <- ZIO.never
-    } yield ()
-  }
+  def run = stream.runDrain
 
   override def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
     queue.awaitShutdown

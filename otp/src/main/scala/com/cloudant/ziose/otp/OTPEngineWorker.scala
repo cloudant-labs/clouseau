@@ -62,6 +62,7 @@ object OTPEngineWorker {
       queue    <- Queue.bounded[MessageEnvelope](16) // TODO retrieve capacity from config
       exchange <- EngineWorkerExchange.makeWithQueue(queue)
       service = new OTPEngineWorker(engineId, workerId, Symbol(name), node, exchange)
+      _ <- exchange.run.fork
       _ <- service.acquire
       _ <- ZIO.succeed(ZIO.addFinalizer(service.release))
       _ <- ZIO.debug("Adding OTPEngineWorker to the environment")
