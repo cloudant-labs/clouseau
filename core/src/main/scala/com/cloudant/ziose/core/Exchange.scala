@@ -50,12 +50,9 @@ class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], val registry
   } yield ()
   def maybeForward(destination: Option[E], msg: M): UIO[Unit] = destination match {
     case Some(dst) => {
-      ZIO.debug(s"dst: $dst")
-      dst.offer(msg)
-      ZIO.succeed(())
+      dst.offer(msg).unit
     }
     case None => {
-      ZIO.debug(s"====()")
       ZIO.succeed(())
     }
   }
