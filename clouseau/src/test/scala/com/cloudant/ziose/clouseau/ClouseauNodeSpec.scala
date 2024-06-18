@@ -9,7 +9,7 @@ import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
 import zio.test.{Spec, assertTrue}
 
 import com.cloudant.ziose.core
-import com.cloudant.ziose.scalang.{Adapter, Pid, Service, ServiceContext, SNode}
+import com.cloudant.ziose.scalang.{Adapter, Pid, Service, ServiceContext, SNode, PidSend}
 import com.cloudant.ziose.otp.OTPProcessContext
 import zio.test.TestAspect
 
@@ -17,7 +17,7 @@ class PingPongService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[
   var calledArgs: List[Product2[String, Any]] = List()
   override def handleInfo(request: Any): Any = {
     request match {
-      case (Symbol("ping"), from: core.Codec.EPid, payload) => {
+      case (Symbol("ping"), from: Pid, payload) => {
         calledArgs = ("handleInfo", payload) :: calledArgs
         send(from, Symbol("pong"))
       }
@@ -190,6 +190,34 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           knownAfterStart == true,
           knownAfterKill.isDefined,
           knownAfterKill.get == false
+        )
+      ),
+      test("spawn closure")(
+        for {
+          node   <- Utils.clouseauNode
+          cfg    <- Utils.defaultConfig
+          worker <- ZIO.service[core.EngineWorker]
+          actor  <- PingPongService.startZIO(node, "processSpawn.Closure")
+          _ <- ZIO.succeed(node.spawn(process => {
+            // this is needed to enable `actor ! message` syntax
+            // this shouldn't be required in clouseau code because
+            // we only use this syntax from the service classes
+            // where it would be enabled automatically
+            implicit def pid2sendable(pid: core.PID): PidSend = new PidSend(pid, process)
+            val actorPID                                      = actor.self
+            actorPID ! core.Codec.ETuple(
+              core.Codec.EAtom("ping"),
+              process.self.pid,
+              core.Codec.EAtom("processSpawn.Closure")
+            )
+          }))
+          _       <- ZIO.succeed(()).delay(WAIT_DURATION)
+          history <- PingPongService.history(actor)
+        } yield assertTrue(
+          history.isDefined,
+          history.get == List(
+            ("handleInfo", Symbol("processSpawn.Closure"))
+          )
         )
       )
     ).provideLayer(
