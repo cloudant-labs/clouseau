@@ -55,7 +55,7 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
   type NodeName = Symbol
 
   /// We are not accessing this type directly in Clouseau
-  type Mailbox = Unit
+  type Mailbox = Process
 
   val adapter: A
   def self: Address

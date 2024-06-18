@@ -48,6 +48,19 @@ class ClouseauNode(implicit
 
   val workerId = worker.id
 
+  override def spawn(fun: scalang.Process => Unit): scalang.Pid = {
+    val result = Unsafe.unsafe { implicit unsafe =>
+      runtime.unsafe
+        .run(
+          for {
+            addressable <- worker.spawn(SimpleProcess.make(this, fun))
+          } yield addressable
+        )
+        .getOrThrowFiberFailure
+    }
+    result.self
+  }
+
   override def spawnService[TS <: Service[A] with Actor: Tag, A <: Product](
     builder: ActorBuilder.Sealed[TS]
   )(implicit adapter: Adapter[_, _]): core.Result[core.Node.Error, AddressableActor[TS, ProcessContext]] = {

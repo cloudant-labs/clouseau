@@ -17,7 +17,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   def self(implicit adapter: Adapter[_, _]) = Pid.toScala(adapter.self.pid)
 
   /// We are not accessing this type directly in Clouseau
-  type Mailbox = Unit
+  type Mailbox = Process
 
   /// spawnService is overridden by ClouseauNode
   def spawnService[TS <: Service[A] with core.Actor: Tag, A <: Product](builder: core.ActorBuilder.Sealed[TS])(implicit
@@ -36,7 +36,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   ): ZIO[core.EngineWorker with core.Node with core.ActorFactory, core.Node.Error, core.AddressableActor[_, _]] = ???
 
   def spawn[T <: Process](): Pid                = ???
-  def spawn(fun: Mailbox => Unit): Pid          = ???
+  def spawn(fun: Process => Unit): Pid          = ???
   def spawn[T <: Process](regName: String): Pid = ???
   def spawn[T <: Process](regName: Symbol): Pid = ???
 
@@ -83,12 +83,6 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
       _ <- adapter.cast(envelope)
     } yield ()
   }
-  /// This function is only used once in the test suite and it does nothing
-  /// as far as I can tell
-  /// TODO Ask Bob
-  def spawnMbox: Mailbox = ()
-  // def spawnMbox(regName : String) : Mailbox = ???
-  // def spawnMbox(regName : Symbol) : Mailbox = ???
   def call(to: Pid, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
     // assume the pid is on the same worker
     call(self, to, msg)
