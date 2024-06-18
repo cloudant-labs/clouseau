@@ -308,7 +308,7 @@ trait ServiceContext[A <: Product] {
 
 class PidSend(to: Pid, proc: Process) {
   def !(msg: Any): Unit = {
-    proc.sendZIO(to, msg)
+    proc.send(to, msg)
   }
 
   @checkEnv(System.getProperty("env"))
@@ -321,7 +321,7 @@ class PidSend(to: Pid, proc: Process) {
 
 class SymSend(to: Symbol, proc: Process) {
   def !(msg: Any): Unit = {
-    proc.sendZIO(to, msg)
+    proc.send(to, msg)
   }
 
   @checkEnv(System.getProperty("env"))
@@ -334,7 +334,7 @@ class SymSend(to: Symbol, proc: Process) {
 
 class DestSend(to: (Symbol, Symbol), from: Pid, proc: Process) {
   def !(msg: Any): Unit = {
-    proc.sendZIO(to, from, msg)
+    proc.send(to, from, msg)
   }
 
   @checkEnv(System.getProperty("env"))
