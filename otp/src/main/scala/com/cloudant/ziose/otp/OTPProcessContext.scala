@@ -72,7 +72,11 @@ class OTPProcessContext private (
     mailbox.cast(msg)
   }
   def send(msg: MessageEnvelope.Send): UIO[Unit] = {
-    mailbox.send(msg)
+    if (msg.to.isRemote || msg.to == id) {
+      mailbox.send(msg)
+    } else {
+      worker.offer(msg).unit
+    }
   }
   // I want to prevent direct calls to this function
   // Since it should only be used from OTPNode
