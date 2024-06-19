@@ -51,7 +51,11 @@ object MessageEnvelope {
     timeout: Option[Duration],
     workerId: Engine.WorkerId
   ) extends MessageEnvelope {
-    def getPayload = Some(payload)
+    def getPayload                = Some(payload)
+    val workerId: Engine.WorkerId = base.workerId
+    def toSend(f: Codec.ETerm => Codec.ETerm): MessageEnvelope = {
+      Call(from, to, tag, f(payload), timeout, base)
+    }
     def toResponse(payload: Option[Codec.ETerm]): Response = {
       payload match {
         case Some(p) =>

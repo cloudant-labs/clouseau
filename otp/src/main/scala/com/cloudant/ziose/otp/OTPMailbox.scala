@@ -315,7 +315,7 @@ class OTPMailbox private (
       Codec.ETuple(message.from.get, Codec.EListImproper(Codec.EAtom("alias"), ref)),
       message.payload
     )
-    MessageEnvelope.makeSend(message.to, msg, message.workerId)
+    message.toSend(_ => msg)
   }
 }
 
