@@ -5,13 +5,23 @@ package com.cloudant.ziose.core
 sealed trait Address {
   val workerId: Engine.WorkerId
   val workerNodeName: Symbol
+  val isLocal: Boolean
+  val isRemote: Boolean = !isLocal
 }
+
+case class PID(pid: Codec.EPid, workerId: Engine.WorkerId, workerNodeName: Symbol) extends Address {
+  lazy val isLocal = pid.node == workerNodeName
+}
+case class Name(name: Codec.EAtom, workerId: Engine.WorkerId, workerNodeName: Symbol) extends Address {
+  val isLocal = true
+}
+case class NameOnNode private (name: Codec.EAtom, node: Codec.EAtom, workerId: Engine.WorkerId, workerNodeName: Symbol)
+    extends Address {
+  lazy val isLocal = node.atom == workerNodeName
+}
+
 // TODO: Remove capitalization when we get rid of ActorSystem.scala
 // TODO: Make these definitions private
-case class PID(pid: Codec.EPid, workerId: Engine.WorkerId, workerNodeName: Symbol)    extends Address
-case class Name(name: Codec.EAtom, workerId: Engine.WorkerId, workerNodeName: Symbol) extends Address
-case class NameOnNode private (name: Codec.EAtom, node: Codec.EAtom, workerId: Engine.WorkerId, workerNodeName: Symbol)
-    extends Address
 
 object Address {
   def fromPid(pid: Codec.EPid, workerId: Engine.WorkerId, workerNodeName: Symbol) = {
