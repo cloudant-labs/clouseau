@@ -228,10 +228,9 @@ class OTPMailbox private (
    * [ ] - monitor
    * [ ] - demonitor
    */
-  def exit(reason: Codec.ETerm): UIO[Unit] = {
-    // println(s"OTPMailbox.exit($reason), id = $id")
+  def exit(message: MessageEnvelope.Exit): UIO[Unit] = {
     for {
-      _ <- offer(MessageEnvelope.Exit(None, id, reason, 0))
+      _ <- offer(message)
     } yield ()
   }
 

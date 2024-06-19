@@ -21,7 +21,7 @@ import zio.stream.ZStream
 trait Mailbox extends EnqueueWithId[Address, MessageEnvelope] {
   def stream: ZStream[Any, Throwable, MessageEnvelope]
   def start(scope: Scope): ZIO[Any with Scope, Nothing, Unit]
-  def exit(reason: Codec.ETerm): ZIO[Any with Scope, Nothing, Unit]
+  def exit(msg: MessageEnvelope.Exit): ZIO[Any with Scope, Nothing, Unit]
   def unlink(to: Codec.EPid): ZIO[Any with Scope, Nothing, Boolean]
   def link(to: Codec.EPid): ZIO[Any with Scope, Nothing, Boolean]
   def monitor(monitored: Address): Codec.ERef

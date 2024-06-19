@@ -53,7 +53,9 @@ class OTPProcessContext private (
     mailbox.size
   }
 
-  def exit(reason: Codec.ETerm): UIO[Unit]    = mailbox.exit(reason)
+  def exit(reason: Codec.ETerm): UIO[Unit] = {
+    mailbox.exit(MessageEnvelope.Exit(None, id, reason, mailbox.id))
+  }
   def unlink(to: Codec.EPid)                  = mailbox.unlink(to)
   def link(to: Codec.EPid)                    = mailbox.link(to)
   def monitor(monitored: Address): Codec.ERef = mailbox.monitor(monitored)
