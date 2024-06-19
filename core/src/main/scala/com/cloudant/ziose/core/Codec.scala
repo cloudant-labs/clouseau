@@ -48,15 +48,16 @@ object Codec {
     def unapply(x: ERef): Option[(String, Array[Int], Int)] = Some((x.obj.node, x.obj.ids, x.obj.creation))
   }
 
-  case class EPid(node: String, id: Int, serial: Int, creation: Int) extends ETerm {
-    def this(obj: OtpErlangPid) = this(obj.node, obj.id, obj.serial, obj.creation)
-    override def toOtpErlangObject: OtpErlangPid = new OtpErlangPid(node, id, serial, creation)
+  case class EPid(node: Symbol, id: Int, serial: Int, creation: Int) extends ETerm {
+    def this(obj: OtpErlangPid) = this(Symbol(obj.node), obj.id, obj.serial, obj.creation)
+    override def toOtpErlangObject: OtpErlangPid = new OtpErlangPid(node.name, id, serial, creation)
     override def toString: String                = s"<$id.$serial.$creation>"
   }
 
   object EPid {
-    def apply(node: String, id: Int, serial: Int, creation: Int) = new EPid(node, id, serial, creation)
-    def apply(obj: OtpErlangPid): EPid                           = new EPid(obj.node, obj.id, obj.serial, obj.creation)
+    def apply(node: Symbol, id: Int, serial: Int, creation: Int) = new EPid(node, id, serial, creation)
+    def apply(node: String, id: Int, serial: Int, creation: Int) = new EPid(Symbol(node), id, serial, creation)
+    def apply(obj: OtpErlangPid): EPid = new EPid(Symbol(obj.node), obj.id, obj.serial, obj.creation)
   }
 
   class EAtom(val atom: Symbol) extends ETerm {

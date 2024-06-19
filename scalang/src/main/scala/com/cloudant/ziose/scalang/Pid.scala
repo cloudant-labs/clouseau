@@ -49,6 +49,6 @@ object Pid extends ToScala[EPid] {
   implicit def address2pid(address: core.PID): Pid = Pid.toScala(address.pid)
   implicit def e2pid(pid: EPid): Pid               = Pid.toScala(pid)
   override def toScala(pid: EPid): Pid = {
-    Pid(Symbol(pid.node), pid.id, pid.serial, pid.creation)
+    Pid(pid.node, pid.id, pid.serial, pid.creation)
   }
 }
