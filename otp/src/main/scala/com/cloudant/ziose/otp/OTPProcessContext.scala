@@ -26,7 +26,7 @@ class OTPProcessContext private (
   private val monitorers: Set[Product2[Codec.EPid, Codec.ERef]]
 ) extends ProcessContext {
   val id   = mailbox.id
-  val self = PID(new Codec.EPid(mailbox.externalMailbox.self), workerId)
+  val self = PID(new Codec.EPid(mailbox.externalMailbox.self), workerId, nodeName)
 
   override def toString: String = name match {
     case Some(n) => s"OTPProcessContext(${n}.${workerId}.${engineId}@${nodeName})"

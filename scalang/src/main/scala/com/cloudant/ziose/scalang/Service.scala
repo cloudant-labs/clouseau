@@ -79,19 +79,19 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
   }
 
   def sendZIO(pid: Pid, msg: Any) = {
-    val address  = Address.fromPid(pid.fromScala, self.workerId)
-    val envelope = MessageEnvelope.makeSend(address, adapter.fromScala(msg), self.workerId)
+    val address  = Address.fromPid(pid.fromScala, self.workerId, self.workerNodeName)
+    val envelope = MessageEnvelope.makeSend(address, adapter.fromScala(msg), self)
     adapter.send(envelope)
   }
   def sendZIO(name: RegName, msg: Any) = {
-    val address  = Address.fromName(Codec.EAtom(name), self.workerId)
-    val envelope = MessageEnvelope.makeSend(address, adapter.fromScala(msg), self.workerId)
+    val address  = Address.fromName(Codec.EAtom(name), self.workerId, self.workerNodeName)
+    val envelope = MessageEnvelope.makeSend(address, adapter.fromScala(msg), self)
     adapter.send(envelope)
   }
   def sendZIO(dest: (RegName, NodeName), from: Pid, msg: Any) = {
     val (name, node) = dest
-    val address      = Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(node), self.workerId)
-    val envelope     = MessageEnvelope.makeRegSend(from.fromScala, address, adapter.fromScala(msg), self.workerId)
+    val address      = Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(node), self.workerId, self.workerNodeName)
+    val envelope     = MessageEnvelope.makeRegSend(from.fromScala, address, adapter.fromScala(msg), self)
     adapter.send(envelope)
   }
 
@@ -121,10 +121,12 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
 
   def monitor(monitored: Any): Reference = {
     val ref = monitored match {
-      case pid: Pid     => adapter.monitor(Address.fromPid(pid.fromScala, self.workerId))
-      case atom: Symbol => adapter.monitor(Address.fromName(Codec.EAtom(atom), self.workerId))
+      case pid: Pid     => adapter.monitor(Address.fromPid(pid.fromScala, self.workerId, self.workerNodeName))
+      case atom: Symbol => adapter.monitor(Address.fromName(Codec.EAtom(atom), self.workerId, self.workerNodeName))
       case (name: RegName, nodeName: NodeName) =>
-        adapter.monitor(Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), self.workerId))
+        adapter.monitor(
+          Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), self.workerId, self.workerNodeName)
+        )
     }
     Reference.toScala(ref)
   }

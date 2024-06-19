@@ -41,26 +41,27 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   def spawn[T <: Process](regName: Symbol): Pid = ???
 
   def cast(to: Pid, msg: Any)(implicit adapter: Adapter[_, _]) = {
-    val address = Address.fromPid(to.fromScala, adapter.self.workerId)
+    val pid     = to.fromScala
+    val address = Address.fromPid(pid, adapter.workerId, adapter.workerNodeName)
     val envelope = MessageEnvelope.makeCast(
       Codec.EAtom("$gen_cast"),
       adapter.self.pid,
       address,
       adapter.fromScala(msg),
-      adapter.self.workerId
+      adapter.self
     )
     for {
       _ <- adapter.cast(envelope)
     } yield ()
   }
   def cast(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]) = {
-    val address = Address.fromName(Codec.EAtom(to), adapter.self.workerId)
+    val address = Address.fromName(Codec.EAtom(to), adapter.workerId, adapter.workerNodeName)
     val envelope = MessageEnvelope.makeCast(
       Codec.EAtom("$gen_cast"),
       adapter.self.pid,
       address,
       adapter.fromScala(msg),
-      adapter.self.workerId
+      adapter.self
     )
     for {
       _ <- adapter.cast(envelope)
@@ -68,13 +69,15 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   }
   def cast(to: (RegName, NodeName), msg: Any)(implicit adapter: Adapter[_, _]) = {
     val (name, nodeName) = to
-    val address          = Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), adapter.self.workerId)
+    val address = {
+      Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), adapter.workerId, adapter.workerNodeName)
+    }
     val envelope = MessageEnvelope.makeCast(
       Codec.EAtom("$gen_cast"),
       adapter.self.pid,
       address,
       adapter.fromScala(msg),
-      adapter.self.workerId
+      adapter.self
     )
     for {
       _ <- adapter.cast(envelope)
@@ -96,14 +99,14 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   }
   def call(from: Pid, to: Pid, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
     // assume the pid is on the same worker
-    val address = Address.fromPid(to.fromScala, adapter.self.workerId)
+    val address = Address.fromPid(to.fromScala, adapter.workerId, adapter.workerNodeName)
     val envelope = MessageEnvelope.makeCall(
       Codec.EAtom("$gen_call"),
       from.fromScala,
       address,
       adapter.fromScala(msg),
       None,
-      adapter.self.workerId
+      adapter.self
     )
     for {
       result <- adapter.call(envelope)
@@ -117,7 +120,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   }
   def call(from: Pid, to: Pid, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
     // assume the pid is on the same worker
-    val address  = Address.fromPid(to.fromScala, adapter.self.workerId)
+    val address  = Address.fromPid(to.fromScala, adapter.workerId, adapter.workerNodeName)
     val duration = Duration(timeout, TimeUnit.MILLISECONDS)
     val envelope = MessageEnvelope.makeCall(
       Codec.EAtom("$gen_call"),
@@ -125,7 +128,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
       address,
       adapter.fromScala(msg),
       Some(duration),
-      adapter.self.workerId
+      adapter.self
     )
     for {
       result <- adapter.call(envelope)
@@ -147,14 +150,14 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   }
   def call(from: Pid, to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
     // assume the pid is on the same worker
-    val address = Address.fromName(Codec.EAtom(to), adapter.self.workerId)
+    val address = Address.fromName(Codec.EAtom(to), adapter.workerId, adapter.workerNodeName)
     val envelope = MessageEnvelope.makeCall(
       Codec.EAtom("$gen_call"),
       from.fromScala,
       address,
       adapter.fromScala(msg),
       None,
-      adapter.self.workerId
+      adapter.self
     )
     for {
       result <- adapter.call(envelope)
@@ -168,7 +171,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   }
   def call(from: Pid, to: Symbol, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
     // assume the pid is on the same worker
-    val address  = Address.fromName(Codec.EAtom(to), adapter.self.workerId)
+    val address  = Address.fromName(Codec.EAtom(to), adapter.workerId, adapter.workerNodeName)
     val duration = Duration(timeout, TimeUnit.MILLISECONDS)
     val envelope = MessageEnvelope.makeCall(
       Codec.EAtom("$gen_call"),
@@ -176,7 +179,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
       address,
       adapter.fromScala(msg),
       Some(duration),
-      adapter.self.workerId
+      adapter.self
     )
     for {
       result <- adapter.call(envelope)
@@ -196,14 +199,16 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   }
   def call(from: Pid, to: (RegName, NodeName), msg: Any)(implicit adapter: Adapter[_, _]): Any = {
     val (name, nodeName) = to
-    val address          = Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), adapter.self.workerId)
+    val address = {
+      Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), adapter.workerId, adapter.workerNodeName)
+    }
     val envelope = MessageEnvelope.makeCall(
       Codec.EAtom("$gen_call"),
       adapter.self.pid,
       address,
       adapter.fromScala(msg),
       None,
-      adapter.self.workerId
+      adapter.self
     )
     for {
       result <- adapter.call(envelope)
@@ -217,15 +222,17 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   }
   def call(from: Pid, to: (RegName, NodeName), msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
     val (name, nodeName) = to
-    val address          = Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), adapter.self.workerId)
-    val duration         = Duration(timeout, TimeUnit.MILLISECONDS)
+    val address = {
+      Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), adapter.workerId, adapter.workerNodeName)
+    }
+    val duration = Duration(timeout, TimeUnit.MILLISECONDS)
     val envelope = MessageEnvelope.makeCall(
       Codec.EAtom("$gen_call"),
       adapter.self.pid,
       address,
       adapter.fromScala(msg),
       Some(duration),
-      adapter.self.workerId
+      adapter.self
     )
     for {
       result <- adapter.call(envelope)

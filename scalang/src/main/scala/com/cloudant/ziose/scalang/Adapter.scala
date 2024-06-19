@@ -3,13 +3,16 @@ package com.cloudant.ziose.scalang
 import com.cloudant.ziose.core.{Address, Codec, MessageEnvelope, PID, ProcessContext}
 import com.cloudant.ziose.macros.checkEnv
 import zio.Runtime
+import com.cloudant.ziose.core.Engine
 
 case object InvalidAdapter extends Exception
 
 class Adapter[C <: ProcessContext, F <: TypeFactory] private (
   process_ctx: Option[C],
   snode: Option[SNode],
-  type_factory: Option[F]
+  type_factory: Option[F],
+  val workerId: Engine.WorkerId,
+  val workerNodeName: Symbol
 ) {
   def ctx: C      = process_ctx.getOrElse(throw InvalidAdapter)
   def node: SNode = snode.getOrElse(throw InvalidAdapter)
@@ -79,9 +82,11 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
 
 object Adapter {
   def apply[C <: ProcessContext, F <: TypeFactory](ctx: C, node: SNode, factory: F): Adapter[C, F] = {
-    new Adapter(Some(ctx), Some(node), Some(factory))
+    new Adapter(Some(ctx), Some(node), Some(factory), ctx.id.workerId, ctx.id.workerNodeName)
   }
 
-  val mockAdapter: Adapter[_, _]                                          = new Adapter(None, None, None)
-  def mockAdapterWithFactory[F <: TypeFactory](factory: F): Adapter[_, _] = new Adapter(None, None, Some(factory))
+  val mockAdapter: Adapter[_, _] = new Adapter(None, None, None, 1, Symbol("mock-node"))
+  def mockAdapterWithFactory[F <: TypeFactory](factory: F): Adapter[_, _] = {
+    new Adapter(None, None, Some(factory), 1, Symbol("mock-node"))
+  }
 }

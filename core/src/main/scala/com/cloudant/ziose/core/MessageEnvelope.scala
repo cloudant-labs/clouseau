@@ -14,6 +14,7 @@ sealed trait MessageEnvelope extends WithWorkerId[Engine.WorkerId] {
   val from: Option[Codec.EPid]
   val to: Address
   val workerId: Engine.WorkerId
+  val workerNodeName: Symbol
   def getPayload: Option[Codec.ETerm]
 }
 
@@ -27,20 +28,28 @@ TODO: Implement builder pattern
 object MessageEnvelope {
   // TODO we need a builder pattern for these
 
-  case class Link(from: Option[Codec.EPid], to: Address, workerId: Engine.WorkerId) extends MessageEnvelope {
-    def getPayload = None
+  case class Link(from: Option[Codec.EPid], to: Address, private val base: Address) extends MessageEnvelope {
+    val workerId: Engine.WorkerId = base.workerId
+    val workerNodeName: Symbol    = base.workerNodeName
+    def getPayload                = None
   }
-  case class Send(from: Option[Codec.EPid], to: Address, payload: Codec.ETerm, workerId: Engine.WorkerId)
+  case class Send(from: Option[Codec.EPid], to: Address, payload: Codec.ETerm, private val base: Address)
       extends MessageEnvelope {
-    def getPayload = Some(payload)
+    val workerId: Engine.WorkerId = base.workerId
+    val workerNodeName: Symbol    = base.workerNodeName
+    def getPayload                = Some(payload)
   }
-  case class Exit(from: Option[Codec.EPid], to: Address, reason: Codec.ETerm, workerId: Engine.WorkerId)
+  case class Exit(from: Option[Codec.EPid], to: Address, reason: Codec.ETerm, private val base: Address)
       extends MessageEnvelope {
-    def getPayload = Some(reason)
+    val workerId: Engine.WorkerId = base.workerId
+    val workerNodeName: Symbol    = base.workerNodeName
+    def getPayload                = Some(reason)
   }
-  case class Unlink(from: Option[Codec.EPid], to: Address, id: Long, workerId: Engine.WorkerId)
+  case class Unlink(from: Option[Codec.EPid], to: Address, id: Long, private val base: Address)
       extends MessageEnvelope {
-    def getPayload = None
+    val workerId: Engine.WorkerId = base.workerId
+    val workerNodeName: Symbol    = base.workerNodeName
+    def getPayload                = None
   }
 
   case class Call(
@@ -49,10 +58,11 @@ object MessageEnvelope {
     tag: Codec.EAtom,
     payload: Codec.ETerm,
     timeout: Option[Duration],
-    workerId: Engine.WorkerId
+    private val base: Address
   ) extends MessageEnvelope {
     def getPayload                = Some(payload)
     val workerId: Engine.WorkerId = base.workerId
+    val workerNodeName: Symbol    = base.workerNodeName
     def toSend(f: Codec.ETerm => Codec.ETerm): MessageEnvelope = {
       Call(from, to, tag, f(payload), timeout, base)
     }
@@ -65,7 +75,7 @@ object MessageEnvelope {
             tag = tag,
             payload = Some(p),
             reason = None,
-            workerId = workerId
+            base = base
           )
         case None if timeout.isDefined =>
           Response(
@@ -74,7 +84,7 @@ object MessageEnvelope {
             tag = tag,
             payload = None,
             reason = Some(Node.Error.Timeout(timeout.get)),
-            workerId = workerId
+            base = base
           )
         case None =>
           Response(
@@ -83,7 +93,7 @@ object MessageEnvelope {
             tag = tag,
             payload = None,
             reason = Some(Node.Error.Nothing()),
-            workerId = workerId
+            base = base
           )
       }
     }
@@ -93,43 +103,51 @@ object MessageEnvelope {
     to: Address,
     tag: Codec.EAtom,
     payload: Codec.ETerm,
-    workerId: Engine.WorkerId
+    private val base: Address
   ) extends MessageEnvelope {
-    def getPayload = Some(payload)
+    def getPayload                = Some(payload)
+    val workerId: Engine.WorkerId = base.workerId
+    val workerNodeName: Symbol    = base.workerNodeName
   }
   case class Response(
     from: Option[Codec.EPid],
     to: Address,
     tag: Codec.EAtom,
     payload: Option[Codec.ETerm],
-    workerId: Engine.WorkerId,
+    private val base: Address,
     reason: Option[_ <: Node.Error]
   ) extends MessageEnvelope {
-    def getPayload = payload
-    def isError    = reason.isDefined
-    def isSuccess  = reason.isEmpty
-    def getCaller  = from.get
+    def getPayload                = payload
+    val workerId: Engine.WorkerId = base.workerId
+    val workerNodeName: Symbol    = base.workerNodeName
+    def isError                   = reason.isDefined
+    def isSuccess                 = reason.isEmpty
+    def getCaller                 = from.get
     // when makeCall is used the Address is a PID
     def getCallee = to.asInstanceOf[PID].pid
   }
 
-  case class Monitor(from: Option[Codec.EPid], to: Address, ref: Codec.ERef, workerId: Engine.WorkerId)
+  case class Monitor(from: Option[Codec.EPid], to: Address, ref: Codec.ERef, private val base: Address)
       extends MessageEnvelope {
-    def getPayload = None
+    def getPayload                = None
+    val workerId: Engine.WorkerId = base.workerId
+    val workerNodeName: Symbol    = base.workerNodeName
   }
 
-  case class Demonitor(from: Option[Codec.EPid], to: Address, ref: Codec.ERef, workerId: Engine.WorkerId)
+  case class Demonitor(from: Option[Codec.EPid], to: Address, ref: Codec.ERef, private val base: Address)
       extends MessageEnvelope {
-    def getPayload = None
+    def getPayload                = None
+    val workerId: Engine.WorkerId = base.workerId
+    val workerNodeName: Symbol    = base.workerNodeName
   }
 
   // For debugging and testing only
-  def makeSend(recipient: Address, msg: Codec.ETerm, workerId: Engine.WorkerId) = {
-    Send(None, recipient, msg, workerId)
+  def makeSend(recipient: Address, msg: Codec.ETerm, address: Address) = {
+    Send(None, recipient, msg, address)
   }
 
-  def makeRegSend(from: Codec.EPid, recipient: Address, msg: Codec.ETerm, workerId: Engine.WorkerId) = {
-    Send(Some(from), recipient, msg, workerId)
+  def makeRegSend(from: Codec.EPid, recipient: Address, msg: Codec.ETerm, address: Address) = {
+    Send(Some(from), recipient, msg, address)
   }
 
   def makeCall(
@@ -138,32 +156,40 @@ object MessageEnvelope {
     recipient: Address,
     msg: Codec.ETerm,
     timeout: Option[Duration],
-    workerId: Engine.WorkerId
+    address: Address
   ) = {
-    Call(Some(from), recipient, tag, msg, timeout, workerId)
+    Call(Some(from), recipient, tag, msg, timeout, address)
   }
 
-  def makeCast(tag: Codec.EAtom, from: Codec.EPid, recipient: Address, msg: Codec.ETerm, workerId: Engine.WorkerId) = {
-    Cast(Some(from), recipient, tag, msg, workerId)
+  def makeCast(tag: Codec.EAtom, from: Codec.EPid, recipient: Address, msg: Codec.ETerm, address: Address) = {
+    Cast(Some(from), recipient, tag, msg, address)
   }
 
-  def fromOtpMsg(msg: OtpMsg, workerId: Engine.WorkerId): MessageEnvelope = {
+  def fromOtpMsg(msg: OtpMsg, address: Address): MessageEnvelope = {
     val tag = msg.`type`()
     tag match {
-      case OtpMsg.linkTag => Link(Some(getSenderPid(msg)), getRecipient(msg, workerId), workerId)
-      case OtpMsg.sendTag => Send(None, getRecipient(msg, workerId), getMsg(msg), workerId)
-      case OtpMsg.exitTag => Exit(Some(getSenderPid(msg)), getRecipient(msg, workerId), getMsg(msg), workerId)
+      case OtpMsg.linkTag => Link(Some(getSenderPid(msg)), getRecipient(msg, address), address)
+      case OtpMsg.sendTag => Send(None, getRecipient(msg, address), getMsg(msg), address)
+      case OtpMsg.exitTag =>
+        Exit(Some(getSenderPid(msg)), getRecipient(msg, address), getMsg(msg), address)
       // The unlinkId is not exposed. However it should be handled by OtpMbox.deliver
       // case OtpMsg.unlinkTag => Unlink(Some(getSenderPid(msg)), getRecipientPid(msg), ???)
-      case OtpMsg.regSendTag   => Send(Some(getSenderPid(msg)), getRecipient(msg, workerId), getMsg(msg), workerId)
-      case OtpMsg.exit2Tag     => Exit(Some(getSenderPid(msg)), getRecipient(msg, workerId), getMsg(msg), workerId)
-      case OtpMsg.monitorTag   => Monitor(Some(getSenderPid(msg)), getRecipient(msg, workerId), getRef(msg), workerId)
-      case OtpMsg.demonitorTag => Demonitor(Some(getSenderPid(msg)), getRecipient(msg, workerId), getRef(msg), workerId)
+      case OtpMsg.regSendTag =>
+        Send(Some(getSenderPid(msg)), getRecipient(msg, address), getMsg(msg), address)
+      case OtpMsg.exit2Tag =>
+        Exit(Some(getSenderPid(msg)), getRecipient(msg, address), getMsg(msg), address)
+      case OtpMsg.monitorTag =>
+        Monitor(Some(getSenderPid(msg)), getRecipient(msg, address), getRef(msg), address)
+      case OtpMsg.demonitorTag =>
+        Demonitor(Some(getSenderPid(msg)), getRecipient(msg, address), getRef(msg), address)
     }
   }
 
-  def fromOtpException(exception: OtpErlangException, pid: Codec.EPid, workerId: Engine.WorkerId): MessageEnvelope = {
-    val address = Address.fromPid(pid, workerId)
+  def fromOtpException(
+    exception: OtpErlangException,
+    pid: Codec.EPid,
+    address: Address
+  ): MessageEnvelope = {
     val (from, reason) = exception match {
       case exit: OtpErlangExit =>
         (Some(Codec.fromErlang(exit.pid).asInstanceOf[Codec.EPid]), Codec.fromErlang(exit.reason))
@@ -172,7 +198,7 @@ object MessageEnvelope {
       case range: OtpErlangRangeException =>
         (None, Codec.EAtom("term_range_error"))
     }
-    MessageEnvelope.Exit(from, address, reason, 0)
+    MessageEnvelope.Exit(from, Address.fromPid(pid, address.workerId, address.workerNodeName), reason, address)
   }
 
   private def getSenderPid(msg: OtpMsg): Codec.EPid = {
@@ -187,19 +213,19 @@ object MessageEnvelope {
     Codec.fromErlang(msg.getRef()).asInstanceOf[Codec.ERef]
   }
 
-  private def makePidAddress(pid: OtpErlangPid, workerId: Engine.WorkerId): Address = {
+  private def makePidAddress(pid: OtpErlangPid, address: Address): Address = {
     val term = Codec.fromErlang(pid).asInstanceOf[Codec.EPid]
-    PID(term, workerId).asInstanceOf[Address]
+    PID(term, address.workerId, address.workerNodeName).asInstanceOf[Address]
   }
 
-  private def makeNameAddress(name: Symbol, workerId: Engine.WorkerId): Address = {
-    Name(Codec.EAtom(name), workerId).asInstanceOf[Address]
+  private def makeNameAddress(name: Symbol, address: Address): Address = {
+    Name(Codec.EAtom(name), address.workerId, address.workerNodeName).asInstanceOf[Address]
   }
 
-  private def getRecipient(msg: OtpMsg, workerId: Engine.WorkerId): Address = {
+  private def getRecipient(msg: OtpMsg, address: Address): Address = {
     msg.getRecipientName() match {
-      case null => makePidAddress(msg.getRecipientPid(), workerId)
-      case name => makeNameAddress(Symbol(name), workerId)
+      case null => makePidAddress(msg.getRecipientPid(), address)
+      case name => makeNameAddress(Symbol(name), address)
     }
   }
 

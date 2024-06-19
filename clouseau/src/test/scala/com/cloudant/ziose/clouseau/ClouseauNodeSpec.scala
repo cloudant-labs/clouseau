@@ -74,7 +74,7 @@ private object PingPongService extends core.ActorConstructor[PingPongService] {
       actor.id,
       core.Codec.EAtom("collect"),
       Some(3.seconds),
-      actor.id.workerId
+      actor.id
     )
     for {
       historyResult <- actor.ctx.asInstanceOf[OTPProcessContext].call(historyMessage)
@@ -90,6 +90,7 @@ private object PingPongService extends core.ActorConstructor[PingPongService] {
 
 @RunWith(classOf[ZTestJUnitRunner])
 class ClouseauNodeSpec extends JUnitRunnableSpec {
+  def dummyCaller(testName: String) = core.Name(core.Codec.EAtom("test"), 1, Symbol(testName))
   val serviceSpawnSuite: Spec[Any, Throwable] = {
     suite("serviceSpawn")(
       test("Start Echo")(
@@ -120,7 +121,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             actor.id,
             payload,
             Some(3.seconds),
-            1
+            dummyCaller("serviceCommunication.Call")
           )
           result <- ctx.call(callMsg)
         } yield assertTrue(
@@ -145,7 +146,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             actor.id,
             payload,
             Some(3.seconds),
-            node.workerId
+            dummyCaller("serviceCommunication.Call")
           )
           result  <- ctx.call(callMsg)
           history <- PingPongService.history(actor)
