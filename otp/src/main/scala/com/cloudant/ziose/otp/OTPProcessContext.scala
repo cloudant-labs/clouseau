@@ -21,7 +21,7 @@ class OTPProcessContext private (
   val mailbox: OTPMailbox,
   val engineId: Engine.EngineId,
   val workerId: Engine.WorkerId,
-  private val nodeName: String,
+  private val nodeName: Symbol,
   private val mbox: OtpMbox,
   private val monitorers: Set[Product2[Codec.EPid, Codec.ERef]]
 ) extends ProcessContext {
@@ -126,7 +126,7 @@ object OTPProcessContext {
     capacity: Option[Int] = None,
     workerId: Option[Engine.WorkerId] = None,
     engineId: Option[Engine.EngineId] = None,
-    nodeName: Option[String] = None
+    nodeName: Option[Symbol] = None
   ) {
     def withOtpMbox(mbox: OtpMbox): Builder[S with State.MessageBox] = {
       this.copy(otpMbox = Some(mbox))
@@ -140,7 +140,7 @@ object OTPProcessContext {
     def withWorkerId(workerId: Engine.WorkerId): Builder[S with State.WorkerId] = {
       this.copy(workerId = Some(workerId))
     }
-    def withNodeName(nodeName: String): Builder[S with State.NodeName] = {
+    def withNodeName(nodeName: Symbol): Builder[S with State.NodeName] = {
       this.copy(nodeName = Some(nodeName))
     }
     def withBuilder[A <: Actor](builder: ActorBuilder.Sealed[A]): Builder[S with State.Builder] = {
@@ -158,6 +158,11 @@ object OTPProcessContext {
     def getWorkerId()(implicit ev: S =:= State.Seeded with State.Ready): Engine.WorkerId = {
       // it is safe to use .get since we require State.Seeded
       this.workerId.get
+    }
+
+    def getNodeName()(implicit ev: S =:= State.Ready): Symbol = {
+      // it is safe to use .get since we require State.Ready
+      this.nodeName.get
     }
 
     def getCapacity(): Option[Int] = capacity
@@ -183,7 +188,7 @@ object OTPProcessContext {
     def apply[S <: State]() = new Builder[State.Initial]()
   }
 
-  def builder(name: String, engineId: Engine.EngineId, workerId: Engine.WorkerId): Builder[State.Seeded] = {
+  def builder(name: Symbol, engineId: Engine.EngineId, workerId: Engine.WorkerId): Builder[State.Seeded] = {
     Builder()
       .withNodeName(name)
       .withEngineId(engineId)

@@ -40,7 +40,7 @@ object OTPNode {
     for {
       _       <- ZIO.debug("Constructing OTPNode")
       factory <- ZIO.service[ActorFactory]
-      ctx = OTPProcessContext.builder(name, engineId, workerId)
+      ctx = OTPProcessContext.builder(Symbol(name), engineId, workerId)
       queue <- Queue.unbounded[Envelope[Command[_], _, _]].withFinalizer(_.shutdown)
       accessKey = AccessKey.create()
       cookie    = cfg.cookieVal
