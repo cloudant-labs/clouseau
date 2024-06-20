@@ -76,15 +76,13 @@ private object PingPongService extends core.ActorConstructor[PingPongService] {
       Some(3.seconds),
       actor.id
     )
-    for {
-      historyResult <- actor.ctx.asInstanceOf[OTPProcessContext].call(historyMessage)
-    } yield {
-      if (historyResult.isSuccess) {
-        Some(core.Codec.toScala(historyResult.payload.get))
-      } else {
-        None
-      }
-    }
+    actor.ctx
+      .asInstanceOf[OTPProcessContext]
+      .call(historyMessage)
+      .delay(100.millis)
+      .repeatUntil(_.isSuccess)
+      .map(result => core.Codec.toScala(result.payload.get))
+      .timeout(3.seconds)
   }
 }
 
@@ -211,7 +209,6 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               core.Codec.EAtom("processSpawn.Closure")
             )
           }))
-          _       <- ZIO.succeed(()).delay(WAIT_DURATION)
           history <- PingPongService.history(actor)
         } yield assertTrue(
           history.isDefined,
