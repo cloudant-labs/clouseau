@@ -289,7 +289,7 @@ version:
 	@echo $(PROJECT_VERSION)
 
 .PHONY: zeunit
-# target: zeunit - Run integration tests, eg: `make zeunit [cookie=cookie]`
+# target: zeunit - Run integration tests with ~/.erlang.cookie: `make zeunit`; otherwise `make zeunit cookie=<cookie>`
 zeunit: jar
 	@cli start $(node_name) "java -jar clouseau/target/scala-$(SCALA_SHORT_VERSION)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)"

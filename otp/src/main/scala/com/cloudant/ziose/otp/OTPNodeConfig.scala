@@ -12,7 +12,7 @@ final case class OTPNodeConfig(name: String, domain: String, cookie: Option[Stri
     s"${getClass.getSimpleName}",
     s"name=$name",
     s"domain=$domain",
-    s"cookie=$cookie"
+    s"cookie=****"
   )
 }
 

@@ -46,7 +46,7 @@ object OTPNode {
       accessKey = AccessKey.create()
       cookie    = cfg.cookieVal
       service <- for {
-        _           <- ZIO.debug(s"Creating OtpNode($name, $cookie)")
+        _           <- ZIO.debug(s"Creating OtpNode($name, ****)")
         nodeProcess <- NodeProcess.make(name, cookie, queue, accessKey)
         _           <- nodeProcess.stream.runDrain.fork
         scope       <- ZIO.scope
