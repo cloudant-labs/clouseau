@@ -13,7 +13,7 @@ import com.cloudant.ziose.core.Name
 import com.cloudant.ziose.core.NameOnNode
 import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.macros.checkEnv
-import zio.{Queue, Scope, Trace, UIO, ZIO}
+import zio.{Queue, Scope, Trace, UIO, ZIO, Unsafe, Runtime}
 import zio.stream.ZStream
 
 /*
@@ -148,9 +148,9 @@ class OTPMailbox private (
   private val compositeMailbox: Queue[MessageEnvelope],
   private val internalMailbox: Queue[MessageEnvelope],
   private val externalMailbox: Queue[MessageEnvelope],
-  private val remoteStream: ZStream[Any, Throwable, MessageEnvelope],
   private val s: ZStream[Any, Throwable, MessageEnvelope]
-) extends Mailbox with OtpMboxListener {
+) extends Mailbox
+    with OtpMboxListener {
 
   private val inProgressCalls: HashMap[Codec.ERef, Codec.EPid] = HashMap()
   private val callResults: HashMap[Codec.ERef, Codec.ETerm]    = HashMap()
@@ -301,11 +301,11 @@ class OTPMailbox private (
     try {
       // TODO: Ignore "net_kernel" events
       val message = mbox.receiveMsg
-      MessageEnvelope.fromOtpMsg(message, workerId)
+      MessageEnvelope.fromOtpMsg(message, id)
     } catch {
       case otpException: OtpErlangException => {
         val pid = Codec.fromErlang(mbox.self).asInstanceOf[Codec.EPid]
-        MessageEnvelope.fromOtpException(otpException, pid, workerId)
+        MessageEnvelope.fromOtpException(otpException, pid, id)
       }
     }
   }
@@ -323,9 +323,9 @@ class OTPMailbox private (
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"id=$id",
+    s"mbox=$mbox",
     s"compositeMailbox=$compositeMailbox",
     s"internalMailbox=$internalMailbox",
-    s"remoteStream=$remoteStream",
     s"externalMailbox=$externalMailbox",
     s"stream=$stream",
     s"compositeMailbox.capacity=$capacity",
@@ -345,16 +345,19 @@ class OTPMailbox private (
 object OTPMailbox {
   def make(ctx_builder: OTPProcessContext.Ready): UIO[OTPMailbox] = {
     // It is safe to use .get because we require Ready state
-    val mbox            = ctx_builder.getMbox()
-    val workerId        = ctx_builder.getWorkerId()
-    val capacity        = ctx_builder.getCapacity()
-    val nodeName        = ctx_builder.getNodeName()
-    val pid             = Codec.fromErlang(externalMailbox.self).asInstanceOf[Codec.EPid]
-    val address         = Address.fromPid(pid, workerId, nodeName)
-    val remoteStream    = messageEnvelopeStream(externalMailbox, address)
-    def createMailbox(compositeMailbox: Queue[MessageEnvelope], internalMailbox: Queue[MessageEnvelope], externalMailbox: Queue[MessageEnvelope]): OTPMailbox = {
+    val mbox     = ctx_builder.getMbox()
+    val workerId = ctx_builder.getWorkerId()
+    val capacity = ctx_builder.getCapacity()
+    val nodeName = ctx_builder.getNodeName()
+    val pid      = Codec.fromErlang(mbox.self).asInstanceOf[Codec.EPid]
+    val address  = Address.fromPid(pid, workerId, nodeName)
+    def createMailbox(
+      compositeMailbox: Queue[MessageEnvelope],
+      internalMailbox: Queue[MessageEnvelope],
+      externalMailbox: Queue[MessageEnvelope]
+    ): OTPMailbox = {
       val aggregatedStream = ZStream.fromQueueWithShutdown(compositeMailbox)
-      new OTPMailbox(address, workerId, mbox, compositeMailbox, internalMailbox, externalMailbox, aggregatedStream)
+      new OTPMailbox(address, mbox, compositeMailbox, internalMailbox, externalMailbox, aggregatedStream)
     }
     capacity match {
       case None =>
