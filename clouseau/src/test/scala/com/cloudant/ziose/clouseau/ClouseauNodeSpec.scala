@@ -67,7 +67,7 @@ private object PingPongService extends core.ActorConstructor[PingPongService] {
     node.spawnServiceZIO[PingPongService, None.type](make(node, name, ctx))
   }
 
-  def history(actor: core.AddressableActor[_, _]) = {
+  def history(actor: core.AddressableActor[_, _]): ZIO[core.Node, _ <: core.Node.Error, Option[List[Any]]] = {
     val historyMessage = core.MessageEnvelope.makeCall(
       core.Codec.EAtom("$gen_call"),
       actor.self.pid,
@@ -81,7 +81,7 @@ private object PingPongService extends core.ActorConstructor[PingPongService] {
       .call(historyMessage)
       .delay(100.millis)
       .repeatUntil(_.isSuccess)
-      .map(result => core.Codec.toScala(result.payload.get))
+      .map(result => core.Codec.toScala(result.payload.get).asInstanceOf[List[Any]])
       .timeout(3.seconds)
   }
 }
@@ -209,7 +209,11 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               core.Codec.EAtom("processSpawn.Closure")
             )
           }))
-          history <- PingPongService.history(actor)
+          history <- PingPongService
+            .history(actor)
+            .repeatUntil(h => h.isDefined && h.get.length > 0)
+            .timeout(TIMEOUT)
+            .map(_.flatten)
         } yield assertTrue(
           history.isDefined,
           history.get == List(
