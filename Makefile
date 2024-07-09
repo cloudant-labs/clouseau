@@ -243,7 +243,7 @@ linter-in-docker:
 	@cp $(ARTIFACTS_DIR)/*.log $(CI_ARTIFACTS_DIR)
 
 build-in-docker:
-	@$(call docker_func,test)
+	@$(call docker_func,all-tests)
 	@find $(ARTIFACTS_DIR)/
 	@cp -R $(ARTIFACTS_DIR)/* $(CI_ARTIFACTS_DIR)
 
