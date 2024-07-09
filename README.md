@@ -59,11 +59,7 @@ The steps are documented in full details [here](./scripts/bootstrap.md). Essenti
 
 ## Running the build locally in Docker
 
-1. Install [docker](https://www.docker.com/).
-2. Login into [JFrog](https://na.artifactory.swg-devops.com/ui)
-3. Generate an access token: click your account in the upper right corner, select`Edit Profile`, and then click `API Key`
-4. `ARTIFACTORY_USR` is your email, and `ARTIFACTORY_PSW` is your `API Key`
-5. Run the build: `ARTIFACTORY_PSW=*** ARTIFACTORY_USR=xxx@yy.ibm.com make build-in-docker`
+Not supported.
 
 ## The `cli` tool
 

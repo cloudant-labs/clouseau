@@ -65,8 +65,6 @@ endif
 ENCODED_GHE_USR=$(shell echo ${GHE_USR} | sed 's/@/%40/g' )
 GHE_AUTH_URL=https://${ENCODED_GHE_USR}:${GHE_PSW}@github.ibm.com
 
-ENCODED_ARTIFACTORY_USR=$(shell echo ${ARTIFACTORY_USR} | sed 's/@/%40/g' )
-
 KNOWN_CVEs = \
 
 
@@ -87,12 +85,6 @@ define to_artifacts
 		cp -r "$${pathname}" "$(ARTIFACTS_DIR)/$${project}" ; \
 	done
 endef
-
-ifeq ($(JENKINS_URL),)
-	# Local invocation
-	UBI_OPENJDK17_DIGEST?=$(shell docker manifest inspect registry.access.redhat.com/ubi8/openjdk-17:latest \
-	| jq -r '.manifests |  to_entries[] | select(.value.platform.architecture == "amd64") | .value.digest')
-endif
 
 ifeq ($(CACHE),true)
 	DOCKER_ARGS=--pull
@@ -237,10 +229,6 @@ tree:
 # CI Pipeline
 define docker_func
 	@DOCKER_BUILDKIT=1 BUILDKIT_PROGRESS=plain docker build \
-		--build-arg UBI_OPENJDK17_DIGEST=${UBI_OPENJDK17_DIGEST} \
-		--build-arg ARTIFACTORY_USR=${ARTIFACTORY_USR} \
-		--build-arg ARTIFACTORY_PSW=${ARTIFACTORY_PSW} \
-		--build-arg DIRENV_VERSION=${DIRENV_VERSION} \
 		--build-arg TERM=${TERM} \
 		--build-arg CMDS=$(1) \
 		$(DOCKER_ARGS) \
@@ -250,40 +238,26 @@ define docker_func
 	@mkdir -p $(CI_ARTIFACTS_DIR)
 endef
 
-linter-in-docker: login-artifactory-docker
+linter-in-docker:
 	@$(call docker_func,check-fmt)
 	@cp $(ARTIFACTS_DIR)/*.log $(CI_ARTIFACTS_DIR)
 
-build-in-docker: login-artifactory-docker
+build-in-docker:
 	@$(call docker_func,test)
 	@find $(ARTIFACTS_DIR)/
 	@cp -R $(ARTIFACTS_DIR)/* $(CI_ARTIFACTS_DIR)
 
-check-deps-in-docker: login-artifactory-docker
+check-deps-in-docker:
 	@$(call docker_func,check-deps)
 	@cp $(ARTIFACTS_DIR)/experiments/dependency-check-report.xml \
 		$(CI_ARTIFACTS_DIR)/dependency_check_report.experiments.xml
 	@cp $(ARTIFACTS_DIR)/actors/dependency-check-report.xml \
 		$(CI_ARTIFACTS_DIR)/dependency_check_report.actors.xml
 
-check-spotbugs-in-docker: login-artifactory-docker
+check-spotbugs-in-docker:
 	@$(call docker_func,check-spotbugs)
 	@cp $(ARTIFACTS_DIR)/actors/findbugs-report.* \
 		$(CI_ARTIFACTS_DIR)/
-
-# Authenticate with our Artifactory Docker registry before pulling any images
-login-artifactory-docker: check-env-artifactory
-	# For UBI images
-	@echo "Docker login Artifactory (ubi)"
-	@docker login -u "${ARTIFACTORY_USR}" -p "${ARTIFACTORY_PSW}" docker-na-public.artifactory.swg-devops.com/wcp-cloudant-registry-access-redhat-docker-remote
-
-	# For all other (public) images
-	@echo "Docker login Artifactory (docker hub)"
-	@docker login -u "${ARTIFACTORY_USR}" -p "${ARTIFACTORY_PSW}" docker-na-public.artifactory.swg-devops.com/wcp-cloudant-registry-hub-docker-remote
-
-check-env-artifactory:
-	@if [ -z "$${ARTIFACTORY_USR}" ]; then echo "Error: ARTIFACTORY_USR is undefined"; exit 1; fi
-	@if [ -z "$${ARTIFACTORY_PSW}" ]; then echo "Error: ARTIFACTORY_PSW is undefined"; exit 1; fi
 
 # Required by CI's releng-pipeline-library
 .PHONY: version
