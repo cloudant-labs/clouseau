@@ -1,3 +1,5 @@
+# Use bash to enable `read -d ''` option
+SHELL := /bin/bash
 PROJECT_NAME=ziose
 CACHE?=true
 BUILD_DIR=$(shell pwd)
