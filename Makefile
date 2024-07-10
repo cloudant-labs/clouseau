@@ -83,6 +83,7 @@ define to_artifacts
 	do \
 		project=$$(echo "$${pathname}" | cut -d "/" -f1) ; \
 		mkdir -p "$(ARTIFACTS_DIR)/$${project}"; \
+		echo "Copying $${pathname} to $(ARTIFACTS_DIR)/$${project}" ; \
 		cp -r "$${pathname}" "$(ARTIFACTS_DIR)/$${project}" ; \
 	done
 endef
