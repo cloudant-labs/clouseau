@@ -293,6 +293,7 @@ version:
 zeunit: jar
 	@cli start $(node_name) "java -jar clouseau/target/scala-$(SCALA_SHORT_VERSION)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)"
+	@$(call to_artifacts,test-reports)
 
 .PHONY: eshell
 # target: eshell - Start erlang shell
