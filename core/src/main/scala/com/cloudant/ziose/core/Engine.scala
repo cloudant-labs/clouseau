@@ -6,8 +6,8 @@ Engine
     |- EngineWorker1 (OTP node1) --- TCP --- dreyfus
     |- EngineWorker2 (OTP node2) --- TCP --- dreyfus
         |- WorkerExchange (Pid)
-           |-  Fiber1/Service ZIO - Enqueue - MessageBox
-           |-  Fiber2
+          |-  Fiber1/Service ZIO - Enqueue - MessageBox
+          |-  Fiber2
 
 MessageBox
   ---> erlang.OtpMBox -----Queue----> Fiber

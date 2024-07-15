@@ -298,8 +298,8 @@ zeunit: jar
 # target: eshell - Start erlang shell
 eshell:
 	@[ -z $(cookie) ] \
- 	&& (cd zeunit && $(REBAR) shell --name eshell@127.0.0.1) \
- 	|| (cd zeunit && $(REBAR) shell --name eshell@127.0.0.1 --setcookie $(cookie))
+	&& (cd zeunit && $(REBAR) shell --name eshell@127.0.0.1) \
+	|| (cd zeunit && $(REBAR) shell --name eshell@127.0.0.1 --setcookie $(cookie))
 
 .PHONY: jconsole
 # target: jconsole - Connect jconsole to running Clouseau

@@ -1,7 +1,7 @@
 package com.cloudant.ziose.clouseau
 
 /*
- sbt -DZIOSE_TEST_DEBUG=true "testOnly com.cloudant.ziose.clouseau.ClouseauTypeFactorySpec"
+ * sbt -DZIOSE_TEST_DEBUG=true "testOnly com.cloudant.ziose.clouseau.ClouseauTypeFactorySpec"
  */
 
 import ClouseauTypeFactory._

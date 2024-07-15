@@ -130,20 +130,19 @@ The `NodeExperiment` experiment can be found [here](https://github.ibm.com/cloud
 
 ## Goals of the experiment
 
- 1. Learn how to implement Event-Driven programming pattern using ZIO
- 2. Learn how to define commands and responses in strongly typed language.
- 3. Understand how to drive the main loop of the effect.
- 4. Figure out how to return error to the caller.
- 5. Understand how finalizer works
+1. Learn how to implement Event-Driven programming pattern using ZIO
+2. Learn how to define commands and responses in strongly typed language.
+3. Understand how to drive the main loop of the effect.
+4. Figure out how to return error to the caller.
+5. Understand how finalizer works
 
 ## Context
 
- It is unknown how reliable jinterface node class is in multithreaded setting.
- To protect us from concurrency problems we want to prevent concurrent access to jinterface's `node` object.
- There are two ways of doing it. First we can use mutex and second we can use event driven programming pattern.
- In event driven programming pattern the main loop receives and processes incoming events in order,
- taking appropriate actions based on their type and content. The `dbcore` team is very familiar with
- this pattern since it is the main idea of Erlang and Scalang.
+It is unknown how reliable jinterface node class is in multithreaded setting.
+To protect us from concurrency problems we want to prevent concurrent access to jinterface's `node` object.
+There are two ways of doing it. First we can use mutex and second we can use event driven programming pattern.
+In event driven programming pattern the main loop receives and processes incoming events in order,
+taking appropriate actions based on their type and content. The `dbcore` team is very familiar with this pattern since it is the main idea of Erlang and Scalang.
 
 ## Constrains
 
@@ -236,13 +235,13 @@ case class MyFirstCommandResponse(result: Unit) extends NodeResponse
 ```
 5. In this experiment we start multiple concurrent effects using the following
 ```scala
-    for {
-   _ <- ((nodeFiber.fork *> connect) zipPar (for {
-     a <- node.spawn(Some("mbox")).debug("actor")
-     _ <- actor(a, 16).forever
-   } yield ())).fork
-   _ <- ZIO.never
- } yield ()
+  for {
+    _ <- ((nodeFiber.fork *> connect) zipPar (for {
+      a <- node.spawn(Some("mbox")).debug("actor")
+      _ <- actor(a, 16).forever
+    } yield ())).fork
+    _ <- ZIO.never
+  } yield ()
 ```
 This is not great and we need to find better way
 
@@ -290,10 +289,10 @@ The goal of the experiment is to make sure we can extend of a Service and approp
 ## Context
 
 In order to satisfy the constraints of the project such as 1) avoid code changes in Clouseau and 2) preserve the Lucene version we need to provide a Service class which is implementing the same API as a corresponding class in scalang. There is a rather complex inheritance chain (although temporary) of abstractions to go from `AddressableActor`` to a class which extends the Service. The Service itself uses few hard to understand scala features, such as:
- - implicit context
- - implicit type conversion functions
- - apply/unapply
- - function override
+- implicit context
+- implicit type conversion functions
+- apply/unapply
+- function override
 
 The use of these advanced features was motivated by the need to satisfy the requirement to prevent modification of Clouseau files. However as a result the understandability of the project was severely impacted. This particular experiment is a bare bones service which can be used as an illustration during the knowledge transfer sessions.
 

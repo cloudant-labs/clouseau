@@ -33,7 +33,7 @@ object checkEnv {
                   val tail = (..$body).tail
                   s"$$head(\n  $${tail.mkString(",\n  ")}\n)"
                 }
-             """
+            """
           )
         } else {
           c.Expr(
@@ -43,7 +43,7 @@ object checkEnv {
                   val tail = (..$body).tail
                   s"$$head($${tail.mkString(", ")})"
                 }
-             """
+            """
           )
         }
       case _ => c.abort(c.enclosingPosition, "Invalid annottee")
