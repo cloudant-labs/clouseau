@@ -7,11 +7,13 @@
   "NoColor": false,
   "Exclude": [
     "LICENSE",
-    "actors/*",
-    "project/project/*",
-    "project/target/*",
-    "target/*",
-    "**/node_modules/*"
+    "^actors/*",
+    "^project/project/*",
+    "^project/target/*",
+    "^target/*",
+    "^node_modules/*",
+    "TEST-*.xml",
+    "^vendor/*"
   ],
   "AllowedContentTypes": [],
   "PassedFiles": [],
