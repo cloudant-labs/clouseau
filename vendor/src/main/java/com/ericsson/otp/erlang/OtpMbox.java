@@ -729,6 +729,12 @@ public class OtpMbox {
         return self.hashCode();
     }
 
+    private void notify_listeners() {
+        for (OtpMboxListener listener: listeners) {
+            listener.onMessageReceived();
+        }
+    }
+
     /*
      * called by OtpNode to deliver message to this mailbox.
      *
@@ -746,9 +752,7 @@ public class OtpMbox {
             break;
         default:
             queue.put(m);
-            for (OtpMboxListener listener: listeners) {
-                listener.onMessageReceived();
-            }
+            notify_listeners();
             break;
         }
     }
@@ -769,6 +773,7 @@ public class OtpMbox {
                         links.removeLink(self, remote);
                         queue.put(new OtpMsg(OtpMsg.exitTag, remote, self,
                                              new OtpErlangAtom("noconnection")));
+                        notify_listeners();
                     }
                 }
             }
@@ -799,6 +804,7 @@ public class OtpMbox {
         case OtpMsg.exitTag:
             if (links.removeActiveLink(self, m.getSenderPid())) {
                 queue.put(m);
+                notify_listeners();
             }
             break;
         }
