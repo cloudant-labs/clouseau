@@ -59,7 +59,6 @@ receive_msg(TimeoutInMs) ->
         {error, timeout}
     end.
 
-
 check_ping(Node) -> check_ping(Node, ?PING_TIMEOUT_IN_MS).
 
 check_ping(Node, TimeoutInMs) when is_atom(Node) ->

@@ -65,7 +65,7 @@ t_call_build_info(_, _) ->
 %%%%%%%%%%%%%%% Setup Functions %%%%%%%%%%%%%%%
 
 setup() ->
-    ?assert(test_util:wait_healthy(),  "Init service is not ready"),
+    ?assert(test_util:wait_healthy(), "Init service is not ready"),
     ok.
 
 teardown(_) ->

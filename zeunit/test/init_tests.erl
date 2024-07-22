@@ -75,7 +75,7 @@ t_metrics_format(_Name, _) ->
 %%%%%%%%%%%%%%% Setup Functions %%%%%%%%%%%%%%%
 
 setup() ->
-    ?assert(test_util:wait_healthy(),  "Init service is not ready"),
+    ?assert(test_util:wait_healthy(), "Init service is not ready"),
     ok.
 
 teardown(_) ->
@@ -88,4 +88,3 @@ start_service(Name) ->
 
 stop_service(_, Pid) ->
     exit(Pid, normal).
-
