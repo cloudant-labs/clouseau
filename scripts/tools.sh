@@ -204,6 +204,31 @@ function tools::install_with_coursier() {
   fi
 }
 
+function tools::install_with_git() {
+  local class=""
+  local tool=""
+  IFS=":" read class binary <<<"${1}"
+  local repo=$(tools::get_dep "${1}" "repo")
+  local branch=$(tools::get_dep "${1}" "branch")
+  local build_cmd=$(tools::get_dep "${1}" "build_cmd")
+  local src_binary=$(tools::get_dep "${1}" "binary")
+  local wrkdir=$(mktemp -d 'wrkdir.XXXXX')
+  (console::infoLn "installing '${1}'... ")
+  git clone --depth 1 --branch "${branch}" "${repo}" "${wrkdir}" && \
+    pushd "${wrkdir}" && \
+    ${build_cmd} && \
+    cp "${src_binary}" "${BIN_DIR}/${binary}-${version}" && \
+    popd && \
+    rm -rf "${wrkdir}"
+  status=$?
+  if [[ $status -eq 0 ]]; then
+    (console::infoLn "'${1}' is installed")
+  else
+    (console::infoLn "there was a failure while installing '${1}', see '${wrkdir}' for the work files")
+    exit 1
+  fi
+}
+
 function tools::install_tool() {
   local class=""
   local tool=""
@@ -211,6 +236,9 @@ function tools::install_tool() {
   case "${class}" in
   coursier)
     tools::install_with_coursier "${1}" || exit $?
+    ;;
+  git)
+    tools::install_with_git "${1}" || exit $?
     ;;
   *)
     console::warnLn "Unsupported tool class '${class}'"

@@ -9,6 +9,8 @@ GIT_COMMIT?=$(shell git rev-parse HEAD)
 GIT_REPOSITORY?=$(shell git config --get remote.origin.url)
 DIRENV_VERSION := $(shell grep -F 'direnv' .tool-versions | awk '{print $$2}')
 REBAR?=rebar3
+ERLFMT?=erlfmt
+ERL_SRCS?=$(shell git ls-files -- "*/rebar.config" "*.erl" "*.hrl" "*.app.src" "*.escript")
 ifeq ($(PROJECT_VERSION),)
 # technically we could use 'sbt -Dsbt.supershell=false -error "print version"'
 # but it takes 30 seconds to run it. So we go with direct access
@@ -126,6 +128,7 @@ mkdir-artifacts:
 check-fmt: mkdir-artifacts
 	@scalafmt --test | tee $(ARTIFACTS_DIR)/scalafmt.log
 	@ec | tee $(ARTIFACTS_DIR)/editor-config.log
+	@$(ERLFMT) --verbose --check -- $(ERL_SRCS) | tee $(ARTIFACTS_DIR)/erlfmt.log
 
 .PHONY: check-deps
 # target: check-deps - Detect publicly disclosed vulnerabilities
@@ -293,3 +296,8 @@ jconsole:
 # target: jlist - List clouseau related java processes
 jlist:
 	@jps -l | grep com.cloudant.ziose || exit 0
+
+.PHONY: erlfmt-format
+# target: erlfmt-format - Format Erlang code automatically
+erlfmt-format:
+	@$(ERLFMT) --write -- $(ERL_SRCS)

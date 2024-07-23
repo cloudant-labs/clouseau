@@ -3,3 +3,11 @@ coursier:
     id: org.scalameta:scalafmt-cli_2.13
     version: 3.7.17
     install_args: "-r sonatype:snapshots --main org.scalafmt.cli.Cli"
+
+git:
+  erlfmt:
+    repo: https://github.com/WhatsApp/erlfmt.git
+    branch: v1.3.0
+    version: 1.3.0
+    build_cmd: "make release"
+    binary: _build/release/bin/erlfmt

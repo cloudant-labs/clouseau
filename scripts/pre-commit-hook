@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 GIT_HOOKS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PROJECT_DIR=${GIT_HOOKS_DIR%/*/*}
 . "${PROJECT_DIR}"/scripts/console.sh
@@ -12,9 +12,12 @@ scalafmt --reportError
 formatted1=$?
 ec
 formatted2=$?
+erlfmt --check -- \
+  $(git ls-files -- "*/rebar.config" "*.app.src" "*.erl" "*.hrl" "*.escript")
+formatted3=$?
 
 console::info "* Properly formatted? * "
-if [ ${formatted1} -eq 0 ] && [ ${formatted2} -eq 0 ]; then
+if [ ${formatted1} -eq 0 ] && [ ${formatted2} -eq 0 ] && [ ${formatted3} -eq 0 ]; then
   formatted=0
   echo "$(console::green)YES"
   console::infoLn "Proceeding with commit."
