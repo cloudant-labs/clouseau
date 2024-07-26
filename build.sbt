@@ -128,7 +128,13 @@ lazy val clouseau = (project in file("clouseau"))
     libraryDependencies ++= luceneComponents
   )
   .settings(
-    assembly / assemblyJarName              := s"${name.value}_${scalaVersion.value}_${version.value}.jar",
+    assembly / assemblyJarName              := {
+      if (sys.props.getOrElse("jartest", "false").toBoolean) {
+        s"${name.value}_${scalaVersion.value}_${version.value}_test.jar"
+      } else {
+        s"${name.value}_${scalaVersion.value}_${version.value}.jar"
+      }
+    },
     assemblyPackageScala / assembleArtifact := true
   )
   .settings(

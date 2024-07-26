@@ -159,13 +159,11 @@ meta: build mkdir-artifacts
 
 .PHONY: jar
 # target: jar - Generate JAR files for production
-jar:
-	@sbt assembly
+jar: artifacts/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
 
 .PHONY: jartest
 # target: jartest - Generate JAR files containing tests
-jartest:
-	@sbt assembly -Djartest=true
+jartest: artifacts/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
 
 # target: clean - Clean Java/Scala artifacts
 clean:
@@ -270,8 +268,8 @@ version:
 
 .PHONY: zeunit
 # target: zeunit - Run integration tests with ~/.erlang.cookie: `make zeunit`; otherwise `make zeunit cookie=<cookie>`
-zeunit: jar
-	@cli start $(node_name) "java -jar clouseau/target/scala-$(SCALA_SHORT_VERSION)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar"
+zeunit: jartest
+	@cli start $(node_name) "java -jar clouseau/target/scala-$(SCALA_SHORT_VERSION)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)"
 	@$(call to_artifacts,test-reports)
 
