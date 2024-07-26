@@ -167,7 +167,7 @@ jartest: artifacts/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
 
 # target: clean - Clean Java/Scala artifacts
 clean:
-	@rm -rf tmp
+	@rm -rf tmp artifacts/*
 	@sbt clean
 
 .PHONY: epmd
