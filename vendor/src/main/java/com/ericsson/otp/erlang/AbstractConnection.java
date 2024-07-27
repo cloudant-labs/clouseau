@@ -520,6 +520,16 @@ public abstract class AbstractConnection extends Thread {
         sendExit(exit2Tag, from, dest, null, reason);
     }
 
+    protected void sendMonitor(final OtpErlangPid from, final OtpErlangObject dest,
+            final OtpErlangRef ref) throws IOException {
+        sendMonitor(monitorTag, from, dest, ref);
+    }
+
+    protected void sendDemonitor(final OtpErlangPid from, final OtpErlangObject dest,
+            final OtpErlangRef ref) throws IOException {
+        sendMonitor(demonitorTag, from, dest, ref);
+    }
+
     protected void sendMonitorExit(final OtpErlangObject from, final OtpErlangPid dest,
             final OtpErlangRef ref, final OtpErlangObject reason) throws IOException {
         sendExit(monitorExitTag, from, dest, ref, reason);
@@ -550,6 +560,29 @@ public abstract class AbstractConnection extends Thread {
         header.write_any(reason);
 
         // fix up length in preamble
+        header.poke4BE(0, header.size() - 4);
+
+        do_send(header);
+    }
+
+    private void sendMonitor(final int tag, final OtpErlangPid from, final OtpErlangObject dest,
+            final OtpErlangRef ref) throws IOException {
+        if (!connected) {
+            throw new IOException("Not connected");
+        }
+        @SuppressWarnings("resource")
+        final OtpOutputStream header = new OtpOutputStream(headerLen);
+
+        header.write4BE(0);
+        header.write1(passThrough);
+        header.write1(version);
+
+        header.write_tuple_head(4);
+        header.write_long(tag);
+        header.write_any(from);
+        header.write_any(dest);
+        header.write_any(ref);
+
         header.poke4BE(0, header.size() - 4);
 
         do_send(header);

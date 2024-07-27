@@ -9,6 +9,7 @@ import core.Codec.ETerm
 import core.Codec.ETuple
 import core.Codec.EListImproper
 import core.Address
+import core.Node
 import core.MessageEnvelope
 import core.ProcessContext
 import com.cloudant.ziose.macros.checkEnv
@@ -111,28 +112,43 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
     ()
   }
 
-  def unlink(to: Pid) = {
-    adapter.unlink(to.fromScala)
+  def unlink(to: Pid): Unit = {
+    Unsafe.unsafe { implicit unsafe =>
+      adapter.runtime.unsafe.run(adapter.unlink(to.fromScala))
+    }
   }
 
-  def link(to: Pid) = {
-    adapter.link(to.fromScala)
+  def link(to: Pid): Unit = {
+    Unsafe.unsafe { implicit unsafe =>
+      adapter.runtime.unsafe.run(adapter.link(to.fromScala)).getOrThrow()
+    }
+  }
+
+  def monitorZIO(monitored: Any): ZIO[Node, _ <: Node.Error, Reference] = {
+    for {
+      ref <- monitored match {
+        case address: Address => adapter.monitor(address)
+        case pid: Pid         => adapter.monitor(Address.fromPid(pid.fromScala, self.workerId, self.workerNodeName))
+        case atom: Symbol => adapter.monitor(Address.fromName(Codec.EAtom(atom), self.workerId, self.workerNodeName))
+        case (name: RegName, nodeName: NodeName) =>
+          adapter.monitor(
+            Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), self.workerId, self.workerNodeName)
+          )
+      }
+    } yield Reference.toScala(ref)
   }
 
   def monitor(monitored: Any): Reference = {
-    val ref = monitored match {
-      case pid: Pid     => adapter.monitor(Address.fromPid(pid.fromScala, self.workerId, self.workerNodeName))
-      case atom: Symbol => adapter.monitor(Address.fromName(Codec.EAtom(atom), self.workerId, self.workerNodeName))
-      case (name: RegName, nodeName: NodeName) =>
-        adapter.monitor(
-          Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), self.workerId, self.workerNodeName)
-        )
+    Unsafe.unsafe { implicit unsafe =>
+      val rt = adapter.runtime.asInstanceOf[Runtime[core.Node]]
+      rt.unsafe.run[Node.Error, Reference](monitorZIO(monitored)).getOrThrow()
     }
-    Reference.toScala(ref)
   }
 
   def demonitor(ref: Reference) = {
-    adapter.demonitor(ref.fromScala)
+    Unsafe.unsafe { implicit unsafe =>
+      adapter.runtime.unsafe.run(adapter.demonitor(ref.fromScala))
+    }
   }
 }
 
@@ -440,7 +456,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           ZIO.succeed(handleInfo(adapter.toScala(info))).unit
         } catch {
           case err: Throwable => {
-            printThrowable("onMessage[$gen_call]", err)
+            printThrowable("onMessage[Any]", err)
             ZIO.fail(HandleInfoCBError(err))
           }
         }

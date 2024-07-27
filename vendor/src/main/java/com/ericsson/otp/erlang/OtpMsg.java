@@ -194,7 +194,7 @@ public class OtpMsg {
         payload = null;
     }
 
-    // monitor_exit
+    // monitorExit
     OtpMsg(final int tag, final OtpErlangPid from, final OtpErlangPid to,
            final OtpErlangRef ref, final OtpErlangObject reason) {
         this.tag = tag;

@@ -142,12 +142,12 @@ object OTPNode {
             _ <- actor.stream.runForeachWhile {
               case MessageEnvelope.Exit(_from, _to, reason, _workerId) =>
                 for {
-                  // _ <- Console.printLine(s"exit: $reason")
+                  // _ <- ZIO.debug(s"[Actor] exit: $reason")
                   _ <- stopActor(actor.asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]], Some(reason))
                 } yield false
               case MessageEnvelope.Monitor(monitorer, monitored, ref, workerId) =>
                 for {
-                  // _ <- Console.printLine(s"monitor: monitorer=$monitorer, monitored=$monitored, ref=$ref, worker=$workerId")
+                  // _ <- ZIO.debug(s"[Actor] monitor: monitorer=$monitorer, monitored=$monitored, ref=$ref, worker=$workerId")
                   _ <- actor
                     .asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]]
                     .ctx
@@ -155,7 +155,7 @@ object OTPNode {
                 } yield true
               case MessageEnvelope.Demonitor(monitorer, monitored, ref, workerId) =>
                 for {
-                  // _ <- Console.printLine(s"demonitor: monitorer=$monitorer, monitored=$monitored, ref=$ref, worker=$workerId")
+                  // _ <- ZIO.debug(s"[Actor] demonitor: monitorer=$monitorer, monitored=$monitored, ref=$ref, worker=$workerId")
                   _ <- actor
                     .asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]]
                     .ctx
@@ -163,7 +163,7 @@ object OTPNode {
                 } yield true
               case message =>
                 for {
-                  // _ <- Console.printLine(s"message: $message")
+                  // _ <- ZIO.debug(s"[Actor] message: $message")
                   _ <- actor.onMessage(message)
                 } yield true
             }

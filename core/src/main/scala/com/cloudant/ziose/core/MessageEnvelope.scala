@@ -141,6 +141,18 @@ object MessageEnvelope {
     val workerNodeName: Symbol    = base.workerNodeName
   }
 
+  case class MonitorExit(
+    from: Option[Codec.EPid],
+    to: Address,
+    ref: Codec.ERef,
+    reason: Codec.ETerm,
+    private val base: Address
+  ) extends MessageEnvelope {
+    def getPayload = Some(Codec.ETuple(Codec.EAtom("DOWN"), ref, Codec.EAtom("process"), from.get, reason))
+    val workerId: Engine.WorkerId = base.workerId
+    val workerNodeName: Symbol    = base.workerNodeName
+  }
+
   // For debugging and testing only
   def makeSend(recipient: Address, msg: Codec.ETerm, address: Address) = {
     Send(None, recipient, msg, address)
@@ -182,6 +194,8 @@ object MessageEnvelope {
         Monitor(Some(getSenderPid(msg)), getRecipient(msg, address), getRef(msg), address)
       case OtpMsg.demonitorTag =>
         Demonitor(Some(getSenderPid(msg)), getRecipient(msg, address), getRef(msg), address)
+      case OtpMsg.monitorExitTag =>
+        MonitorExit(Some(getSenderPid(msg)), getRecipient(msg, address), getRef(msg), getMsg(msg), address)
     }
   }
 

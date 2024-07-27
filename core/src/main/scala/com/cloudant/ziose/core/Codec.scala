@@ -69,6 +69,7 @@ object Codec {
 
     override def toOtpErlangObject: OtpErlangAtom = new OtpErlangAtom(atom.name)
     override def toString: String                 = this.toOtpErlangObject.toString
+    def asString: String                          = atom.name
   }
 
   object EAtom {

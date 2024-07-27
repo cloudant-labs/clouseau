@@ -575,7 +575,7 @@ public class OtpNode extends OtpLocalNode {
                     && name != null && name.equals("net_kernel")) {
                     return true;
                 }
-		if (name != null) {
+                if (name != null) {
                     mbox = mboxes.get(name);
                 } else {
                     mbox = mboxes.get(m.getRecipientPid());

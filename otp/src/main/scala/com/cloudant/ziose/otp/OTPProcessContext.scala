@@ -58,10 +58,10 @@ class OTPProcessContext private (
   def exit(reason: Codec.ETerm): UIO[Unit] = {
     mailbox.exit(MessageEnvelope.Exit(None, id, reason, mailbox.id))
   }
-  def unlink(to: Codec.EPid)                  = mailbox.unlink(to)
-  def link(to: Codec.EPid)                    = mailbox.link(to)
-  def monitor(monitored: Address): Codec.ERef = mailbox.monitor(monitored)
-  def demonitor(ref: Codec.ERef)              = mailbox.demonitor(ref)
+  def unlink(to: Codec.EPid)      = mailbox.unlink(to)
+  def link(to: Codec.EPid)        = mailbox.link(to)
+  def monitor(monitored: Address) = mailbox.monitor(monitored)
+  def demonitor(ref: Codec.ERef)  = mailbox.demonitor(ref)
 
   def stream: ZStream[Any, Throwable, MessageEnvelope] = mailbox.stream
 

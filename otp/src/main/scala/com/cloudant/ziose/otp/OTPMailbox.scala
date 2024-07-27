@@ -3,7 +3,14 @@ package com.cloudant.ziose.otp
 import collection.mutable.HashMap
 import com.cloudant.ziose.core.Mailbox
 
-import com.ericsson.otp.erlang.{OtpMbox, OtpMboxListener, OtpErlangException}
+import com.ericsson.otp.erlang.{
+  OtpMbox,
+  OtpMboxListener,
+  OtpErlangException,
+  OtpErlangExit,
+  OtpErlangConnectionException,
+  OtpErlangAtom
+}
 
 import com.cloudant.ziose.core.Codec
 import com.cloudant.ziose.core.Address
@@ -221,23 +228,58 @@ class OTPMailbox private (
     } yield 0 max size
   }
 
-  /*
-   * TODO
-   * [ ] - unlink
-   * [ ] - link
-   * [ ] - monitor
-   * [ ] - demonitor
-   */
   def exit(message: MessageEnvelope.Exit): UIO[Unit] = {
     for {
       _ <- offer(message)
     } yield ()
   }
 
-  def unlink(to: Codec.EPid)                  = ???
-  def link(to: Codec.EPid)                    = ???
-  def monitor(monitored: Address): Codec.ERef = ???
-  def demonitor(ref: Codec.ERef)              = ???
+  private def attempt[A](code: => A) = {
+    ZIO.attempt(code).refineOrDie {
+      case e: OtpErlangExit =>
+        e.reason match {
+          case atom: OtpErlangAtom =>
+            atom.atomValue match {
+              case "noproc"       => Node.Error.NoSuchActor()
+              case "noconnection" => Node.Error.Disconnected()
+              case _              => Node.Error.Unknown(e)
+            }
+          case _ =>
+            Node.Error.Unknown(e)
+        }
+      case e: OtpErlangConnectionException =>
+        Node.Error.ConnectionError(e)
+      case e =>
+        Node.Error.Unknown(e)
+    }
+  }
+
+  def unlink(to: Codec.EPid): UIO[Unit] = {
+    ZIO.succeed(mbox.unlink(to.toOtpErlangObject))
+  }
+
+  def link(to: Codec.EPid): ZIO[Any, _ <: Node.Error, Unit] = {
+    attempt(mbox.link(to.toOtpErlangObject))
+  }
+
+  def monitor(monitored: Address): ZIO[Node, _ <: Node.Error, Codec.ERef] = {
+    for {
+      node <- ZIO.service[Node]
+      ref  <- node.makeRef()
+      _ <- attempt(monitored match {
+        case PID(pid, _workerId, _workerName) =>
+          mbox.monitor(pid.toOtpErlangObject, ref.toOtpErlangObject)
+        case Name(name, _workerId, _workerName) =>
+          mbox.monitorNamed(name.toString, ref.toOtpErlangObject)
+        case NameOnNode(name, node, _workerId, _workerName) =>
+          mbox.monitorNamed(name.toString, node.toString, ref.toOtpErlangObject)
+      })
+    } yield ref
+  }
+
+  def demonitor(ref: Codec.ERef): UIO[Unit] = {
+    ZIO.succeed(mbox.demonitor(ref.toOtpErlangObject))
+  }
 
   /**
    * @param msg
@@ -294,7 +336,7 @@ class OTPMailbox private (
   } yield ()
 
   def sendMonitorExit(to: Codec.EPid, ref: Codec.ERef, reason: Codec.ETerm) = {
-    mbox.monitor_exit(to.toOtpErlangObject, ref.toOtpErlangObject, reason.toOtpErlangObject)
+    mbox.monitorExit(to.toOtpErlangObject, ref.toOtpErlangObject, reason.toOtpErlangObject)
   }
 
   private def readMessage = {

@@ -48,10 +48,11 @@ object Node {
         s"err=${err.getMessage}"
       )
     }
-    case class Unknown(err: Throwable)     extends Error
-    case class Interrupt(fiberId: FiberId) extends Error
-    case class Nothing()                   extends Error
-    case class Timeout(duration: Duration) extends Error
+    case class Unknown(err: Throwable)         extends Error
+    case class Interrupt(fiberId: FiberId)     extends Error
+    case class Nothing()                       extends Error
+    case class Timeout(duration: Duration)     extends Error
+    case class ConnectionError(err: Throwable) extends Error
   }
 
   def spawn[A <: Actor](

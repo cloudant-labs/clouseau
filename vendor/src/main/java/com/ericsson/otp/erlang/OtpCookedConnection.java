@@ -208,7 +208,41 @@ public class OtpCookedConnection extends AbstractConnection {
         }
     }
 
-    void monitor_exit(final OtpErlangPid from, final OtpErlangPid to,
+    void monitor(final OtpErlangPid from, final OtpErlangPid to,
+            final OtpErlangRef ref) throws OtpErlangExit, OtpErlangConnectionException {
+        try {
+            super.sendMonitor(from, to, ref);
+        } catch (final Exception e) {
+            throw new OtpErlangConnectionException(e);
+        }
+    }
+
+    void monitorNamed(final OtpErlangPid from, final String dest,
+            final OtpErlangRef ref) throws OtpErlangExit, OtpErlangConnectionException {
+        try {
+            super.sendMonitor(from, new OtpErlangAtom(dest), ref);
+        } catch (final Exception e) {
+            throw new OtpErlangConnectionException(e);
+        }
+    }
+
+    void demonitor(final OtpErlangPid from, final OtpErlangPid to,
+            final OtpErlangRef ref) throws OtpErlangExit {
+        try {
+            super.sendDemonitor(from, to, ref);
+        } catch (final Exception e) {
+        }
+    }
+
+    void demonitorNamed(final OtpErlangPid from, final String dest,
+            final OtpErlangRef ref) throws OtpErlangExit {
+        try {
+            super.sendDemonitor(from, new OtpErlangAtom(dest), ref);
+        } catch (final Exception e) {
+        }
+    }
+
+    void monitorExit(final OtpErlangPid from, final OtpErlangPid to,
             final OtpErlangRef ref, final OtpErlangObject reason) {
         try {
             super.sendMonitorExit(from, to, ref, reason);
