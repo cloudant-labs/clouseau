@@ -1,5 +1,17 @@
-ThisBuild / version      := "3.0.0"
 ThisBuild / scalaVersion := "2.13.12"
+
+val readVersion = {
+  val content = IO.read(file("version.sbt"))
+  val versionRegex = """.*version\s*:=\s*"([^"]+)".*""".r
+  versionRegex.findFirstMatchIn(content) match {
+    case Some(m) => {
+      m.group(1)
+    }
+    case None => throw new Exception("Could not parse version from version.sbt")
+  }
+}
+
+ThisBuild / version      := s"${readVersion}"
 
 updateOptions := updateOptions.value.withCachedResolution(true)
 

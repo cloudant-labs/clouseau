@@ -14,7 +14,7 @@ ERL_SRCS?=$(shell git ls-files -- "*/rebar.config" "*.erl" "*.hrl" "*.app.src" "
 ifeq ($(PROJECT_VERSION),)
 # technically we could use 'sbt -Dsbt.supershell=false -error "print version"'
 # but it takes 30 seconds to run it. So we go with direct access
-PROJECT_VERSION := $(shell cat $(BUILD_DIR)/build.sbt | sed -e \
+PROJECT_VERSION := $(shell cat $(BUILD_DIR)/version.sbt | sed -e \
 	'/ThisBuild[[:space:]]*[/][[:space:]]*version[[:space:]]*[:]=[[:space:]]*/!d' \
 	-e "s///g" \
 	-e 's/\"//g' \
