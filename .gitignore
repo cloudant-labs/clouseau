@@ -16,6 +16,8 @@
 _build
 artifacts
 build/
+ci-artifacts/
+zeunit/*.xml
 gradle/
 gradlew
 gradlew.bat
