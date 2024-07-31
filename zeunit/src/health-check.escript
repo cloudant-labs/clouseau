@@ -12,7 +12,7 @@
 -define(ANSI_YELLOW, "33").
 
 -define(PING_TIMEOUT_IN_MS, 10000).
--define(SERVICE_TIMEOUT_IN_MS, 15000).
+-define(SERVICE_TIMEOUT_IN_MS, 60000).
 
 main(Args) ->
     Options = parse_args(Args, #{name => undefined, cookie => undefined, other => []}),
