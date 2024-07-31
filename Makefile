@@ -10,6 +10,17 @@ GIT_REPOSITORY?=$(shell git config --get remote.origin.url)
 DIRENV_VERSION := $(shell grep -F 'direnv' .tool-versions | awk '{print $$2}')
 REBAR?=rebar3
 ERLFMT?=erlfmt
+
+ifneq ($(JENKINS_URL),)
+# CI invocation
+	REGISTRY?=docker-na.artifactory.swg-devops.com/wcp-cloudant-registry-hub-docker-remote
+	REQUIRE_ARTIFACTORY=true
+else
+# Local invocation
+	REGISTRY?=docker.io
+	REQUIRE_ARTIFACTORY=false
+endif
+
 ERL_SRCS?=$(shell git ls-files -- "*/rebar.config" "*.erl" "*.hrl" "*.app.src" "*.escript")
 ifeq ($(PROJECT_VERSION),)
 # technically we could use 'sbt -Dsbt.supershell=false -error "print version"'
@@ -38,7 +49,6 @@ SUBPROJECTS := \
 	benchmarks \
 	clouseau \
 	core \
-	experiments \
 	otp \
 	scalang \
 	vendor
@@ -69,6 +79,18 @@ GHE_AUTH_URL=https://${ENCODED_GHE_USR}:${GHE_PSW}@github.ibm.com
 
 KNOWN_CVEs = \
 
+JAR_FILES := \
+	clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar \
+	clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
+
+RELEASE_FILES := \
+	$(JAR_FILES) \
+	clouseau-$(PROJECT_VERSION)-dist.zip
+
+JAR_ARTIFACTS := $(addprefix $(ARTIFACTS_DIR)/, $(JAR_FILES))
+RELEASE_ARTIFACTS := $(addprefix $(ARTIFACTS_DIR)/, $(RELEASE_FILES))
+
+CHECKSUM_FILES := $(foreach file, $(RELEASE_FILES), $(file).chksum)
 
 define extract
 echo "$(1)  $(2) $(3)" && \
@@ -114,33 +136,28 @@ all-tests: test zeunit
 # target: test - Run all Scala tests
 # coverage is commented out due to conflict in dependencies it can be enabled
 # when we update zio-config
-test: build mkdir-artifacts
+test: build $(ARTIFACTS_DIR)
 	@#sbt clean coverage test
 	@sbt clean test
 	@$(call to_artifacts,test-reports)
 
-.PHONY: mkdir-artifacts
-mkdir-artifacts:
-	@mkdir -p $(ARTIFACTS_DIR)
+$(ARTIFACTS_DIR):
+	@mkdir -p $@
 
 .PHONY: check-fmt
 # target: check-fmt - Check mis-formatted code
-check-fmt: mkdir-artifacts
+check-fmt: $(ARTIFACTS_DIR)
 	@scalafmt --test | tee $(ARTIFACTS_DIR)/scalafmt.log
 	@ec | tee $(ARTIFACTS_DIR)/editor-config.log
 	@$(ERLFMT) --verbose --check -- $(ERL_SRCS) | tee $(ARTIFACTS_DIR)/erlfmt.log
 
 .PHONY: check-deps
 # target: check-deps - Detect publicly disclosed vulnerabilities
-check-deps: build mkdir-artifacts
+check-deps: build $(ARTIFACTS_DIR)
 	@sbt dependencyCheck
+	echo "Finished dependency check"
+	@find .
 	@$(call to_artifacts,dependency-check-report.*)
-
-.PHONY: check-spotbugs
-# target: check-spotbugs - Run SpotBugs analysis for the source code
-check-spotbugs: build mkdir-artifacts
-	@sbt findbugs
-	@$(call to_artifacts,findbugs-report.*)
 
 .PHONY: cover
 # target: cover - Generate code coverage report, options: TEST=<sub-project>
@@ -154,16 +171,16 @@ else
 endif
 
 .PHONY: meta
-meta: build mkdir-artifacts
+meta: build $(ARTIFACTS_DIR)
 	@sbt makeBom
 
 .PHONY: jar
 # target: jar - Generate JAR files for production
-jar: artifacts/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
+jar: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
 
 .PHONY: jartest
 # target: jartest - Generate JAR files containing tests
-jartest: artifacts/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
+jartest: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
 
 # target: clean - Clean Java/Scala artifacts
 clean:
@@ -230,8 +247,9 @@ tree:
 # CI Pipeline
 define docker_func
 	@DOCKER_BUILDKIT=1 BUILDKIT_PROGRESS=plain docker build \
+		--build-arg REGISTRY=${REGISTRY} \
 		--build-arg TERM=${TERM} \
-		--build-arg CMDS=$(1) \
+		--build-arg CMDS="$(1)" \
 		$(DOCKER_ARGS) \
 		-t ${PROJECT_NAME}:${GIT_COMMIT} \
 		.
@@ -239,23 +257,27 @@ define docker_func
 	@mkdir -p $(CI_ARTIFACTS_DIR)
 endef
 
-linter-in-docker:
+linter-in-docker: login-image-registry
 	@$(call docker_func,check-fmt)
 	@cp $(ARTIFACTS_DIR)/*.log $(CI_ARTIFACTS_DIR)
 
-build-in-docker:
-	@$(call docker_func,all-tests)
-	@find $(ARTIFACTS_DIR)/
+build-in-docker: login-image-registry
+	@$(call docker_func,all-tests $(addprefix /artifacts/, $(RELEASE_FILES)))
 	@cp -R $(ARTIFACTS_DIR)/* $(CI_ARTIFACTS_DIR)
 
-check-deps-in-docker:
-	@$(call docker_func,check-deps)
-	@cp $(ARTIFACTS_DIR)/experiments/dependency-check-report.xml \
-		$(CI_ARTIFACTS_DIR)/dependency_check_report.experiments.xml
-	@cp $(ARTIFACTS_DIR)/actors/dependency-check-report.xml \
-		$(CI_ARTIFACTS_DIR)/dependency_check_report.actors.xml
+bom-in-docker: login-image-registry
+	@$(call docker_func,bom)
+	find artifacts
+	find $(ARTIFACTS_DIR)/ -name '*.bom.xml' -exec cp '{}' $(CI_ARTIFACTS_DIR) ';'
+	find ci-artifacts
 
-check-spotbugs-in-docker:
+check-deps-in-docker: login-image-registry
+	@$(call docker_func,check-deps)
+	@$(call to_artifacts,*dependency-check-report.json)
+	@$(call to_artifacts,*dependency-check-report.xml)
+
+# TODO: Not yet working
+check-spotbugs-in-docker: login-image-registry
 	@$(call docker_func,check-spotbugs)
 	@cp $(ARTIFACTS_DIR)/actors/findbugs-report.* \
 		$(CI_ARTIFACTS_DIR)/
@@ -299,3 +321,58 @@ jlist:
 # target: erlfmt-format - Format Erlang code automatically
 erlfmt-format:
 	@$(ERLFMT) --write -- $(ERL_SRCS)
+
+.PHONY: release
+# target: release - Push release to github
+release: $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
+	GH_DEBUG=1 GH_HOST=github.ibm.com gh release list --repo github.ibm.com/cloudant/ziose
+	GH_DEBUG=1 GH_HOST=github.ibm.com gh release create "$(PROJECT_VERSION)" \
+		--repo github.ibm.com/cloudant/ziose \
+		--title "Release $(PROJECT_VERSION)" \
+		--generate-notes $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
+
+$(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)-dist.zip: $(JAR_ARTIFACTS)
+	@mkdir -p $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
+	@cp $(ARTIFACTS_DIR)/*.jar $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
+	@zip --junk-paths -r $@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
+
+$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar:
+	@sbt assembly
+	@cp clouseau/target/scala-$(SCALA_SHORT_VERSION)/$(@F) $@
+
+$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar:
+	@sbt assembly -Djartest=true
+	@cp clouseau/target/scala-$(SCALA_SHORT_VERSION)/$(@F) $@
+
+$(ARTIFACTS_DIR)/%.jar.chksum: $(ARTIFACTS_DIR)/%.jar
+	@cd $(ARTIFACTS_DIR) && shasum -a 256 $(<F) > $(@F)
+
+$(ARTIFACTS_DIR)/%.zip.chksum: $(ARTIFACTS_DIR)/%.zip
+	@cd $(ARTIFACTS_DIR) && shasum -a 256 $(<F) > $(@F)
+
+$(ARTIFACTS_DIR)/checksums.txt: $(addprefix $(ARTIFACTS_DIR)/, $(CHECKSUM_FILES))
+	@cat $? > $@
+	@cd $(ARTIFACTS_DIR)/ && shasum -a 256 -c checksums.txt
+
+# Authenticate with our image registry before pulling any images
+login-image-registry: check-env-docker
+ifeq ($(REQUIRE_ARTIFACTORY),true)
+	@echo "Docker login Artifactory"
+	@docker login -u "${ARTIFACTORY_USR}" -p "${ARTIFACTORY_PSW}" "${REGISTRY}"
+endif
+
+check-env-docker:
+ifeq ($(REQUIRE_ARTIFACTORY),true)
+	@if [ -z "$${ARTIFACTORY_USR}" ]; then echo "Error: ARTIFACTORY_USR is undefined"; exit 1; fi
+	@if [ -z "$${ARTIFACTORY_PSW}" ]; then echo "Error: ARTIFACTORY_PSW is undefined"; exit 1; fi
+endif
+
+.PHONY: ci-release
+ci-release:
+	@find .
+	@make release
+
+.PHONY: bom
+bom:
+	@sbt makeBom
+	@$(call to_artifacts,*.bom.xml)
