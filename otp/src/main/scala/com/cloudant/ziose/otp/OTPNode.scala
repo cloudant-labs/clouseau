@@ -132,13 +132,7 @@ object OTPNode {
       _ <- event.command match {
         case StartActor(actor: AddressableActor[_, _]) =>
           for {
-            // TODO I don't like the fact we use `asInstanceOf` here
-            // _ <- ZIO.addFinalizer(
-            //   ZIO.succeed(stopActor(actor.asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]], None)))
-            nodeScope <- ZIO.scope
-            _ <- actor.start(
-              nodeScope
-            ) // .withFinalizer(_ => ZIO.succeed(stopActor(actor.asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]], None)))
+            _ <- actor.start()
             _ <- actor.stream.runForeachWhile {
               case MessageEnvelope.Exit(_from, _to, reason, _workerId) =>
                 for {

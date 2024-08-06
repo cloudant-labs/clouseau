@@ -82,7 +82,7 @@ class OTPProcessContext private (
   // I want to prevent direct calls to this function
   // Since it should only be used from OTPNode
   def mailbox(accessKey: OTPNode.AccessKey): OtpMbox = mbox
-  def start(scope: Scope)                            = mailbox.start(scope)
+  def start()                                        = mailbox.start(scope)
 
   def addMonitorer(from: Option[Codec.EPid], ref: Codec.ERef): UIO[Unit] = for {
     _ <- from match {
