@@ -53,6 +53,11 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   val id   = ctx.id // FIXME
   val self = ctx.self
   def ctx  = context
+
+  def onInit(): ZIO[Any, Throwable, Unit] = {
+    actor.onInit(ctx)
+  }
+
   def stream = ctx.stream
     // TODO make it configurable
     .groupedWithin(3, Duration.fromMillis(50))
@@ -119,6 +124,7 @@ object AddressableActor {
 }
 
 trait Actor {
+  def onInit[C <: ProcessContext](ctx: C): ZIO[Any, Throwable, Unit]
   def onMessage[C <: ProcessContext](msg: MessageEnvelope, ctx: C): ZIO[Any, Throwable, Unit]
   def onTermination[C <: ProcessContext](reason: Codec.ETerm, ctx: C): UIO[Unit]
 }

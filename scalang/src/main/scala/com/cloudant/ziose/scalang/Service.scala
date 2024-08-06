@@ -96,6 +96,7 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
     adapter.send(envelope)
   }
 
+  def handleInit(): Unit
   def handleMessage(msg: Any): Unit
 
   // TODO: Fully evaluate the effect and return Unit
@@ -273,6 +274,10 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
     effect.delay(duration)
   }
 
+  def onInit[PContext <: ProcessContext](_ctx: PContext): ZIO[Any, Throwable, Unit] = {
+    ZIO.succeed(handleInit())
+  }
+
   def onMessage[PContext <: ProcessContext](event: MessageEnvelope, ctx: PContext): ZIO[Any, Throwable, Unit] = {
     event.getPayload match {
       case None        => ZIO.succeed(handleMessage(()))
@@ -285,6 +290,7 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
     ZIO.succeed(())
   }
 
+  override def handleInit()            = ()
   override def handleMessage(msg: Any) = ()
 
   override def handleExit(from: Pid, msg: Any) = {
