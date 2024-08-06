@@ -49,8 +49,8 @@ object OTPNode {
         _           <- ZIO.debug(s"Creating OtpNode($name, ****)")
         nodeProcess <- NodeProcess.make(name, cookie, queue, accessKey)
         _           <- nodeProcess.stream.runDrain.fork
-        scope       <- ZIO.scope
-        service = unsafeMake(queue, nodeProcess, scope, factory, ctx)
+        nodeScope   <- ZIO.scope
+        service = unsafeMake(queue, nodeProcess, nodeScope, factory, ctx)
         _ <- service.acquire
         _ <- ZIO.addFinalizer(service.release)
         _ <- ZIO.debug("Adding OTPNode to the environment")
@@ -135,9 +135,9 @@ object OTPNode {
             // TODO I don't like the fact we use `asInstanceOf` here
             // _ <- ZIO.addFinalizer(
             //   ZIO.succeed(stopActor(actor.asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]], None)))
-            scope <- ZIO.scope
+            nodeScope <- ZIO.scope
             _ <- actor.start(
-              scope
+              nodeScope
             ) // .withFinalizer(_ => ZIO.succeed(stopActor(actor.asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]], None)))
             _ <- actor.stream.runForeachWhile {
               case MessageEnvelope.Exit(_from, _to, reason, _workerId) =>
@@ -267,7 +267,7 @@ object OTPNode {
   private def unsafeMake[C <: ProcessContext](
     queue: Queue[Envelope[Command[_], _, _]],
     process: NodeProcess,
-    scope: Scope,
+    nodeScope: Scope,
     f: ActorFactory,
     ctx: OTPProcessContext.Seeded
   ): OTPNode = {
@@ -354,7 +354,7 @@ object OTPNode {
         val loop = process.monitorRemoteNode(name, timeout).runDrain.forever
         for {
           _ <- (for {
-            _ <- loop.forkIn(scope)
+            _ <- loop.forkIn(nodeScope)
           } yield ()).fork
         } yield ()
       }
