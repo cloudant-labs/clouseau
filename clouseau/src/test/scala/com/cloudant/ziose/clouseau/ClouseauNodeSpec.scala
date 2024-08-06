@@ -285,7 +285,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           zio  <- EchoService.startZIO(node, "echo", cfg)
         } yield assertTrue(zio.isInstanceOf[core.AddressableActor[_, _]])
       )
-    ).provideLayer(Utils.testEnvironment(1, 1, "serviceSpawn"))
+    ).provideLayer(Utils.testEnvironment(1, 1, "serviceSpawn")) @@ TestAspect.withLiveClock
   }
 
   val serviceCommunicationSuite: Spec[Any, Throwable] = {

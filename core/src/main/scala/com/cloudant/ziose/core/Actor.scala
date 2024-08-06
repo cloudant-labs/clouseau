@@ -55,7 +55,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   def ctx  = context
 
   def onInit(): ZIO[Any, Throwable, Unit] = {
-    actor.onInit(ctx)
+    ctx.worker.register(this) *> actor.onInit(ctx)
   }
 
   def stream = ctx.stream
@@ -102,10 +102,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   def size(implicit trace: zio.Trace): UIO[Int] = {
     ctx.size
   }
-  def start() = for {
-    _ <- ctx.worker.register(this)
-    _ <- ctx.start()
-  } yield ()
+  def start() = ctx.start()
 
   @checkEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(

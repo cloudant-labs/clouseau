@@ -20,7 +20,7 @@ import com.cloudant.ziose.core.Node
 class OTPProcessContext private (
   val name: Option[String],
   val mailbox: OTPMailbox,
-  val scope: Scope,
+  val scope: Scope.Closeable,
   val worker: EngineWorker,
   private val mbox: OtpMbox,
   private val monitorers: Set[Product2[Codec.EPid, Codec.ERef]]
@@ -135,7 +135,7 @@ object OTPProcessContext {
     capacity: Option[Int] = None,
     worker: Option[OTPEngineWorker] = None,
     nodeName: Option[Symbol] = None,
-    scope: Option[Scope] = None
+    scope: Option[Scope.Closeable] = None
   ) {
     def withOtpMbox(mbox: OtpMbox): Builder[S with State.MessageBox] = {
       this.copy(otpMbox = Some(mbox))
@@ -156,7 +156,7 @@ object OTPProcessContext {
         this.copy(name = builder.name)
       }
     }
-    def withScope(scope: Scope): Builder[S with State.Scope] = {
+    def withScope(scope: Scope.Closeable): Builder[S with State.Scope] = {
       this copy (scope = Some(scope))
     }
     def getMbox()(implicit ev: S =:= State.Ready): OtpMbox = {

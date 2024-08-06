@@ -27,6 +27,12 @@ TODO: Implement builder pattern
  */
 object MessageEnvelope {
   // TODO we need a builder pattern for these
+  case class Init(to: Address) extends MessageEnvelope {
+    val from                      = None
+    val workerId: Engine.WorkerId = to.workerId
+    val workerNodeName: Symbol    = to.workerNodeName
+    def getPayload                = None
+  }
 
   case class Link(from: Option[Codec.EPid], to: Address, private val base: Address) extends MessageEnvelope {
     val workerId: Engine.WorkerId = base.workerId

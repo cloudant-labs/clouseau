@@ -132,9 +132,30 @@ object OTPNode {
       _ <- event.command match {
         case StartActor(actor: AddressableActor[_, _]) =>
           for {
-            _ <- actor.start()
-            _ <- actor.stream.runForeachWhile(handleActorMessage(actor)).forkScoped
-            _ <- event.succeed(Response.StartActor(actor.self.pid))
+            /*
+             * The use of `continue` makes sure we don't return to the caller of the spawn before
+             * we start handling the `MessageEnvelope.Init` to prevent the caller from sending the
+             * messages to not fully initialized actor.
+             *
+             * ```mermaid
+             * sequenceDiagram
+             *   Note right of nodeFiber: make "continue" promise
+             *   nodeFiber-x+actorFiber: create actorFiber
+             *   critical
+             *     nodeFiber->>+actorFiber: actor.start()
+             *     Note right of actorFiber: Actor.start does ctx.offer(MessageEnvelope.Init(id))
+             *     actorFiber->>+nodeFiber: resolve "continue" promise
+             *     Note right of nodeFiber: await on "continue" promise
+             *   end
+             * Note right of actorFiber: call Actor.onInit
+             * ```
+             */
+            continue <- Promise.make[Nothing, Unit]
+            _        <- actor.stream.runForeachWhile(handleActorMessage(actor, continue)).forkScoped
+            _        <- actor.offer(MessageEnvelope.Init(actor.id))
+            _        <- actor.start()
+            _        <- continue.await
+            _        <- event.succeed(Response.StartActor(actor.self.pid))
           } yield ()
         case _ =>
           handleCommand(event.command) match {
@@ -144,7 +165,10 @@ object OTPNode {
       }
     } yield ()
 
-    def handleActorMessage(actor: AddressableActor[_, _]): MessageEnvelope => ZIO[Any, Throwable, Boolean] = {
+    def handleActorMessage(
+      actor: AddressableActor[_, _],
+      continue: Promise[Nothing, Unit]
+    ): MessageEnvelope => ZIO[Any, Throwable, Boolean] = {
       case MessageEnvelope.Exit(_from, _to, reason, _workerId) =>
         for {
           _ <- ZIO.debug("received MessageEnvelope.Exit")
@@ -166,6 +190,8 @@ object OTPNode {
             .ctx
             .removeMonitorer(monitorer, ref)
         } yield true
+      case _: MessageEnvelope.Init =>
+        (continue.succeed(()) *> actor.onInit()).as(true)
       case message =>
         for {
           _ <- ZIO.debug(s"message: $message")
