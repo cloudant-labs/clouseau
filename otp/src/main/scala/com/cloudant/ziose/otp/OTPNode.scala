@@ -375,12 +375,14 @@ object OTPNode {
         builder: ActorBuilder.Sealed[A]
       ): ZIO[Scope & Node & EngineWorker, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
         for {
-          mbox   <- createMbox(builder.name)
-          worker <- ZIO.service[EngineWorker]
+          mbox       <- createMbox(builder.name)
+          worker     <- ZIO.service[EngineWorker]
+          actorScope <- nodeScope.fork
           context <- ctx
             .withOtpMbox(mbox)
             .withWorker(worker.asInstanceOf[OTPEngineWorker])
             .withBuilder(builder)
+            .withScope(actorScope)
             .build()
           // TODO: Consider removing builder argument, since it is available from the context and builder can use it
           addressable <- f

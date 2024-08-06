@@ -20,6 +20,7 @@ import com.cloudant.ziose.core.Node
 class OTPProcessContext private (
   val name: Option[String],
   val mailbox: OTPMailbox,
+  val scope: Scope,
   val worker: EngineWorker,
   private val mbox: OtpMbox,
   private val monitorers: Set[Product2[Codec.EPid, Codec.ERef]]
@@ -122,8 +123,9 @@ object OTPProcessContext {
     sealed trait Worker      extends State
     sealed trait Builder     extends State
     sealed trait NodeName    extends State
+    sealed trait Scope       extends State
     type Seeded   = Initial with NodeName
-    type Ready    = Seeded with Worker with MessageBox
+    type Ready    = Seeded with Worker with MessageBox with Scope
     type Complete = Seeded with Ready with Builder
   }
 
@@ -132,7 +134,8 @@ object OTPProcessContext {
     name: Option[String] = None,
     capacity: Option[Int] = None,
     worker: Option[OTPEngineWorker] = None,
-    nodeName: Option[Symbol] = None
+    nodeName: Option[Symbol] = None,
+    scope: Option[Scope] = None
   ) {
     def withOtpMbox(mbox: OtpMbox): Builder[S with State.MessageBox] = {
       this.copy(otpMbox = Some(mbox))
@@ -153,7 +156,9 @@ object OTPProcessContext {
         this.copy(name = builder.name)
       }
     }
-
+    def withScope(scope: Scope): Builder[S with State.Scope] = {
+      this copy (scope = Some(scope))
+    }
     def getMbox()(implicit ev: S =:= State.Ready): OtpMbox = {
       // it is safe to use .get since we require State.Ready
       this.otpMbox.get
@@ -176,6 +181,7 @@ object OTPProcessContext {
       name,
       mailbox,
       // it is safe to use .get since we require State.Complete
+      scope.get,
       worker.get,
       otpMbox.get,
       Set()
