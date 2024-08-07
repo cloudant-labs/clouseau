@@ -184,7 +184,7 @@ jartest: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
 
 # target: clean - Clean Java/Scala artifacts
 clean:
-	@rm -rf tmp artifacts/*
+	@rm -rf tmp $(ARTIFACTS_DIR)/*
 	@sbt clean
 
 .PHONY: epmd
@@ -267,9 +267,9 @@ build-in-docker: login-image-registry
 
 bom-in-docker: login-image-registry
 	@$(call docker_func,bom)
-	find artifacts
+	find $(ARTIFACTS_DIR)
 	find $(ARTIFACTS_DIR)/ -name '*.bom.xml' -exec cp '{}' $(CI_ARTIFACTS_DIR) ';'
-	find ci-artifacts
+	find $(CI_ARTIFACTS_DIR)
 
 check-deps-in-docker: login-image-registry
 	@$(call docker_func,check-deps)
