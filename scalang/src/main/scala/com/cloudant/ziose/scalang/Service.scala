@@ -13,6 +13,7 @@ import core.Address
 import core.Node
 import core.MessageEnvelope
 import core.ProcessContext
+import core.ZioSupport
 import com.cloudant.ziose.macros.checkEnv
 import zio.{Duration, Runtime, Schedule, UIO, Unsafe, ZIO}
 
@@ -188,7 +189,7 @@ In clouseau builds we would be running old tests
 In ziose builds we would be running new ones
 
  */
-class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_, _]] {
+class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_, _]] with ZioSupport {
   val runtime = adapter.runtime
   val name    = adapter.name
   val self    = adapter.self
@@ -200,57 +201,18 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
   implicit def dest2sendable(dest: (Symbol, Symbol)): DestSend = new DestSend(dest, self, this)
 
   def sendEvery(pid: Pid, msg: Any, delay: Long) = {
-    Unsafe.unsafe { implicit unsafe =>
-      runtime.unsafe
-        .run(
-          sendEveryZIO(pid, msg, delay)
-        )
-        .getOrThrowFiberFailure() // TODO: TBD should we kill the caller
-    }
+    val interval: Duration = Duration.fromMillis(delay)
+    adapter.forkScoped(sendZIO(pid, msg).schedule(Schedule.spaced(interval))).unsafeRun
   }
 
   def sendEvery(name: Symbol, msg: Any, delay: Long) = {
-    Unsafe.unsafe { implicit unsafe =>
-      runtime.unsafe
-        .run(
-          sendEveryZIO(name, msg, delay)
-        )
-        .getOrThrowFiberFailure() // TODO: TBD should we kill the caller
-    }
+    val interval: Duration = Duration.fromMillis(delay)
+    adapter.forkScoped(sendZIO(name, msg).schedule(Schedule.spaced(interval))).unsafeRun
   }
 
   def sendEvery(dest: (RegName, NodeName), msg: Any, delay: Long) = {
-    Unsafe.unsafe { implicit unsafe =>
-      runtime.unsafe
-        .run(
-          sendEveryZIO(dest, msg, delay)
-        )
-        .getOrThrowFiberFailure() // TODO: TBD should we kill the caller
-    }
-  }
-
-  def sendEveryZIO(pid: Pid, msg: Any, delay: Long) = {
-    val effect = for {
-      _ <- sendZIO(pid, msg)
-    } yield ()
-    val interval = Duration(delay, TimeUnit.MILLISECONDS)
-    effect.schedule(Schedule.spaced(interval))
-  }
-
-  def sendEveryZIO(name: Symbol, msg: Any, delay: Long) = {
-    val effect = for {
-      _ <- sendZIO(name, msg)
-    } yield ()
-    val interval = Duration(delay, TimeUnit.MILLISECONDS)
-    effect.schedule(Schedule.spaced(interval))
-  }
-
-  def sendEveryZIO(dest: (RegName, NodeName), msg: Any, delay: Long) = {
-    val effect = for {
-      _ <- sendZIO(dest, Pid.toScala(self.pid), msg)
-    } yield ()
-    val interval = Duration(delay, TimeUnit.MILLISECONDS)
-    effect.schedule(Schedule.spaced(interval))
+    val interval: Duration = Duration.fromMillis(delay)
+    adapter.forkScoped(sendZIO(dest, Pid.toScala(self.pid), msg).schedule(Schedule.spaced(interval))).unsafeRun
   }
 
   def sendAfter(pid: Pid, msg: Any, delay: Long) = {
