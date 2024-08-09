@@ -425,6 +425,8 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
                 sendZIO(fromPid, (makeTag(ref), adapter.fromScala(reply)))
               case Symbol("noreply") =>
                 ZIO.unit
+              case (Symbol("stop"), reason, reply) =>
+                sendZIO(fromPid, (makeTag(ref), adapter.fromScala(reply))) *> ZIO.succeed(exit(reason))
               case reply =>
                 sendZIO(fromPid, (makeTag(ref), adapter.fromScala(reply)))
             }
