@@ -667,6 +667,6 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       serviceCommunicationSuite,
       processSpawnSuite,
       monitorsSuite
-    )
+    ) @@ TestAspect.timeout(15.minutes)
   }
 }
