@@ -1,5 +1,6 @@
 package com.cloudant.ziose.otp
 
+import java.util.concurrent.atomic.AtomicBoolean
 import collection.mutable.HashMap
 import com.cloudant.ziose.core.Mailbox
 
@@ -161,6 +162,7 @@ class OTPMailbox private (
 
   private val inProgressCalls: HashMap[Codec.ERef, Codec.EPid] = HashMap()
   private val callResults: HashMap[Codec.ERef, Codec.ETerm]    = HashMap()
+  private var isFinalized: AtomicBoolean                       = new AtomicBoolean(false)
 
   // TODO: Make it private and make `run` public instead in the trait
   def stream = s.map(handleCall).collect { case Some(message) => message }
@@ -196,7 +198,9 @@ class OTPMailbox private (
     compositeMailbox.isShutdown
   }
   def shutdown(implicit trace: Trace): UIO[Unit] = {
-    compositeMailbox.shutdown <&> internalMailbox.shutdown
+    if (!isFinalized.getAndSet(true)) {
+      compositeMailbox.shutdown <&> internalMailbox.shutdown
+    } else { ZIO.unit }
   }
   def offer(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
     internalMailbox.offer(msg)

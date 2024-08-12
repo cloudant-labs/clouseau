@@ -2,6 +2,7 @@ package com.cloudant.ziose.core
 
 import com.cloudant.ziose.macros.checkEnv
 import zio.{Duration, Trace, UIO, ZIO}
+import java.util.concurrent.atomic.AtomicBoolean
 
 /*
  * This is the trait which implements actors. An Actor is a low level construct
@@ -50,10 +51,11 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     extends EnqueueWithId[Address, MessageEnvelope] {
   type Actor   = A
   type Context = C
-  val id   = ctx.id // FIXME
-  val name = ctx.name
-  val self = ctx.self
-  def ctx  = context
+  val id                                 = ctx.id // FIXME
+  val name                               = ctx.name
+  val self                               = ctx.self
+  private val isFinalized: AtomicBoolean = new AtomicBoolean(false)
+  def ctx                                = context
 
   def onInit(): ZIO[Any, Throwable, Unit] = {
     ctx.worker.register(this) *> actor.onInit(ctx)
@@ -92,7 +94,8 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     ctx.isShutdown
   }
   def shutdown(implicit trace: Trace): UIO[Unit] = {
-    ctx.shutdown
+    if (!isFinalized.getAndSet(true)) { ctx.shutdown }
+    else { ZIO.unit }
   }
   def offer(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
     ctx.offer(msg)
