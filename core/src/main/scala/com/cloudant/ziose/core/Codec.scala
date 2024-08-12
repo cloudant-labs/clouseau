@@ -271,7 +271,7 @@ object Codec {
   }
 
   // TODO add tests
-  class EBinary(payload: Array[Byte]) extends ETerm {
+  class EBinary(payload: Array[Byte], val isPrintable: Boolean = false) extends ETerm {
     override def hashCode: Int = payload.toList.hashCode()
     override def equals(other: Any): Boolean = {
       other match {
@@ -283,15 +283,21 @@ object Codec {
     override def toOtpErlangObject: OtpErlangObject = {
       new OtpErlangBinary(payload)
     }
-    override def toString: String = s"<<${payload.mkString(",")}>>"
-    def asString: String          = new String(payload, StandardCharsets.UTF_8)
-    def asBytes: Array[Byte]      = payload
+    override def toString: String = {
+      if (isPrintable) {
+        s"<<\"${asString}\">>"
+      } else {
+        s"<<${payload.mkString(",")}>>"
+      }
+    }
+    def asString: String     = new String(payload, StandardCharsets.UTF_8)
+    def asBytes: Array[Byte] = payload
   }
 
   object EBinary {
-    def apply(atom: Symbol)         = new EBinary(atom.name.getBytes())
+    def apply(atom: Symbol)         = new EBinary(atom.name.getBytes(), true)
     def apply(obj: OtpErlangBinary) = new EBinary(obj.binaryValue)
-    def apply(str: String)          = new EBinary(str.getBytes())
+    def apply(str: String)          = new EBinary(str.getBytes(StandardCharsets.UTF_8), true)
     def apply(bytes: Array[Byte])   = new EBinary(bytes)
 
     def unapply(eBinary: EBinary): Option[Array[Byte]] = Some(eBinary.asBytes)
@@ -437,7 +443,7 @@ object Codec {
       case f: Float  => EFloat(f)
       case d: Double => EDouble(d)
       // *Important* clouseau encodes strings as binaries
-      case s: String      => EBinary(s.getBytes(StandardCharsets.UTF_8))
+      case s: String      => EBinary(s)
       case list: List[_]  => EList(list.map(e => fromScala(e, top, bottom)), true)
       case list: Seq[_]   => EList(List.from(list.map(e => fromScala(e, top, bottom))), true)
       case tuple: Product => ETuple(tuple.productIterator.map(e => fromScala(e, top, bottom)).toList)
