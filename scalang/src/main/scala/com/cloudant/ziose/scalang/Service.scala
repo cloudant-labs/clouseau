@@ -1,6 +1,7 @@
 package com.cloudant.ziose.scalang
 
 import _root_.com.cloudant.ziose.core
+import core.ActorResult
 import core.Codec
 import core.Codec.EAtom
 import core.Codec.EPid
@@ -278,10 +279,13 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
     ZIO.succeed(handleInit())
   }
 
-  def onMessage[PContext <: ProcessContext](event: MessageEnvelope, ctx: PContext): ZIO[Any, Throwable, Unit] = {
+  def onMessage[PContext <: ProcessContext](
+    event: MessageEnvelope,
+    ctx: PContext
+  ): ZIO[Any, Throwable, _ <: ActorResult] = {
     event.getPayload match {
-      case None        => ZIO.succeed(handleMessage(()))
-      case Some(value) => ZIO.succeed(handleMessage(adapter.toScala(value)))
+      case None        => ZIO.succeed(handleMessage(())).as(ActorResult.Continue())
+      case Some(value) => ZIO.succeed(handleMessage(adapter.toScala(value))).as(ActorResult.Continue())
     }
   }
 
@@ -401,11 +405,12 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
   override def onMessage[PContext <: ProcessContext](
     event: MessageEnvelope,
     ctx: PContext
-  ): ZIO[Any, Throwable, Unit] = {
+  ): ZIO[Any, Throwable, _ <: ActorResult] = {
     event.getPayload match {
       case Some(ETuple(EAtom("ping"), from: EPid, ref: ERef)) => {
         val fromPid = Pid.toScala(from)
         sendZIO(fromPid, (Symbol("pong"), ref))
+          .as(ActorResult.Continue())
       }
       case Some(
             ETuple(
@@ -420,17 +425,23 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
         try {
           val result = handleCall((fromPid, ref), adapter.toScala(request))
           for {
-            _ <- result match {
+            res <- result match {
               case (Symbol("reply"), reply) =>
                 sendZIO(fromPid, (makeTag(ref), adapter.fromScala(reply)))
+                  .as(ActorResult.Continue())
               case Symbol("noreply") =>
-                ZIO.unit
-              case (Symbol("stop"), reason, reply) =>
-                sendZIO(fromPid, (makeTag(ref), adapter.fromScala(reply))) *> ZIO.succeed(exit(reason))
+                ZIO.succeed(ActorResult.Continue())
+              case (Symbol("stop"), reason: String, reply) =>
+                sendZIO(fromPid, (makeTag(ref), adapter.fromScala(reply)))
+                  .as(ActorResult.StopWithReasonString(reason))
+              case (Symbol("stop"), reason: Any, reply) =>
+                sendZIO(fromPid, (makeTag(ref), adapter.fromScala(reply)))
+                  .as(ActorResult.StopWithReasonTerm(adapter.fromScala(reason)))
               case reply =>
                 sendZIO(fromPid, (makeTag(ref), adapter.fromScala(reply)))
+                  .as(ActorResult.Continue())
             }
-          } yield ()
+          } yield res
         } catch {
           case err: Throwable => {
             printThrowable("onMessage[$gen_call]", err)
@@ -440,7 +451,9 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
       }
       case Some(ETuple(EAtom("$gen_cast"), request: ETerm)) => {
         try {
-          ZIO.succeed(handleCast(adapter.toScala(request))).unit
+          ZIO
+            .succeed(handleCast(adapter.toScala(request)))
+            .as(ActorResult.Continue())
         } catch {
           case err: Throwable => {
             printThrowable("onMessage[$gen_cast]", err)
@@ -450,7 +463,9 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
       }
       case Some(info: ETerm) => {
         try {
-          ZIO.succeed(handleInfo(adapter.toScala(info))).unit
+          ZIO
+            .succeed(handleInfo(adapter.toScala(info)))
+            .as(ActorResult.Continue())
         } catch {
           case err: Throwable => {
             printThrowable("onMessage[ETerm]", err)
@@ -461,7 +476,9 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
       case Some(info) => {
         println(s"nothing matched but it is not a ETerm $info")
         try {
-          ZIO.succeed(handleInfo(adapter.toScala(info))).unit
+          ZIO
+            .succeed(handleInfo(adapter.toScala(info)))
+            .as(ActorResult.Continue())
         } catch {
           case err: Throwable => {
             printThrowable("onMessage[Any]", err)

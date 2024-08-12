@@ -9,6 +9,7 @@ trait ProcessContext extends EnqueueWithId[Address, MessageEnvelope] {
   val worker: EngineWorker
   def name: Option[String]
   def self: PID
+  def forkScoped[R, E, A](effect: ZIO[R, E, A]): URIO[R, Fiber.Runtime[E, A]]
   def call(msg: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response]
   def cast(msg: MessageEnvelope.Cast): UIO[Unit]
   def send(msg: MessageEnvelope.Send): UIO[Unit]

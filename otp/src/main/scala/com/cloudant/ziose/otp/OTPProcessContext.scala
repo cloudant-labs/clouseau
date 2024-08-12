@@ -77,6 +77,10 @@ class OTPProcessContext private (
 
   def stream: ZStream[Any, Throwable, MessageEnvelope] = mailbox.stream
 
+  def forkScoped[R, E, A](effect: ZIO[R, E, A]): URIO[R, Fiber.Runtime[E, A]] = {
+    effect.forkIn(scope)
+  }
+
   def call(msg: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response] = {
     mailbox.call(msg)
   }

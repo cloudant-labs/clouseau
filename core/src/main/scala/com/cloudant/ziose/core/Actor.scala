@@ -1,7 +1,7 @@
 package com.cloudant.ziose.core
 
 import com.cloudant.ziose.macros.checkEnv
-import zio.{Duration, Trace, UIO, ZIO}
+import zio.{Cause, Duration, Trace, UIO, ZIO}
 import java.util.concurrent.atomic.AtomicBoolean
 import zio.Promise
 
@@ -58,9 +58,15 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   private val isFinalized: AtomicBoolean = new AtomicBoolean(false)
   def ctx                                = context
 
-  def onInit(): ZIO[Any, Throwable, Unit] = {
-    ctx.worker.register(this) *> actor.onInit(ctx)
-  }
+  def onInit(): ZIO[Any, Nothing, ActorResult] = for {
+    _ <- ctx.worker.register(this)
+    res <- (actor
+      .onInit(ctx)
+      .foldZIO(
+        failure => ZIO.succeed(ActorResult.onInitError(failure)),
+        _success => ZIO.succeed(ActorResult.Continue())
+      ))
+  } yield res
 
   def stream = ctx.stream
     // TODO make it configurable
@@ -80,12 +86,23 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     }
   // .tap(x => printLine(s"actor stream after onMessage: $x"))
 
-  def onTermination(reason: Codec.ETerm): ZIO[Any, Throwable, Unit] = for {
+  def onTermination(result: ActorResult): ZIO[Any, Nothing, ActorResult] = for {
     _ <- ctx.worker.unregister(self)
-    _ <- actor.onTermination(reason, ctx)
-  } yield ()
-  def onMessage(message: MessageEnvelope): ZIO[Any, Throwable, Unit] = {
-    actor.onMessage(message, ctx)
+    res <- (actor
+      .onTermination(resultToReason(result), ctx)
+      .foldZIO(
+        failure => ZIO.succeed(ActorResult.onTerminationError(failure)),
+        _success => ZIO.succeed(ActorResult.Stop())
+      ))
+  } yield res
+
+  def onMessage(message: MessageEnvelope): ZIO[Any, Nothing, ActorResult] = {
+    (actor
+      .onMessage(message, ctx)
+      .foldZIO(
+        failure => ZIO.succeed(ActorResult.onMessageError(failure)),
+        success => ZIO.succeed(success)
+      ))
   }
   def capacity: Int = ctx.capacity
   override def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
@@ -128,9 +145,10 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
      * ```
      */
     continue <- Promise.make[Nothing, Unit]
-    _ <- stream
-      .runForeachWhile(handleActorMessage(continue))
-      .forkScoped
+    _ <- ctx.forkScoped(
+      stream
+        .runForeachWhileScoped(handleActorMessage(continue))
+    )
     _ <- offer(MessageEnvelope.Init(id))
     _ <- ctx.start()
     _ <- continue.await
@@ -138,29 +156,43 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
 
   def handleActorMessage(
     continue: Promise[Nothing, Unit]
-  ): MessageEnvelope => ZIO[Any, Throwable, Boolean] = {
+  ): MessageEnvelope => ZIO[Any, Nothing, Boolean] = {
     case MessageEnvelope.Exit(_from, _to, reason, _workerId) =>
+      val result = ActorResult.StopWithReasonTerm(reason)
       for {
-        _ <- ZIO.debug("received MessageEnvelope.Exit")
-        // TODO Use dedicated error type here
-        _ <- ZIO.fail(new Throwable("MessageEnvelope.Exit"))
+        _ <- onTermination(result) *>
+          ZIO.succeed(result.shouldContinue)
       } yield false
     case message @ MessageEnvelope.Monitor(monitorer, monitored, ref, workerId) =>
       for {
-        _ <- ZIO.debug(s"monitor: monitorer=$monitorer, monitored=$monitored, ref=$ref, worker=$workerId")
         _ <- ctx.handleMonitorMessage(message)
       } yield true
     case message @ MessageEnvelope.Demonitor(monitorer, monitored, ref, workerId) =>
       for {
-        _ <- ZIO.debug(s"demonitor: monitorer=$monitorer, monitored=$monitored, ref=$ref, worker=$workerId")
         _ <- ctx.handleDemonitorMessage(message)
       } yield true
     case _: MessageEnvelope.Init =>
       (continue.succeed(()) *> onInit()).as(true)
     case message =>
       for {
-        _ <- onMessage(message)
-      } yield true
+        shouldContinue <- onMessage(message)
+          .flatMap(result => {
+            result match {
+              case ActorResult.Continue() => ZIO.succeed(result.shouldContinue)
+              case ActorResult.StopWithCause(callback, cause) =>
+                onTermination(result) *>
+                  ZIO.succeed(result.shouldContinue)
+              case _ =>
+                onTermination(result) *>
+                  ZIO.succeed(result.shouldContinue)
+            }
+          })
+      } yield shouldContinue
+  }
+
+  def resultToReason(result: ActorResult) = {
+    // TODO we need to handle each sub-type differently
+    Codec.fromScala(result.toString())
   }
 
   /*
@@ -216,10 +248,54 @@ object AddressableActor {
 
 trait Actor {
   def onInit[C <: ProcessContext](ctx: C): ZIO[Any, Throwable, Unit]
-  def onMessage[C <: ProcessContext](msg: MessageEnvelope, ctx: C): ZIO[Any, Throwable, Unit]
-  def onTermination[C <: ProcessContext](reason: Codec.ETerm, ctx: C): UIO[Unit]
+  def onMessage[C <: ProcessContext](msg: MessageEnvelope, ctx: C): ZIO[Any, Throwable, _ <: ActorResult]
+  def onTermination[C <: ProcessContext](reason: Codec.ETerm, ctx: C): ZIO[Any, Throwable, Unit]
 }
 
 trait ActorConstructor[A] {
   type AType <: A
+}
+
+trait ActorCallback
+
+object ActorCallback {
+  case object OnInit        extends ActorCallback
+  case object OnMessage     extends ActorCallback
+  case object OnTermination extends ActorCallback
+}
+
+trait ActorResult {
+  val shouldContinue: Boolean
+  val shouldStop: Boolean = !shouldContinue
+}
+
+/*
+ * Used by the Actor trait only
+ */
+object ActorResult {
+  case class Continue() extends ActorResult {
+    val shouldContinue: Boolean = true
+  }
+  case class Stop() extends ActorResult {
+    val shouldContinue: Boolean = false
+  }
+  case class StopWithReasonString(reason: String) extends ActorResult {
+    val shouldContinue: Boolean = false
+  }
+  case class StopWithReasonTerm(reason: Codec.ETerm) extends ActorResult {
+    val shouldContinue: Boolean = false
+  }
+  case class StopWithCause(callback: ActorCallback, cause: Cause[_]) extends ActorResult {
+    val shouldContinue: Boolean = false
+  }
+
+  def onInitError(failure: Throwable) = {
+    ActorResult.StopWithCause(ActorCallback.OnInit, Cause.fail(failure)).asInstanceOf[ActorResult]
+  }
+  def onMessageError(failure: Throwable) = {
+    ActorResult.StopWithCause(ActorCallback.OnMessage, Cause.fail(failure)).asInstanceOf[ActorResult]
+  }
+  def onTerminationError(failure: Throwable) = {
+    ActorResult.StopWithCause(ActorCallback.OnTermination, Cause.fail(failure)).asInstanceOf[ActorResult]
+  }
 }
