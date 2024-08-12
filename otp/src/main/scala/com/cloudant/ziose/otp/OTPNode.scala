@@ -132,30 +132,8 @@ object OTPNode {
       _ <- event.command match {
         case StartActor(actor: AddressableActor[_, _]) =>
           for {
-            /*
-             * The use of `continue` makes sure we don't return to the caller of the spawn before
-             * we start handling the `MessageEnvelope.Init` to prevent the caller from sending the
-             * messages to not fully initialized actor.
-             *
-             * ```mermaid
-             * sequenceDiagram
-             *   Note right of nodeFiber: make "continue" promise
-             *   nodeFiber-x+actorFiber: create actorFiber
-             *   critical
-             *     nodeFiber->>+actorFiber: actor.start()
-             *     Note right of actorFiber: Actor.start does ctx.offer(MessageEnvelope.Init(id))
-             *     actorFiber->>+nodeFiber: resolve "continue" promise
-             *     Note right of nodeFiber: await on "continue" promise
-             *   end
-             * Note right of actorFiber: call Actor.onInit
-             * ```
-             */
-            continue <- Promise.make[Nothing, Unit]
-            _        <- actor.stream.runForeachWhile(handleActorMessage(actor, continue)).forkScoped
-            _        <- actor.offer(MessageEnvelope.Init(actor.id))
-            _        <- actor.start()
-            _        <- continue.await
-            _        <- event.succeed(Response.StartActor(actor.self.pid))
+            _ <- actor.start()
+            _ <- event.succeed(Response.StartActor(actor.self.pid))
           } yield ()
         case _ =>
           handleCommand(event.command) match {
@@ -164,40 +142,6 @@ object OTPNode {
           }
       }
     } yield ()
-
-    def handleActorMessage(
-      actor: AddressableActor[_, _],
-      continue: Promise[Nothing, Unit]
-    ): MessageEnvelope => ZIO[Any, Throwable, Boolean] = {
-      case MessageEnvelope.Exit(_from, _to, reason, _workerId) =>
-        for {
-          _ <- ZIO.debug("received MessageEnvelope.Exit")
-          _ <- stopActor(actor.asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]], Some(reason))
-        } yield false
-      case MessageEnvelope.Monitor(monitorer, monitored, ref, workerId) =>
-        for {
-          _ <- ZIO.debug(s"monitor: monitorer=$monitorer, monitored=$monitored, ref=$ref, worker=$workerId")
-          _ <- actor
-            .asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]]
-            .ctx
-            .addMonitorer(monitorer, ref)
-        } yield true
-      case MessageEnvelope.Demonitor(monitorer, monitored, ref, workerId) =>
-        for {
-          _ <- ZIO.debug(s"demonitor: monitorer=$monitorer, monitored=$monitored, ref=$ref, worker=$workerId")
-          _ <- actor
-            .asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]]
-            .ctx
-            .removeMonitorer(monitorer, ref)
-        } yield true
-      case _: MessageEnvelope.Init =>
-        (continue.succeed(()) *> actor.onInit()).as(true)
-      case message =>
-        for {
-          _ <- ZIO.debug(s"message: $message")
-          _ <- actor.onMessage(message)
-        } yield true
-    }
 
     def stopActor[A <: Actor, C <: ProcessContext](
       actor: AddressableActor[A, OTPProcessContext],

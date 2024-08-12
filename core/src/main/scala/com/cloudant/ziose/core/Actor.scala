@@ -3,6 +3,7 @@ package com.cloudant.ziose.core
 import com.cloudant.ziose.macros.checkEnv
 import zio.{Duration, Trace, UIO, ZIO}
 import java.util.concurrent.atomic.AtomicBoolean
+import zio.Promise
 
 /*
  * This is the trait which implements actors. An Actor is a low level construct
@@ -106,7 +107,61 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   def size(implicit trace: zio.Trace): UIO[Int] = {
     ctx.size
   }
-  def start() = ctx.start()
+
+  def start() = for {
+    /*
+     * The use of `continue` makes sure we don't return to the caller of the spawn before
+     * we start handling the `MessageEnvelope.Init` to prevent the caller from sending the
+     * messages to not fully initialized actor.
+     *
+     * ```mermaid
+     * sequenceDiagram
+     *   Note right of nodeFiber: make "continue" promise
+     *   nodeFiber-x+actorFiber: create actorFiber
+     *   critical
+     *     nodeFiber->>+actorFiber: actor.start()
+     *     Note right of actorFiber: Actor.start does ctx.offer(MessageEnvelope.Init(id))
+     *     actorFiber->>+nodeFiber: resolve "continue" promise
+     *     Note right of nodeFiber: await on "continue" promise
+     *   end
+     * Note right of actorFiber: call Actor.onInit
+     * ```
+     */
+    continue <- Promise.make[Nothing, Unit]
+    _ <- stream
+      .runForeachWhile(handleActorMessage(continue))
+      .forkScoped
+    _ <- offer(MessageEnvelope.Init(id))
+    _ <- ctx.start()
+    _ <- continue.await
+  } yield ()
+
+  def handleActorMessage(
+    continue: Promise[Nothing, Unit]
+  ): MessageEnvelope => ZIO[Any, Throwable, Boolean] = {
+    case MessageEnvelope.Exit(_from, _to, reason, _workerId) =>
+      for {
+        _ <- ZIO.debug("received MessageEnvelope.Exit")
+        // TODO Use dedicated error type here
+        _ <- ZIO.fail(new Throwable("MessageEnvelope.Exit"))
+      } yield false
+    case message @ MessageEnvelope.Monitor(monitorer, monitored, ref, workerId) =>
+      for {
+        _ <- ZIO.debug(s"monitor: monitorer=$monitorer, monitored=$monitored, ref=$ref, worker=$workerId")
+        _ <- ctx.handleMonitorMessage(message)
+      } yield true
+    case message @ MessageEnvelope.Demonitor(monitorer, monitored, ref, workerId) =>
+      for {
+        _ <- ZIO.debug(s"demonitor: monitorer=$monitorer, monitored=$monitored, ref=$ref, worker=$workerId")
+        _ <- ctx.handleDemonitorMessage(message)
+      } yield true
+    case _: MessageEnvelope.Init =>
+      (continue.succeed(()) *> onInit()).as(true)
+    case message =>
+      for {
+        _ <- onMessage(message)
+      } yield true
+  }
 
   /*
    * Use it for tests only

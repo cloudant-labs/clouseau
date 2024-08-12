@@ -68,6 +68,13 @@ class OTPProcessContext private (
   def monitor(monitored: Address) = mailbox.monitor(monitored)
   def demonitor(ref: Codec.ERef)  = mailbox.demonitor(ref)
 
+  def handleMonitorMessage(message: MessageEnvelope.Monitor): UIO[Unit] = {
+    addMonitorer(message.from, message.ref)
+  }
+  def handleDemonitorMessage(message: MessageEnvelope.Demonitor): UIO[Unit] = {
+    removeMonitorer(message.from, message.ref)
+  }
+
   def stream: ZStream[Any, Throwable, MessageEnvelope] = mailbox.stream
 
   def call(msg: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response] = {
