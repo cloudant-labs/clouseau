@@ -51,6 +51,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   type Actor   = A
   type Context = C
   val id   = ctx.id // FIXME
+  val name = ctx.name
   val self = ctx.self
   def ctx  = context
 
