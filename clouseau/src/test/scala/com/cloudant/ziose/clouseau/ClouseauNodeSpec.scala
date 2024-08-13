@@ -6,11 +6,13 @@ package com.cloudant.ziose.clouseau
 import org.junit.runner.RunWith
 import zio._
 import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
-import zio.test.{Spec, assertTrue}
 
 import com.cloudant.ziose.core
 import com.cloudant.ziose.scalang.{Adapter, Pid, Reference, Service, ServiceContext, SNode, PidSend}
+import zio.test._
+import zio.test.Assertion._
 import zio.test.TestAspect
+import com.cloudant.ziose.clouseau.helpers.Asserts._
 
 class PingPongService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   var calledArgs: List[Product2[String, Any]] = List()
@@ -308,30 +310,24 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
     suite("processSpawn")(
       test("no longer registered after termination")(
         for {
-          node            <- Utils.clouseauNode
-          cfg             <- Utils.defaultConfig
-          worker          <- ZIO.service[core.EngineWorker]
-          actor           <- EchoService.startZIO(node, "echo", cfg)
-          knownAfterStart <- worker.exchange.isKnown(actor.id)
-          ctx = actor.ctx.asInstanceOf[core.ProcessContext]
-          _ <- ctx.exit(core.Codec.EAtom("kill it"))
-          _ <- ZIO.sleep(WAIT_DURATION)
-          knownAfterKill <- worker.exchange
-            .isKnown(actor.id)
-            .repeatWhile(_ == true)
-            .timeout(TIMEOUT)
-        } yield assertTrue(
-          knownAfterStart == true,
-          knownAfterKill.isDefined,
-          knownAfterKill.get == false
-        )
+          node   <- Utils.clouseauNode
+          cfg    <- Utils.defaultConfig
+          worker <- ZIO.service[core.EngineWorker]
+
+          actor <- EchoService.startZIO(node, "echo", cfg)
+          _     <- assertAlive(actor.id)
+          _     <- actor.exit(core.Codec.EAtom("kill it"))
+          _     <- ZIO.sleep(WAIT_DURATION)
+          _     <- assertNotAlive(actor.id)
+        } yield assertTrue(true)
       ),
       test("spawn closure")(
         for {
           node   <- Utils.clouseauNode
           cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
-          actor  <- PingPongService.startZIO(node, "processSpawn.Closure")
+
+          actor <- PingPongService.startZIO(node, "processSpawn.Closure")
           _ <- ZIO.succeed(node.spawn(process => {
             // this is needed to enable `actor ! message` syntax
             // this shouldn't be required in clouseau code because
@@ -345,17 +341,11 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               core.Codec.EAtom("processSpawn.Closure")
             )
           }))
-          history <- PingPongService
-            .history(actor)
-            .repeatUntil(h => h.isDefined && h.get.length > 0)
-            .timeout(TIMEOUT)
-            .map(_.flatten)
-        } yield assertTrue(
-          history.isDefined,
-          history.get == List(
-            ("handleInfo", Symbol("processSpawn.Closure"))
-          )
-        )
+          history <- PingPongService.history(actor)
+        } yield assert(history)(isSome) ?? "history should be available"
+          && assert(history)(containsShapeOption { case ("handleInfo", Symbol("processSpawn.Closure")) =>
+            true
+          }) ?? "has to contain elements of expected shape"
       )
     ).provideLayer(
       Utils.testEnvironment(1, 1, "serviceCommunication")
@@ -366,244 +356,194 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
     suite("monitor")(
       test("monitor process by identifier")(
         for {
-          node           <- Utils.clouseauNode
-          cfg            <- Utils.defaultConfig
-          worker         <- ZIO.service[core.EngineWorker]
-          echoActor      <- EchoService.startZIO(node, "echo_monitor_pid", cfg)
+          node   <- Utils.clouseauNode
+          cfg    <- Utils.defaultConfig
+          worker <- ZIO.service[core.EngineWorker]
+
+          echo           <- EchoService.startZIO(node, "echo_monitor_pid", cfg)
           monitorerActor <- MonitorService.startZIO(node, "monitorer_pid")
-          echo    = echoActor.ctx.asInstanceOf[core.ProcessContext]
           echoPid = echo.self.pid
-          ref <- MonitorService.monitor(monitorerActor, echoPid).map(_.right.get)
-          _   <- ZIO.sleep(WAIT_DURATION)
-          _   <- echo.exit(core.Codec.EAtom("reason"))
-          echoIsAlive <- worker.exchange
-            .isKnown(echo.id)
-            .repeatWhile(_ == true)
-            .timeout(TIMEOUT)
+          echoRef <- MonitorService.monitor(monitorerActor, echoPid).map(_.right.get)
+          _       <- ZIO.sleep(WAIT_DURATION)
+          _       <- echo.exit(core.Codec.EAtom("reason"))
+          _       <- assertNotAlive(echo.id)
           _       <- ZIO.sleep(WAIT_DURATION)
           history <- MonitorService.history(monitorerActor)
-        } yield assertTrue(
-          echoIsAlive.get == false,
-          history.isDefined,
-          history.get == List(
-            (echoPid: Pid, ref, Symbol("reason"))
-          )
-        )
+        } yield assert(history)(isSome) ?? "history should be available"
+          && assert(history)(containsShapeOption { case (pid: Pid, ref, Symbol("reason")) =>
+            pid == Pid.toScala(echoPid) && echoRef == ref
+          }) ?? "has to contain elements of expected shape"
       ),
       test("monitor process by name")(
         for {
           node   <- Utils.clouseauNode
           cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
+
           echoName = "echo_monitor_name"
-          echoActor      <- EchoService.startZIO(node, echoName, cfg)
+          echo           <- EchoService.startZIO(node, echoName, cfg)
           monitorerActor <- MonitorService.startZIO(node, "monitorer_name")
-          echo    = echoActor.ctx.asInstanceOf[core.ProcessContext]
           echoPid = echo.self.pid
-          ref <- MonitorService.monitor(monitorerActor, core.Codec.EAtom(echoName)).map(_.right.get)
-          _   <- ZIO.sleep(WAIT_DURATION)
-          _   <- echo.exit(core.Codec.EAtom("reason"))
-          echoIsAlive <- worker.exchange
-            .isKnown(echo.id)
-            .repeatWhile(_ == true)
-            .timeout(TIMEOUT)
+          echoRef <- MonitorService.monitor(monitorerActor, core.Codec.EAtom(echoName)).map(_.right.get)
+          _       <- ZIO.sleep(WAIT_DURATION)
+          _       <- echo.exit(core.Codec.EAtom("reason"))
+          _       <- assertNotAlive(echo.id)
           _       <- ZIO.sleep(WAIT_DURATION)
           history <- MonitorService.history(monitorerActor)
-        } yield assertTrue(
-          echoIsAlive.get == false,
-          history.isDefined,
-          history.get == List(
-            (echoPid: Pid, ref, Symbol("reason"))
-          )
-        )
+        } yield assert(history)(isSome) ?? "history should be available"
+          && assert(history)(containsShapeOption { case (pid: Pid, ref, Symbol("reason")) =>
+            pid == Pid.toScala(echoPid) && echoRef == ref
+          }) ?? "has to contain elements of expected shape"
       ),
       test("monitor remote process by name")(
         for {
           node   <- Utils.clouseauNode
           cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
+
           echoName = "echo_monitor_remote_name"
-          echoActor      <- EchoService.startZIO(node, echoName, cfg)
+          echo           <- EchoService.startZIO(node, echoName, cfg)
           monitorerActor <- MonitorService.startZIO(node, "monitorer_remote_name")
-          echo    = echoActor.ctx.asInstanceOf[core.ProcessContext]
           echoPid = echo.self.pid
           // not exactly remote but localhost, but it exercises the same path
           target = core.Codec.ETuple(core.Codec.EAtom(echoName), core.Codec.EAtom("monitors"))
-          ref <- MonitorService.monitor(monitorerActor, target).map(_.right.get)
-          _   <- ZIO.sleep(WAIT_DURATION)
-          _   <- echo.exit(core.Codec.EAtom("reason"))
-          echoIsAlive <- worker.exchange
-            .isKnown(echo.id)
-            .repeatWhile(_ == true)
-            .timeout(TIMEOUT)
+          echoRef <- MonitorService.monitor(monitorerActor, target).map(_.right.get)
+          _       <- ZIO.sleep(WAIT_DURATION)
+          _       <- echo.exit(core.Codec.EAtom("reason"))
+          _       <- assertNotAlive(echo.id)
           _       <- ZIO.sleep(WAIT_DURATION)
           history <- MonitorService.history(monitorerActor)
-        } yield assertTrue(
-          echoIsAlive.get == false,
-          history.isDefined,
-          history.get == List(
-            (echoPid: Pid, ref, Symbol("reason"))
-          )
-        )
+        } yield assert(history)(isSome) ?? "history should be available"
+          && assert(history)(containsShapeOption { case (pid: Pid, ref, Symbol("reason")) =>
+            pid == Pid.toScala(echoPid) && echoRef == ref
+          }) ?? "has to contain elements of expected shape"
       ),
       test("demonitor")(
         for {
-          node           <- Utils.clouseauNode
-          cfg            <- Utils.defaultConfig
-          worker         <- ZIO.service[core.EngineWorker]
-          echoActor      <- EchoService.startZIO(node, "echo_demonitor_pid", cfg)
+          node   <- Utils.clouseauNode
+          cfg    <- Utils.defaultConfig
+          worker <- ZIO.service[core.EngineWorker]
+
+          echo           <- EchoService.startZIO(node, "echo_demonitor_pid", cfg)
           monitorerActor <- MonitorService.startZIO(node, "demonitorer")
-          echo    = echoActor.ctx.asInstanceOf[core.ProcessContext]
           echoPid = echo.self.pid
           ref             <- MonitorService.monitor(monitorerActor, echoPid).map(_.right.get)
           demonitorResult <- MonitorService.demonitor(monitorerActor, ref)
           _               <- ZIO.sleep(WAIT_DURATION)
           _               <- echo.exit(core.Codec.EAtom("reason"))
-          echoIsAlive <- worker.exchange
-            .isKnown(echo.id)
-            .repeatWhile(_ == true)
-            .timeout(TIMEOUT)
-          _       <- ZIO.sleep(WAIT_DURATION)
-          history <- MonitorService.history(monitorerActor)
+          _               <- assertNotAlive(echo.id)
+          _               <- ZIO.sleep(WAIT_DURATION)
+          history         <- MonitorService.history(monitorerActor)
         } yield assertTrue(
-          echoIsAlive.get == false,
-          demonitorResult == Symbol("ok"),
-          history.isDefined,
-          history.get == List()
-        )
+          demonitorResult == Symbol("ok")
+        ) && assert(history)(isSome) ?? "history should be available"
+          && assert(history.get)(isEmpty) ?? "history should be empty"
       ),
       test("fail to monitor non-existent process by identifier")(
         for {
-          node           <- Utils.clouseauNode
-          cfg            <- Utils.defaultConfig
-          worker         <- ZIO.service[core.EngineWorker]
-          echoActor      <- EchoService.startZIO(node, "echo_monitor_pid_noproc", cfg)
+          node   <- Utils.clouseauNode
+          cfg    <- Utils.defaultConfig
+          worker <- ZIO.service[core.EngineWorker]
+
+          echo           <- EchoService.startZIO(node, "echo_monitor_pid_noproc", cfg)
           monitorerActor <- MonitorService.startZIO(node, "monitorer_pid_noproc")
-          echo    = echoActor.ctx.asInstanceOf[core.ProcessContext]
           echoPid = echo.self.pid
           _ <- ZIO.sleep(WAIT_DURATION)
           // make the process exit to obtain a valid PID but without an active instance
-          _ <- echo.exit(core.Codec.EAtom("normal"))
-          echoIsAlive <- worker.exchange
-            .isKnown(echo.id)
-            .repeatWhile(_ == true)
-            .timeout(TIMEOUT)
+          _       <- echo.exit(core.Codec.EAtom("normal"))
+          _       <- assertNotAlive(echo.id)
           ref     <- MonitorService.monitor(monitorerActor, echoPid)
           _       <- ZIO.sleep(WAIT_DURATION)
           history <- MonitorService.history(monitorerActor)
         } yield assertTrue(
-          echoIsAlive.get == false,
-          history.isDefined,
-          history.get == List(),
           ref == Left(Symbol("noproc"))
-        )
+        ) && assert(history)(isSome) ?? "history should be available"
+          && assert(history.get)(isEmpty) ?? "history should be empty"
       ),
       test("fail to monitor non-existent process by name")(
         for {
-          node           <- Utils.clouseauNode
-          cfg            <- Utils.defaultConfig
-          worker         <- ZIO.service[core.EngineWorker]
+          node   <- Utils.clouseauNode
+          cfg    <- Utils.defaultConfig
+          worker <- ZIO.service[core.EngineWorker]
+
           monitorerActor <- MonitorService.startZIO(node, "monitorer_name_noproc")
           ref            <- MonitorService.monitor(monitorerActor, core.Codec.EAtom("non_existent"))
           _              <- ZIO.sleep(WAIT_DURATION)
           history        <- MonitorService.history(monitorerActor)
         } yield assertTrue(
-          history.isDefined,
-          history.get == List(),
           ref == Left(Symbol("noproc"))
-        )
+        ) && assert(history)(isSome) ?? "history should be available"
+          && assert(history.get)(isEmpty) ?? "history should be empty"
       ),
       test("fail to monitor process on non-existent remote node")(
         for {
-          node           <- Utils.clouseauNode
-          cfg            <- Utils.defaultConfig
-          worker         <- ZIO.service[core.EngineWorker]
+          node   <- Utils.clouseauNode
+          cfg    <- Utils.defaultConfig
+          worker <- ZIO.service[core.EngineWorker]
+
           monitorerActor <- MonitorService.startZIO(node, "monitorer_name_noconnection")
           target = core.Codec.ETuple(core.Codec.EAtom("non_existent"), core.Codec.EAtom("non_existent"))
           ref     <- MonitorService.monitor(monitorerActor, target)
           _       <- ZIO.sleep(WAIT_DURATION)
           history <- MonitorService.history(monitorerActor)
         } yield assertTrue(
-          history.isDefined,
-          history.get == List(),
           ref == Left(Symbol("noconnection"))
-        )
+        ) && assert(history)(isSome) ?? "history should be available"
+          && assert(history.get)(isEmpty) ?? "history should be empty"
       ),
       test("link")(
         for {
-          node        <- Utils.clouseauNode
-          cfg         <- Utils.defaultConfig
-          worker      <- ZIO.service[core.EngineWorker]
-          echoActor   <- EchoService.startZIO(node, "echo_link", cfg)
-          linkedActor <- MonitorService.startZIO(node, "linked")
-          echo    = echoActor.ctx.asInstanceOf[core.ProcessContext]
-          linked  = linkedActor.ctx.asInstanceOf[core.ProcessContext]
+          node   <- Utils.clouseauNode
+          cfg    <- Utils.defaultConfig
+          worker <- ZIO.service[core.EngineWorker]
+
+          echo   <- EchoService.startZIO(node, "echo_link", cfg)
+          linked <- MonitorService.startZIO(node, "linked")
           echoPid = echo.self.pid
-          linkResult <- MonitorService.link(linkedActor, echoPid)
+          linkResult <- MonitorService.link(linked, echoPid)
           _          <- ZIO.sleep(WAIT_DURATION)
           _          <- echo.exit(core.Codec.EAtom("reason"))
-          echoIsAlive <- worker.exchange
-            .isKnown(echo.id)
-            .repeatWhile(_ == true)
-            .timeout(TIMEOUT)
-          linkedIsAlive <- worker.exchange
-            .isKnown(linked.id)
-            .repeatWhile(_ == true)
-            .timeout(TIMEOUT)
+          _          <- assertNotAlive(echo.id)
+          _          <- assertNotAlive(linked.id)
         } yield assertTrue(
-          echoIsAlive.get == false,
-          linkedIsAlive.get == false,
           linkResult == Symbol("ok")
         )
       ),
       test("unlink")(
         for {
-          node        <- Utils.clouseauNode
-          cfg         <- Utils.defaultConfig
-          worker      <- ZIO.service[core.EngineWorker]
-          echoActor   <- EchoService.startZIO(node, "echo_unlink", cfg)
-          linkedActor <- MonitorService.startZIO(node, "unlinked")
-          echo    = echoActor.ctx.asInstanceOf[core.ProcessContext]
-          linked  = linkedActor.ctx.asInstanceOf[core.ProcessContext]
+          node   <- Utils.clouseauNode
+          cfg    <- Utils.defaultConfig
+          worker <- ZIO.service[core.EngineWorker]
+
+          echo   <- EchoService.startZIO(node, "echo_unlink", cfg)
+          linked <- MonitorService.startZIO(node, "unlinked")
           echoPid = echo.self.pid
-          linkResult   <- MonitorService.link(linkedActor, echoPid)
+          linkResult   <- MonitorService.link(linked, echoPid)
           _            <- ZIO.sleep(WAIT_DURATION)
-          unlinkResult <- MonitorService.unlink(linkedActor, echoPid)
+          unlinkResult <- MonitorService.unlink(linked, echoPid)
           _            <- echo.exit(core.Codec.EAtom("reason"))
-          echoIsAlive <- worker.exchange
-            .isKnown(echo.id)
-            .repeatWhile(_ == true)
-            .timeout(TIMEOUT)
-          linkedIsAlive <- worker.exchange
-            .isKnown(linked.id)
-            .repeatWhile(_ == false)
-            .timeout(TIMEOUT)
+          _            <- assertNotAlive(echo.id)
+          _            <- assertAlive(linked.id)
         } yield assertTrue(
-          echoIsAlive.get == false,
-          linkedIsAlive.get == true,
           linkResult == Symbol("ok"),
           unlinkResult == Symbol("ok")
         )
       ),
       test("fail to link to non-existent process")(
         for {
-          node        <- Utils.clouseauNode
-          cfg         <- Utils.defaultConfig
-          worker      <- ZIO.service[core.EngineWorker]
-          echoActor   <- EchoService.startZIO(node, "echo_link_noproc", cfg)
-          linkedActor <- MonitorService.startZIO(node, "linked_noproc")
-          echo    = echoActor.ctx.asInstanceOf[core.ProcessContext]
+          node   <- Utils.clouseauNode
+          cfg    <- Utils.defaultConfig
+          worker <- ZIO.service[core.EngineWorker]
+
+          echo   <- EchoService.startZIO(node, "echo_link_noproc", cfg)
+          linked <- MonitorService.startZIO(node, "linked_noproc")
           echoPid = echo.self.pid
           _ <- ZIO.sleep(WAIT_DURATION)
           // make the process exit to obtain a valid PID but without an active instance
-          _ <- echo.exit(core.Codec.EAtom("normal"))
-          echoIsAlive <- worker.exchange
-            .isKnown(echo.id)
-            .repeatWhile(_ == true)
-            .timeout(TIMEOUT)
-          linkResult <- MonitorService.link(linkedActor, echoPid)
+          _          <- echo.exit(core.Codec.EAtom("normal"))
+          _          <- assertNotAlive(echo.id)
+          linkResult <- MonitorService.link(linked, echoPid)
         } yield assertTrue(
-          echoIsAlive.get == false,
           linkResult == Symbol("noproc")
         )
       )
