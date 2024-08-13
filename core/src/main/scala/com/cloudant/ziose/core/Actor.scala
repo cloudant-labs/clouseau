@@ -135,6 +135,11 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     ctx.call(message)
   }
 
+  /*
+   * Use it for tests only
+   */
+  def exit(reason: Codec.ETerm): UIO[Unit] = ctx.exit(reason)
+
   @checkEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
