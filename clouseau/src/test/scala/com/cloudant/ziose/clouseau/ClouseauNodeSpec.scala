@@ -67,17 +67,8 @@ private object PingPongService extends core.ActorConstructor[PingPongService] {
   }
 
   def history(actor: core.AddressableActor[_, _]): ZIO[core.Node, _ <: core.Node.Error, Option[List[Any]]] = {
-    val historyMessage = core.MessageEnvelope.makeCall(
-      core.Codec.EAtom("$gen_call"),
-      actor.self.pid,
-      actor.id,
-      core.Codec.EAtom("collect"),
-      Some(3.seconds),
-      actor.id
-    )
-    actor.ctx
-      .asInstanceOf[core.ProcessContext]
-      .call(historyMessage)
+    actor
+      .doTestCallTimeout(core.Codec.EAtom("collect"), 3.seconds)
       .delay(100.millis)
       .repeatUntil(_.isSuccess)
       .map(result => core.Codec.toScala(result.payload.get).asInstanceOf[List[Any]])
@@ -164,46 +155,26 @@ private object MonitorService extends core.ActorConstructor[MonitorService] {
   def monitor(
     actor: core.AddressableActor[_, _],
     target: core.Codec.ETerm
-  ): ZIO[core.Node, _ <: core.Node.Error, Either[Symbol, Reference]] = {
-    val monitorMessage = core.MessageEnvelope.makeCall(
-      core.Codec.EAtom("$gen_call"),
-      actor.self.pid,
-      actor.id,
-      core.Codec.ETuple(core.Codec.EAtom("monitor"), target),
-      Some(3.seconds),
-      actor.id
-    )
-    for {
-      result <- actor.ctx
-        .asInstanceOf[core.ProcessContext]
-        .call(monitorMessage)
-        .delay(100.millis)
-        .repeatUntil(_.isSuccess)
-        .map(result => result.payload.get)
-        .timeout(3.seconds)
-    } yield (result match {
-      case None                         => Left(Symbol("timeout"))
-      case Some(atom: core.Codec.EAtom) => Left(Symbol(atom.asString))
-      case Some(ref: core.Codec.ERef)   => Right(Reference.toScala(ref))
-      case Some(value)                  => Left(Symbol("unknown"))
-    })
-  }
+  ): ZIO[core.Node, _ <: core.Node.Error, Either[Symbol, Reference]] = for {
+    result <- actor
+      .doTestCallTimeout(core.Codec.ETuple(core.Codec.EAtom("monitor"), target), 3.seconds)
+      .delay(100.millis)
+      .repeatUntil(_.isSuccess)
+      .map(result => result.payload.get)
+      .timeout(3.seconds)
+  } yield (result match {
+    case None                         => Left(Symbol("timeout"))
+    case Some(atom: core.Codec.EAtom) => Left(Symbol(atom.asString))
+    case Some(ref: core.Codec.ERef)   => Right(Reference.toScala(ref))
+    case Some(value)                  => Left(Symbol("unknown"))
+  })
 
   def demonitor(
     actor: core.AddressableActor[_, _],
     ref: Reference
   ): ZIO[core.Node, _ <: core.Node.Error, Symbol] = {
-    val monitorMessage = core.MessageEnvelope.makeCall(
-      core.Codec.EAtom("$gen_call"),
-      actor.self.pid,
-      actor.id,
-      core.Codec.ETuple(core.Codec.EAtom("demonitor"), ref.fromScala),
-      Some(3.seconds),
-      actor.id
-    )
-    actor.ctx
-      .asInstanceOf[core.ProcessContext]
-      .call(monitorMessage)
+    actor
+      .doTestCallTimeout(core.Codec.ETuple(core.Codec.EAtom("demonitor"), ref.fromScala), 3.seconds)
       .delay(100.millis)
       .repeatUntil(_.isSuccess)
       .map(result => core.Codec.toScala(result.payload.get))
@@ -215,45 +186,25 @@ private object MonitorService extends core.ActorConstructor[MonitorService] {
     actor: core.AddressableActor[_, _],
     action: String,
     pid: core.Codec.EPid
-  ): ZIO[core.Node, _ <: core.Node.Error, Symbol] = {
-    val linkMessage = core.MessageEnvelope.makeCall(
-      core.Codec.EAtom("$gen_call"),
-      actor.self.pid,
-      actor.id,
-      core.Codec.ETuple(core.Codec.EAtom(action), pid),
-      Some(3.seconds),
-      actor.id
-    )
-    for {
-      result <- actor.ctx
-        .asInstanceOf[core.ProcessContext]
-        .call(linkMessage)
-        .delay(100.millis)
-        .repeatUntil(_.isSuccess)
-        .map(result => core.Codec.toScala(result.payload.get))
-        .timeout(3.seconds)
-    } yield (result match {
-      case None              => Symbol("timeout")
-      case Some(sym: Symbol) => sym
-      case _                 => Symbol("unknown")
-    })
-  }
+  ): ZIO[core.Node, _ <: core.Node.Error, Symbol] = for {
+    result <- actor
+      .doTestCallTimeout(core.Codec.ETuple(core.Codec.EAtom(action), pid), 3.seconds)
+      .delay(100.millis)
+      .repeatUntil(_.isSuccess)
+      .map(result => core.Codec.toScala(result.payload.get))
+      .timeout(3.seconds)
+  } yield (result match {
+    case None              => Symbol("timeout")
+    case Some(sym: Symbol) => sym
+    case _                 => Symbol("unknown")
+  })
 
   def link(actor: core.AddressableActor[_, _], pid: core.Codec.EPid)   = linkShared(actor, "link", pid)
   def unlink(actor: core.AddressableActor[_, _], pid: core.Codec.EPid) = linkShared(actor, "unlink", pid)
 
   def history(actor: core.AddressableActor[_, _]) = {
-    val historyMessage = core.MessageEnvelope.makeCall(
-      core.Codec.EAtom("$gen_call"),
-      actor.self.pid,
-      actor.id,
-      core.Codec.EAtom("down_pids"),
-      Some(3.seconds),
-      actor.id
-    )
-    actor.ctx
-      .asInstanceOf[core.ProcessContext]
-      .call(historyMessage)
+    actor
+      .doTestCallTimeout(core.Codec.EAtom("down_pids"), 3.seconds)
       .delay(100.millis)
       .repeatUntil(_.isSuccess)
       .map(result => {
