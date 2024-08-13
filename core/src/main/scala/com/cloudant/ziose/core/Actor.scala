@@ -104,6 +104,36 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   }
   def start() = ctx.start()
 
+  /*
+   * Use it for tests only
+   */
+  def doTestCall(payload: Codec.ETerm) = {
+    val message = MessageEnvelope.makeCall(
+      Codec.EAtom("$gen_call"),
+      self.pid,
+      id,
+      payload,
+      None,
+      id
+    )
+    ctx.call(message)
+  }
+
+  /*
+   * Use it for tests only
+   */
+  def doTestCallTimeout(payload: Codec.ETerm, timeout: Duration) = {
+    val message = MessageEnvelope.makeCall(
+      Codec.EAtom("$gen_call"),
+      self.pid,
+      id,
+      payload,
+      Some(timeout),
+      id
+    )
+    ctx.call(message)
+  }
+
   @checkEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
