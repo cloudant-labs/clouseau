@@ -134,10 +134,7 @@ all-tests: test zeunit
 
 .PHONY: test
 # target: test - Run all Scala tests
-# coverage is commented out due to conflict in dependencies it can be enabled
-# when we update zio-config
 test: build $(ARTIFACTS_DIR)
-	@#sbt clean coverage test
 	@sbt clean test
 	@$(call to_artifacts,test-reports)
 
@@ -158,17 +155,6 @@ check-deps: build $(ARTIFACTS_DIR)
 	echo "Finished dependency check"
 	@find .
 	@$(call to_artifacts,dependency-check-report.*)
-
-.PHONY: cover
-# target: cover - Generate code coverage report, options: TEST=<sub-project>
-cover: build
-ifeq ($(TEST),)
-	@sbt coverage +test +coverageReport +coverageAggregate
-	@open target/scala-$(SCALA_SHORT_VERSION)/scoverage-report/index.html
-else
-	@sbt coverage +${TEST}/test +${TEST}/coverageReport
-	@open ${TEST}/target/scala-$(SCALA_SHORT_VERSION)/scoverage-report/index.html
-endif
 
 .PHONY: meta
 meta: build $(ARTIFACTS_DIR)

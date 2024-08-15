@@ -72,7 +72,6 @@ lazy val commonSettings = Seq(
     if (sys.props.getOrElse("jartest", "false").toBoolean) (Test / fullClasspath).value else Seq()
   ),
   assemblyPackageScala / assembleArtifact := false,
-  coverageEnabled                         := true,
   testFrameworks                          := Seq(new TestFramework("com.novocode.junit.JUnitFramework")),
   dependencyCheckAssemblyAnalyzerEnabled  := Some(false),
   dependencyCheckFormats                  := Seq("XML", "JSON"),

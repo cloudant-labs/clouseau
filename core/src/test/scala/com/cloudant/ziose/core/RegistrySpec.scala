@@ -1,8 +1,3 @@
-/*
- * $ sbt coverage "testOnly com.cloudant.ziose.core.RegistrySpec"
- * $ sbt coverageReport "testOnly com.cloudant.ziose.core.RegistrySpec"
- * $ open core/target/scala-2.13/scoverage-report/index.html
- */
 package com.cloudant.ziose.core
 
 import org.junit.runner.RunWith
