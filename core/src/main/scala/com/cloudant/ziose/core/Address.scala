@@ -10,14 +10,17 @@ sealed trait Address {
 }
 
 case class PID(pid: Codec.EPid, workerId: Engine.WorkerId, workerNodeName: Symbol) extends Address {
-  lazy val isLocal = pid.node == workerNodeName
+  lazy val isLocal        = pid.node == workerNodeName
+  override def toString() = s"<\"${workerId}:${workerNodeName.name}\", ${pid.toString()}>"
 }
 case class Name(name: Codec.EAtom, workerId: Engine.WorkerId, workerNodeName: Symbol) extends Address {
-  val isLocal = true
+  val isLocal             = true
+  override def toString() = s"<\"${workerId}:${workerNodeName.name}\", ${name.asString}>"
 }
 case class NameOnNode private (name: Codec.EAtom, node: Codec.EAtom, workerId: Engine.WorkerId, workerNodeName: Symbol)
     extends Address {
-  lazy val isLocal = node.atom == workerNodeName
+  lazy val isLocal        = node.atom == workerNodeName
+  override def toString() = s"<\"${workerId}:${workerNodeName.name}\", ${name.asString}@${node.asString}>"
 }
 
 // TODO: Remove capitalization when we get rid of ActorSystem.scala
