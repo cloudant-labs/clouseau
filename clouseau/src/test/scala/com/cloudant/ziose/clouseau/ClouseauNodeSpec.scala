@@ -13,6 +13,7 @@ import zio.test._
 import zio.test.Assertion._
 import zio.test.TestAspect
 import com.cloudant.ziose.clouseau.helpers.Asserts._
+import com.cloudant.ziose.clouseau.helpers.LogHistory
 
 class PingPongService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   var calledArgs: List[Product2[String, Any]] = List()
@@ -79,11 +80,11 @@ private object PingPongService extends core.ActorConstructor[PingPongService] {
 }
 
 class MonitorService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
-  var downPids: List[Product3[Pid, Reference, Symbol]] = List()
+  var downPids: List[Product3[Pid, Reference, Any]] = List()
 
   override def handleInfo(request: Any): Any = {
     request match {
-      case (Symbol("DOWN"), ref: Reference, Symbol("process"), pid: Pid, reason: Symbol) =>
+      case (Symbol("DOWN"), ref: Reference, Symbol("process"), pid: Pid, reason: Any) =>
         downPids = (pid, ref, reason) :: downPids
     }
   }
@@ -354,25 +355,111 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
 
   val monitorsSuite: Spec[Any, Throwable] = {
     suite("monitor")(
-      test("monitor process by identifier")(
+      test("monitor process by identifier - killed by calling exit")(
         for {
           node   <- Utils.clouseauNode
           cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          echo           <- EchoService.startZIO(node, "echo_monitor_pid", cfg)
-          monitorerActor <- MonitorService.startZIO(node, "monitorer_pid")
+          echo           <- EchoService.startZIO(node, "MonitorSuite.Echo.KillByExit", cfg)
+          monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.KillByExit")
           echoPid = echo.self.pid
           echoRef <- MonitorService.monitor(monitorerActor, echoPid).map(_.right.get)
           _       <- ZIO.sleep(WAIT_DURATION)
           _       <- echo.exit(core.Codec.EAtom("reason"))
           _       <- assertNotAlive(echo.id)
           _       <- ZIO.sleep(WAIT_DURATION)
+          output  <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
           history <- MonitorService.history(monitorerActor)
         } yield assert(history)(isSome) ?? "history should be available"
           && assert(history)(containsShapeOption { case (pid: Pid, ref, Symbol("reason")) =>
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("EchoService"))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, "onTermination", "EchoService") =>
+            true
+          }) ?? "log should contain messages from 'EchoService.onTermination' callback"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("EchoService"))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size
+          )(equalTo(1)) ?? "'EchoService.onTermination' callback should be only called once"
+      ),
+      test("monitor process by identifier - killed by exception")(
+        for {
+          node           <- Utils.clouseauNode
+          cfg            <- Utils.defaultConfig
+          worker         <- ZIO.service[core.EngineWorker]
+          echo           <- EchoService.startZIO(node, "MonitorSuite.Echo.KillByException", cfg)
+          monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.KillByException")
+          echoPid = echo.self.pid
+          echoRef <- MonitorService.monitor(monitorerActor, echoPid).map(_.right.get)
+          _ <- echo.doTestCallTimeout(core.Codec.fromScala((Symbol("crashWithReason"), "myCrashReason")), 3.seconds)
+          _ <- assertNotAlive(echo.id)
+          output <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
+          history <- MonitorService.history(monitorerActor)
+        } yield assert(history)(isSome) ?? "history should be available"
+          && assert(history)(containsShapeOption { case (pid: Pid, ref: Reference, reason: String) =>
+            pid == Pid.toScala(echoPid) && echoRef == ref
+          }) ?? "has to contain elements of expected shape"
+          && assert(history)(containsShapeOption { case (_, _, reason: String) =>
+            reason.contains("OnMessageResult") && reason.contains("HandleCallCBError")
+          }) ?? "reason has to contain 'OnMessageResult' and 'HandleCallCBError'"
+          && assert(monitorHistory)(containsShapeOption { case (_, _, reason: String) =>
+            reason.contains("myCrashReason")
+          }) ?? "reason has to contain 'myCrashReason'"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("EchoService"))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, "onTermination", "EchoService") =>
+            true
+          }) ?? "log should contain messages from 'EchoService.onTermination' callback"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("EchoService"))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size
+          )(equalTo(1)) ?? "'EchoService.onTermination' callback should be only called once"
+      ),
+      test("monitor process by identifier - killed by stop")(
+        for {
+          node           <- Utils.clouseauNode
+          cfg            <- Utils.defaultConfig
+          worker         <- ZIO.service[core.EngineWorker]
+          echo           <- EchoService.startZIO(node, "MonitorSuite.Echo.KillByStop", cfg)
+          monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.KillByStop")
+          echoPid = echo.self.pid
+          echoRef <- MonitorService.monitor(monitorerActor, echoPid).map(_.right.get)
+          stopMsg = core.Codec.fromScala((Symbol("stop"), Symbol("myReason")))
+          _      <- echo.doTestCallTimeout(stopMsg, 3.seconds)
+          _      <- assertNotAlive(echo.id)
+          _      <- ZIO.sleep(WAIT_DURATION)
+          output <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
+          _ <- assertAlive(monitorerActor.id)
+
+          history <- MonitorService.history(monitorerActor)
+        } yield assert(history)(isSome) ?? "history should be available"
+          && assert(history)(containsShapeOption { case (pid: Pid, ref: Reference, reason: Symbol) =>
+            pid == Pid.toScala(echoPid) && echoRef == ref
+          }) ?? "has to contain elements of expected shape"
+          && assert(history)(
+            containsShapeOption { case (_, _, Symbol("myReason")) => true }
+          ) ?? "reason must be 'myReason'"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("EchoService"))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, "onTermination", "EchoService") =>
+            true
+          }) ?? "log should contain messages from 'EchoService.onTermination' callback"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("EchoService"))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size
+          )(equalTo(1)) ?? "'EchoService.onTermination' callback should be only called once"
       ),
       test("monitor process by name")(
         for {
@@ -474,6 +561,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           ref == Left(Symbol("noproc"))
         ) && assert(history)(isSome) ?? "history should be available"
           && assert(history.get)(isEmpty) ?? "history should be empty"
+          && assert(ref)(isLeft) ?? "Call to monitor should return error"
+          && assert(ref)(isLeft(equalTo(Symbol("noproc")))) ?? "Should get `noproc` error"
       ),
       test("fail to monitor process on non-existent remote node")(
         for {

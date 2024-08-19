@@ -8,7 +8,7 @@ import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import zio.{&, ZIO}
+import zio._
 
 class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   val logger = LoggerFactory.getLogger("clouseau.EchoService")
@@ -31,9 +31,15 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
   override def handleCall(tag: (Pid, Any), request: Any): Any = {
     request match {
       case (Symbol("echo"), request) => (Symbol("reply"), (Symbol("echo"), adapter.fromScala(request)))
+      case (Symbol("crashWithReason"), reason: String) => throw new Throwable(reason)
+      case (Symbol("stop"), reason: Symbol) =>
+        (Symbol("stop"), reason, adapter.fromScala(request))
       case msg =>
         logger.info(s"[Echo][WARNING][handleCall] Unexpected message: $msg ...")
     }
+  }
+  override def onTermination[PContext <: ProcessContext](reason: core.Codec.ETerm, ctx: PContext) = {
+    ZIO.logTrace("onTermination")
   }
 
   private def now(): BigInt = ChronoUnit.MICROS.between(Instant.EPOCH, Instant.now())
