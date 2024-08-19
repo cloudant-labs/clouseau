@@ -380,9 +380,9 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          echoName = "echo_monitor_name"
+          echoName = "MonitorSuite.Echo.MonitorByName"
           echo           <- EchoService.startZIO(node, echoName, cfg)
-          monitorerActor <- MonitorService.startZIO(node, "monitorer_name")
+          monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorByName")
           echoPid = echo.self.pid
           echoRef <- MonitorService.monitor(monitorerActor, core.Codec.EAtom(echoName)).map(_.right.get)
           _       <- ZIO.sleep(WAIT_DURATION)
@@ -401,9 +401,9 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          echoName = "echo_monitor_remote_name"
+          echoName = "MonitorSuite_Echo_MonitorRemoteByName"
           echo           <- EchoService.startZIO(node, echoName, cfg)
-          monitorerActor <- MonitorService.startZIO(node, "monitorer_remote_name")
+          monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorRemoteByName")
           echoPid = echo.self.pid
           // not exactly remote but localhost, but it exercises the same path
           target = core.Codec.ETuple(core.Codec.EAtom(echoName), core.Codec.EAtom("monitors"))
@@ -424,8 +424,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          echo           <- EchoService.startZIO(node, "echo_demonitor_pid", cfg)
-          monitorerActor <- MonitorService.startZIO(node, "demonitorer")
+          echo           <- EchoService.startZIO(node, "MonitorSuite.Echo.Demonitor", cfg)
+          monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.Demonitor")
           echoPid = echo.self.pid
           ref             <- MonitorService.monitor(monitorerActor, echoPid).map(_.right.get)
           demonitorResult <- MonitorService.demonitor(monitorerActor, ref)
@@ -445,8 +445,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          echo           <- EchoService.startZIO(node, "echo_monitor_pid_noproc", cfg)
-          monitorerActor <- MonitorService.startZIO(node, "monitorer_pid_noproc")
+          echo           <- EchoService.startZIO(node, "MonitorSuite.Echo.MonitorNoProc", cfg)
+          monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorNoProc")
           echoPid = echo.self.pid
           _ <- ZIO.sleep(WAIT_DURATION)
           // make the process exit to obtain a valid PID but without an active instance
@@ -466,7 +466,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          monitorerActor <- MonitorService.startZIO(node, "monitorer_name_noproc")
+          monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorNonExistent")
           ref            <- MonitorService.monitor(monitorerActor, core.Codec.EAtom("non_existent"))
           _              <- ZIO.sleep(WAIT_DURATION)
           history        <- MonitorService.history(monitorerActor)
@@ -481,7 +481,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          monitorerActor <- MonitorService.startZIO(node, "monitorer_name_noconnection")
+          monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorNoConnection")
           target = core.Codec.ETuple(core.Codec.EAtom("non_existent"), core.Codec.EAtom("non_existent"))
           ref     <- MonitorService.monitor(monitorerActor, target)
           _       <- ZIO.sleep(WAIT_DURATION)
