@@ -274,9 +274,9 @@ class OTPMailbox private (
         case PID(pid, _workerId, _workerName) =>
           mbox.monitor(pid.toOtpErlangObject, ref.toOtpErlangObject)
         case Name(name, _workerId, _workerName) =>
-          mbox.monitorNamed(name.toString, ref.toOtpErlangObject)
+          mbox.monitorNamed(name.asString, ref.toOtpErlangObject)
         case NameOnNode(name, node, _workerId, _workerName) =>
-          mbox.monitorNamed(name.toString, node.toString, ref.toOtpErlangObject)
+          mbox.monitorNamed(name.asString, node.asString, ref.toOtpErlangObject)
       })
     } yield ref
   }
