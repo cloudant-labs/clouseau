@@ -18,6 +18,7 @@ import com.cloudant.ziose.core.Address
 
 import collection.mutable.Set
 import com.cloudant.ziose.core.Node
+import com.cloudant.ziose.core.ActorResult
 
 class OTPProcessContext private (
   val name: Option[String],
@@ -97,7 +98,9 @@ class OTPProcessContext private (
   // I want to prevent direct calls to this function
   // Since it should only be used from OTPNode
   def mailbox(accessKey: OTPNode.AccessKey): OtpMbox = mbox
-  def start()                                        = mailbox.start(scope)
+
+  // The order here is important since we need to run finalizers in reverse order
+  def start() = mailbox.start(scope) *> scope.addFinalizerExit(onExit)
 
   def addMonitorer(from: Option[Codec.EPid], ref: Codec.ERef): UIO[Unit] = for {
     _ <- from match {
@@ -118,11 +121,62 @@ class OTPProcessContext private (
   } yield ()
 
   def notifyMonitorers(reason: Codec.ETerm) = {
-    // println(s"monitorers: $monitorers")
     for (Tuple2(monitorer, ref) <- monitorers) {
       mailbox.sendMonitorExit(monitorer, ref, reason)
     }
   }
+
+  def exitToReason(exit: Exit[_, _]) = {
+    exit.causeOption match {
+      case Some(cause) => causeToReason(cause)
+      case None        => Codec.EAtom("normal")
+    }
+  }
+
+  def causeToReason(cause: Cause[_]) = {
+    // TODO: The format TBD
+    // Cause supports annotations we can annotate cause with
+    //  - location
+    //  - name of Service callback (onMessage/onTerminate/handleCall and so on)
+    Codec.fromScala(cause.prettyPrint)
+  }
+
+  def onExit(exit: Exit[_, _]) = {
+    val reason = exitToReason(exit)
+    if (!isFinalized.getAndSet(true)) {
+      val reason = exitToReason(exit)
+      for {
+        // Notify all processes who monitors me
+        _ <- ZIO.succeedBlocking(notifyMonitorers(Codec.fromScala(reason)))
+        // Closing scope with reason to propagate correct reason
+        _ <- scope.close(exit.mapErrorCauseExit(cause => cause.as(reason)))
+      } yield ()
+    } else {
+      ZIO.unit
+    }
+  }
+  def onStop(result: ActorResult): UIO[Unit] = {
+    if (!isFinalized.getAndSet(true)) {
+      val reasonTerm = resultToReason(result)
+      for {
+        // Notify all processes who monitors me
+        _ <- ZIO.succeedBlocking(notifyMonitorers(reasonTerm))
+        // Closing scope with reason to propagate correct reason
+        _ <- scope.close(Exit.succeed(reasonTerm))
+      } yield ()
+    } else {
+      ZIO.unit
+    }
+  }
+
+  def resultToReason(result: ActorResult) = result match {
+    case ActorResult.Stop()                   => Codec.EAtom("normal")
+    case ActorResult.StopWithReasonTerm(term) => term
+    case ActorResult.StopWithCause(callback, cause) => // TBD
+      Codec.fromScala((Symbol("error"), (callback.toString, cause.prettyPrint)))
+    case ActorResult.StopWithReasonString(string) => Codec.fromScala(string)
+  }
+
 }
 
 object OTPProcessContext {

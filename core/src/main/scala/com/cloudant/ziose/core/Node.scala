@@ -14,10 +14,6 @@ trait Node {
   def listNames(): ZIO[Node, _ <: Node.Error, List[String]]
   // testing only
   def lookUpName(name: String): ZIO[Node, _ <: Node.Error, Option[Codec.EPid]]
-  def stopActor(
-    actor: AddressableActor[_ <: Actor, _ <: ProcessContext],
-    reason: Option[Codec.ETerm] = None
-  ): ZIO[Node, _ <: Node.Error, Unit]
   def monitorRemoteNode(name: String, timeout: Option[Duration] = None): ZIO[Node, _ <: Node.Error, Unit]
   def makeRef(): ZIO[Any, _ <: Node.Error, Codec.ERef]
 }
@@ -80,12 +76,5 @@ object Node {
   // testing only
   def lookUpName(name: String): ZIO[Node, _ <: Node.Error, Option[Codec.EPid]] = {
     ZIO.serviceWithZIO[Node](_.lookUpName(name))
-  }
-
-  def stopActor(
-    actor: AddressableActor[_ <: Actor, _ <: ProcessContext],
-    reason: Option[Codec.ETerm]
-  ): ZIO[Node, _ <: Node.Error, Unit] = {
-    ZIO.serviceWithZIO[Node](_.stopActor(actor, reason))
   }
 }

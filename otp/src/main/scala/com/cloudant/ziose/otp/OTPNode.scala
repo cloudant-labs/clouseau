@@ -8,7 +8,6 @@ import com.cloudant.ziose.core.{
   Codec,
   Engine,
   Failure,
-  MessageEnvelope,
   Node,
   ProcessContext,
   Result,
@@ -143,35 +142,6 @@ object OTPNode {
       }
     } yield ()
 
-    def stopActor[A <: Actor, C <: ProcessContext](
-      actor: AddressableActor[A, OTPProcessContext],
-      reason: Option[Codec.ETerm]
-    ): UIO[Unit] = for {
-      _ <- ZIO.debug(s"stopping actor ${actor.id.toString}")
-      mbox = actor.ctx.mailbox(accessKey)
-      _ <- reason match {
-        case Some(term) =>
-          for {
-            _ <- actor.onTermination(term).ignore
-            _ <- actor.ctx.shutdown
-            _ <- ZIO.succeedBlocking {
-              actor.ctx.notifyMonitorers(term)
-              node.closeMbox(mbox, term.toOtpErlangObject)
-            }
-          } yield ()
-        case None =>
-          val term = Codec.EAtom("normal")
-          for {
-            _ <- actor.onTermination(term).ignore
-            _ <- actor.ctx.shutdown
-            _ <- ZIO.succeedBlocking {
-              actor.ctx.notifyMonitorers(term)
-              node.closeMbox(mbox)
-            }
-          } yield ()
-      }
-    } yield ()
-
     def handleCommand(command: Command[_]): Result[_ <: Node.Error, Response] = {
       command match {
         case cmd @ CloseNode() =>
@@ -195,9 +165,6 @@ object OTPNode {
             case null => Success(Response.LookUpName(None))
             case pid  => Success(Response.LookUpName(Some(pid)))
           }
-        case StopActor(actor, reason: Option[Codec.ETerm]) =>
-          stopActor(actor, reason)
-          Success(Response.StopActor(()))
       }
     }
 
@@ -296,18 +263,6 @@ object OTPNode {
         for {
           response <- call(LookUpName(name)).map(v => Some(Codec.fromErlang(v.result).asInstanceOf[Codec.EPid]))
         } yield response
-      }
-
-      def stopActor(
-        actor: AddressableActor[_ <: Actor, _ <: ProcessContext],
-        reason: Option[Codec.ETerm]
-      ): IO[_ <: Node.Error, Unit] = {
-        for {
-          // TODO I don't like the fact we use `asInstanceOf` here
-          _ <- call(StopActor(actor.asInstanceOf[AddressableActor[_ <: Actor, OTPProcessContext]], reason))
-            .map(v => v.result)
-            .debug("stopActor is finished")
-        } yield ()
       }
 
       // TODO prevent attempts to run multiple monitors for the same node

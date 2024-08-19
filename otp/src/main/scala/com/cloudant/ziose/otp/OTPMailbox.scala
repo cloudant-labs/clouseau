@@ -23,6 +23,7 @@ import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.macros.checkEnv
 import zio.{Queue, Scope, Trace, UIO, ZIO, Unsafe, Runtime}
 import zio.stream.ZStream
+import zio.Exit
 
 /*
  * - def stream: - is used by Actor to retrieve messages
@@ -333,11 +334,27 @@ class OTPMailbox private (
   }
 
   def start(scope: Scope) = for {
-    _ <- ZIO.addFinalizer(shutdown)
+    _ <- scope.addFinalizerExit(onExit)
     _ <- ZStream.fromQueueWithShutdown(internalMailbox).mapZIO(compositeMailbox.offer(_)).runDrain.forkIn(scope)
     _ <- ZStream.fromQueueWithShutdown(externalMailbox).mapZIO(compositeMailbox.offer(_)).runDrain.forkIn(scope)
     _ <- ZIO.succeed(mbox.subscribe(this))
   } yield ()
+
+  def onExit(exit: Exit[_, _]): UIO[Unit] = {
+    val reason = exitToReason(exit)
+    ZIO.succeedBlocking(mbox.exit(reason.toOtpErlangObject)) *> shutdown
+  }
+
+  def exitToReason(exit: Exit[_, _]): Codec.ETerm = {
+    exit.causeOption match {
+      case Some(cause) =>
+        cause.failureOption.collect {
+          case term: Codec.ETerm => term
+          case any               => Codec.fromScala(any)
+        }.getOrElse(Codec.EAtom("normal"))
+      case None => Codec.EAtom("normal")
+    }
+  }
 
   def sendMonitorExit(to: Codec.EPid, ref: Codec.ERef, reason: Codec.ETerm) = {
     mbox.monitorExit(to.toOtpErlangObject, ref.toOtpErlangObject, reason.toOtpErlangObject)

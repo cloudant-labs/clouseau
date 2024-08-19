@@ -161,6 +161,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
       val result = ActorResult.StopWithReasonTerm(reason)
       for {
         _ <- onTermination(result) *>
+          ctx.onStop(result) *>
           ZIO.succeed(result.shouldContinue)
       } yield false
     case message @ MessageEnvelope.Monitor(monitorer, monitored, ref, workerId) =>
@@ -181,9 +182,11 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
               case ActorResult.Continue() => ZIO.succeed(result.shouldContinue)
               case ActorResult.StopWithCause(callback, cause) =>
                 onTermination(result) *>
+                  ctx.onExit(zio.Exit.fail(result)) *>
                   ZIO.succeed(result.shouldContinue)
               case _ =>
                 onTermination(result) *>
+                  ctx.onStop(result) *>
                   ZIO.succeed(result.shouldContinue)
             }
           })
