@@ -20,8 +20,8 @@ object Asserts {
    * ```scala
    * assert(history.get.headOption)(hasShape {
    *   case Some((_, _, reason: String)) =>
-   *     reason.contains("OnMessageError") && reason.contains("HandleCallCBError")
-   * }) ?? "reason has to contain 'OnMessageError' and 'HandleCallCBError'"
+   *     reason.contains("OnMessageResult") && reason.contains("HandleCallCBError")
+   * }) ?? "reason has to contain 'OnMessageResult' and 'HandleCallCBError'"
    * ```
    */
   def hasShape(shape: PartialFunction[Any, Boolean]) = {
