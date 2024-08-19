@@ -47,7 +47,10 @@ object LoggerFactory {
     _context: FiberRefs,
     _spans: List[LogSpan],
     annotations: Map[String, String]
-  ) => println(s"[${fiberId.threadName}] ${logLevel.label} ${annotations("logger_name")} - ${message()}")
+  ) => {
+    val from = annotations.getOrElse("logger_name", "[unknown]")
+    println(s"[${fiberId.threadName}] ${logLevel.label} ${from} - ${message()}")
+  }
 
   val loggerDefault: ULayer[Unit] = Runtime.removeDefaultLoggers ++ Runtime.addLogger(logger)
 
