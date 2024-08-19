@@ -4,6 +4,7 @@ import com.cloudant.ziose.macros.checkEnv
 import zio.{Cause, Duration, Trace, UIO, ZIO}
 import java.util.concurrent.atomic.AtomicBoolean
 import zio.Promise
+import zio.logging.LogAnnotation
 
 /*
  * This is the trait which implements actors. An Actor is a low level construct
@@ -65,7 +66,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
       .foldZIO(
         failure => ZIO.succeed(ActorResult.onInitError(failure)),
         _success => ZIO.succeed(ActorResult.Continue())
-      ))
+      )) @@ AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnInit)
   } yield res
 
   def stream = ctx.stream
@@ -93,7 +94,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
       .foldZIO(
         failure => ZIO.succeed(ActorResult.onTerminationError(failure)),
         _success => ZIO.succeed(ActorResult.Stop())
-      ))
+      )) @@ AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnTermination)
   } yield res
 
   def onMessage(message: MessageEnvelope): ZIO[Any, Nothing, ActorResult] = {
@@ -102,7 +103,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
       .foldZIO(
         failure => ZIO.succeed(ActorResult.onMessageError(failure)),
         success => ZIO.succeed(success)
-      ))
+      )) @@ AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnMessage)
   }
   def capacity: Int = ctx.capacity
   override def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
@@ -148,6 +149,8 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     _ <- ctx.forkScoped(
       stream
         .runForeachWhileScoped(handleActorMessage(continue))
+    ) @@ AddressableActor.addressLogAnnotation(ctx.id) @@ AddressableActor.actorTypeLogAnnotation(
+      actor.getClass.getSimpleName
     )
     _ <- offer(MessageEnvelope.Init(id))
     _ <- ctx.start()
@@ -247,6 +250,24 @@ object AddressableActor {
   def apply[A <: Actor, C <: ProcessContext](actor: A, ctx: C): AddressableActor[A, C] = {
     new AddressableActor[A, C](actor, ctx)
   }
+
+  val addressLogAnnotation = LogAnnotation[Address](
+    name = "address",
+    combine = (_, r) => r,
+    render = _.toString
+  )
+
+  val actorTypeLogAnnotation = LogAnnotation[String](
+    name = "actor",
+    combine = (_, r) => r,
+    render = _.toString
+  )
+
+  val actorCallbackLogAnnotation = LogAnnotation[ActorCallback](
+    name = "callback",
+    combine = (_, r) => r,
+    render = _.toString
+  )
 }
 
 trait Actor {
