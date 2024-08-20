@@ -488,7 +488,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          echoName = "MonitorSuite_Echo_MonitorRemoteByName"
+          echoName = "MonitorSuite.Echo.MonitorRemoteByName"
           echo           <- EchoService.startZIO(node, echoName, cfg)
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorRemoteByName")
           echoPid = echo.self.pid
