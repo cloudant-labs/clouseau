@@ -9,7 +9,6 @@ trait Node {
   ): ZIO[Scope & Node & EngineWorker, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]]
   def close: ZIO[Node, _ <: Node.Error, Unit]
   def ping(nodeName: String, timeout: Option[Duration] = None): ZIO[Node, _ <: Node.Error, Boolean]
-  // def register[E <: Node.Error](actor: Actor, name: String): ZIO[Node, E, Boolean]
   // testing only
   def listNames(): ZIO[Node, _ <: Node.Error, List[String]]
   // testing only
@@ -64,9 +63,6 @@ object Node {
   def ping(nodeName: String, timeout: Option[Duration] = None): ZIO[Node, _ <: Node.Error, Boolean] = {
     ZIO.serviceWithZIO[Node](_.ping(nodeName, timeout))
   }
-
-  // def register[E <: Node.Error](actor: Actor, name: String): ZIO[Node, E, Boolean] =
-  //   ZIO.serviceWithZIO[Node](_.register(actor, name))
 
   // testing only
   def listNames(): ZIO[Node, _ <: Node.Error, List[String]] = {
