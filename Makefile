@@ -92,6 +92,14 @@ RELEASE_ARTIFACTS := $(addprefix $(ARTIFACTS_DIR)/, $(RELEASE_FILES))
 
 CHECKSUM_FILES := $(foreach file, $(RELEASE_FILES), $(file).chksum)
 
+comma := ,
+empty :=
+space := $(empty) $(empty)
+
+apps ?= clouseau,core,macros,otp,scalang,vendor
+COMMON_PATH := /target/scala-$(SCALA_SHORT_VERSION)/classes
+SPOTBUGS_OPTS = $(foreach app,$(subst $(comma),$(space),$(apps)),$(app)$(COMMON_PATH))
+
 define extract
 echo "$(1)  $(2) $(3)" && \
 CONTAINER_ID=`docker create --read-only $(1) dummy` \
@@ -155,6 +163,11 @@ check-deps: build $(ARTIFACTS_DIR)
 	echo "Finished dependency check"
 	@find .
 	@$(call to_artifacts,dependency-check-report.*)
+
+.PHONY: check-spotbugs
+# target: check-spotbugs - Inspect bugs in Java bytecode
+check-spotbugs: build $(ARTIFACTS_DIR)
+	@spotbugs -textui -quiet -html=$(ARTIFACTS_DIR)/spotbugs.html -xml=$(ARTIFACTS_DIR)/spotbugs.xml $(SPOTBUGS_OPTS)
 
 .PHONY: meta
 meta: build $(ARTIFACTS_DIR)
@@ -262,11 +275,9 @@ check-deps-in-docker: login-image-registry
 	@$(call to_artifacts,*dependency-check-report.json)
 	@$(call to_artifacts,*dependency-check-report.xml)
 
-# TODO: Not yet working
 check-spotbugs-in-docker: login-image-registry
 	@$(call docker_func,check-spotbugs)
-	@cp $(ARTIFACTS_DIR)/actors/findbugs-report.* \
-		$(CI_ARTIFACTS_DIR)/
+	@cp $(ARTIFACTS_DIR)/spotbugs.* $(CI_ARTIFACTS_DIR)
 
 # Required by CI's releng-pipeline-library
 .PHONY: version

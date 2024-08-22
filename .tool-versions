@@ -19,3 +19,6 @@ github-cli 2.43.1
 
 # optional auxiliary tools
 bat 0.24.0
+
+# static analysis tool
+spotbugs 4.8.6
