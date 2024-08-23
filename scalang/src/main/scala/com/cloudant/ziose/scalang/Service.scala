@@ -275,8 +275,8 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
     effect.delay(duration)
   }
 
-  def onInit[PContext <: ProcessContext](_ctx: PContext): ZIO[Any, Throwable, Unit] = {
-    ZIO.succeed(handleInit())
+  def onInit[PContext <: ProcessContext](_ctx: PContext): ZIO[Any, Throwable, _ <: ActorResult] = {
+    ZIO.succeed(handleInit()).as(ActorResult.Continue())
   }
 
   def onMessage[PContext <: ProcessContext](

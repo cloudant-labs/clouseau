@@ -65,7 +65,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
       .onInit(ctx)
       .foldZIO(
         failure => ZIO.succeed(ActorResult.onInitError(failure)),
-        _success => ZIO.succeed(ActorResult.Continue())
+        success => ZIO.succeed(success)
       )) @@ AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnInit)
   } yield res
 
@@ -168,7 +168,24 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
           ZIO.succeed(result.shouldContinue)
       } yield false
     case _: MessageEnvelope.Init =>
-      (continue.succeed(()) *> onInit()).as(true)
+      for {
+        _ <- continue.succeed(())
+        shouldContinue <- onInit()
+          .flatMap(result => {
+            result match {
+              case ActorResult.Continue() => ZIO.succeed(result.shouldContinue)
+              case ActorResult.StopWithCause(callback, cause) =>
+                onTermination(result) *>
+                  ctx.onExit(zio.Exit.fail(result)) *>
+                  ZIO.succeed(result.shouldContinue)
+              case _ =>
+                onTermination(result) *>
+                  ctx.onStop(result) *>
+                  ZIO.succeed(result.shouldContinue)
+            }
+          })
+      } yield shouldContinue
+
     case message =>
       for {
         shouldContinue <- onMessage(message)
@@ -263,7 +280,7 @@ object AddressableActor {
 }
 
 trait Actor {
-  def onInit[C <: ProcessContext](ctx: C): ZIO[Any, Throwable, Unit]
+  def onInit[C <: ProcessContext](ctx: C): ZIO[Any, Throwable, _ <: ActorResult]
   def onMessage[C <: ProcessContext](msg: MessageEnvelope, ctx: C): ZIO[Any, Throwable, _ <: ActorResult]
   def onTermination[C <: ProcessContext](reason: Codec.ETerm, ctx: C): ZIO[Any, Throwable, Unit]
 }
@@ -283,6 +300,7 @@ object ActorCallback {
 trait ActorResult {
   val shouldContinue: Boolean
   val shouldStop: Boolean = !shouldContinue
+  val asReasonOption: Option[Codec.ETerm]
 }
 
 /*
@@ -290,19 +308,24 @@ trait ActorResult {
  */
 object ActorResult {
   case class Continue() extends ActorResult {
-    val shouldContinue: Boolean = true
+    val shouldContinue: Boolean             = true
+    val asReasonOption: Option[Codec.ETerm] = None
   }
   case class Stop() extends ActorResult {
-    val shouldContinue: Boolean = false
+    val shouldContinue: Boolean             = false
+    val asReasonOption: Option[Codec.ETerm] = None
   }
   case class StopWithReasonString(reason: String) extends ActorResult {
-    val shouldContinue: Boolean = false
+    val shouldContinue: Boolean             = false
+    val asReasonOption: Option[Codec.ETerm] = Some(Codec.fromScala(reason))
   }
   case class StopWithReasonTerm(reason: Codec.ETerm) extends ActorResult {
-    val shouldContinue: Boolean = false
+    val shouldContinue: Boolean             = false
+    val asReasonOption: Option[Codec.ETerm] = Some(reason)
   }
   case class StopWithCause(callback: ActorCallback, cause: Cause[_]) extends ActorResult {
-    val shouldContinue: Boolean = false
+    val shouldContinue: Boolean             = false
+    val asReasonOption: Option[Codec.ETerm] = None
   }
 
   def onInitError(failure: Throwable) = {

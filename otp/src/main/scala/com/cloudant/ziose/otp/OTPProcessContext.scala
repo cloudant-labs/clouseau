@@ -114,7 +114,7 @@ class OTPProcessContext private (
       val reason = exitToReason(exit)
       for {
         // Closing scope with reason to propagate correct reason
-        _ <- scope.close(exit.mapErrorCauseExit(cause => cause.as(reason)))
+        _ <- scope.close(exit.mapErrorCauseExit(cause => cause.as(ActorResult.StopWithReasonTerm(reason))))
       } yield ()
     } else {
       ZIO.unit
@@ -122,10 +122,9 @@ class OTPProcessContext private (
   }
   def onStop(result: ActorResult): UIO[Unit] = {
     if (!isFinalized.getAndSet(true)) {
-      val reasonTerm = resultToReason(result)
       for {
         // Closing scope with reason to propagate correct reason
-        _ <- scope.close(Exit.succeed(reasonTerm))
+        _ <- scope.close(Exit.succeed(result))
       } yield ()
     } else {
       ZIO.unit
