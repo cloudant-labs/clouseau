@@ -19,8 +19,6 @@ trait ProcessContext extends EnqueueWithId[Address, MessageEnvelope] {
   def link(to: Codec.EPid): ZIO[Any, _ <: Node.Error, Unit]
   def monitor(monitored: Address): ZIO[Node, _ <: Node.Error, Codec.ERef]
   def demonitor(ref: Codec.ERef): UIO[Unit]
-  def handleMonitorMessage(message: MessageEnvelope.Monitor): UIO[Unit]
-  def handleDemonitorMessage(message: MessageEnvelope.Demonitor): UIO[Unit]
   def start(): ZIO[Any with zio.Scope, Nothing, Unit]
   def onExit(exit: Exit[_, _]): UIO[Unit]
   def onStop(reason: ActorResult): UIO[Unit]

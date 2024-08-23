@@ -16,7 +16,6 @@ import com.cloudant.ziose.core.PID
 import com.cloudant.ziose.core.MessageEnvelope
 import com.cloudant.ziose.core.Address
 
-import collection.mutable.Set
 import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.core.ActorResult
 
@@ -25,8 +24,7 @@ class OTPProcessContext private (
   val mailbox: OTPMailbox,
   val scope: Scope.Closeable,
   val worker: EngineWorker,
-  private val mbox: OtpMbox,
-  private val monitorers: Set[Product2[Codec.EPid, Codec.ERef]]
+  private val mbox: OtpMbox
 ) extends ProcessContext {
   val id                                 = mailbox.id
   val engineId: Engine.EngineId          = worker.engineId
@@ -69,13 +67,6 @@ class OTPProcessContext private (
   def monitor(monitored: Address) = mailbox.monitor(monitored)
   def demonitor(ref: Codec.ERef)  = mailbox.demonitor(ref)
 
-  def handleMonitorMessage(message: MessageEnvelope.Monitor): UIO[Unit] = {
-    addMonitorer(message.from, message.ref)
-  }
-  def handleDemonitorMessage(message: MessageEnvelope.Demonitor): UIO[Unit] = {
-    removeMonitorer(message.from, message.ref)
-  }
-
   def stream: ZStream[Any, Throwable, MessageEnvelope] = mailbox.stream
 
   def forkScoped[R, E, A](effect: ZIO[R, E, A]): URIO[R, Fiber.Runtime[E, A]] = {
@@ -102,30 +93,6 @@ class OTPProcessContext private (
   // The order here is important since we need to run finalizers in reverse order
   def start() = mailbox.start(scope) *> scope.addFinalizerExit(onExit)
 
-  def addMonitorer(from: Option[Codec.EPid], ref: Codec.ERef): UIO[Unit] = for {
-    _ <- from match {
-      case Some(pid) =>
-        ZIO.succeed(monitorers += Tuple2(pid, ref))
-      case None =>
-        ZIO.succeed(())
-    }
-  } yield ()
-
-  def removeMonitorer(from: Option[Codec.EPid], ref: Codec.ERef): UIO[Unit] = for {
-    _ <- from match {
-      case Some(pid) =>
-        ZIO.succeed(monitorers -= Tuple2(pid, ref))
-      case None =>
-        ZIO.succeed(())
-    }
-  } yield ()
-
-  def notifyMonitorers(reason: Codec.ETerm) = {
-    for (Tuple2(monitorer, ref) <- monitorers) {
-      mailbox.sendMonitorExit(monitorer, ref, reason)
-    }
-  }
-
   def exitToReason(exit: Exit[_, _]) = {
     exit.causeOption match {
       case Some(cause) => causeToReason(cause)
@@ -146,8 +113,6 @@ class OTPProcessContext private (
     if (!isFinalized.getAndSet(true)) {
       val reason = exitToReason(exit)
       for {
-        // Notify all processes who monitors me
-        _ <- ZIO.succeedBlocking(notifyMonitorers(Codec.fromScala(reason)))
         // Closing scope with reason to propagate correct reason
         _ <- scope.close(exit.mapErrorCauseExit(cause => cause.as(reason)))
       } yield ()
@@ -159,8 +124,6 @@ class OTPProcessContext private (
     if (!isFinalized.getAndSet(true)) {
       val reasonTerm = resultToReason(result)
       for {
-        // Notify all processes who monitors me
-        _ <- ZIO.succeedBlocking(notifyMonitorers(reasonTerm))
         // Closing scope with reason to propagate correct reason
         _ <- scope.close(Exit.succeed(reasonTerm))
       } yield ()
@@ -252,8 +215,7 @@ object OTPProcessContext {
       // it is safe to use .get since we require State.Complete
       scope.get,
       worker.get,
-      otpMbox.get,
-      Set()
+      otpMbox.get
     )
   }
 

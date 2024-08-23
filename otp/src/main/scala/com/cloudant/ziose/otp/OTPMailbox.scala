@@ -270,16 +270,15 @@ class OTPMailbox private (
   def monitor(monitored: Address): ZIO[Node, _ <: Node.Error, Codec.ERef] = {
     for {
       node <- ZIO.service[Node]
-      ref  <- node.makeRef()
-      _ <- attempt(monitored match {
+      ref <- attempt(monitored match {
         case PID(pid, _workerId, _workerName) =>
-          mbox.monitor(pid.toOtpErlangObject, ref.toOtpErlangObject)
+          mbox.monitor(pid.toOtpErlangObject)
         case Name(name, _workerId, _workerName) =>
-          mbox.monitorNamed(name.asString, ref.toOtpErlangObject)
+          mbox.monitorNamed(name.asString)
         case NameOnNode(name, node, _workerId, _workerName) =>
-          mbox.monitorNamed(name.asString, node.asString, ref.toOtpErlangObject)
+          mbox.monitorNamed(name.asString, node.asString)
       })
-    } yield ref
+    } yield Codec.ERef(ref)
   }
 
   def demonitor(ref: Codec.ERef): UIO[Unit] = {
@@ -354,10 +353,6 @@ class OTPMailbox private (
         }.getOrElse(Codec.EAtom("normal"))
       case None => Codec.EAtom("normal")
     }
-  }
-
-  def sendMonitorExit(to: Codec.EPid, ref: Codec.ERef, reason: Codec.ETerm) = {
-    mbox.monitorExit(to.toOtpErlangObject, ref.toOtpErlangObject, reason.toOtpErlangObject)
   }
 
   private def readMessage = {

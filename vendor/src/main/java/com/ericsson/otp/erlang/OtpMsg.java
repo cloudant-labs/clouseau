@@ -71,6 +71,7 @@ public class OtpMsg {
     protected OtpErlangPid from;
     protected OtpErlangPid to;
     protected OtpErlangRef ref;
+    protected String fromName;
     protected String toName;
     protected long unlink_id;
 
@@ -205,6 +206,18 @@ public class OtpMsg {
         paybuf = null;
         payload = reason;
     }
+
+    // monitorExit
+    OtpMsg(final int tag, final OtpErlangAtom from, final OtpErlangPid to,
+           final OtpErlangRef ref, final OtpErlangObject reason) {
+     this.tag = tag;
+     this.fromName = from.atomValue();
+     this.to = to;
+     this.ref = ref;
+     this.unlink_id = 0;
+     paybuf = null;
+     payload = reason;
+ }
 
     private int drop_tt_tag(final int tag) {
         switch (tag) {

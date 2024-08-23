@@ -20,6 +20,8 @@
 package com.ericsson.otp.erlang;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * <p>
@@ -66,6 +68,13 @@ public class OtpCookedConnection extends AbstractConnection {
     protected Links links = null;
 
     /*
+     * The connection needs to know which local pids have monitors that pass
+     * through here, so that they can be notified in case of connection failure.
+     * We prepare the DOWN message to be send in this case when we create monitor.
+     */
+    protected Map<OtpErlangRef, OtpMsg> monitors = null;
+
+    /*
      * Accept an incoming connection from a remote node. Used by {@link
      * OtpSelf#accept() OtpSelf.accept()} to create a connection based on data
      * received when handshaking with the peer node, when the remote node is the
@@ -83,6 +92,7 @@ public class OtpCookedConnection extends AbstractConnection {
         super(self, s);
         this.self = self;
         links = new Links(25);
+        monitors = new HashMap<>();
         start();
     }
 
@@ -101,6 +111,7 @@ public class OtpCookedConnection extends AbstractConnection {
         super(self, other);
         this.self = self;
         links = new Links(25);
+        monitors = new HashMap<>();
         start();
     }
 
@@ -179,6 +190,7 @@ public class OtpCookedConnection extends AbstractConnection {
     public void close() {
         super.close();
         breakLinks();
+        clearMonitors();
     }
 
     @Override
@@ -283,6 +295,30 @@ public class OtpCookedConnection extends AbstractConnection {
         }
     }
 
+    synchronized void add_monitor(OtpErlangPid local, OtpErlangObject dest, OtpErlangRef ref)
+    {
+        if (dest instanceof OtpErlangPid) {
+            final OtpErlangPid to = (OtpErlangPid) dest;
+            final OtpMsg monitorExitMsg = new OtpMsg(
+                OtpMsg.monitorExitTag,
+                to, local, ref, new OtpErlangAtom("noconnection"));
+            monitors.put(ref, monitorExitMsg);
+        }
+
+        if (dest instanceof OtpErlangAtom) {
+            final OtpErlangAtom to = (OtpErlangAtom) dest;
+            final OtpMsg monitorExitMsg = new OtpMsg(
+                OtpMsg.monitorExitTag,
+                to, local, ref, new OtpErlangAtom("noconnection"));
+            monitors.put(ref, monitorExitMsg);
+        }
+    }
+
+    synchronized void remove_monitor(OtpErlangRef ref)
+    {
+        monitors.remove(ref);
+    }
+
     /*
      * When the connection fails - send exit to all local pids with links
      * through this connection
@@ -302,4 +338,27 @@ public class OtpCookedConnection extends AbstractConnection {
             }
         }
     }
+
+    /*
+     * When the connection fails - send MonitorExit events to all local pids with monitors
+     * through this connection
+     */
+    synchronized void clearMonitors() {
+        /*
+         * We iterate through the monitors until there are no more monitors left.
+         * This is done to account for the case when new monitors are added while
+         * we are iterating.
+         */
+        if (monitors != null) {
+            while (!monitors.isEmpty()) {
+                for (var entry : monitors.entrySet()) {
+                    final OtpErlangRef ref = entry.getKey();
+                    final OtpMsg monitorExitMsg = entry.getValue();
+                    self.deliver(monitorExitMsg);
+                    monitors.remove(ref);
+                }
+            }
+        }
+    }
+
 }

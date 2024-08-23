@@ -133,20 +133,6 @@ object MessageEnvelope {
     def getCallee = to.asInstanceOf[PID].pid
   }
 
-  case class Monitor(from: Option[Codec.EPid], to: Address, ref: Codec.ERef, private val base: Address)
-      extends MessageEnvelope {
-    def getPayload                = None
-    val workerId: Engine.WorkerId = base.workerId
-    val workerNodeName: Symbol    = base.workerNodeName
-  }
-
-  case class Demonitor(from: Option[Codec.EPid], to: Address, ref: Codec.ERef, private val base: Address)
-      extends MessageEnvelope {
-    def getPayload                = None
-    val workerId: Engine.WorkerId = base.workerId
-    val workerNodeName: Symbol    = base.workerNodeName
-  }
-
   case class MonitorExit(
     from: Option[Codec.EPid],
     to: Address,
@@ -196,10 +182,6 @@ object MessageEnvelope {
         Send(Some(getSenderPid(msg)), getRecipient(msg, address), getMsg(msg), address)
       case OtpMsg.exit2Tag =>
         Exit(Some(getSenderPid(msg)), getRecipient(msg, address), getMsg(msg), address)
-      case OtpMsg.monitorTag =>
-        Monitor(Some(getSenderPid(msg)), getRecipient(msg, address), getRef(msg), address)
-      case OtpMsg.demonitorTag =>
-        Demonitor(Some(getSenderPid(msg)), getRecipient(msg, address), getRef(msg), address)
       case OtpMsg.monitorExitTag =>
         MonitorExit(Some(getSenderPid(msg)), getRecipient(msg, address), getRef(msg), getMsg(msg), address)
     }

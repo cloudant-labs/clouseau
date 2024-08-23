@@ -359,6 +359,7 @@ public class OtpNode extends OtpLocalNode {
             mboxes.remove(mbox);
             mbox.name = null;
             mbox.breakLinks(reason);
+            mbox.clearMonitors(reason);
         }
     }
 

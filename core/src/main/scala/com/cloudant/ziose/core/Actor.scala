@@ -167,14 +167,6 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
           ctx.onStop(result) *>
           ZIO.succeed(result.shouldContinue)
       } yield false
-    case message @ MessageEnvelope.Monitor(monitorer, monitored, ref, workerId) =>
-      for {
-        _ <- ctx.handleMonitorMessage(message)
-      } yield true
-    case message @ MessageEnvelope.Demonitor(monitorer, monitored, ref, workerId) =>
-      for {
-        _ <- ctx.handleDemonitorMessage(message)
-      } yield true
     case _: MessageEnvelope.Init =>
       (continue.succeed(()) *> onInit()).as(true)
     case message =>
