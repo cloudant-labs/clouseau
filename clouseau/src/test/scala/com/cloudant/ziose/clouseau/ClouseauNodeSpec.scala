@@ -288,8 +288,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             Some(TIMEOUT),
             dummyCaller("ServiceCommunication.Call")
           )
-          result  <- ctx.call(callMsg)
-          history <- PingPongService.history(actor)
+          result       <- ctx.call(callMsg)
+          actorHistory <- PingPongService.history(actor)
         } yield assertTrue(
           result.isSuccess,
           result.from == Some(actor.id.asInstanceOf[core.PID].pid),
@@ -297,8 +297,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           result.payload.get == core.Codec.EAtom("pong"),
           result.workerId == 1
         ) && assertTrue(
-          history.isDefined,
-          history.get == List(
+          actorHistory.isDefined,
+          actorHistory.get == List(
             ("handleCall", Symbol("something"))
           )
         )
@@ -355,9 +355,9 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           _       <- unleashChannel.offer(())
           _       <- assertNotAlive(address)
 
-          history <- PingPongService.history(actor)
-        } yield assert(history)(isSome) ?? "history should be available"
-          && assert(history)(containsShapeOption { case ("handleInfo", Symbol("ProcessSpawn.Closure")) =>
+          actorHistory <- PingPongService.history(actor)
+        } yield assert(actorHistory)(isSome) ?? "history should be available"
+          && assert(actorHistory)(containsShapeOption { case ("handleInfo", Symbol("ProcessSpawn.Closure")) =>
             true
           }) ?? "has to contain elements of expected shape"
       ),
@@ -404,15 +404,15 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               }
             }))
             .fork
-          address    <- addressChannel.take
-          monitorRef <- MonitorService.monitor(monitorerActor, address.pid).map(_.right.get)
-          _          <- assertAlive(address)
-          _          <- unleashChannel.offer(())
-          _          <- assertNotAlive(address)
-          _          <- assertAlive(monitorerActor.id)
-          history    <- MonitorService.history(monitorerActor)
-        } yield assert(history)(isSome) ?? "history should be available"
-          && assert(history)(containsShapeOption { case (pid: Pid, ref, Symbol("normal")) =>
+          address        <- addressChannel.take
+          monitorRef     <- MonitorService.monitor(monitorerActor, address.pid).map(_.right.get)
+          _              <- assertAlive(address)
+          _              <- unleashChannel.offer(())
+          _              <- assertNotAlive(address)
+          _              <- assertAlive(monitorerActor.id)
+          monitorHistory <- MonitorService.history(monitorerActor)
+        } yield assert(monitorHistory)(isSome) ?? "history should be available"
+          && assert(monitorHistory)(containsShapeOption { case (pid: Pid, ref, Symbol("normal")) =>
             pid == Pid.toScala(address.pid) && monitorRef == ref
           }) ?? "has to contain elements of expected shape"
       )
@@ -442,9 +442,9 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           _       <- ZIO.sleep(WAIT_DURATION)
           output  <- ZTestLogger.logOutput
           logHistory = LogHistory(output)
-          history <- MonitorService.history(monitorerActor)
-        } yield assert(history)(isSome) ?? "history should be available"
-          && assert(history)(containsShapeOption { case (pid: Pid, ref, Symbol("reason")) =>
+          monitorHistory <- MonitorService.history(monitorerActor)
+        } yield assert(monitorHistory)(isSome) ?? "history should be available"
+          && assert(monitorHistory)(containsShapeOption { case (pid: Pid, ref, Symbol("reason")) =>
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
           && assert(
@@ -472,12 +472,12 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           _ <- assertNotAlive(echo.id)
           output <- ZTestLogger.logOutput
           logHistory = LogHistory(output)
-          history <- MonitorService.history(monitorerActor)
-        } yield assert(history)(isSome) ?? "history should be available"
-          && assert(history)(containsShapeOption { case (pid: Pid, ref: Reference, reason: String) =>
+          monitorHistory <- MonitorService.history(monitorerActor)
+        } yield assert(monitorHistory)(isSome) ?? "history should be available"
+          && assert(monitorHistory)(containsShapeOption { case (pid: Pid, ref: Reference, reason: String) =>
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
-          && assert(history)(containsShapeOption { case (_, _, reason: String) =>
+          && assert(monitorHistory)(containsShapeOption { case (_, _, reason: String) =>
             reason.contains("OnMessageResult") && reason.contains("HandleCallCBError")
           }) ?? "reason has to contain 'OnMessageResult' and 'HandleCallCBError'"
           && assert(monitorHistory)(containsShapeOption { case (_, _, reason: String) =>
@@ -512,12 +512,12 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           logHistory = LogHistory(output)
           _ <- assertAlive(monitorerActor.id)
 
-          history <- MonitorService.history(monitorerActor)
-        } yield assert(history)(isSome) ?? "history should be available"
-          && assert(history)(containsShapeOption { case (pid: Pid, ref: Reference, reason: Symbol) =>
+          monitorHistory <- MonitorService.history(monitorerActor)
+        } yield assert(monitorHistory)(isSome) ?? "history should be available"
+          && assert(monitorHistory)(containsShapeOption { case (pid: Pid, ref: Reference, reason: Symbol) =>
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
-          && assert(history)(
+          && assert(monitorHistory)(
             containsShapeOption { case (_, _, Symbol("myReason")) => true }
           ) ?? "reason must be 'myReason'"
           && assert(
@@ -542,14 +542,14 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           echo           <- EchoService.startZIO(node, echoName, cfg)
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorByName")
           echoPid = echo.self.pid
-          echoRef <- MonitorService.monitor(monitorerActor, core.Codec.EAtom(echoName)).map(_.right.get)
-          _       <- ZIO.sleep(WAIT_DURATION)
-          _       <- echo.exit(core.Codec.EAtom("reason"))
-          _       <- assertNotAlive(echo.id)
-          _       <- ZIO.sleep(WAIT_DURATION)
-          history <- MonitorService.history(monitorerActor)
-        } yield assert(history)(isSome) ?? "history should be available"
-          && assert(history)(containsShapeOption { case (pid: Pid, ref, Symbol("reason")) =>
+          echoRef        <- MonitorService.monitor(monitorerActor, core.Codec.EAtom(echoName)).map(_.right.get)
+          _              <- ZIO.sleep(WAIT_DURATION)
+          _              <- echo.exit(core.Codec.EAtom("reason"))
+          _              <- assertNotAlive(echo.id)
+          _              <- ZIO.sleep(WAIT_DURATION)
+          monitorHistory <- MonitorService.history(monitorerActor)
+        } yield assert(monitorHistory)(isSome) ?? "history should be available"
+          && assert(monitorHistory)(containsShapeOption { case (pid: Pid, ref, Symbol("reason")) =>
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
       ),
@@ -564,15 +564,15 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorRemoteByName")
           echoPid = echo.self.pid
           // not exactly remote but localhost, but it exercises the same path
-          target = core.Codec.ETuple(core.Codec.EAtom(echoName), core.Codec.EAtom("monitors"))
-          echoRef <- MonitorService.monitor(monitorerActor, target).map(_.right.get)
-          _       <- ZIO.sleep(WAIT_DURATION)
-          _       <- echo.exit(core.Codec.EAtom("reason"))
-          _       <- assertNotAlive(echo.id)
-          _       <- ZIO.sleep(WAIT_DURATION)
-          history <- MonitorService.history(monitorerActor)
-        } yield assert(history)(isSome) ?? "history should be available"
-          && assert(history)(containsShapeOption { case (pid: Pid, ref, Symbol("reason")) =>
+          target = core.Codec.ETuple(core.Codec.EAtom(echoName), core.Codec.EAtom("MonitorSuite"))
+          echoRef        <- MonitorService.monitor(monitorerActor, target).map(_.right.get)
+          _              <- ZIO.sleep(WAIT_DURATION)
+          _              <- echo.exit(core.Codec.EAtom("reason"))
+          _              <- assertNotAlive(echo.id)
+          _              <- ZIO.sleep(WAIT_DURATION)
+          monitorHistory <- MonitorService.history(monitorerActor)
+        } yield assert(monitorHistory)(isSome) ?? "history should be available"
+          && assert(monitorHistory)(containsShapeOption { case (pid: Pid, ref, Symbol("reason")) =>
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
       ),
@@ -591,11 +591,11 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           _               <- echo.exit(core.Codec.EAtom("reason"))
           _               <- assertNotAlive(echo.id)
           _               <- ZIO.sleep(WAIT_DURATION)
-          history         <- MonitorService.history(monitorerActor)
+          monitorHistory  <- MonitorService.history(monitorerActor)
         } yield assertTrue(
           demonitorResult == Symbol("ok")
-        ) && assert(history)(isSome) ?? "history should be available"
-          && assert(history.get)(isEmpty) ?? "history should be empty"
+        ) && assert(monitorHistory)(isSome) ?? "history should be available"
+          && assert(monitorHistory.get)(isEmpty) ?? "history should be empty"
       ),
       test("fail to monitor non-existent process by identifier")(
         for {
@@ -608,15 +608,15 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           echoPid = echo.self.pid
           _ <- ZIO.sleep(WAIT_DURATION)
           // make the process exit to obtain a valid PID but without an active instance
-          _       <- echo.exit(core.Codec.EAtom("normal"))
-          _       <- assertNotAlive(echo.id)
-          ref     <- MonitorService.monitor(monitorerActor, echoPid)
-          _       <- ZIO.sleep(WAIT_DURATION)
-          history <- MonitorService.history(monitorerActor)
+          _              <- echo.exit(core.Codec.EAtom("normal"))
+          _              <- assertNotAlive(echo.id)
+          ref            <- MonitorService.monitor(monitorerActor, echoPid)
+          _              <- ZIO.sleep(WAIT_DURATION)
+          monitorHistory <- MonitorService.history(monitorerActor)
         } yield assertTrue(
           ref == Left(Symbol("noproc"))
-        ) && assert(history)(isSome) ?? "history should be available"
-          && assert(history.get)(isEmpty) ?? "history should be empty"
+        ) && assert(monitorHistory)(isSome) ?? "history should be available"
+          && assert(monitorHistory.get)(isEmpty) ?? "history should be empty"
       ),
       test("fail to monitor non-existent process by name")(
         for {
@@ -627,11 +627,11 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorNonExistent")
           ref            <- MonitorService.monitor(monitorerActor, core.Codec.EAtom("non_existent"))
           _              <- ZIO.sleep(WAIT_DURATION)
-          history        <- MonitorService.history(monitorerActor)
+          monitorHistory <- MonitorService.history(monitorerActor)
         } yield assertTrue(
           ref == Left(Symbol("noproc"))
-        ) && assert(history)(isSome) ?? "history should be available"
-          && assert(history.get)(isEmpty) ?? "history should be empty"
+        ) && assert(monitorHistory)(isSome) ?? "history should be available"
+          && assert(monitorHistory.get)(isEmpty) ?? "history should be empty"
           && assert(ref)(isLeft) ?? "Call to monitor should return error"
           && assert(ref)(isLeft(equalTo(Symbol("noproc")))) ?? "Should get `noproc` error"
       ),
@@ -643,13 +643,13 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
 
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorNoConnection")
           target = core.Codec.ETuple(core.Codec.EAtom("non_existent"), core.Codec.EAtom("non_existent"))
-          ref     <- MonitorService.monitor(monitorerActor, target)
-          _       <- ZIO.sleep(WAIT_DURATION)
-          history <- MonitorService.history(monitorerActor)
+          ref            <- MonitorService.monitor(monitorerActor, target)
+          _              <- ZIO.sleep(WAIT_DURATION)
+          monitorHistory <- MonitorService.history(monitorerActor)
         } yield assertTrue(
           ref == Left(Symbol("noconnection"))
-        ) && assert(history)(isSome) ?? "history should be available"
-          && assert(history.get)(isEmpty) ?? "history should be empty"
+        ) && assert(monitorHistory)(isSome) ?? "history should be available"
+          && assert(monitorHistory.get)(isEmpty) ?? "history should be empty"
       ),
       test("link")(
         for {
