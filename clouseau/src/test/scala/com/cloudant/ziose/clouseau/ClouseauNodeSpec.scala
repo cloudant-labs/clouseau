@@ -319,15 +319,16 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           actor <- EchoService.startZIO(node, "echo", cfg)
           _     <- assertAlive(actor.id)
           _     <- actor.exit(core.Codec.EAtom("kill it"))
-          _     <- ZIO.sleep(WAIT_DURATION)
           _     <- assertNotAlive(actor.id)
         } yield assertTrue(true)
       ),
       test("spawn closure")(
         for {
-          node   <- Utils.clouseauNode
-          cfg    <- Utils.defaultConfig
-          worker <- ZIO.service[core.EngineWorker]
+          node           <- Utils.clouseauNode
+          cfg            <- Utils.defaultConfig
+          worker         <- ZIO.service[core.EngineWorker]
+          addressChannel <- Queue.bounded[core.PID](1)
+          unleashChannel <- Queue.bounded[Unit](1)
 
           actor <- PingPongService.startZIO(node, "ProcessSpawn.Closure")
           _ <- ZIO.succeed(node.spawn(process => {
@@ -342,11 +343,77 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               process.self.pid,
               core.Codec.EAtom("ProcessSpawn.Closure")
             )
+            Unsafe.unsafe { implicit unsafe =>
+              runtime.unsafe.run(addressChannel.offer(process.self))
+            }
+            Unsafe.unsafe { implicit unsafe =>
+              runtime.unsafe.run(unleashChannel.take)
+            }
           }))
+          address <- addressChannel.take
+          _       <- assertAlive(address)
+          _       <- unleashChannel.offer(())
+          _       <- assertNotAlive(address)
+
           history <- PingPongService.history(actor)
         } yield assert(history)(isSome) ?? "history should be available"
           && assert(history)(containsShapeOption { case ("handleInfo", Symbol("ProcessSpawn.Closure")) =>
             true
+          }) ?? "has to contain elements of expected shape"
+      ),
+      test("spawn closure - ensure the actor stops at the end of the closure")(
+        for {
+          node           <- Utils.clouseauNode
+          worker         <- ZIO.service[core.EngineWorker]
+          monitorerActor <- MonitorService.startZIO(node, "ProcessSpawn.Monitorer.ActorStops")
+          addressChannel <- Queue.bounded[core.PID](1)
+          unleashChannel <- Queue.bounded[Unit](1)
+          _ <- ZIO
+            .attemptBlocking(node.spawn(process => {
+              Unsafe.unsafe { implicit unsafe =>
+                runtime.unsafe.run(addressChannel.offer(process.self))
+              }
+              Unsafe.unsafe { implicit unsafe =>
+                runtime.unsafe.run(unleashChannel.take)
+              }
+            }))
+            .fork
+          address    <- addressChannel.take
+          monitorRef <- MonitorService.monitor(monitorerActor, address.pid).map(_.right.get)
+          _          <- assertAlive(address)
+          _          <- unleashChannel.offer(())
+          _          <- assertNotAlive(address)
+        } yield assertTrue(true)
+      ),
+      test("spawn closure - ensure the execution of a closure doesn't block the caller")(
+        // The fact that the closure doesn't block the caller is confirmed by lack of a timeout.
+        // If it were blocking we would have a deadlock and fail with timeout eventually
+        for {
+          node           <- Utils.clouseauNode
+          worker         <- ZIO.service[core.EngineWorker]
+          monitorerActor <- MonitorService.startZIO(node, "ProcessClosure.Monitorer.NonBlocking")
+          addressChannel <- Queue.bounded[core.PID](1)
+          unleashChannel <- Queue.bounded[Unit](1)
+          _ <- ZIO
+            .attemptBlocking(node.spawn(process => {
+              Unsafe.unsafe { implicit unsafe =>
+                runtime.unsafe.run(addressChannel.offer(process.self))
+              }
+              Unsafe.unsafe { implicit unsafe =>
+                runtime.unsafe.run(unleashChannel.take)
+              }
+            }))
+            .fork
+          address    <- addressChannel.take
+          monitorRef <- MonitorService.monitor(monitorerActor, address.pid).map(_.right.get)
+          _          <- assertAlive(address)
+          _          <- unleashChannel.offer(())
+          _          <- assertNotAlive(address)
+          _          <- assertAlive(monitorerActor.id)
+          history    <- MonitorService.history(monitorerActor)
+        } yield assert(history)(isSome) ?? "history should be available"
+          && assert(history)(containsShapeOption { case (pid: Pid, ref, Symbol("normal")) =>
+            pid == Pid.toScala(address.pid) && monitorRef == ref
           }) ?? "has to contain elements of expected shape"
       )
     ).provideLayer(
