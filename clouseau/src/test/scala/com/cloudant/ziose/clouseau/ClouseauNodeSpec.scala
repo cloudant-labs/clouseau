@@ -328,7 +328,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          actor <- PingPongService.startZIO(node, "processSpawn.Closure")
+          actor <- PingPongService.startZIO(node, "ProcessSpawn.Closure")
           _ <- ZIO.succeed(node.spawn(process => {
             // this is needed to enable `actor ! message` syntax
             // this shouldn't be required in clouseau code because
@@ -339,12 +339,12 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             actorPID ! core.Codec.ETuple(
               core.Codec.EAtom("ping"),
               process.self.pid,
-              core.Codec.EAtom("processSpawn.Closure")
+              core.Codec.EAtom("ProcessSpawn.Closure")
             )
           }))
           history <- PingPongService.history(actor)
         } yield assert(history)(isSome) ?? "history should be available"
-          && assert(history)(containsShapeOption { case ("handleInfo", Symbol("processSpawn.Closure")) =>
+          && assert(history)(containsShapeOption { case ("handleInfo", Symbol("ProcessSpawn.Closure")) =>
             true
           }) ?? "has to contain elements of expected shape"
       )
