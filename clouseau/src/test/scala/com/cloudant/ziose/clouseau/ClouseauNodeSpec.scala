@@ -250,7 +250,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
         for {
           node  <- Utils.clouseauNode
           cfg   <- Utils.defaultConfig
-          actor <- PingPongService.startZIO(node, "serviceCommunication.Call")
+          actor <- PingPongService.startZIO(node, "ServiceCommunication.Call")
           ctx     = actor.ctx.asInstanceOf[core.ProcessContext]
           tag     = core.Codec.EAtom("$gen_call")
           payload = core.Codec.ETuple(core.Codec.EAtom("ping"), core.Codec.EAtom("something"))
@@ -260,7 +260,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             actor.id,
             payload,
             Some(TIMEOUT),
-            dummyCaller("serviceCommunication.Call")
+            dummyCaller("ServiceCommunication.Call")
           )
           result <- ctx.call(callMsg)
         } yield assertTrue(
@@ -275,7 +275,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
         for {
           node  <- Utils.clouseauNode
           cfg   <- Utils.defaultConfig
-          actor <- PingPongService.startZIO(node, "serviceCommunication.Call")
+          actor <- PingPongService.startZIO(node, "ServiceCommunication.Call")
           ctx     = actor.ctx.asInstanceOf[core.ProcessContext]
           tag     = core.Codec.EAtom("$gen_call")
           payload = core.Codec.ETuple(core.Codec.EAtom("ping"), core.Codec.EAtom("something"))
@@ -285,7 +285,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             actor.id,
             payload,
             Some(TIMEOUT),
-            dummyCaller("serviceCommunication.Call")
+            dummyCaller("ServiceCommunication.Call")
           )
           result  <- ctx.call(callMsg)
           history <- PingPongService.history(actor)
@@ -303,7 +303,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
         )
       )
     ).provideLayer(
-      Utils.testEnvironment(1, 1, "serviceCommunication")
+      Utils.testEnvironment(1, 1, "ServiceCommunication")
     ) @@ TestAspect.withLiveClock
   }
 
@@ -349,8 +349,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           }) ?? "has to contain elements of expected shape"
       )
     ).provideLayer(
-      Utils.testEnvironment(1, 1, "serviceCommunication")
-    ) @@ TestAspect.withLiveClock
+      Utils.testEnvironment(1, 1, "ProcessSpawn")
+    ) @@ TestAspect.withLiveClock @@ TestAspect.timeout(15.seconds) @@ TestAspect.sequential
   }
 
   val monitorsSuite: Spec[Any, Throwable] = {
