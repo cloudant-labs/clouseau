@@ -586,8 +586,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          echo   <- EchoService.startZIO(node, "echo_link", cfg)
-          linked <- MonitorService.startZIO(node, "linked")
+          echo   <- EchoService.startZIO(node, "MonitorSuite.echo_link", cfg)
+          linked <- MonitorService.startZIO(node, "MonitorSuite.linked")
           echoPid = echo.self.pid
           linkResult <- MonitorService.link(linked, echoPid)
           _          <- ZIO.sleep(WAIT_DURATION)
@@ -604,8 +604,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          echo   <- EchoService.startZIO(node, "echo_unlink", cfg)
-          linked <- MonitorService.startZIO(node, "unlinked")
+          echo   <- EchoService.startZIO(node, "MonitorSuite.echo_unlink", cfg)
+          linked <- MonitorService.startZIO(node, "MonitorSuite.unlinked")
           echoPid = echo.self.pid
           linkResult   <- MonitorService.link(linked, echoPid)
           _            <- ZIO.sleep(WAIT_DURATION)
@@ -624,8 +624,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          echo   <- EchoService.startZIO(node, "echo_link_noproc", cfg)
-          linked <- MonitorService.startZIO(node, "linked_noproc")
+          echo   <- EchoService.startZIO(node, "MonitorSuite.echo_link_noproc", cfg)
+          linked <- MonitorService.startZIO(node, "MonitorSuite.linked_noproc")
           echoPid = echo.self.pid
           _ <- ZIO.sleep(WAIT_DURATION)
           // make the process exit to obtain a valid PID but without an active instance
@@ -637,7 +637,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
         )
       )
     ).provideLayer(
-      Utils.testEnvironment(1, 1, "monitors")
+      Utils.testEnvironment(1, 1, "MonitorSuite")
     ) @@ TestAspect.withLiveClock
   }
 
