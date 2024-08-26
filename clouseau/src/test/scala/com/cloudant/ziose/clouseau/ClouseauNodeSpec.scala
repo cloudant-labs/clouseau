@@ -14,6 +14,7 @@ import zio.test.Assertion._
 import zio.test.TestAspect
 import com.cloudant.ziose.clouseau.helpers.Asserts._
 import com.cloudant.ziose.clouseau.helpers.LogHistory
+import com.cloudant.ziose.test.helpers.Aspects.needsTest
 
 class PingPongService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   var calledArgs: List[Product2[String, Any]] = List()
@@ -355,6 +356,9 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
 
   val monitorsSuite: Spec[Any, Throwable] = {
     suite("monitor")(
+      test("monitor process by pid") {
+        ???
+      } @@ needsTest,
       test("monitor process by identifier - killed by calling exit")(
         for {
           node   <- Utils.clouseauNode
