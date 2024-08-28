@@ -276,8 +276,8 @@ version:
 
 .PHONY: zeunit
 # target: zeunit - Run integration tests with ~/.erlang.cookie: `make zeunit`; otherwise `make zeunit cookie=<cookie>`
-zeunit: jartest
-	@cli start $(node_name) "java -jar clouseau/target/scala-$(SCALA_SHORT_VERSION)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar"
+zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
+	@cli start $(node_name) "java -jar $<"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)"
 	@$(call to_artifacts,test-reports)
 
