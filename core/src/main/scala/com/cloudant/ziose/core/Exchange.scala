@@ -10,7 +10,6 @@ package com.cloudant.ziose.core
  */
 
 import com.cloudant.ziose.macros.checkEnv
-import zio.Console._
 import zio.stream.ZStream
 import zio.{Enqueue, Queue, Scope, Trace, UIO, ZIO}
 
@@ -42,10 +41,12 @@ class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], val registry
   def buildWith(builderFn: Int => ZIO[Any with Scope, Throwable, E]) = {
     registry.buildWith(builderFn)
   }
-  def stream = ZStream.fromQueueWithShutdown(queue).tap(x => printLine(s"exchange event: $x")).mapZIO(loop)
+  def stream = ZStream
+    .fromQueueWithShutdown(queue)
+    // .tap(x => printLine(s"exchange event: $x"))
+    .mapZIO(loop)
   def loop(msg: M) = for {
-    destination <- this.get(keyFn(msg)).debug("maybeEnqueue")
-    _           <- ZIO.debug(s"destination=${destination}")
+    destination <- this.get(keyFn(msg))
     _           <- maybeForward(destination, msg)
   } yield ()
   def maybeForward(destination: Option[E], msg: M): UIO[Unit] = destination match {
@@ -69,7 +70,7 @@ class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], val registry
     queue.shutdown
   }
   def offer(msg: M)(implicit trace: zio.Trace): UIO[Boolean] = {
-    queue.offer(msg).debug(s"offer ${msg}")
+    queue.offer(msg)
   }
   def offerAll[A1 <: M](as: Iterable[A1])(implicit trace: zio.Trace): UIO[zio.Chunk[A1]] = {
     queue.offerAll(as)
