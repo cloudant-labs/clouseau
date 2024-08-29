@@ -68,6 +68,8 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
   //  Tag = [alias | Mref],
   def makeTag(ref: Codec.ERef) = Codec.EListImproper(Codec.EAtom("alias"), ref)
 
+  def forkScoped[R, E, A](effect: zio.ZIO[R, E, A]): zio.URIO[R, zio.Fiber.Runtime[E, A]] = ctx.forkScoped(effect)
+
   @checkEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
