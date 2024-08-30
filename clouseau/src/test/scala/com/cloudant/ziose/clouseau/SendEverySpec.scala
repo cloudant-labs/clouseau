@@ -79,18 +79,8 @@ private object SendEveryService extends core.ActorConstructor[SendEveryService] 
   }
 
   def history(actor: core.AddressableActor[_, _]): ZIO[core.Node, _ <: core.Node.Error, Option[List[Any]]] = {
-    val historyMessage = core.MessageEnvelope.makeCall(
-      core.Codec.EAtom("$gen_call"),
-      actor.self.pid,
-      actor.id,
-      core.Codec.EAtom("collect"),
-      Some(3.seconds),
-      actor.id
-    )
-
-    actor.ctx
-      .asInstanceOf[core.ProcessContext]
-      .call(historyMessage)
+    actor
+      .doTestCallTimeout(core.Codec.EAtom("collect"), 3.seconds)
       .delay(100.millis)
       .repeatUntil(_.isSuccess)
       .map(result => core.Codec.toScala(result.payload.get).asInstanceOf[List[Any]])
