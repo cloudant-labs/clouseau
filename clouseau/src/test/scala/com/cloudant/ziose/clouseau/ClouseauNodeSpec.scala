@@ -16,70 +16,6 @@ import com.cloudant.ziose.clouseau.helpers.Asserts._
 import com.cloudant.ziose.clouseau.helpers.LogHistory
 import com.cloudant.ziose.test.helpers.Aspects.needsTest
 
-class PingPongService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
-  var calledArgs: List[Product2[String, Any]] = List()
-  override def handleInfo(request: Any): Any = {
-    request match {
-      case (Symbol("ping"), from: Pid, payload) => {
-        calledArgs = ("handleInfo", payload) :: calledArgs
-        send(from, Symbol("pong"))
-      }
-    }
-  }
-
-  override def handleCall(tag: (Pid, Any), request: Any): Any = {
-    request match {
-      case (Symbol("ping"), payload) =>
-        calledArgs = ("handleCall", payload) :: calledArgs
-        (Symbol("reply"), Symbol("pong"))
-      case Symbol("reset") => {
-        calledArgs = List()
-        (Symbol("reply"), Symbol("ok"))
-      }
-      case Symbol("collect") => (Symbol("reply"), calledArgs)
-    }
-  }
-}
-
-private object PingPongService extends core.ActorConstructor[PingPongService] {
-  private def make(
-    node: SNode,
-    name: String,
-    service_context: ServiceContext[None.type]
-  ): core.ActorBuilder.Builder[PingPongService, core.ActorBuilder.State.Spawnable] = {
-    def maker[PContext <: core.ProcessContext](process_context: PContext): PingPongService = {
-      new PingPongService(service_context)(Adapter(process_context, node, ClouseauTypeFactory))
-    }
-
-    core
-      .ActorBuilder()
-      // TODO get capacity from config
-      .withCapacity(16)
-      .withName(name)
-      .withMaker(maker)
-      .build(this)
-  }
-
-  def startZIO(
-    node: SNode,
-    name: String
-  ): ZIO[core.EngineWorker & core.Node & core.ActorFactory, core.Node.Error, core.AddressableActor[_, _]] = {
-    val ctx: ServiceContext[None.type] = {
-      new ServiceContext[None.type] { val args: None.type = None }
-    }
-    node.spawnServiceZIO[PingPongService, None.type](make(node, name, ctx))
-  }
-
-  def history(actor: core.AddressableActor[_, _]): ZIO[core.Node, _ <: core.Node.Error, Option[List[Any]]] = {
-    actor
-      .doTestCallTimeout(core.Codec.EAtom("collect"), 3.seconds)
-      .delay(100.millis)
-      .repeatUntil(_.isSuccess)
-      .map(result => core.Codec.toScala(result.payload.get).asInstanceOf[List[Any]])
-      .timeout(3.seconds)
-  }
-}
-
 class MonitorService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   var downPids: List[Product3[Pid, Reference, Any]] = List()
 
@@ -235,10 +171,9 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
     suite("serviceSpawn")(
       test("Start Echo")(
         for {
-          node <- Utils.clouseauNode
-          cfg  <- Utils.defaultConfig
-          zio  <- EchoService.startZIO(node, "echo", cfg)
-        } yield assertTrue(zio.isInstanceOf[core.AddressableActor[_, _]])
+          node   <- Utils.clouseauNode
+          handle <- TestService.start(node, "echo")
+        } yield assertTrue(handle.actor.isInstanceOf[core.AddressableActor[_, _]])
       )
     ).provideLayer(Utils.testEnvironment(1, 1, "serviceSpawn")) @@ TestAspect.withLiveClock
   }
@@ -250,11 +185,10 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       test("Call into service using actor reference - basic")(
         for {
           node  <- Utils.clouseauNode
-          cfg   <- Utils.defaultConfig
-          actor <- PingPongService.startZIO(node, "ServiceCommunication.Call")
+          actor <- TestService.start(node, "ServiceCommunication.Call")
           ctx     = actor.ctx.asInstanceOf[core.ProcessContext]
           tag     = core.Codec.EAtom("$gen_call")
-          payload = core.Codec.ETuple(core.Codec.EAtom("ping"), core.Codec.EAtom("something"))
+          payload = core.Codec.ETuple(core.Codec.EAtom("echo"), core.Codec.EAtom("something"))
           callMsg = core.MessageEnvelope.makeCall(
             tag,
             actor.self.pid,
@@ -268,18 +202,17 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           result.isSuccess,
           result.from == Some(actor.id.asInstanceOf[core.PID].pid),
           result.tag == tag,
-          result.payload.get == core.Codec.EAtom("pong"),
+          result.payload.get == core.Codec.ETuple(core.Codec.EAtom("echo"), core.Codec.EAtom("something")),
           result.workerId == 1
         )
       ),
       test("Call into service using actor reference - state is updated")(
         for {
           node  <- Utils.clouseauNode
-          cfg   <- Utils.defaultConfig
-          actor <- PingPongService.startZIO(node, "ServiceCommunication.Call")
+          actor <- TestService.start(node, "ServiceCommunication.Call")
           ctx     = actor.ctx.asInstanceOf[core.ProcessContext]
           tag     = core.Codec.EAtom("$gen_call")
-          payload = core.Codec.ETuple(core.Codec.EAtom("ping"), core.Codec.EAtom("something"))
+          payload = core.Codec.ETuple(core.Codec.EAtom("echo"), core.Codec.EAtom("something"))
           callMsg = core.MessageEnvelope.makeCall(
             tag,
             actor.self.pid,
@@ -289,19 +222,16 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             dummyCaller("ServiceCommunication.Call")
           )
           result       <- ctx.call(callMsg)
-          actorHistory <- PingPongService.history(actor)
+          actorHistory <- actor.history
         } yield assertTrue(
           result.isSuccess,
           result.from == Some(actor.id.asInstanceOf[core.PID].pid),
           result.tag == tag,
-          result.payload.get == core.Codec.EAtom("pong"),
+          result.payload.get == core.Codec.ETuple(core.Codec.EAtom("echo"), core.Codec.EAtom("something")),
           result.workerId == 1
-        ) && assertTrue(
-          actorHistory.isDefined,
-          actorHistory.get == List(
-            ("handleCall", Symbol("something"))
-          )
-        )
+        ) && assert(actorHistory)(containsShape { case ("handleCall", (Symbol("echo"), Symbol("something"))) =>
+          true
+        }) ?? "has to contain elements of expected shape"
       )
     ).provideLayer(
       Utils.testEnvironment(1, 1, "ServiceCommunication")
@@ -313,10 +243,9 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       test("no longer registered after termination")(
         for {
           node   <- Utils.clouseauNode
-          cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          actor <- EchoService.startZIO(node, "echo", cfg)
+          actor <- TestService.start(node, "echo")
           _     <- assertAlive(actor.id)
           _     <- actor.exit(core.Codec.EAtom("kill it"))
           _     <- assertNotAlive(actor.id)
@@ -325,12 +254,11 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       test("spawn closure")(
         for {
           node           <- Utils.clouseauNode
-          cfg            <- Utils.defaultConfig
           worker         <- ZIO.service[core.EngineWorker]
           addressChannel <- Queue.bounded[core.PID](1)
           unleashChannel <- Queue.bounded[Unit](1)
 
-          actor <- PingPongService.startZIO(node, "ProcessSpawn.Closure")
+          actor <- TestService.start(node, "ProcessSpawn.Closure")
           _ <- ZIO.succeed(node.spawn(process => {
             // this is needed to enable `actor ! message` syntax
             // this shouldn't be required in clouseau code because
@@ -339,9 +267,10 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             implicit def pid2sendable(pid: core.PID): PidSend = new PidSend(pid, process)
             val actorPID                                      = actor.self
             actorPID ! core.Codec.ETuple(
-              core.Codec.EAtom("ping"),
-              process.self.pid,
-              core.Codec.EAtom("ProcessSpawn.Closure")
+              core.Codec.EAtom("echo"),
+              process.self.pid,    // from
+              core.Codec.ELong(0), // ts
+              core.Codec.EInt(1)   // seq
             )
             Unsafe.unsafe { implicit unsafe =>
               runtime.unsafe.run(addressChannel.offer(process.self))
@@ -355,11 +284,10 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           _       <- unleashChannel.offer(())
           _       <- assertNotAlive(address)
 
-          actorHistory <- PingPongService.history(actor)
-        } yield assert(actorHistory)(isSome) ?? "history should be available"
-          && assert(actorHistory)(containsShapeOption { case ("handleInfo", Symbol("ProcessSpawn.Closure")) =>
-            true
-          }) ?? "has to contain elements of expected shape"
+          actorHistory <- actor.history
+        } yield assert(actorHistory)(containsShape { case ("handleInfo", (Symbol("echo"), _pid, 0, 1)) =>
+          true
+        }) ?? "has to contain elements of expected shape"
       ),
       test("spawn closure - ensure the actor stops at the end of the closure")(
         for {
@@ -429,10 +357,9 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       test("monitor process by identifier - killed by calling exit")(
         for {
           node   <- Utils.clouseauNode
-          cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          echo           <- EchoService.startZIO(node, "MonitorSuite.Echo.KillByExit", cfg)
+          echo           <- TestService.start(node, "MonitorSuite.Echo.KillByExit")
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.KillByExit")
           echoPid = echo.self.pid
           echoRef <- MonitorService.monitor(monitorerActor, echoPid).map(_.right.get)
@@ -448,29 +375,28 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("EchoService"))
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-          )(containsShape { case (_, "onTermination", "EchoService") =>
+          )(containsShape { case (_, "onTermination", "TestService") =>
             true
-          }) ?? "log should contain messages from 'EchoService.onTermination' callback"
+          }) ?? "log should contain messages from 'TestService.onTermination' callback"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("EchoService"))
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
-          )(equalTo(1)) ?? "'EchoService.onTermination' callback should be only called once"
+          )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
       ),
       test("monitor process by identifier - killed by exception")(
         for {
           node           <- Utils.clouseauNode
-          cfg            <- Utils.defaultConfig
           worker         <- ZIO.service[core.EngineWorker]
-          echo           <- EchoService.startZIO(node, "MonitorSuite.Echo.KillByException", cfg)
+          echo           <- TestService.start(node, "MonitorSuite.Echo.KillByException")
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.KillByException")
           echoPid = echo.self.pid
           echoRef <- MonitorService.monitor(monitorerActor, echoPid).map(_.right.get)
-          _ <- echo.doTestCallTimeout(core.Codec.fromScala((Symbol("crashWithReason"), "myCrashReason")), 3.seconds)
-          _ <- assertNotAlive(echo.id)
-          output <- ZTestLogger.logOutput
+          _       <- echo.crashWithReason("myCrashReason")
+          _       <- assertNotAlive(echo.id)
+          output  <- ZTestLogger.logOutput
           logHistory = LogHistory(output)
           monitorHistory <- MonitorService.history(monitorerActor)
         } yield assert(monitorHistory)(isSome) ?? "history should be available"
@@ -484,62 +410,61 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             reason.contains("myCrashReason")
           }) ?? "reason has to contain 'myCrashReason'"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("EchoService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActor("TestService") &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-          )(containsShape { case (_, "onTermination", "EchoService") =>
+          )(containsShape { case (_, "onTermination", "TestService") =>
             true
-          }) ?? "log should contain messages from 'EchoService.onTermination' callback"
+          }) ?? "log should contain messages from 'TestService.onTermination' callback"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("EchoService"))
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
-          )(equalTo(1)) ?? "'EchoService.onTermination' callback should be only called once"
+          )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
       ),
       test("monitor process by identifier - killed by stop")(
         for {
           node           <- Utils.clouseauNode
-          cfg            <- Utils.defaultConfig
           worker         <- ZIO.service[core.EngineWorker]
-          echo           <- EchoService.startZIO(node, "MonitorSuite.Echo.KillByStop", cfg)
+          echo           <- TestService.start(node, "MonitorSuite.Echo.KillByStop")
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.KillByStop")
           echoPid = echo.self.pid
           echoRef <- MonitorService.monitor(monitorerActor, echoPid).map(_.right.get)
-          stopMsg = core.Codec.fromScala((Symbol("stop"), Symbol("myReason")))
-          _      <- echo.doTestCallTimeout(stopMsg, 3.seconds)
-          _      <- assertNotAlive(echo.id)
-          _      <- ZIO.sleep(WAIT_DURATION)
-          output <- ZTestLogger.logOutput
+          _       <- echo.stopWithReason("myReason")
+          _       <- assertNotAlive(echo.id)
+          _       <- ZIO.sleep(WAIT_DURATION)
+          output  <- ZTestLogger.logOutput
           logHistory = LogHistory(output)
           _ <- assertAlive(monitorerActor.id)
 
           monitorHistory <- MonitorService.history(monitorerActor)
         } yield assert(monitorHistory)(isSome) ?? "history should be available"
-          && assert(monitorHistory)(containsShapeOption { case (pid: Pid, ref: Reference, reason: Symbol) =>
+          && assert(monitorHistory)(containsShapeOption { case (pid: Pid, ref: Reference, reason: String) =>
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
           && assert(monitorHistory)(
-            containsShapeOption { case (_, _, Symbol("myReason")) => true }
+            containsShapeOption { case (_, _, "myReason") => true }
           ) ?? "reason must be 'myReason'"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("EchoService"))
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-          )(containsShape { case (_, "onTermination", "EchoService") =>
+          )(containsShape { case (_, "onTermination", "TestService") =>
             true
-          }) ?? "log should contain messages from 'EchoService.onTermination' callback"
+          }) ?? "log should contain messages from 'TestService.onTermination' callback"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("EchoService"))
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
-          )(equalTo(1)) ?? "'EchoService.onTermination' callback should be only called once"
+          )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
       ),
       test("monitor process by name")(
         for {
           node   <- Utils.clouseauNode
-          cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
           echoName = "MonitorSuite.Echo.MonitorByName"
-          echo           <- EchoService.startZIO(node, echoName, cfg)
+          echo           <- TestService.start(node, echoName)
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorByName")
           echoPid = echo.self.pid
           echoRef        <- MonitorService.monitor(monitorerActor, core.Codec.EAtom(echoName)).map(_.right.get)
@@ -556,11 +481,10 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       test("monitor remote process by name")(
         for {
           node   <- Utils.clouseauNode
-          cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
           echoName = "MonitorSuite.Echo.MonitorRemoteByName"
-          echo           <- EchoService.startZIO(node, echoName, cfg)
+          echo           <- TestService.start(node, echoName)
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorRemoteByName")
           echoPid = echo.self.pid
           // not exactly remote but localhost, but it exercises the same path
@@ -579,10 +503,9 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       test("demonitor")(
         for {
           node   <- Utils.clouseauNode
-          cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          echo           <- EchoService.startZIO(node, "MonitorSuite.Echo.Demonitor", cfg)
+          echo           <- TestService.start(node, "MonitorSuite.Echo.Demonitor")
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.Demonitor")
           echoPid = echo.self.pid
           ref             <- MonitorService.monitor(monitorerActor, echoPid).map(_.right.get)
@@ -600,10 +523,9 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       test("fail to monitor non-existent process by identifier")(
         for {
           node   <- Utils.clouseauNode
-          cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          echo           <- EchoService.startZIO(node, "MonitorSuite.Echo.MonitorNoProc", cfg)
+          echo           <- TestService.start(node, "MonitorSuite.Echo.MonitorNoProc")
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorNoProc")
           echoPid = echo.self.pid
           _ <- ZIO.sleep(WAIT_DURATION)
@@ -621,7 +543,6 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       test("fail to monitor non-existent process by name")(
         for {
           node   <- Utils.clouseauNode
-          cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorNonExistent")
@@ -638,7 +559,6 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       test("fail to monitor process on non-existent remote node")(
         for {
           node   <- Utils.clouseauNode
-          cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorNoConnection")
@@ -654,10 +574,9 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       test("link")(
         for {
           node   <- Utils.clouseauNode
-          cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          echo   <- EchoService.startZIO(node, "MonitorSuite.echo_link", cfg)
+          echo   <- TestService.start(node, "MonitorSuite.echo_link")
           linked <- MonitorService.startZIO(node, "MonitorSuite.linked")
           echoPid = echo.self.pid
           linkResult <- MonitorService.link(linked, echoPid)
@@ -672,10 +591,9 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       test("unlink")(
         for {
           node   <- Utils.clouseauNode
-          cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          echo   <- EchoService.startZIO(node, "MonitorSuite.echo_unlink", cfg)
+          echo   <- TestService.start(node, "MonitorSuite.echo_unlink")
           linked <- MonitorService.startZIO(node, "MonitorSuite.unlinked")
           echoPid = echo.self.pid
           linkResult   <- MonitorService.link(linked, echoPid)
@@ -692,10 +610,9 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       test("fail to link to non-existent process")(
         for {
           node   <- Utils.clouseauNode
-          cfg    <- Utils.defaultConfig
           worker <- ZIO.service[core.EngineWorker]
 
-          echo   <- EchoService.startZIO(node, "MonitorSuite.echo_link_noproc", cfg)
+          echo   <- TestService.start(node, "MonitorSuite.echo_link_noproc")
           linked <- MonitorService.startZIO(node, "MonitorSuite.linked_noproc")
           echoPid = echo.self.pid
           _ <- ZIO.sleep(WAIT_DURATION)

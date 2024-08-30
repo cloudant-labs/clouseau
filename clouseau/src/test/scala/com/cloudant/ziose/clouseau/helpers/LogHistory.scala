@@ -69,6 +69,13 @@ class LogHistory private (val entries: Chunk[(Int, LogEntry)]) {
   def withActorCallback(actorType: String, callbackName: ActorCallback) = {
     withActor(actorType) && withActorCallbackName(callbackName)
   }
+  /*
+   * Returns new instance of `LogHistory`
+   * which contains only messages of given `LogLevel` from given `actorType: String`.
+   */
+  def withActorAddress(actorAddress: Address) = {
+    withContextAnnotation(AddressableActor.addressLogAnnotation, isEqual(actorAddress))
+  }
 
   /*
    * Returns new instance of `LogHistory`
