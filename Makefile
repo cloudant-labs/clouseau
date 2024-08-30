@@ -97,8 +97,9 @@ empty :=
 space := $(empty) $(empty)
 
 apps ?= clouseau,core,macros,otp,scalang,vendor
+skip ?= vendor
 COMMON_PATH := /target/scala-$(SCALA_SHORT_VERSION)/classes
-SPOTBUGS_OPTS = $(foreach app,$(subst $(comma),$(space),$(apps)),$(app)$(COMMON_PATH))
+SPOTBUGS_OPTS = $(foreach app,$(filter-out $(subst $(comma),$(space),$(skip)),$(subst $(comma),$(space),$(apps))),$(app)$(COMMON_PATH))
 
 define extract
 echo "$(1)  $(2) $(3)" && \
