@@ -35,7 +35,7 @@ class LogHistory private (val entries: Chunk[(Int, LogEntry)]) {
    */
   def withContextAnnotation[T](annotation: LogAnnotation[T], pf: PartialFunction[T, Boolean]) = {
     new LogHistory(entries.collect {
-      case (idx, entry) if entry.context.getOrDefault(logContext).get(annotation).map(pf.lift).isDefined =>
+      case (idx, entry) if entry.context.getOrDefault(logContext).get(annotation).collect(pf).getOrElse(false) =>
         (idx, entry)
     })
   }
@@ -45,7 +45,7 @@ class LogHistory private (val entries: Chunk[(Int, LogEntry)]) {
    */
   def withContextAnnotation[T](annotation: LogAnnotation[T], condition: T => Boolean) = {
     new LogHistory(entries.collect {
-      case (idx, entry) if entry.context.getOrDefault(logContext).get(annotation).map(condition).isDefined =>
+      case (idx, entry) if entry.context.getOrDefault(logContext).get(annotation).map(condition).getOrElse(false) =>
         (idx, entry)
     })
   }
