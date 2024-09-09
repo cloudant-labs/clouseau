@@ -228,6 +228,23 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   /*
    * Use it for tests only
    */
+  def sendTestCall(payload: Codec.ETerm) = {
+    val ref = Codec.ERef(self.pid.node.name, Array(0), self.pid.creation) // dummy
+    val message = MessageEnvelope.makeSend(
+      id,
+      Codec.ETuple(
+        Codec.EAtom("$gen_call"),
+        Codec.ETuple(self.pid, Codec.EListImproper(Codec.EAtom("alias"), ref)),
+        payload
+      ),
+      id
+    )
+    ctx.offer(message)
+  }
+
+  /*
+   * Use it for tests only
+   */
   def doTestCallTimeout(payload: Codec.ETerm, timeout: Duration) = {
     val message = MessageEnvelope.makeCall(
       Codec.EAtom("$gen_call"),
