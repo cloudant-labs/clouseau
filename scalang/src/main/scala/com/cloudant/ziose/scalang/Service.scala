@@ -398,6 +398,17 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           }
         }
       }
+      case Some(ETuple(EAtom("DOWN"), ref: ERef, EAtom("process"), from, reason: ETerm)) =>
+        try {
+          ZIO
+            .succeed(handleMonitorExit(from, Reference.toScala(ref), reason))
+            .as(ActorResult.Continue())
+        } catch {
+          case err: Throwable => {
+            printThrowable("onMessage[DOWN]", err)
+            ZIO.fail(HandleCastCBError(err))
+          }
+        }
       case Some(info: ETerm) => {
         try {
           ZIO

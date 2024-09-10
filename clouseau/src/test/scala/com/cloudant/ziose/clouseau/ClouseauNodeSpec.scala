@@ -19,11 +19,9 @@ import com.cloudant.ziose.test.helpers.Aspects.needsTest
 class MonitorService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   var downPids: List[Product3[Pid, Reference, Any]] = List()
 
-  override def handleInfo(request: Any): Any = {
-    request match {
-      case (Symbol("DOWN"), ref: Reference, Symbol("process"), pid: Pid, reason: Any) =>
-        downPids = (pid, ref, reason) :: downPids
-    }
+  override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Unit = {
+    val pid = Pid.toScala(monitored.asInstanceOf[core.Codec.EPid])
+    downPids = (pid, ref, reason) :: downPids
   }
 
   override def handleCall(tag: (Pid, Any), request: Any): Any = {
