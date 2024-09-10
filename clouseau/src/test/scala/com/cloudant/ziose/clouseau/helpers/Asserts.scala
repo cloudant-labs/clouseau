@@ -49,7 +49,7 @@ object Asserts {
    */
   def containsShape(shape: PartialFunction[Any, Boolean]) = {
     val matcher: (=> Iterable[Any]) => Boolean = { it =>
-      !it.collect(shape).isEmpty
+      it.collect(shape).exists(_ == true)
     }
     Assertion.assertion("hasShape")(matcher)
   }
@@ -73,7 +73,7 @@ object Asserts {
   def containsShapeOption(shape: PartialFunction[Any, Boolean]) = {
     val matcher: (=> Option[Iterable[Any]]) => Boolean = { option =>
       option match {
-        case Some(it) => !it.collect(shape).isEmpty
+        case Some(it) => it.collect(shape).exists(_ == true)
         case None     => false
       }
     }
