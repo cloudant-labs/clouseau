@@ -377,6 +377,42 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
       case Some(
             ETuple(
               EAtom("$gen_call"),
+              // Match on {pid(), ref()}
+              ETuple(from: EPid, ref: ERef),
+              request: ETerm
+            )
+          ) => {
+        val fromPid = Pid.toScala(from)
+        try {
+          val result = handleCall((fromPid, ref), adapter.toScala(request))
+          for {
+            res <- result match {
+              case (Symbol("reply"), reply) =>
+                sendZIO(fromPid, (ref, adapter.fromScala(reply)))
+                  .as(ActorResult.Continue())
+              case Symbol("noreply") =>
+                ZIO.succeed(ActorResult.Continue())
+              case (Symbol("stop"), reason: String, reply) =>
+                sendZIO(fromPid, (ref, adapter.fromScala(reply)))
+                  .as(ActorResult.StopWithReasonString(reason))
+              case (Symbol("stop"), reason: Any, reply) =>
+                sendZIO(fromPid, (ref, adapter.fromScala(reply)))
+                  .as(ActorResult.StopWithReasonTerm(adapter.fromScala(reason)))
+              case reply =>
+                sendZIO(fromPid, (ref, adapter.fromScala(reply)))
+                  .as(ActorResult.Continue())
+            }
+          } yield res
+        } catch {
+          case err: Throwable => {
+            printThrowable("onMessage[$gen_call]", err)
+            ZIO.fail(HandleCallCBError(err))
+          }
+        }
+      }
+      case Some(
+            ETuple(
+              EAtom("$gen_call"),
               // Match on {pid(), [alias | ref()]}
               ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)),
               request: ETerm
