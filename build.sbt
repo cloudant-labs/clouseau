@@ -18,7 +18,7 @@ updateOptions := updateOptions.value.withCachedResolution(true)
 val versions: Map[String, String] = Map(
   "zio"         -> "2.0.21",
   "zio.config"  -> "4.0.0-RC16",
-  "zio.logging" -> "2.2.2",
+  "zio.logging" -> "2.3.1",
   "zio.metrics" -> "2.3.1",
   "jmx"         -> "1.12.3",
   "reflect"     -> "2.13.14",
@@ -51,6 +51,8 @@ lazy val commonSettings = Seq(
     "dev.zio"       %% "zio-config-magnolia"               % versions("zio.config"),
     "dev.zio"       %% "zio-config-typesafe"               % versions("zio.config"),
     "dev.zio"       %% "zio-logging"                       % versions("zio.logging"),
+    // This is needed because micrometer (see below) uses SLF4J
+    "dev.zio"       %% "zio-logging-slf4j-bridge"          % versions("zio.logging"),
     "dev.zio"       %% "zio-metrics-connectors-micrometer" % versions("zio.metrics"),
     "dev.zio"       %% "zio-streams"                       % versions("zio"),
     "io.micrometer"  % "micrometer-registry-jmx"           % versions("jmx"),

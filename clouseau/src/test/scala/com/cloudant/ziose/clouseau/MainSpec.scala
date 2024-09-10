@@ -3,7 +3,7 @@ sbt 'clouseau/testOnly com.cloudant.ziose.clouseau.MainSpec'
  */
 package com.cloudant.ziose.clouseau
 
-import com.cloudant.ziose.clouseau.Main.NodeCfg
+import com.cloudant.ziose.clouseau.Main.AppCfg
 import org.junit.runner.RunWith
 import zio.{Config, System}
 import zio.test.Assertion.{anything, dies, equalTo, fails, hasMessage, isSubtype, succeeds}
@@ -57,7 +57,7 @@ class MainSpec extends JUnitRunnableSpec {
       test("getConfig success: no cookie in the config file") {
         for {
           result <- Main.getConfig("src/test/resources/testNoCookieApp.conf").exit
-        } yield assert(result)(succeeds(isSubtype[NodeCfg](anything)))
+        } yield assert(result)(succeeds(isSubtype[AppCfg](anything)))
       },
       test("getConfig failure: malformed config file") {
         for {

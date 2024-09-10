@@ -38,21 +38,21 @@ object OTPNode {
   ): RLayer[ActorFactory, Node] = ZLayer.scoped {
     // TODO: Add name format validation (for example '.' is not allowed)
     for {
-      _       <- ZIO.debug("Constructing OTPNode")
+      _       <- ZIO.logDebug("Constructing")
       factory <- ZIO.service[ActorFactory]
       ctx = OTPProcessContext.builder(Symbol(name))
       queue <- Queue.unbounded[Envelope[Command[_], _, _]].withFinalizer(_.shutdown)
       accessKey = AccessKey.create()
       cookie    = cfg.cookieVal
       service <- for {
-        _           <- ZIO.debug(s"Creating OtpNode($name, ****)")
+        _           <- ZIO.logDebug(s"Creating OtpNode($name, ****)")
         nodeProcess <- NodeProcess.make(name, cookie, queue, accessKey)
         _           <- nodeProcess.stream.runDrain.fork
         nodeScope   <- ZIO.scope
         service = unsafeMake(queue, nodeProcess, nodeScope, factory, ctx)
         _ <- service.acquire
         _ <- ZIO.addFinalizer(service.release)
-        _ <- ZIO.debug("Adding OTPNode to the environment")
+        _ <- ZIO.logDebug("Adding to the environment")
       } yield service
     } yield service
   }
@@ -213,8 +213,8 @@ object OTPNode {
         } yield response
       }
 
-      def acquire: UIO[Unit] = ZIO.debug(s"Acquired OTPNode")
-      def release: UIO[Unit] = ZIO.debug(s"Released OTPNode")
+      def acquire: UIO[Unit] = ZIO.logDebug(s"Acquired")
+      def release: UIO[Unit] = ZIO.logDebug(s"Released")
 
       override def close: IO[_ <: Node.Error, Unit] = {
         for {

@@ -109,7 +109,7 @@ import zio.Exit
  * ```scala
  * def create[A <: Actor, C <: ProcessContext](builder: ActorBuilder.Sealed[A], ctx: C): ZIO[Any, Node.Error, AddressableActor[A, _ <: ProcessContext]] =
  *   for {
- *     _ <- ZIO.debug(s"OTPActorFactory creating new actor (${builder.name})")
+ *     _ <- ZIO.logDebug(s"Creating new actor (${builder.name})")
  *   } yield builder.toActor(ctx)
  * ```
  *

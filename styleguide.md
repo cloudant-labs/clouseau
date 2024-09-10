@@ -66,7 +66,7 @@ object MyExperiment extends ZIOAppDefault {
     for {
         _ <- myzio.debug("myzio")
         r <- myzio.doSomething
-        _ <- ZIO.debug(s"my debug ${r}")
+        _ <- ZIO.logDebug(s"my debug ${r}")
     } yield ()
 
   def run: Task[Unit] =

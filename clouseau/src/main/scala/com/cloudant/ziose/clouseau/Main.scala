@@ -40,17 +40,17 @@ object Main extends ZIOAppDefault {
     } yield index
   }
 
-  final case class NodeCfg(config: List[AppConfiguration])
+  final case class AppCfg(config: List[WorkerConfiguration], logger: LogConfiguration)
 
-  def getConfig(pathToCfgFile: String): IO[Config.Error, NodeCfg] = {
+  def getConfig(pathToCfgFile: String): IO[Config.Error, AppCfg] = {
     ConfigProvider
       .fromHoconFilePath(pathToCfgFile)
-      .load(deriveConfig[NodeCfg])
+      .load(deriveConfig[AppCfg])
   }
 
   private def startSupervisor(
     node: ClouseauNode,
-    config: AppConfiguration
+    config: WorkerConfiguration
   ): RIO[EngineWorker & Node & ActorFactory, AddressableActor[_, _]] = {
     val clouseauCfg: ClouseauConfiguration = config.clouseau.get
     val nodeCfg: OTPNodeConfig             = config.node
@@ -58,35 +58,31 @@ object Main extends ZIOAppDefault {
   }
 
   private def main(
-    nodeCfg: AppConfiguration,
+    workerCfg: WorkerConfiguration,
     metricsRegistry: ScalangMeterRegistry
   ): RIO[EngineWorker & Node & ActorFactory, Unit] = {
     for {
       runtime  <- ZIO.runtime[EngineWorker & Node & ActorFactory]
       otp_node <- ZIO.service[Node]
-      remote_node = s"node${nodeCfg.node.name.last}@${nodeCfg.node.domain}"
+      remote_node = s"node${workerCfg.node.name.last}@${workerCfg.node.domain}"
       _      <- otp_node.monitorRemoteNode(remote_node)
       worker <- ZIO.service[EngineWorker]
       node   <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry))
-      _      <- startSupervisor(node, nodeCfg)
+      _      <- startSupervisor(node, workerCfg)
       _      <- worker.awaitShutdown
     } yield ()
   }
 
   private val workerId: Int = 1
   private val engineId: Int = 1
-  private val logger        = LoggerFactory.getZioLogger("clouseau.main")
 
-  private def app(cfgFile: String, metricsRegistry: ScalangMeterRegistry): Task[Unit] = {
+  private def app(workerCfg: WorkerConfiguration, metricsRegistry: ScalangMeterRegistry): Task[Unit] = {
+    val node = workerCfg.node
+    val name = s"${node.name}@${node.domain}"
     for {
-      nodeIdx  <- getNodeIdx
-      nodesCfg <- getConfig(cfgFile)
-      nodeCfg = nodesCfg.config(nodeIdx)
-      node    = nodeCfg.node
-      name    = s"${node.name}@${node.domain}"
-      _ <- logger.info("Clouseau running as " + name)
+      _ <- ZIO.logInfo("Clouseau running as " + name)
       _ <- ZIO
-        .scoped(main(nodeCfg, metricsRegistry))
+        .scoped(main(workerCfg, metricsRegistry))
         .provide(OTPLayers.nodeLayers(engineId, workerId, node))
     } yield ()
   }
@@ -95,12 +91,16 @@ object Main extends ZIOAppDefault {
     for {
       args    <- getArgs.map(_.headOption)
       cfgFile <- getCfgFile(args)
+      appCfg  <- getConfig(cfgFile)
+      nodeIdx <- getNodeIdx
+      workerCfg       = appCfg.config(nodeIdx)
+      logOutput       = appCfg.logger.output.getOrElse(LogOutput.PlainText)
       metricsRegistry = ClouseauMetrics.makeRegistry
       metricsLayer    = ClouseauMetrics.makeLayer(metricsRegistry)
       _ <- ZIO
-        .scoped(app(cfgFile, metricsRegistry))
+        .scoped(app(workerCfg, metricsRegistry))
         .provide(
-          LoggerFactory.loggerDefault,
+          LoggerFactory.loggerDefault(logOutput),
           metricsLayer
         )
     } yield ()

@@ -12,7 +12,7 @@ import zio._
 
 class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   val logger = LoggerFactory.getLogger("clouseau.EchoService")
-  logger.debug("[Echo] Created")
+  logger.debug("Created")
 
   val echoTimer: metrics.Timer = metrics.timer("echo.response_time")
 
@@ -24,7 +24,7 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
         )
         send(from, reply)
       case msg =>
-        logger.info(s"[Echo][WARNING][handleInfo] Unexpected message: $msg ...")
+        logger.info(s"[WARNING][handleInfo] Unexpected message: $msg ...")
     }
   }
 
@@ -35,7 +35,7 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
       case (Symbol("stop"), reason: Symbol) =>
         (Symbol("stop"), reason, adapter.fromScala(request))
       case msg =>
-        logger.info(s"[Echo][WARNING][handleCall] Unexpected message: $msg ...")
+        logger.info(s"[WARNING][handleCall] Unexpected message: $msg ...")
     }
   }
   override def onTermination[PContext <: ProcessContext](reason: core.Codec.ETerm, ctx: PContext) = {
@@ -79,7 +79,7 @@ private object EchoService extends ActorConstructor[EchoService] {
     }
     node.spawnService[EchoService, ConfigurationArgs](make(node, ctx, name)) match {
       case core.Success(actor) =>
-        logger.debug(s"[Echo] Started $name")
+        logger.debug(s"Started $name")
         (Symbol("ok"), Pid.toScala(actor.self.pid))
       case core.Failure(reason) => reason
     }

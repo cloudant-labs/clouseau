@@ -23,10 +23,10 @@ final class OTPEngineWorker private (
   type Context = OTPProcessContext
   val id = workerId
   def acquire: UIO[Unit] = {
-    ZIO.debug(s"Acquired OTPEngineWorker ${nodeName}")
+    ZIO.logDebug(s"Acquired ${nodeName}")
   }
   def release: UIO[Unit] = {
-    ZIO.debug(s"Released OTPEngineWorker ${nodeName}")
+    ZIO.logDebug(s"Released ${nodeName}")
   }
   def spawn[A <: Actor](
     builder: ActorBuilder.Sealed[A]
@@ -57,7 +57,7 @@ object OTPEngineWorker {
     cfg: OTPNodeConfig
   ): ZLayer[Node, Throwable, EngineWorker] = ZLayer {
     for {
-      _        <- ZIO.debug("Constructing OTPEngineWorker")
+      _        <- ZIO.logDebug("Constructing")
       node     <- ZIO.service[Node]
       queue    <- Queue.bounded[MessageEnvelope](16) // TODO retrieve capacity from config
       exchange <- EngineWorkerExchange.makeWithQueue(queue)
@@ -65,7 +65,7 @@ object OTPEngineWorker {
       _ <- exchange.run.fork
       _ <- service.acquire
       _ <- ZIO.succeed(ZIO.addFinalizer(service.release))
-      _ <- ZIO.debug("Adding OTPEngineWorker to the environment")
+      _ <- ZIO.logDebug("Adding to the environment")
     } yield service
   }
 

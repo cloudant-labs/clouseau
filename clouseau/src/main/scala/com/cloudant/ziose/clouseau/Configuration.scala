@@ -6,10 +6,19 @@ import _root_.com.cloudant.ziose.otp
 import otp.OTPNodeConfig
 import zio.config.magnolia.deriveConfig
 
-final case class AppConfiguration(node: OTPNodeConfig, clouseau: Option[ClouseauConfiguration])
+sealed abstract class LogOutput
+
+object LogOutput {
+  final case object PlainText extends LogOutput
+  final case object JSON      extends LogOutput
+}
+
+final case class WorkerConfiguration(node: OTPNodeConfig, clouseau: Option[ClouseauConfiguration])
+final case class LogConfiguration(output: Option[LogOutput])
 
 object AppConfiguration {
-  val config: Config[AppConfiguration] = deriveConfig[AppConfiguration]
+  val config: Config[WorkerConfiguration] = deriveConfig[WorkerConfiguration]
+  val logger: Config[LogConfiguration]    = deriveConfig[LogConfiguration]
 }
 
 final case class RootDir(value: String) extends AnyVal

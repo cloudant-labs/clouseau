@@ -11,10 +11,10 @@ import zio.{UIO, ZIO, ZLayer}
 
 class OTPActorFactory(name: String) extends ActorFactory {
   def acquire: UIO[Unit] = {
-    ZIO.debug(s"Acquired OTPActorFactory")
+    ZIO.logDebug(s"Acquired")
   }
   def release: UIO[Unit] = {
-    ZIO.debug(s"Released OTPActorFactory")
+    ZIO.logDebug(s"Released")
   }
   def create[A <: Actor, C <: ProcessContext](
     builder: ActorBuilder.Sealed[A],
@@ -22,7 +22,7 @@ class OTPActorFactory(name: String) extends ActorFactory {
   ): ZIO[Any, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
     for {
       _ <- ZIO.succeed(())
-      // _ <- ZIO.debug(s"OTPActorFactory creating new actor (${builder.name})")
+      // _ <- ZIO.logDebug(s"Creating new actor (${builder.name})")
     } yield builder.toActor(ctx)
   }
 
@@ -36,11 +36,11 @@ class OTPActorFactory(name: String) extends ActorFactory {
 object OTPActorFactory {
   def live(name: String, cfg: OTPNodeConfig): ZLayer[Any, Throwable, ActorFactory] = ZLayer.scoped {
     for {
-      _ <- ZIO.debug("Constructing OTPActorFactory")
+      _ <- ZIO.logDebug("Constructing")
       service = new OTPActorFactory(name)
       _ <- service.acquire
       _ <- ZIO.addFinalizer(service.release)
-      _ <- ZIO.debug("Adding OTPActorFactory to the environment")
+      _ <- ZIO.logDebug("Adding to the environment")
     } yield service
   }
 }

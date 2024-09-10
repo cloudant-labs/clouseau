@@ -21,7 +21,7 @@ import scala.collection.immutable.HashMap
 
 class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   val logger = LoggerFactory.getLogger("clouseau.InitService")
-  logger.debug("[Init] Created")
+  logger.debug("Created")
 
   val spawnedSuccess = metrics.counter("spawned.success")
   val spawnedFailure = metrics.counter("spawned.failure")
@@ -44,7 +44,7 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
   override def handleInfo(request: Any): Any = {
     request match {
       case Symbol("shutdown") =>
-        logger.debug("[Init] Stopping")
+        logger.debug("Stopping")
         exit("shutdown")
       case (Symbol("spawn"), from: Pid, Symbol("echo"), id: Symbol) =>
         // This is a simplistic solution to make it possible for the
@@ -57,7 +57,7 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
         }
         send(from, response)
       case msg =>
-        logger.info(s"[Init][WARNING][handleInfo] Unexpected message: $msg ...")
+        logger.info(s"[WARNING][handleInfo] Unexpected message: $msg ...")
     }
   }
 
@@ -83,7 +83,7 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
         (Symbol("ok"), metrics.dumpAsSymbolValuePairs())
       }
       case msg =>
-        logger.info(s"[Init][WARNING][handleCall] Unexpected message: $msg ...")
+        logger.info(s"[WARNING][handleCall] Unexpected message: $msg ...")
     }
   }
 
@@ -129,7 +129,7 @@ private object InitService extends ActorConstructor[InitService] {
     }
     node.spawnService[InitService, ConfigurationArgs](make(node, ctx, name)) match {
       case core.Success(actor) =>
-        logger.debug(s"[Init] Started $name")
+        logger.debug(s"Started $name")
         (Symbol("ok"), Pid.toScala(actor.self.pid))
       case core.Failure(reason) => reason
     }

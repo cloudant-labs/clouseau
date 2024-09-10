@@ -59,7 +59,7 @@ class Engine(exchange: EngineExchange) {
   //   for {
   //     //p <- Promise.make[Nothing, Unit] // FIXME I think we need a different mechanism here
   //     e <- exchange.run.fork.debug("Engine exchange started") // if root exchange die we cannot recover
-  //     _ <- ZIO.debug("hh")
+  //     _ <- ZIO.logDebug("hh")
   //     //_ <- exchange.map(worker => worker.run.debug("eeee"))
   //     //_ <- p.await
   //     _ <- e.join.debug("engine result")

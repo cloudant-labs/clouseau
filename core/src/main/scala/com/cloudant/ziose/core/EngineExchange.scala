@@ -45,7 +45,7 @@ class EngineExchange private (
   //   for {
   //     e <- exchange.run
   //     fibers <- exchange.map(worker => {
-  //       ZIO.debug(s"starting: ${worker}")
+  //       ZIO.logDebug(s"starting: ${worker}")
   //       worker.run
   //     })
   //     _ <- ZIO.forkAll(fibers.toList)
