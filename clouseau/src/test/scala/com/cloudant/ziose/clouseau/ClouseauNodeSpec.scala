@@ -478,7 +478,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
           && assert(monitorHistory)(containsShapeOption { case (_, _, reason: String) =>
-            reason.contains("OnMessageResult") && reason.contains("HandleCallCBError")
+            reason.contains("OnMessage") && reason.contains("HandleCallCBError")
           }) ?? "reason has to contain 'OnMessageResult' and 'HandleCallCBError'"
           && assert(monitorHistory)(containsShapeOption { case (_, _, reason: String) =>
             reason.contains("myCrashReason")
