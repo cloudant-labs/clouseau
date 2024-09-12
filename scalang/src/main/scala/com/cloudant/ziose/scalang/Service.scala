@@ -377,75 +377,14 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
       case Some(
             ETuple(
               EAtom("$gen_call"),
-              // Match on {pid(), ref()}
-              ETuple(from: EPid, ref: ERef),
+              // Match on either
+              // - {pid(), ref()}
+              // - {pid(), [alias | ref()]}
+              fromTag @ ETuple(from: EPid, _ref),
               request: ETerm
             )
           ) => {
-        val fromPid = Pid.toScala(from)
-        try {
-          val result = handleCall((fromPid, ref), adapter.toScala(request))
-          for {
-            res <- result match {
-              case (Symbol("reply"), reply) =>
-                sendZIO(fromPid, (ref, adapter.fromScala(reply)))
-                  .as(ActorResult.Continue())
-              case Symbol("noreply") =>
-                ZIO.succeed(ActorResult.Continue())
-              case (Symbol("stop"), reason: String, reply) =>
-                sendZIO(fromPid, (ref, adapter.fromScala(reply)))
-                  .as(ActorResult.StopWithReasonString(reason))
-              case (Symbol("stop"), reason: Any, reply) =>
-                sendZIO(fromPid, (ref, adapter.fromScala(reply)))
-                  .as(ActorResult.StopWithReasonTerm(adapter.fromScala(reason)))
-              case reply =>
-                sendZIO(fromPid, (ref, adapter.fromScala(reply)))
-                  .as(ActorResult.Continue())
-            }
-          } yield res
-        } catch {
-          case err: Throwable => {
-            printThrowable("onMessage[$gen_call]", err)
-            ZIO.fail(HandleCallCBError(err))
-          }
-        }
-      }
-      case Some(
-            ETuple(
-              EAtom("$gen_call"),
-              // Match on {pid(), [alias | ref()]}
-              ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)),
-              request: ETerm
-            )
-          ) => {
-
-        val fromPid = Pid.toScala(from)
-        try {
-          val result = handleCall((fromPid, ref), adapter.toScala(request))
-          for {
-            res <- result match {
-              case (Symbol("reply"), reply) =>
-                sendZIO(fromPid, (makeTag(ref), adapter.fromScala(reply)))
-                  .as(ActorResult.Continue())
-              case Symbol("noreply") =>
-                ZIO.succeed(ActorResult.Continue())
-              case (Symbol("stop"), reason: String, reply) =>
-                sendZIO(fromPid, (makeTag(ref), adapter.fromScala(reply)))
-                  .as(ActorResult.StopWithReasonString(reason))
-              case (Symbol("stop"), reason: Any, reply) =>
-                sendZIO(fromPid, (makeTag(ref), adapter.fromScala(reply)))
-                  .as(ActorResult.StopWithReasonTerm(adapter.fromScala(reason)))
-              case reply =>
-                sendZIO(fromPid, (makeTag(ref), adapter.fromScala(reply)))
-                  .as(ActorResult.Continue())
-            }
-          } yield res
-        } catch {
-          case err: Throwable => {
-            printThrowable("onMessage[$gen_call]", err)
-            ZIO.fail(HandleCallCBError(err))
-          }
-        }
+        onHandleCallMessage(fromTag, request)
       }
       case Some(ETuple(EAtom("$gen_cast"), request: ETerm)) => {
         try {
@@ -485,6 +424,40 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
         }
       }
       case None => ZIO.fail(UnreachableError())
+    }
+  }
+
+  def onHandleCallMessage(fromTag: ETerm, request: ETerm) = {
+    val (from, ref, replyRef) = fromTag match {
+      case ETuple(from: EPid, replyRef @ EListImproper(EAtom("alias"), ref: ERef)) => (Pid.toScala(from), ref, replyRef)
+      case ETuple(from: EPid, ref: ERef)                                           => (Pid.toScala(from), ref, ref)
+    }
+
+    try {
+      val result = handleCall((from, ref), adapter.toScala(request))
+      for {
+        res <- result match {
+          case (Symbol("reply"), reply) =>
+            sendZIO(from, (replyRef, adapter.fromScala(reply)))
+              .as(ActorResult.Continue())
+          case Symbol("noreply") =>
+            ZIO.succeed(ActorResult.Continue())
+          case (Symbol("stop"), reason: String, reply) =>
+            sendZIO(from, (replyRef, adapter.fromScala(reply)))
+              .as(ActorResult.StopWithReasonString(reason))
+          case (Symbol("stop"), reason: Any, reply) =>
+            sendZIO(from, (replyRef, adapter.fromScala(reply)))
+              .as(ActorResult.StopWithReasonTerm(adapter.fromScala(reason)))
+          case reply =>
+            sendZIO(from, (replyRef, adapter.fromScala(reply)))
+              .as(ActorResult.Continue())
+        }
+      } yield res
+    } catch {
+      case err: Throwable => {
+        printThrowable("onMessage[$gen_call]", err)
+        ZIO.fail(HandleCallCBError(err))
+      }
     }
   }
 
