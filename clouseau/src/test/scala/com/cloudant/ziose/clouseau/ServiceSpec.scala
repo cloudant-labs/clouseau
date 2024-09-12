@@ -148,6 +148,7 @@ class ServiceSpec extends JUnitRunnableSpec {
           address = actor.self
           monitorRef     <- SupervisorService.monitor(supervisor, address.pid).map(_.right.get)
           _              <- assertAlive(address)
+          _              <- ZIO.debug("The stack trace bellow is expected =====vvvvvv")
           _              <- actor.crashWithReason("myCrashReason")
           _              <- assertNotAlive(address)
           monitorHistory <- SupervisorService.history(supervisor)
