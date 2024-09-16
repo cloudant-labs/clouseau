@@ -88,16 +88,20 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   // Start committer heartbeat
   val commitInterval = ctx.args.config.getInt("commit_interval_secs", 30)
   val timeAllowed = ctx.args.config.getLong("clouseau.search_allowed_timeout_msecs", 5000)
-  sendEvery(self, 'maybe_commit, commitInterval * 1000)
   val countFieldsEnabled = ctx.args.config.getBoolean("clouseau.count_fields", false)
-  send(self, 'count_fields)
 
   // Check if the index is idle and optionally close it if there is no activity between
   //Two consecutive idle status checks.
   val closeIfIdleEnabled = ctx.args.config.getBoolean("clouseau.close_if_idle", false)
   val idleTimeout = ctx.args.config.getInt("clouseau.idle_check_interval_secs", 300)
-  if (closeIfIdleEnabled) {
-    sendEvery(self, 'close_if_idle, idleTimeout * 1000)
+
+  override def handleInit(): Unit = {
+    sendEvery(self, 'maybe_commit, commitInterval * 1000)
+    send(self, 'count_fields)
+
+    if (closeIfIdleEnabled) {
+      sendEvery(self, 'close_if_idle, idleTimeout * 1000)
+    }
   }
 
   debug("Opened at update_seq %d".format(updateSeq))
