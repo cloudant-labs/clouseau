@@ -164,6 +164,7 @@ class SendEverySpec extends JUnitRunnableSpec {
           actorName = "SendEveryHandleCallSuite.SendStart"
           actor   <- SendEveryService.startZIO(node, actorName)
           _       <- SendEveryService.startCounting(actor)
+          _       <- ZIO.sleep(200.milliseconds) // we count every millisecond, 200 should be enough
           counter <- SendEveryService.getCounter(actor)
         } yield assert(counter)(isGreaterThan(0))
           ?? "value of a counter should be incrementing"
@@ -173,16 +174,14 @@ class SendEverySpec extends JUnitRunnableSpec {
           node <- Utils.clouseauNode
           actorName1 = "SendEveryService1"
           actorName2 = "SendEveryService2"
-          actor1 <- SendEveryService.startZIO(node, actorName1)
-          actor2 <- SendEveryService.startZIO(node, actorName2)
-          _      <- SendEveryService.startCounting(actor1)
-          _      <- SendEveryService.startCounting(actor2)
-          _      <- ZIO.sleep(200.milliseconds)
-
-          counter1 <- SendEveryService.getCounter(actor1)
-          counter2 <- SendEveryService.getCounter(actor2)
-          _        <- ZIO.sleep(200.milliseconds)
-
+          actor1      <- SendEveryService.startZIO(node, actorName1)
+          actor2      <- SendEveryService.startZIO(node, actorName2)
+          _           <- SendEveryService.startCounting(actor1)
+          _           <- SendEveryService.startCounting(actor2)
+          _           <- ZIO.sleep(200.milliseconds) // we count every millisecond, 200 should be enough
+          counter1    <- SendEveryService.getCounter(actor1)
+          counter2    <- SendEveryService.getCounter(actor2)
+          _           <- ZIO.sleep(200.milliseconds)
           _           <- SendEveryService.killActor(actor1)
           _           <- ZIO.sleep(200.milliseconds)
           counter2now <- SendEveryService.getCounter(actor2)
