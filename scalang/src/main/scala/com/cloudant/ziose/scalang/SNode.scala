@@ -6,7 +6,7 @@ import core.MessageEnvelope
 import core.Codec
 import java.util.concurrent.TimeUnit
 import com.cloudant.ziose.macros.checkEnv
-import zio.{&, Duration, Runtime, Tag, ZIO}
+import zio._
 
 case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   val runtime: Runtime[core.EngineWorker & core.Node]
@@ -241,6 +241,57 @@ case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
   def link(from: Pid, to: Pid) {
     // TODO
   }
+
+  /*
+   * Use it for tests only
+   */
+
+  def terminateNamedWith(name: String, terminator: ((core.Address, Adapter[_, _]) => UIO[Unit])) = for {
+    resultChannel <- Queue.bounded[Boolean](1)
+    _ <- ZIO.succeed(spawn(process => {
+      Unsafe.unsafe { implicit unsafe =>
+        runtime.unsafe.run(
+          for {
+            addressOption <- process.adapter
+              .lookUpName(name)
+              .repeatUntil(_.isDefined)
+              .map(_.get)
+              .timeout(3.seconds)
+            res <- addressOption match {
+              case Some(address) => {
+                terminator(address, process.adapter) *> process.adapter
+                  .lookUpName(name)
+                  .delay(100.milliseconds)
+                  .map((_ != Some(address)))
+                  .repeatUntil(_ == true)
+                  .timeout(3.seconds)
+              }
+              case None => ZIO.succeed(Some(false))
+            }
+            _ <- resultChannel.offer(res.getOrElse(false))
+          } yield ()
+        )
+      }
+    }))
+    isTerminated <- resultChannel.take
+  } yield isTerminated
+
+  /*
+   * Use it for tests only
+   */
+
+  def terminateNamedWithExit(name: String, reason: Any) = for {
+    isTerminated <- terminateNamedWith(
+      name,
+      (address, adapter) => {
+        val pid     = address.asInstanceOf[core.PID].pid
+        val exitMsg = MessageEnvelope.Exit(Some(pid), address, adapter.fromScala(reason), address)
+        for {
+          _ <- adapter.exit(exitMsg)
+        } yield ()
+      }
+    )
+  } yield isTerminated
 
   @checkEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
