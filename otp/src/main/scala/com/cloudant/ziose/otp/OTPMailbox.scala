@@ -22,7 +22,7 @@ import com.cloudant.ziose.core.Name
 import com.cloudant.ziose.core.NameOnNode
 import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.macros.checkEnv
-import zio.{Queue, Scope, Trace, UIO, ZIO, Unsafe, Runtime}
+import zio._
 import zio.stream.ZStream
 import zio.Exit
 
@@ -304,6 +304,8 @@ class OTPMailbox private (
       case Some(duration) =>
         ZIO
           .succeed(callResults.remove(ref))
+          // wait a bit before next try
+          .delay(10.millis)
           .repeatUntil(o => o.nonEmpty)
           .map(o => o.get)
           .timeout(duration)

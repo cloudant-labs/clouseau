@@ -98,6 +98,29 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
     adapter.send(envelope)
   }
 
+  def exit(pid: Pid, reason: Any) = {
+    Unsafe.unsafe { implicit unsafe =>
+      Runtime.default.unsafe.run(exitZIO(pid, reason))
+    }
+  }
+
+  def exit(name: RegName, reason: Any): UIO[Unit] = {
+    Unsafe.unsafe { implicit unsafe =>
+      Runtime.default.unsafe.run(exitZIO(name, reason))
+    }
+  }
+
+  def exitZIO(pid: Pid, reason: Any) = {
+    val address  = Address.fromPid(pid.fromScala, self.workerId, self.workerNodeName)
+    val envelope = MessageEnvelope.Exit(None, address, adapter.fromScala(reason), self)
+    adapter.exit(envelope)
+  }
+  def exitZIO(name: RegName, reason: Any) = {
+    val address  = Address.fromName(Codec.EAtom(name), self.workerId, self.workerNodeName)
+    val envelope = MessageEnvelope.Exit(None, address, adapter.fromScala(reason), self)
+    adapter.exit(envelope)
+  }
+
   def handleInit(): Unit
   def handleMessage(msg: Any): Unit
 

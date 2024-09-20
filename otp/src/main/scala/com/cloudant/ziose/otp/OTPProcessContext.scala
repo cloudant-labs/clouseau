@@ -69,6 +69,15 @@ class OTPProcessContext private (
   def exit(reason: Codec.ETerm): UIO[Unit] = {
     mailbox.exit(MessageEnvelope.Exit(None, id, reason, mailbox.id))
   }
+
+  def exit(msg: MessageEnvelope.Exit): UIO[Unit] = {
+    if (msg.to.isRemote || msg.to == id) {
+      mailbox.exit(msg)
+    } else {
+      worker.offer(msg).unit
+    }
+  }
+
   def unlink(to: Codec.EPid)      = mailbox.unlink(to)
   def link(to: Codec.EPid)        = mailbox.link(to)
   def monitor(monitored: Address) = mailbox.monitor(monitored)

@@ -29,6 +29,7 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
   def cast(msg: MessageEnvelope.Cast) = ctx.cast(msg)
   def send(msg: MessageEnvelope.Send) = ctx.send(msg)
   def exit(reason: Codec.ETerm)       = ctx.exit(reason)
+  def exit(msg: MessageEnvelope.Exit) = ctx.exit(msg)
   def unlink(to: Codec.EPid)          = ctx.unlink(to)
   def link(to: Codec.EPid)            = ctx.link(to)
   def monitor(monitored: Address)     = ctx.monitor(monitored)
