@@ -33,6 +33,13 @@ class OTPProcessContext private (
   val self                               = PID(new Codec.EPid(mbox.self), worker.id, worker.nodeName)
   private val isFinalized: AtomicBoolean = new AtomicBoolean(false)
 
+  def lookUpName(name: String): UIO[Option[Address]] = ZIO.succeedBlocking {
+    mbox.whereis(name) match {
+      case null => None
+      case pid  => Some(Address.fromPid(Codec.EPid(pid), workerId, nodeName))
+    }
+  }
+
   override def toString: String = name match {
     case Some(n) => s"OTPProcessContext(${n}.${worker.id}.${worker.engineId}@${nodeName})"
     case None    => s"OTPProcessContext(${self.pid}.${worker.id}.${worker.engineId}@${nodeName})"

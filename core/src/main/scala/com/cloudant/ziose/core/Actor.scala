@@ -262,6 +262,11 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
    */
   def exit(reason: Codec.ETerm): UIO[Unit] = ctx.exit(reason)
 
+  /*
+   * Use it for tests only
+   */
+  def lookUpName(name: String) = ctx.lookUpName(name)
+
   @checkEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
