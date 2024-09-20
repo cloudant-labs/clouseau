@@ -15,9 +15,12 @@ import core.MessageEnvelope
 import core.ProcessContext
 import core.ZioSupport
 import com.cloudant.ziose.macros.checkEnv
-import zio.{Duration, Runtime, Schedule, UIO, Unsafe, ZIO}
+import zio._
 
 import java.util.concurrent.TimeUnit
+import com.cloudant.ziose.core.Name
+import com.cloudant.ziose.core.NameOnNode
+import com.cloudant.ziose.core.PID
 
 trait Error extends Throwable
 
@@ -53,9 +56,14 @@ case class HandleInfoUndefined(className: String) extends Error {
   override def toString: String = s"Error.${getClass.getSimpleName}($className) did not define a info handler"
 }
 
-trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
+object ProcessLike {
   type RegName  = Symbol
   type NodeName = Symbol
+}
+
+trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
+  type RegName  = ProcessLike.RegName
+  type NodeName = ProcessLike.NodeName
 
   /// We are not accessing this type directly in Clouseau
   type Mailbox = Process
@@ -358,8 +366,9 @@ class DestSend(to: (Symbol, Symbol), from: Pid, proc: Process) {
 }
 
 class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_, _]) extends Process()(adapter) {
-  def metricsRegistry = adapter.node.metricsRegistry
-  val metrics         = MetricsGroup(getClass, metricsRegistry)
+  def metricsRegistry      = adapter.node.metricsRegistry
+  val metrics              = MetricsGroup(getClass, metricsRegistry)
+  val PING_TIMEOUT_IN_MSEC = 3000
 
   /**
    * Handle a call style of message which will expect a response.
@@ -518,16 +527,21 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     }
   }
 
-  def call(to: Pid, msg: Any): Any                                = node.call(to, msg)
-  def call(to: Pid, msg: Any, timeout: Long): Any                 = node.call(to, msg, timeout)
-  def call(to: Symbol, msg: Any): Any                             = node.call(to, msg)
-  def call(to: Symbol, msg: Any, timeout: Long): Any              = node.call(to, msg, timeout)
-  def call(to: (RegName, NodeName), msg: Any): Any                = node.call(to, msg)
-  def call(to: (RegName, NodeName), msg: Any, timeout: Long): Any = node.call(to, msg, timeout)
+  def ping(to: Pid): Boolean                   = Service.ping(to)
+  def ping(to: Pid, timeout: Long): Boolean    = Service.ping(to)
+  def ping(to: Symbol): Boolean                = Service.ping(to)
+  def ping(to: Symbol, timeout: Long): Boolean = Service.ping(to, timeout)
 
-  def cast(to: Pid, msg: Any)                 = node.cast(to, msg)
-  def cast(to: Symbol, msg: Any)              = node.cast(to, msg)
-  def cast(to: (RegName, NodeName), msg: Any) = node.cast(to, msg)
+  def call(to: Pid, msg: Any): Any                                = Service.call(to, msg)
+  def call(to: Pid, msg: Any, timeout: Long): Any                 = Service.call(to, msg, timeout)
+  def call(to: Symbol, msg: Any): Any                             = Service.call(to, msg)
+  def call(to: Symbol, msg: Any, timeout: Long): Any              = Service.call(to, msg, timeout)
+  def call(to: (RegName, NodeName), msg: Any): Any                = Service.call(to, msg)
+  def call(to: (RegName, NodeName), msg: Any, timeout: Long): Any = Service.call(to, msg, timeout)
+
+  def cast(to: Pid, msg: Any)                 = Service.cast(to, msg)
+  def cast(to: Symbol, msg: Any)              = Service.cast(to, msg)
+  def cast(to: (RegName, NodeName), msg: Any) = Service.cast(to, msg)
 
   def printThrowable(location: String, err: Throwable) = {
     println(s"$location Throwable ${err.getMessage()}:")
@@ -542,4 +556,78 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     s"metricsRegistry=$metricsRegistry",
     s"metrics=$metrics"
   )
+}
+
+object Service {
+  val PING_TIMEOUT_IN_MSEC = 3000
+
+  def call(to: core.Address, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
+    to match {
+      case Name(name, _workerId, _workerNodeName)             => adapter.node.call(name.atom, msg)
+      case NameOnNode(name, node, _workerId, _workerNodeName) => adapter.node.call((name.atom, node.atom), msg)
+      case PID(pid, _workerId, _workerNodeName)               => adapter.node.call(pid, msg)
+    }
+  }
+  def call(to: core.PID, msg: Any)(implicit adapter: Adapter[_, _]): Any  = adapter.node.call(to, msg)
+  def call(to: core.Name, msg: Any)(implicit adapter: Adapter[_, _]): Any = adapter.node.call(to.name.atom, msg)
+  def call(to: core.NameOnNode, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
+    adapter.node.call((to.name.atom, to.node.atom), msg)
+  }
+  def call(to: Pid, msg: Any)(implicit adapter: Adapter[_, _]): Any                = adapter.node.call(to, msg)
+  def call(to: Pid, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = adapter.node.call(to, msg, timeout)
+  def call(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]): Any             = adapter.node.call(to, msg)
+  def call(to: Symbol, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
+    adapter.node.call(to, msg, timeout)
+  }
+  def call(to: (ProcessLike.RegName, ProcessLike.NodeName), msg: Any)(implicit adapter: Adapter[_, _]): Any = {
+    adapter.node.call(to, msg)
+  }
+  def call(to: (ProcessLike.RegName, ProcessLike.NodeName), msg: Any, timeout: Long)(implicit
+    adapter: Adapter[_, _]
+  ): Any = {
+    adapter.node.call(to, msg, timeout)
+  }
+
+  def cast(to: core.PID, msg: Any)(implicit adapter: Adapter[_, _])  = adapter.node.cast(to, msg)
+  def cast(to: core.Name, msg: Any)(implicit adapter: Adapter[_, _]) = adapter.node.cast(to.name.atom, msg)
+  def cast(to: core.NameOnNode, msg: Any)(implicit adapter: Adapter[_, _]) = {
+    adapter.node.cast((to.name.atom, to.node.atom), msg)
+  }
+  def cast(to: Pid, msg: Any)(implicit adapter: Adapter[_, _])    = adapter.node.cast(to, msg)
+  def cast(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]) = adapter.node.cast(to, msg)
+  def cast(to: (ProcessLike.RegName, ProcessLike.NodeName), msg: Any)(implicit adapter: Adapter[_, _]) = {
+    adapter.node.cast(to, msg)
+  }
+
+  def ping(to: core.Address)(implicit adapter: Adapter[_, _]): Any = {
+    to match {
+      case name: Name       => ping(name)
+      case name: NameOnNode => ping(name)
+      case pid: PID         => ping(pid)
+    }
+  }
+
+  def ping(to: core.PID)(implicit adapter: Adapter[_, _]): Boolean = {
+    adapter.node.call(Pid.toScala(to.pid), ETuple(EAtom("$ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("$pong"))
+  }
+  def ping(to: core.Name)(implicit adapter: Adapter[_, _]): Boolean = {
+    adapter.node.call(to.name.atom, ETuple(EAtom("$ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("$pong"))
+  }
+  def ping(to: core.NameOnNode)(implicit adapter: Adapter[_, _]): Boolean = {
+    adapter.node.call((to.name.atom, to.node.atom), ETuple(EAtom("$ping")), PING_TIMEOUT_IN_MSEC) == ETuple(
+      EAtom("$pong")
+    )
+  }
+  def ping(to: Pid)(implicit adapter: Adapter[_, _]): Boolean = {
+    adapter.node.call(to, ETuple(EAtom("$ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("$pong"))
+  }
+  def ping(to: Pid, timeout: Long)(implicit adapter: Adapter[_, _]): Boolean = {
+    adapter.node.call(to, ETuple(EAtom("$ping")), timeout) == ETuple(EAtom("$pong"))
+  }
+  def ping(to: Symbol)(implicit adapter: Adapter[_, _]): Boolean = {
+    adapter.node.call(to, ETuple(EAtom("$ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("$pong"))
+  }
+  def ping(to: Symbol, timeout: Long)(implicit adapter: Adapter[_, _]): Boolean = {
+    adapter.node.call(to, ETuple(EAtom("$ping")), timeout) == ETuple(EAtom("$pong"))
+  }
 }
