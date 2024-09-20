@@ -20,9 +20,9 @@
 package com.ericsson.otp.erlang;
 
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
-import java.util.HashSet;
-import java.util.HashMap;
+import java.util.Collections;
 
 /**
  * <p>
@@ -94,11 +94,11 @@ public class OtpMbox {
     /*
      * In order to be able to demonitor we need to rememeber all monitor details.
      */
-    Map<OtpErlangRef, Monitor> monitors = new HashMap<>();
+    Map<OtpErlangRef, Monitor> monitors = new ConcurrentHashMap<>();
     /*
      * In order to be able to notify everyone who monitors us we remember their pids.
      */
-    Map<OtpErlangRef, OtpErlangPid> monitoredBy = new HashMap<>();
+    Map<OtpErlangRef, OtpErlangPid> monitoredBy = new ConcurrentHashMap<>();
 
     // package constructor: called by OtpNode:createMbox(name)
     // to create a named mbox
@@ -109,7 +109,7 @@ public class OtpMbox {
         this.unlink_id = 1;
         queue = new GenericQueue();
         links = new Links(10);
-        listeners = new HashSet<OtpMboxListener>();
+        listeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
     }
 
     // package constructor: called by OtpNode:createMbox()

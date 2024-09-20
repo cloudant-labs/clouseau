@@ -20,8 +20,8 @@
 package com.ericsson.otp.erlang;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * <p>
@@ -92,7 +92,7 @@ public class OtpCookedConnection extends AbstractConnection {
         super(self, s);
         this.self = self;
         links = new Links(25);
-        monitors = new HashMap<>();
+        monitors = new ConcurrentHashMap<>();
         start();
     }
 
@@ -111,7 +111,7 @@ public class OtpCookedConnection extends AbstractConnection {
         super(self, other);
         this.self = self;
         links = new Links(25);
-        monitors = new HashMap<>();
+        monitors = new ConcurrentHashMap<>();
         start();
     }
 
