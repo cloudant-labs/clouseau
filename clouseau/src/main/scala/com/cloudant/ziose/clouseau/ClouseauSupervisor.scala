@@ -27,54 +27,98 @@ import com.cloudant.ziose.core.EngineWorker
 import com.cloudant.ziose.core.AddressableActor
 import com.cloudant.ziose.core.ActorFactory
 import com.cloudant.ziose.scalang.Pid
+import com.cloudant.ziose.core.ActorResult
+import com.cloudant.ziose.core.Codec
 
-case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _])
+case class ClouseauSupervisor(
+    ctx: ServiceContext[ConfigurationArgs],
+    var manager: Option[Pid] = None,
+    var cleanup: Option[Pid] = None,
+    var analyzer: Option[Pid] = None,
+    var init: Option[Pid] = None,
+  )(implicit adapter: Adapter[_, _])
     extends Service(ctx)
     with Actor {
-  // def onMessage[C <: ProcessContext](msg: MessageEnvelope, ctx: C): UIO[Unit] =
-  //   ZIO.succeed(())
-  // def onTermination[C <: ProcessContext](reason: Codec.ETerm, ctx: C): UIO[Unit] =
-  //   ZIO.succeed(())
   val logger = LoggerFactory.getLogger("clouseau.supervisor")
-  var manager = {
-    spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args)
+
+  override def onInit[P <: ProcessContext](_ctx: P): ZIO[Any, Throwable, _ <: ActorResult] = for {
+    _ <- ZIO.succeed(spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args))
+    _ <- ZIO.succeed(spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args))
+    _ <- ZIO.succeed(spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args))
+    _ <- ZIO.succeed(spawnAndMonitorService[InitService, ConfigurationArgs](Symbol("init"), ctx.args))
+  } yield ActorResult.Continue()
+
+  override def handleCall(tag: (Pid, Any), request: Any): Any = {
+    request match {
+      case (Symbol("isAlive"), Symbol("main")) => {
+        val result = manager match {
+          case Some(pid) => ping(pid)
+          case None => false
+        }
+        (Symbol("reply"), result)
+      }
+      case (Symbol("isAlive"), Symbol("cleanup")) =>
+        val result = cleanup match {
+          case Some(pid) => ping(pid)
+          case None => false
+        }
+        (Symbol("reply"), result)
+      case (Symbol("isAlive"), Symbol("analyzer")) => {
+        val result = analyzer match {
+          case Some(pid) => ping(pid)
+          case None => false
+        }
+        (Symbol("reply"), result)
+      }
+      case (Symbol("isAlive"), Symbol("init")) => {
+        val result = init match {
+          case Some(pid) => ping(pid)
+          case None => false
+        }
+        (Symbol("reply"), result)
+      }
+      case (Symbol("getChild"), name: Symbol) =>
+        (Symbol("reply"), getChild(name).getOrElse(Symbol("undefined")))
+    }
   }
-  var cleanup = {
-    spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args)
-  }
-  var analyzer = {
-    spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args)
-  }
-  var init = spawnAndMonitorService[InitService, ConfigurationArgs](Symbol("init"), ctx.args)
 
   override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Unit = {
-    if (monitored == manager) {
-      logger.warn("manager crashed")
-      manager = {
-        spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args)
-      }
+    val pid = Pid.toScala(monitored.asInstanceOf[Codec.EPid])
+    if (manager.contains(pid)) {
+      logger.warn(s"manager crashed with reason: ${reason}")
+      manager = None
+      spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args)
     }
-    if (monitored == cleanup) {
-      logger.warn("cleanup crashed")
-      cleanup = {
-        spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args)
-      }
+    if (cleanup.contains(pid)) {
+      logger.warn(s"cleanup crashed with reason: ${reason}")
+      cleanup = None
+      spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args)
     }
-    if (monitored == analyzer) {
-      logger.warn("analyzer crashed")
-      analyzer = {
-        spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args)
-      }
+    if (analyzer.contains(pid)) {
+      logger.warn(s"analyzer crashed with reason: ${reason}")
+      analyzer = None
+      spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args)
     }
-    if (monitored == init) {
-      logger.warn("init crashed")
-      init = spawnAndMonitorService[EchoService, ConfigurationArgs](Symbol("init"), ctx.args)
+    if (init.contains(pid)) {
+      logger.warn(s"init crashed with reason: ${reason}")
+      init = None
+      spawnAndMonitorService[EchoService, ConfigurationArgs](Symbol("init"), ctx.args)
+    }
+  }
+
+  def getChild(name: Symbol): Option[Pid] = {
+    name match {
+      case Symbol("main") => manager
+      case Symbol("cleanup") => cleanup
+      case Symbol("analyzer") => analyzer
+      case Symbol("init") => init
+      case _ => None
     }
   }
 
   private def spawnAndMonitorService[TS <: Service[A] with Actor: Tag, A <: Product](regName: Symbol, args: A)(implicit
     adapter: Adapter[_, _]
-  ): Pid = {
+  ) = {
     val result = (regName, args) match {
       // case (Symbol("IndexService"), args: IndexServiceArgs) => IndexServiceBuilder.start(adapter.node, args)
       case (Symbol("cleanup"), ConfigurationArgs(args))  => IndexCleanupServiceBuilder.start(adapter.node, args)
@@ -82,18 +126,20 @@ case class ClouseauSupervisor(ctx: ServiceContext[ConfigurationArgs])(implicit a
       case (Symbol("main"), ConfigurationArgs(args))     => IndexManagerServiceBuilder.start(adapter.node, args)
       case (Symbol("init"), ConfigurationArgs(args))     => InitService.start(adapter.node, "init", args)
     }
-    logger.debug(s"$regName -> $result")
-    result match {
+    val pid = result match {
       case (Symbol("ok"), pidUntyped) =>
-        val pid = pidUntyped.asInstanceOf[Pid]
-        logger.debug(pid.toString)
-        monitor(pid)
-        pid
+        pidUntyped.asInstanceOf[Pid]
       case e => throw new Throwable(s"cannot start ${e.toString}")
     }
-  }
+    val ref = monitor(pid)
 
-  def monitor(pid: Pid): Unit = () // TODO implement it when we have monitors
+    regName match {
+      case Symbol("cleanup")  => cleanup = Some(pid)
+      case Symbol("analyzer") => analyzer = Some(pid)
+      case Symbol("main")     => manager = Some(pid)
+      case Symbol("init")     => init = Some(pid)
+    }
+  }
 }
 
 object ClouseauSupervisor extends ActorConstructor[ClouseauSupervisor] {
