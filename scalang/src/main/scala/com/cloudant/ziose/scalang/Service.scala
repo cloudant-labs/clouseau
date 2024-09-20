@@ -487,6 +487,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     val (from, ref, replyRef) = fromTag match {
       case ETuple(from: EPid, replyRef @ EListImproper(EAtom("alias"), ref: ERef)) => (Pid.toScala(from), ref, replyRef)
       case ETuple(from: EPid, ref: ERef)                                           => (Pid.toScala(from), ref, ref)
+      case _                                                                       => throw new Throwable("unreachable")
     }
 
     try {
