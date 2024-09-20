@@ -392,10 +392,22 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     ctx: PContext
   ): ZIO[Any, Throwable, _ <: ActorResult] = {
     event.getPayload match {
-      case Some(ETuple(EAtom("ping"), from: EPid, ref: ERef)) => {
+      case Some(ETuple(EAtom("$ping"), from: EPid, ref: ERef)) => {
         val fromPid = Pid.toScala(from)
-        sendZIO(fromPid, (Symbol("pong"), ref))
+        sendZIO(fromPid, (Symbol("$pong"), ref))
           .as(ActorResult.Continue())
+      }
+      case Some(
+            ETuple(
+              EAtom("$gen_call"),
+              // Match on either
+              // - {pid(), ref()}
+              // - {pid(), [alias | ref()]}
+              fromTag @ ETuple(from: EPid, _ref),
+              ETuple(EAtom("$ping"))
+            )
+          ) => {
+        onHandlePingMessage(fromTag)
       }
       case Some(
             ETuple(
@@ -459,6 +471,16 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
       }
       case None => ZIO.fail(UnreachableError())
     }
+  }
+
+  def onHandlePingMessage(fromTag: ETerm) = {
+    val (from, ref, replyRef) = fromTag match {
+      case ETuple(from: EPid, replyRef @ EListImproper(EAtom("alias"), ref: ERef)) => (Pid.toScala(from), ref, replyRef)
+      case ETuple(from: EPid, ref: ERef)                                           => (Pid.toScala(from), ref, ref)
+      case _                                                                       => throw new Throwable("unreachable")
+    }
+    sendZIO(from, (Symbol("$pong"), replyRef))
+      .as(ActorResult.Continue())
   }
 
   def onHandleCallMessage(fromTag: ETerm, request: ETerm) = {
