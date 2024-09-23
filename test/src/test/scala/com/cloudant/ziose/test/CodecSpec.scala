@@ -406,6 +406,12 @@ class CodecSpec extends JUnitRunnableSpec {
       assertTrue(() == toScala(term)) &&
       assertTrue(term == fromScala(()).asInstanceOf[ETuple])
     },
+    test("ETuple special case when instead of TupleN we receive our own class") {
+      case class MyClass(foo: Int)
+      assertTrue(fromScala(MyClass(5)) == ETuple(EAtom("my_class"), EInt(5)))
+      case class MyClass5(foo: Int)
+      assertTrue(fromScala(MyClass5(5)) == ETuple(EAtom("my_class_5"), EInt(5)))
+    },
     test("EBinary is encoded as UTF8 fromScala/toScala") {
       val s: String     = new String("some text here".getBytes(), StandardCharsets.UTF_8)
       val term: EBinary = fromScala(s).asInstanceOf[EBinary]

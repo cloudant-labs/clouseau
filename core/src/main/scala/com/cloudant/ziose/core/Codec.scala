@@ -419,6 +419,13 @@ object Codec {
 
   case class NeverMatch()
 
+  def camelToUnderscores(name: String) = "[A-Z\\d]".r
+    .replaceAllIn(
+      name,
+      m => "_" + m.group(0).toLowerCase()
+    )
+    .stripPrefix("_")
+
   def fromScala(
     scala: Any,
     top: PartialFunction[Any, ETerm] = { case NeverMatch => EAtom("never match") },
@@ -443,11 +450,24 @@ object Codec {
       case f: Float  => EFloat(f)
       case d: Double => EDouble(d)
       // *Important* clouseau encodes strings as binaries
-      case s: String      => EBinary(s)
-      case list: List[_]  => EList(list.map(e => fromScala(e, top, bottom)), true)
-      case list: Seq[_]   => EList(List.from(list.map(e => fromScala(e, top, bottom))), true)
-      case tuple: Product => ETuple(tuple.productIterator.map(e => fromScala(e, top, bottom)).toList)
-      case tuple: Unit    => ETuple()
+      case s: String     => EBinary(s)
+      case list: List[_] => EList(list.map(e => fromScala(e, top, bottom)), true)
+      case list: Seq[_]  => EList(List.from(list.map(e => fromScala(e, top, bottom))), true)
+      case tuple: Product => {
+        tuple.getClass().getPackageName() match {
+          case "scala" => ETuple(tuple.productIterator.map(e => fromScala(e, top, bottom)).toList)
+          case _       =>
+            // Encode the classes which are not defined in `scala` package as
+            // {className.toLowerCase(), ....}
+            ETuple(
+              tuple.productIterator
+                .map(e => fromScala(e, top, bottom))
+                .toList
+                .prepended(EAtom(camelToUnderscores(tuple.productPrefix)))
+            )
+        }
+      }
+      case tuple: Unit => ETuple()
       // TODO Add test for HashMap (which implements AbstractMap)
       case m: AbstractMap[_, _] =>
         EMap(mutable.LinkedHashMap.from(m map { case (k, v) =>
