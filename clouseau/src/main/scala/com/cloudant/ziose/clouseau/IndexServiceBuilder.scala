@@ -29,7 +29,6 @@ object IndexServiceBuilder extends ActorConstructor[IndexService] {
     ActorBuilder()
       // TODO get capacity from config
       .withCapacity(16)
-      .withName("IndexService")
       .withMaker(maker)
       .build(this)
   }
