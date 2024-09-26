@@ -10,6 +10,7 @@ import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetFields
 import org.apache.lucene.facet.taxonomy.CategoryPath
 
 import scala.collection.JavaConverters._
+import org.apache.lucene.util.BytesRef
 
 class TermReader // we could just have a reference to mailbox here
 // but we should not remove abstraction
@@ -251,4 +252,11 @@ object ClouseauTypeFactory extends TypeFactory {
         false
     }
   }
+
+  val bottomRules: PartialFunction[Any, ETerm] = {
+    case bytesRef: BytesRef =>
+      EBinary(bytesRef.utf8ToString())
+    case null => EAtom("null")
+  }
+
 }

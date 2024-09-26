@@ -61,7 +61,8 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
           Codec.ETuple(makeTag(ref), fromScala(reply))
         case pid: Pid       => pid.fromScala
         case ref: Reference => ref.fromScala
-      }
+      },
+      factory.bottomRules
     )
   }
 
