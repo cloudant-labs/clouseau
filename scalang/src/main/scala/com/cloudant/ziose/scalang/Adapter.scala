@@ -92,6 +92,8 @@ object Adapter {
 
   val mockAdapter: Adapter[_, _] = new Adapter(None, None, None, 1, Symbol("mock-node"))
   def mockAdapterWithFactory[F <: TypeFactory](factory: F): Adapter[_, _] = {
-    new Adapter(None, None, Some(factory), 1, Symbol("mock-node"))
+    new Adapter(None, None, Some(factory), 1, Symbol("mock-node")) {
+      override def toString: String = s"MockOf[Adapter]"
+    }
   }
 }
