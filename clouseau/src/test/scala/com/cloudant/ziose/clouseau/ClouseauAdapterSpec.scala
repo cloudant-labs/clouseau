@@ -33,7 +33,17 @@ class ClouseauAdapterSpec extends JUnitRunnableSpec {
             decoded == term
           )
         }
-      ).provideLayer(environment)
+      ).provideLayer(environment),
+      test("Correctly encode null")(
+        assertTrue(EAtom("null").asInstanceOf[ETerm] == adapter.fromScala(null))
+      ),
+      test("Correctly encode nested null")(
+        assertTrue(
+          EList(ETuple(EAtom("null"), EList(EInt(0)))).asInstanceOf[ETerm] == adapter.fromScala(
+            List((null, List(0)))
+          )
+        )
+      )
     )
   }
 }

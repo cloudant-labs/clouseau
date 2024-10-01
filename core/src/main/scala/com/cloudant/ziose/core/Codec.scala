@@ -479,6 +479,7 @@ object Codec {
         }))
       // This is ambiguous how we can distinguish bitstr from binary?
       case binary: Array[Byte] => EBinary(binary)
+      case null                => EAtom("null")
       case bottomRule(e)       => e
     }
   }

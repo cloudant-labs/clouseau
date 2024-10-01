@@ -253,10 +253,8 @@ object ClouseauTypeFactory extends TypeFactory {
     }
   }
 
-  val bottomRules: PartialFunction[Any, ETerm] = {
-    case bytesRef: BytesRef =>
-      EBinary(bytesRef.utf8ToString())
-    case null => EAtom("null")
+  val bottomRules: PartialFunction[Any, ETerm] = { case bytesRef: BytesRef =>
+    EBinary(bytesRef.utf8ToString())
   }
 
 }
