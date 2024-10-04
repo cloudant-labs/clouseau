@@ -374,3 +374,14 @@ ci-release:
 bom:
 	@sbt makeBom
 	@$(call to_artifacts,*.bom.xml)
+
+.PHONY: visualVM
+# target: visualVM - Attach to running clouseau instance with VisualVM tool
+visualVM: visualVM := $(shell mdfind -name 'VisualVM' -onlyin /Applications 2>/dev/null)
+visualVM: CLOUSEAU_PID := $(shell jps -l | grep -F com.cloudant.ziose.clouseau.Main | cut -d' ' -f1)
+visualVM:
+	@[ "${CLOUSEAU_PID}" ] \
+		|| ( echo '>>>>> clouseau is not running' ; exit 1 )
+	@[ "$(visualVM)" ] \
+		|| ( echo '>>>>> 'VisualVM' is not installed' ; exit 1 )
+	@${visualVM}/Contents/MacOS/visualvm --jdkhome $(JAVA_HOME) --openpid $(CLOUSEAU_PID)
