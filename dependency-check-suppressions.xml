@@ -39,4 +39,10 @@
     <packageUrl regex="true">^pkg:maven/commons-codec/commons\-codec@.*$</packageUrl>
     <cve>CVE-2021-37533</cve>
   </suppress>
+  <suppress>
+    <notes>
+    <![CDATA[File name: lucene-*-4.6.1-cloudant1.jar]]></notes>
+    <packageUrl regex="true">^pkg:maven/org\.apache\.lucene/lucene\-.*@.*$</packageUrl>
+    <cve>CVE-2024-45772</cve>
+  </suppress>
 </suppressions>
