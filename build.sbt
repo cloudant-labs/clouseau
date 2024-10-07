@@ -77,6 +77,7 @@ lazy val commonSettings = Seq(
   testFrameworks                          := Seq(new TestFramework("com.novocode.junit.JUnitFramework")),
   dependencyCheckAssemblyAnalyzerEnabled  := Some(false),
   dependencyCheckFormats                  := Seq("XML", "JSON"),
+  dependencyCheckSuppressionFiles         := Seq(new File("dependency-check-suppressions.xml")),
   scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports")
 )
 
