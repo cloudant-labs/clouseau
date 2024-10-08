@@ -126,7 +126,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     ctx.size
   }
 
-  def start() = for {
+  def start(continue: Promise[Nothing, Unit]) = for {
     /*
      * The use of `continue` makes sure we don't return to the caller of the spawn before
      * we start handling the `MessageEnvelope.Init` to prevent the caller from sending the
@@ -145,7 +145,6 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
      * Note right of actorFiber: call Actor.onInit
      * ```
      */
-    continue <- Promise.make[Nothing, Unit]
     _ <- ctx.forkScoped(
       stream
         .runForeachWhileScoped(handleActorMessage(continue))
@@ -154,7 +153,6 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     )
     _ <- offer(MessageEnvelope.Init(id))
     _ <- ctx.start()
-    _ <- continue.await
   } yield ()
 
   def handleActorMessage(

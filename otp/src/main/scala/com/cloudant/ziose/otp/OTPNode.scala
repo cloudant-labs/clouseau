@@ -87,7 +87,8 @@ object OTPNode {
   case class ListNames()                                                  extends Command[Response.ListNames]
   case class LookUpName(name: String)                                     extends Command[Response.LookUpName]
   // case class CloseMbox(mbox: OtpMbox, reason: Option[OtpErlangObject])    extends Command[CloseMboxResponse]
-  case class StartActor[A <: Actor](actor: AddressableActor[A, _]) extends Command[Response.StartActor]
+  case class StartActor[A <: Actor](actor: AddressableActor[A, _], continue: Promise[Nothing, Unit])
+      extends Command[Response.StartActor]
   case class StopActor[A <: Actor](actor: AddressableActor[A, OTPProcessContext], reason: Option[Codec.ETerm] = None)
       extends Command[Response.StopActor]
   // case class MonitorNode(name: String, timeout: Option[Duration] = None) extends Command[Response.MonitorNode]
@@ -129,9 +130,9 @@ object OTPNode {
     }
     def loop(event: Envelope[Command[_], _, _]): URIO[Scope, Unit] = for {
       _ <- event.command match {
-        case StartActor(actor: AddressableActor[_, _]) =>
+        case StartActor(actor: AddressableActor[_, _], continue) =>
           for {
-            _ <- actor.start()
+            _ <- actor.start(continue)
             _ <- event.succeed(Response.StartActor(actor.self.pid))
           } yield ()
         case _ =>
@@ -278,7 +279,9 @@ object OTPNode {
       private def startActor[A <: Actor](
         actor: AddressableActor[A, _ <: ProcessContext]
       ): ZIO[Scope & Node & EngineWorker, _ <: Node.Error, AddressableActor[_, _]] = for {
-        _ <- call(StartActor(actor))
+        continue <- Promise.make[Nothing, Unit]
+        _        <- call(StartActor(actor, continue))
+        _        <- continue.await
       } yield actor
 
       /*
