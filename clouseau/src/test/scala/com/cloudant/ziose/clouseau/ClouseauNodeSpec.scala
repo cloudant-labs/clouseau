@@ -14,7 +14,6 @@ import zio.test.Assertion._
 import zio.test.TestAspect
 import com.cloudant.ziose.clouseau.helpers.Asserts._
 import com.cloudant.ziose.clouseau.helpers.LogHistory
-import com.cloudant.ziose.test.helpers.Aspects.needsTest
 
 class MonitorService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   var downPids: List[Product3[Pid, Reference, Any]] = List()
@@ -349,9 +348,6 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
 
   val monitorsSuite: Spec[Any, Throwable] = {
     suite("monitor")(
-      test("monitor process by pid") {
-        ???
-      } @@ needsTest,
       test("monitor process by identifier - killed by calling exit")(
         for {
           node   <- Utils.clouseauNode
@@ -457,25 +453,115 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
       ),
-      test("monitor process by name")(
+      test("monitor process by name - killed by calling exit")(
         for {
           node   <- Utils.clouseauNode
           worker <- ZIO.service[core.EngineWorker]
 
-          echoName = "MonitorSuite.Echo.MonitorByName"
+          echoName = "MonitorSuite.Echo.MonitorByName.KillByExit"
           echo           <- TestService.start(node, echoName)
-          monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorByName")
+          monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorByName.KillByExit")
           echoPid = echo.self.pid
-          echoRef        <- MonitorService.monitor(monitorerActor, core.Codec.EAtom(echoName)).map(_.right.get)
-          _              <- ZIO.sleep(WAIT_DURATION)
-          _              <- echo.exit(core.Codec.EAtom("reason"))
-          _              <- assertNotAlive(echo.id)
-          _              <- ZIO.sleep(WAIT_DURATION)
+          echoRef <- MonitorService.monitor(monitorerActor, core.Codec.EAtom(echoName)).map(_.right.get)
+          _       <- ZIO.sleep(WAIT_DURATION)
+          _       <- echo.exit(core.Codec.EAtom("reason"))
+          _       <- assertNotAlive(echo.id)
+          _       <- ZIO.sleep(WAIT_DURATION)
+          output  <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
           monitorHistory <- MonitorService.history(monitorerActor)
         } yield assert(monitorHistory)(isSome) ?? "history should be available"
           && assert(monitorHistory)(containsShapeOption { case (pid: Pid, ref, Symbol("reason")) =>
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, "onTermination", "TestService") =>
+            true
+          }) ?? "log should contain messages from 'TestService.onTermination' callback"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size
+          )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
+      ),
+      test("monitor process by name - killed by exception")(
+        for {
+          node   <- Utils.clouseauNode
+          worker <- ZIO.service[core.EngineWorker]
+
+          echoName = "MonitorSuite.Echo.MonitorByName.KillByException"
+          echo           <- TestService.start(node, echoName)
+          monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorByName.KillByException")
+          echoPid = echo.self.pid
+          echoRef <- MonitorService.monitor(monitorerActor, core.Codec.EAtom(echoName)).map(_.right.get)
+          _       <- ZIO.debug("The stack trace below is expected =====vvvvvv")
+          _       <- echo.crashWithReason("myCrashReason")
+          _       <- assertNotAlive(echo.id)
+          output  <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
+          monitorHistory <- MonitorService.history(monitorerActor)
+        } yield assert(monitorHistory)(isSome) ?? "history should be available"
+          && assert(monitorHistory)(containsShapeOption { case (pid: Pid, ref: Reference, reason: String) =>
+            pid == Pid.toScala(echoPid) && echoRef == ref
+          }) ?? "has to contain elements of expected shape"
+          && assert(monitorHistory)(containsShapeOption { case (_, _, reason: String) =>
+            reason.contains("OnMessage") && reason.contains("HandleCallCBError")
+          }) ?? "reason has to contain 'OnMessageResult' and 'HandleCallCBError'"
+          && assert(monitorHistory)(containsShapeOption { case (_, _, reason: String) =>
+            reason.contains("myCrashReason")
+          }) ?? "reason has to contain 'myCrashReason'"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActor("TestService") &&
+              logHistory.withActorAddress(echo.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, "onTermination", "TestService") =>
+            true
+          }) ?? "log should contain messages from 'TestService.onTermination' callback"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size
+          )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
+      ),
+      test("monitor process by name - killed by stop")(
+        for {
+          node   <- Utils.clouseauNode
+          worker <- ZIO.service[core.EngineWorker]
+
+          echoName = "MonitorSuite.Echo.MonitorByName.KillByStop"
+          echo           <- TestService.start(node, echoName)
+          monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorByName.KillByStop")
+          echoPid = echo.self.pid
+          echoRef <- MonitorService.monitor(monitorerActor, core.Codec.EAtom(echoName)).map(_.right.get)
+          _       <- echo.stopWithReason("myReason")
+          _       <- assertNotAlive(echo.id)
+          _       <- ZIO.sleep(WAIT_DURATION)
+          output  <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
+          _ <- assertAlive(monitorerActor.id)
+
+          monitorHistory <- MonitorService.history(monitorerActor)
+        } yield assert(monitorHistory)(isSome) ?? "history should be available"
+          && assert(monitorHistory)(containsShapeOption { case (pid: Pid, ref: Reference, reason: String) =>
+            pid == Pid.toScala(echoPid) && echoRef == ref
+          }) ?? "has to contain elements of expected shape"
+          && assert(monitorHistory)(
+            containsShapeOption { case (_, _, "myReason") => true }
+          ) ?? "reason must be 'myReason'"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, "onTermination", "TestService") =>
+            true
+          }) ?? "log should contain messages from 'TestService.onTermination' callback"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size
+          )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
       ),
       test("monitor remote process by name")(
         for {
