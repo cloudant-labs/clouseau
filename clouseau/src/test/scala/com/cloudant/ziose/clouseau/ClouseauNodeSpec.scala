@@ -140,19 +140,18 @@ private object MonitorService extends core.ActorConstructor[MonitorService] {
   def unlink(actor: core.AddressableActor[_, _], pid: core.Codec.EPid) = linkShared(actor, "unlink", pid)
 
   def history(actor: core.AddressableActor[_, _]) = {
+    def toScala(term: core.Codec.ETerm): Option[Any] = term match {
+      case ref: core.Codec.ERef => Some(Reference.toScala(ref))
+      case pid: core.Codec.EPid => Some(Pid.toScala(pid))
+      case _                    => None
+    }
     actor
       .doTestCallTimeout(core.Codec.EAtom("down_pids"), 3.seconds)
       .delay(100.millis)
       .repeatUntil(_.isSuccess)
       .map(result => {
         core.Codec
-          .toScala(
-            result.payload.get,
-            {
-              case ref: core.Codec.ERef => Some(Reference.toScala(ref))
-              case pid: core.Codec.EPid => Some(Pid.toScala(pid))
-            }
-          )
+          .toScala(result.payload.get, toScala)
           .asInstanceOf[List[Tuple3[Pid, Reference, Symbol]]]
       })
       .timeout(3.seconds)

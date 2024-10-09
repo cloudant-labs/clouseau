@@ -35,41 +35,19 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
   def monitor(monitored: Address)     = ctx.monitor(monitored)
   def demonitor(ref: Codec.ERef)      = ctx.demonitor(ref)
   def lookUpName(name: String)        = ctx.lookUpName(name)
-  def toScala(tuple: Codec.ETuple): Any = {
-    factory.parse(tuple)(this) match {
-      case Some(msg) => msg
-      case None      => Codec.product(tuple.elems.map(toScala))
+  def toScala(term: Codec.ETerm): Any = {
+    term match {
+      case tuple: Codec.ETuple =>
+        factory.parse(tuple)(this) match {
+          case Some(msg) => msg
+          case None      => Codec.toScala(term, factory.toScala)
+        }
+      case _ => Codec.toScala(term, factory.toScala)
     }
   }
-  def toScala(term: Codec.ETerm): Any = {
-    Codec.toScala(
-      term,
-      {
-        case tuple: Codec.ETuple => Some(toScala(tuple))
-        case pid: Codec.EPid     => Some(Pid.toScala(pid))
-        case ref: Codec.ERef     => Some(Reference.toScala(ref))
-      }
-    )
-  }
   def fromScala(term: Any): Codec.ETerm = {
-    Codec.fromScala(
-      term,
-      {
-        case (alias @ Codec.EListImproper(Codec.EAtom("alias"), ref: Codec.ERef), reply: Any) =>
-          Codec.ETuple(alias, reply.asInstanceOf[Codec.ETerm])
-        case (ref: Codec.ERef, reply: Any) =>
-          Codec.ETuple(makeTag(ref), fromScala(reply))
-        case pid: Pid       => pid.fromScala
-        case ref: Reference => ref.fromScala
-      },
-      factory.bottomRules
-    )
+    Codec.fromScala(term, factory.fromScala)
   }
-
-  // OTP uses improper list in `gen.erl`
-  // https://github.com/erlang/otp/blob/master/lib/stdlib/src/gen.erl#L252C11-L252C20
-  //  Tag = [alias | Mref],
-  def makeTag(ref: Codec.ERef) = Codec.EListImproper(Codec.EAtom("alias"), ref)
 
   def forkScoped[R, E, A](effect: zio.ZIO[R, E, A]): zio.URIO[R, zio.Fiber.Runtime[E, A]] = ctx.forkScoped(effect)
 

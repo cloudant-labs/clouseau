@@ -3,6 +3,7 @@ package com.cloudant.ziose.core
 import com.ericsson.otp.erlang._
 
 import java.nio.charset.StandardCharsets
+import scala.collection.mutable.ArrayBuffer
 import scala.collection.{AbstractMap, mutable}
 import scala.language.implicitConversions
 
@@ -353,41 +354,32 @@ object Codec {
 
   def toScala(
     obj: ETerm,
-    top: PartialFunction[ETerm, Option[Any]] = { case ENeverMatch => None },
-    bottom: PartialFunction[ETerm, Option[Any]] = { case ENeverMatch => None }
+    extra: ETerm => Option[Any] = _ => None
   ): Any = {
-    val topRule    = top.Extractor
-    val bottomRule = bottom.Extractor
-    obj match {
-      case topRule(e) =>
-        e match {
-          case Some(o) => o
-          case None    => obj
+    extra(obj) match {
+      case Some(term) => term
+      case None =>
+        obj match {
+          case b: EBoolean   => b.boolean
+          case a: EAtom      => a.atom
+          case i: EInt       => i.int
+          case l: ELong      => l.long
+          case f: EFloat     => f.float
+          case d: EDouble    => d.double
+          case s: EString    => s.str
+          case pid: EPid     => pid
+          case ref: ERef     => ref.obj
+          case list: EList   => list.elems.map(e => toScala(e, extra))
+          case tuple: ETuple => product(tuple.elems.map(e => toScala(e, extra)))
+          case map: EMap =>
+            map.mapLH.foldLeft(Map.empty[Any, Any]) { case (newMap, (k: ETerm, v: ETerm)) =>
+              newMap + (toScala(k, extra) -> toScala(v, extra))
+            }
+          // *Important* clouseau encodes strings as binaries
+          case binary: EBinary    => binary.asString
+          case bitstr: EBitString => bitstr.payload
+          case ENeverMatch        => ()
         }
-      case b: EBoolean   => b.boolean
-      case a: EAtom      => a.atom
-      case i: EInt       => i.int
-      case l: ELong      => l.long
-      case f: EFloat     => f.float
-      case d: EDouble    => d.double
-      case s: EString    => s.str
-      case pid: EPid     => pid
-      case ref: ERef     => ref.obj
-      case list: EList   => list.elems.map(e => toScala(e, top, bottom))
-      case tuple: ETuple => product(tuple.elems.map(e => toScala(e, top, bottom)))
-      case map: EMap =>
-        map.mapLH.foldLeft(Map.empty[Any, Any]) { case (newMap, (k: ETerm, v: ETerm)) =>
-          newMap + (toScala(k, top, bottom) -> toScala(v, top, bottom))
-        }
-      // *Important* clouseau encodes strings as binaries
-      case binary: EBinary    => binary.asString
-      case bitstr: EBitString => bitstr.payload
-      case bottomRule(e) =>
-        e match {
-          case Some(o) => o
-          case None    => obj
-        }
-      case ENeverMatch => ()
     }
   }
 
@@ -435,59 +427,59 @@ object Codec {
 
   def fromScala(
     scala: Any,
-    top: PartialFunction[Any, ETerm] = { case NeverMatch => EAtom("never match") },
-    bottom: PartialFunction[Any, ETerm] = { case NeverMatch => EAtom("never match") }
+    extra: Any => Option[ETerm] = _ => None
   ): ETerm = {
-    val topRule    = top.Extractor
-    val bottomRule = bottom.Extractor
-    scala match {
-      case topRule(e)     => e
-      case e: ETerm       => e
-      case any: FromScala => any.fromScala
-      case b: Boolean     => EBoolean(b)
-      case a: Symbol      => EAtom(a)
-      case i: Int         => EInt(i)
-      case l: BigInt      => ELong(l.bigInteger)
-      // TODO Add test for Long
-      case l: Long =>
-        l match {
-          case int if int.isValidInt => EInt(int.intValue)
-          case _                     => ELong(l)
+    extra(scala) match {
+      case Some(term) => return term
+      case None =>
+        scala match {
+          case e: ETerm       => e
+          case any: FromScala => any.fromScala
+          case b: Boolean     => EBoolean(b)
+          case a: Symbol      => EAtom(a)
+          case i: Int         => EInt(i)
+          case l: BigInt      => ELong(l.bigInteger)
+          // TODO Add test for Long
+          case l: Long =>
+            l match {
+              case int if int.isValidInt => EInt(int.intValue)
+              case _                     => ELong(l)
+            }
+          case f: Float  => EFloat(f)
+          case d: Double => EDouble(d)
+          // *Important* clouseau encodes strings as binaries
+          case s: String                   => EBinary(s)
+          case list: List[_]               => EList(list.map(e => fromScala(e, extra)), true)
+          case list: Seq[_]                => EList(List.from(list.map(e => fromScala(e, extra))), true)
+          case arraybuffer: ArrayBuffer[_] => EList(List.from(arraybuffer.map(e => fromScala(e, extra))), true)
+          case tuple: Product => {
+            tuple.getClass().getPackageName() match {
+              case "scala" => ETuple(tuple.productIterator.map(e => fromScala(e, extra)).toList)
+              case _       =>
+                // Encode the classes which are not defined in `scala` package as
+                // {className.toLowerCase(), ....}
+                ETuple(
+                  tuple.productIterator
+                    .map(e => fromScala(e, extra))
+                    .toList
+                    .prepended(EAtom(camelToUnderscores(tuple.productPrefix)))
+                )
+            }
+          }
+          case tuple: Unit => ETuple()
+          // TODO Add test for HashMap (which implements AbstractMap)
+          case m: AbstractMap[_, _] =>
+            EMap(mutable.LinkedHashMap.from(m map { case (k, v) =>
+              (fromScala(k, extra), fromScala(v, extra))
+            }))
+          case m: Map[_, _] =>
+            EMap(mutable.LinkedHashMap.from(m map { case (k, v) =>
+              (fromScala(k, extra), fromScala(v, extra))
+            }))
+          // This is ambiguous how we can distinguish bitstr from binary?
+          case binary: Array[Byte] => EBinary(binary)
+          case null                => EAtom("null")
         }
-      case f: Float  => EFloat(f)
-      case d: Double => EDouble(d)
-      // *Important* clouseau encodes strings as binaries
-      case s: String     => EBinary(s)
-      case list: List[_] => EList(list.map(e => fromScala(e, top, bottom)), true)
-      case list: Seq[_]  => EList(List.from(list.map(e => fromScala(e, top, bottom))), true)
-      case tuple: Product => {
-        tuple.getClass().getPackageName() match {
-          case "scala" => ETuple(tuple.productIterator.map(e => fromScala(e, top, bottom)).toList)
-          case _       =>
-            // Encode the classes which are not defined in `scala` package as
-            // {className.toLowerCase(), ....}
-            ETuple(
-              tuple.productIterator
-                .map(e => fromScala(e, top, bottom))
-                .toList
-                .prepended(EAtom(camelToUnderscores(tuple.productPrefix)))
-            )
-        }
-      }
-      case tuple: Unit => ETuple()
-      // TODO Add test for HashMap (which implements AbstractMap)
-      case m: AbstractMap[_, _] =>
-        EMap(mutable.LinkedHashMap.from(m map { case (k, v) =>
-          (fromScala(k), fromScala(v))
-        }))
-      case m: Map[_, _] =>
-        EMap(mutable.LinkedHashMap.from(m map { case (k, v) =>
-          (fromScala(k), fromScala(v))
-        }))
-      // This is ambiguous how we can distinguish bitstr from binary?
-      case binary: Array[Byte] => EBinary(binary)
-      case null                => EAtom("null")
-      case bottomRule(e)       => e
     }
   }
 
