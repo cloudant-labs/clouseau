@@ -97,7 +97,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
       )) @@ AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnTermination)
   } yield res
 
-  def onMessage(message: MessageEnvelope): ZIO[Any, Nothing, ActorResult] = {
+  def onMessage(message: MessageEnvelope)(implicit trace: Trace): ZIO[Any, Nothing, ActorResult] = {
     (actor
       .onMessage(message, ctx)
       .foldZIO(
@@ -303,7 +303,9 @@ object AddressableActor {
 
 trait Actor {
   def onInit[C <: ProcessContext](ctx: C): ZIO[Any, Throwable, _ <: ActorResult]
-  def onMessage[C <: ProcessContext](msg: MessageEnvelope, ctx: C): ZIO[Any, Throwable, _ <: ActorResult]
+  def onMessage[C <: ProcessContext](msg: MessageEnvelope, ctx: C)(implicit
+    trace: Trace
+  ): ZIO[Any, Throwable, _ <: ActorResult]
   def onTermination[C <: ProcessContext](reason: Codec.ETerm, ctx: C): ZIO[Any, Throwable, Unit]
 }
 

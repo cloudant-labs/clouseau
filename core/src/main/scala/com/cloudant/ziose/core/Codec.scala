@@ -292,6 +292,13 @@ object Codec {
     }
     def asString: String     = new String(payload, StandardCharsets.UTF_8)
     def asBytes: Array[Byte] = payload
+    def asPrintable: EBinary = {
+      if (isPrintable) {
+        this
+      } else {
+        new EBinary(payload, true)
+      }
+    }
   }
 
   object EBinary {

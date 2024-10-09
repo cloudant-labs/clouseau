@@ -275,7 +275,7 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
   def onMessage[PContext <: ProcessContext](
     event: MessageEnvelope,
     ctx: PContext
-  ): ZIO[Any, Throwable, _ <: ActorResult] = {
+  )(implicit trace: Trace): ZIO[Any, Throwable, _ <: ActorResult] = {
     event.getPayload match {
       case None        => ZIO.succeed(handleMessage(())).as(ActorResult.Continue())
       case Some(value) => ZIO.succeed(handleMessage(adapter.toScala(value))).as(ActorResult.Continue())
@@ -399,7 +399,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
   override def onMessage[PContext <: ProcessContext](
     event: MessageEnvelope,
     ctx: PContext
-  ): ZIO[Any, Throwable, _ <: ActorResult] = {
+  )(implicit trace: Trace): ZIO[Any, Throwable, _ <: ActorResult] = {
     event.getPayload match {
       case Some(ETuple(EAtom("$ping"), from: EPid, ref: ERef)) => {
         val fromPid = Pid.toScala(from)
@@ -492,7 +492,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
       .as(ActorResult.Continue())
   }
 
-  def onHandleCallMessage(fromTag: ETerm, request: ETerm) = {
+  def onHandleCallMessage(fromTag: ETerm, request: ETerm)(implicit trace: Trace) = {
     val (from, ref, replyRef) = fromTag match {
       case ETuple(from: EPid, replyRef @ EListImproper(EAtom("alias"), ref: ERef)) => (Pid.toScala(from), ref, replyRef)
       case ETuple(from: EPid, ref: ERef)                                           => (Pid.toScala(from), ref, ref)

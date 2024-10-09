@@ -182,8 +182,13 @@ object MessageEnvelope {
         Send(Some(getSenderPid(msg)), getRecipient(msg, address), getMsg(msg), address)
       case OtpMsg.exit2Tag =>
         Exit(Some(getSenderPid(msg)), getRecipient(msg, address), getMsg(msg), address)
-      case OtpMsg.monitorExitTag =>
-        MonitorExit(Some(getSenderPid(msg)), getRecipient(msg, address), getRef(msg), getMsg(msg), address)
+      case OtpMsg.monitorExitTag => {
+        val reason = getMsg(msg) match {
+          case m @ Codec.EBinary(str) if str.startsWith("Exception") => m.asPrintable
+          case m                                                     => m
+        }
+        MonitorExit(Some(getSenderPid(msg)), getRecipient(msg, address), getRef(msg), reason, address)
+      }
     }
   }
 
