@@ -35,7 +35,7 @@ object Generators {
   def commitMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       seq <- long(Long.MinValue, Long.MaxValue)
-    } yield (ETuple(EAtom("commit"), ELong(seq)), CommitMsg(seq))
+    } yield (ETuple(EAtom("commit"), EInt(seq)), CommitMsg(seq))
   }
 
   def deleteDocMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
@@ -106,29 +106,25 @@ object Generators {
 
   def searchRequestPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
-      keys   <- setOf(alphaNumericStringBounded(1, 10))
-      values <- listOfN(keys.size)(anyE(10))
-      linkedHashMap = mutable.LinkedHashMap.empty[ETerm, ETerm]
-      pairs         = keys zip values
-    } yield {
-      pairs.foreach(i => linkedHashMap.put(EAtom(i._1), i._2))
-      (
-        ETuple(EAtom("search"), EMap(linkedHashMap)),
-        SearchRequest((keys.map(Symbol(_)) zip values.map(Codec.toScala(_))).toMap)
-      )
-    }
+      eArgs <- listOf(searchArg)
+      term  = EList(eArgs)
+      sArgs = toScala(term).asInstanceOf[List[(Symbol, Any)]]
+    } yield (
+      ETuple(EAtom("search"), term),
+      SearchRequest(sArgs.toMap)
+    )
   }
 
   def setPurgeSeqMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       seq <- long(Long.MinValue, Long.MaxValue)
-    } yield (ETuple(EAtom("set_purge_seq"), ELong(seq)), SetPurgeSeqMsg(seq))
+    } yield (ETuple(EAtom("set_purge_seq"), EInt(seq)), SetPurgeSeqMsg(seq))
   }
 
   def setUpdateSeqMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       seq <- long(Long.MinValue, Long.MaxValue)
-    } yield (ETuple(EAtom("set_update_seq"), ELong(seq)), SetUpdateSeqMsg(seq))
+    } yield (ETuple(EAtom("set_update_seq"), EInt(seq)), SetUpdateSeqMsg(seq))
   }
 
   def anyMessagePairGen(depth: Int): Gen[Any, (ETerm, ClouseauMessage)] = {

@@ -49,8 +49,8 @@ object ClouseauTypeFactory extends TypeFactory {
         Some(CleanupPathMsg(path.asString))
       case Codec.ETuple(Codec.EAtom("close_lru_by_path"), path: Codec.EBinary) =>
         Some(CloseLRUByPathMsg(path.asString))
-      case Codec.ETuple(Codec.EAtom("commit"), Codec.EInt(seq)) =>
-        Some(CommitMsg(seq.toLong))
+      case Codec.ETuple(Codec.EAtom("commit"), seq: Codec.EInt) =>
+        seq.toLong.map(CommitMsg(_))
       case Codec.ETuple(Codec.EAtom("delete"), id: Codec.EBinary) =>
         Some(DeleteDocMsg(id.asString))
       case Codec.ETuple(Codec.EAtom("disk_size"), path: Codec.EBinary) =>
@@ -61,10 +61,18 @@ object ClouseauTypeFactory extends TypeFactory {
             field: Codec.EBinary,
             Codec.EBoolean(refresh),
             groupSort,
-            Codec.EInt(groupOffset),
-            Codec.EInt(groupLimit)
-          ) =>
-        Some(Group1Msg(query.asString, field.asString, refresh, adapter.toScala(groupSort), groupOffset, groupLimit))
+            groupOffset: Codec.EInt,
+            groupLimit: Codec.EInt
+          ) => {
+        (groupOffset.toInt, groupLimit.toInt) match {
+          case (Some(groupOffset), Some(groupLimit)) => {
+            Some(
+              Group1Msg(query.asString, field.asString, refresh, adapter.toScala(groupSort), groupOffset, groupLimit)
+            )
+          }
+          case _ => None
+        }
+      }
       case Codec.ETuple(Codec.EAtom("group2"), options: Codec.EList) => {
         Some(Group2Msg(options.map(adapter.toScala(_)).asInstanceOf[List[(Symbol, Any)]].toMap))
       }
@@ -157,10 +165,10 @@ object ClouseauTypeFactory extends TypeFactory {
         Some(RenamePathMsg(dbName.asString))
       case Codec.ETuple(Codec.EAtom("search"), options: Codec.EList) =>
         Some(SearchRequest(options.map(adapter.toScala(_)).asInstanceOf[List[(Symbol, Any)]].toMap))
-      case Codec.ETuple(Codec.EAtom("set_purge_seq"), Codec.EInt(seq)) =>
-        Some(SetPurgeSeqMsg(seq.toLong))
-      case Codec.ETuple(Codec.EAtom("set_update_seq"), Codec.EInt(seq)) =>
-        Some(SetUpdateSeqMsg(seq.toLong))
+      case Codec.ETuple(Codec.EAtom("set_purge_seq"), seq: Codec.EInt) =>
+        seq.toLong.map(SetPurgeSeqMsg(_))
+      case Codec.ETuple(Codec.EAtom("set_update_seq"), seq: Codec.EInt) =>
+        seq.toLong.map(SetUpdateSeqMsg(_))
       // most of the messages would be matching here so we can handle them elsewhere
       case other => None
     }

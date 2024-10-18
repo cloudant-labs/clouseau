@@ -98,16 +98,66 @@ object Codec {
   val trueOtpAtom  = trueAtom.toOtpErlangObject
   val falseOtpAtom = falseAtom.toOtpErlangObject
 
-  case class EInt(int: Int) extends ETerm {
-    def this(obj: OtpErlangInt) = this(obj.intValue)
-    override def toOtpErlangObject: OtpErlangInt = new OtpErlangInt(int)
-    override def toString: String                = s"$int"
+  sealed abstract class EInt extends ETerm {
+    def toByte(): Option[Byte] = this match {
+      case EInt.EIntByte(byte) => Some(byte)
+      case _                   => None
+    }
+    def toInt(): Option[Int] = this match {
+      case EInt.EIntByte(byte) => Some(byte.toInt)
+      case EInt.EIntInt(int)   => Some(int)
+      case _                   => None
+    }
+    def toLong(): Option[Long] = this match {
+      case EInt.EIntByte(byte) => Some(byte.toLong)
+      case EInt.EIntInt(int)   => Some(int.toLong)
+      case EInt.EIntLong(long) => Some(long)
+      case _                   => None
+    }
+    def toBigInt(): Option[BigInt] = this match {
+      case EInt.EIntByte(byte) => Some(BigInt(byte.toInt))
+      case EInt.EIntInt(int)   => Some(BigInt(int))
+      case EInt.EIntLong(long) => Some(BigInt(long))
+      case EInt.EIntBig(big)   => Some(big)
+    }
+    def toScala(): Any = this match {
+      case EInt.EIntByte(byte) => byte
+      case EInt.EIntInt(int)   => int
+      case EInt.EIntLong(long) => long
+      case EInt.EIntBig(big)   => big
+    }
   }
 
-  case class ELong(long: BigInt) extends ETerm {
-    def this(obj: OtpErlangLong) = this(obj.longValue)
-    override def toOtpErlangObject: OtpErlangLong = new OtpErlangLong(long.bigInteger)
-    override def toString: String                 = s"$long"
+  object EInt {
+    private final case class EIntByte(private[EInt] val byte: Byte) extends EInt {
+      override def toOtpErlangObject: OtpErlangByte = new OtpErlangByte(byte)
+      override def toString: String                 = s"$byte"
+    }
+    private final case class EIntInt(private[EInt] val int: Int) extends EInt {
+      override def toOtpErlangObject: OtpErlangInt = new OtpErlangInt(int)
+      override def toString: String                = s"$int"
+    }
+    private final case class EIntLong(private[EInt] val long: Long) extends EInt {
+      override def toOtpErlangObject: OtpErlangLong = new OtpErlangLong(long)
+      override def toString: String                 = s"$long"
+    }
+    private final case class EIntBig(private[EInt] val big: BigInt) extends EInt {
+      override def toOtpErlangObject: OtpErlangLong = new OtpErlangLong(big.bigInteger)
+      override def toString: String                 = s"$big"
+    }
+    def apply(byte: Byte): EInt  = EIntByte(byte)
+    def apply(int: Int): EInt    = EIntInt(int)
+    def apply(long: Long): EInt  = EIntLong(long)
+    def apply(big: BigInt): EInt = EIntBig(big)
+
+    def apply(obj: OtpErlangByte): EInt = EIntByte(obj.byteValue)
+    def apply(obj: OtpErlangInt): EInt  = EIntInt(obj.intValue)
+    def apply(obj: OtpErlangLong): EInt = obj.bitLength() match {
+      case n if n <= 8  => EIntByte(obj.byteValue)
+      case n if n <= 32 => EIntInt(obj.intValue)
+      case n if n <= 64 => EIntLong(obj.longValue)
+      case _            => EIntBig(obj.bigIntegerValue())
+    }
   }
 
   case class EFloat(float: Float) extends ETerm {
@@ -331,20 +381,18 @@ object Codec {
       case otpAtom: OtpErlangAtom if otpAtom == trueOtpAtom  => EBoolean(true)
       case otpAtom: OtpErlangAtom if otpAtom == falseOtpAtom => EBoolean(false)
       case otpAtom: OtpErlangAtom                            => EAtom(otpAtom)
-      case otpLong: OtpErlangLong =>
-        otpLong.bitLength() match {
-          case int if int < 32 => EInt(otpLong.intValue)
-          case _               => ELong(otpLong.bigIntegerValue)
-        }
-      case otpFloat: OtpErlangFloat   => EFloat(otpFloat)
-      case otpDouble: OtpErlangDouble => EDouble(otpDouble)
-      case otpString: OtpErlangString => EString(otpString)
-      case otpList: OtpErlangList     => EList(otpList)
-      case otpMap: OtpErlangMap       => EMap(otpMap)
-      case otpTuple: OtpErlangTuple   => ETuple(otpTuple)
-      case otpRef: OtpErlangRef       => ERef(otpRef)
-      case otpBinary: OtpErlangBinary => EBinary(otpBinary)
-      case otpBitstr: OtpErlangBitstr => EBitString(otpBitstr)
+      case otpByte: OtpErlangByte                            => EInt(otpByte)
+      case otpInt: OtpErlangInt                              => EInt(otpInt)
+      case otpLong: OtpErlangLong                            => EInt(otpLong)
+      case otpFloat: OtpErlangFloat                          => EFloat(otpFloat)
+      case otpDouble: OtpErlangDouble                        => EDouble(otpDouble)
+      case otpString: OtpErlangString                        => EString(otpString)
+      case otpList: OtpErlangList                            => EList(otpList)
+      case otpMap: OtpErlangMap                              => EMap(otpMap)
+      case otpTuple: OtpErlangTuple                          => ETuple(otpTuple)
+      case otpRef: OtpErlangRef                              => ERef(otpRef)
+      case otpBinary: OtpErlangBinary                        => EBinary(otpBinary)
+      case otpBitstr: OtpErlangBitstr                        => EBitString(otpBitstr)
     }
   }
 
@@ -362,8 +410,7 @@ object Codec {
         obj match {
           case b: EBoolean   => b.boolean
           case a: EAtom      => a.atom
-          case i: EInt       => i.int
-          case l: ELong      => l.long
+          case i: EInt       => i.toScala()
           case f: EFloat     => f.float
           case d: EDouble    => d.double
           case s: EString    => s.str
@@ -438,13 +485,10 @@ object Codec {
           case b: Boolean     => EBoolean(b)
           case a: Symbol      => EAtom(a)
           case i: Int         => EInt(i)
-          case l: BigInt      => ELong(l.bigInteger)
+          case b: BigInt      => EInt(b.bigInteger)
           // TODO Add test for Long
-          case l: Long =>
-            l match {
-              case int if int.isValidInt => EInt(int.intValue)
-              case _                     => ELong(l)
-            }
+          case b: Byte   => EInt(b)
+          case l: Long   => EInt(l)
           case f: Float  => EFloat(f)
           case d: Double => EDouble(d)
           // *Important* clouseau encodes strings as binaries
