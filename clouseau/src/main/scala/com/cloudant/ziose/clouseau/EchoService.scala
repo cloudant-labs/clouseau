@@ -18,7 +18,7 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
 
   override def handleInfo(request: Any): Any = {
     request match {
-      case (Symbol("echo"), from: Pid, ts: BigInt, seq: Int) =>
+      case (Symbol("echo"), from: Pid, ts: Long, seq) =>
         val reply = echoTimer.time(
           (Symbol("echo_reply"), from, ts, self.pid, now(), seq)
         )

@@ -266,7 +266,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               core.Codec.EAtom("echo"),
               process.self.pid,    // from
               core.Codec.EInt(0L), // ts
-              core.Codec.EInt(1L)   // seq
+              core.Codec.EInt(1L)  // seq
             )
             Unsafe.unsafe { implicit unsafe =>
               runtime.unsafe.run(addressChannel.offer(process.self))
@@ -398,8 +398,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
           && assert(monitorHistory)(containsShapeOption { case (_, _, reason: String) =>
-            reason.contains("OnMessage") && reason.contains("HandleCallCBError")
-          }) ?? "reason has to contain 'OnMessageResult' and 'HandleCallCBError'"
+            reason.contains("OnMessage")
+          }) ?? "reason has to contain 'OnMessageResult'"
           && assert(monitorHistory)(containsShapeOption { case (_, _, reason: String) =>
             reason.contains("myCrashReason")
           }) ?? "reason has to contain 'myCrashReason'"

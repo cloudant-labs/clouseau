@@ -36,14 +36,19 @@ object Generators {
    * A generator of ETerm objects representing EInt variant. Shrinks toward 0.
    */
   def intE: Gen[Any, ETerm] = {
-    for { i <- int(Int.MinValue, Int.MaxValue) } yield EInt(i)
-  }
-
-  /**
-   * A generator of ETerm objects representing ELong variant. Shrinks toward 0.
-   */
-  def longE: Gen[Any, ETerm] = {
-    for { i <- long(Long.MinValue, Long.MaxValue) } yield ELong(i)
+    for {
+      i <- oneOf(
+        byte(Byte.MinValue, Byte.MaxValue),
+        int(Int.MinValue, Int.MaxValue),
+        long(Long.MinValue, Long.MaxValue),
+        bigInt(Long.MinValue, Long.MaxValue)
+      )
+    } yield i match {
+      case byte: Byte  => EInt(byte)
+      case int: Int    => EInt(int)
+      case long: Long  => EInt(long)
+      case big: BigInt => EInt(big)
+    }
   }
 
   /**
@@ -51,6 +56,13 @@ object Generators {
    */
   def stringE: Gen[Any, ETerm] = {
     for { s <- asciiString } yield EString(s)
+  }
+
+  /**
+   * A generator of ETerm objects representing EBinary variant. Shrinks toward empty string.
+   */
+  def stringBinaryE: Gen[Any, ETerm] = {
+    for { s <- asciiString } yield EBinary(s)
   }
 
   /**
@@ -81,10 +93,10 @@ object Generators {
   /**
    * A generator of ETerm objects. The generated terms can be nested.
    *
-   * Same as `termE(n, oneOf(stringE, atomE, booleanE, intE, longE, pidE, refE))`
+   * Same as `termE(n, oneOf(stringE, atomE, booleanE, intE, pidE, refE))`
    */
   def anyE(n: Int): Gen[Any, ETerm] = {
-    termE(n, oneOf(stringE, atomE, booleanE, intE, longE, pidE, refE))
+    termE(n, oneOf(stringE, atomE, booleanE, intE, pidE, refE))
   }
 
   /**
@@ -119,8 +131,8 @@ object Generators {
    *
    * The type of the children is defined by passed generator.
    *
-   * For example the `termE(n, oneOf(intE, longE))` would produce list of integers, tuple of integers, map where values
-   * are integers.
+   * For example the `termE(n, oneOf(intE, floatE))` would produce list of numbers, tuple of numbers, map where values
+   * are numbers.
    */
   def termE(n: Int, g: Gen[Any, ETerm]): Gen[Any, ETerm] = {
     for {
@@ -133,7 +145,7 @@ object Generators {
    *
    * The type of the children is defined by passed generator.
    *
-   * For example the `listContainerE(n, oneOf(intE, longE))` would produce list of integers.
+   * For example the `listContainerE(n, oneOf(intE, floatE))` would produce list of numbers.
    */
   def listContainerE(g: Gen[Any, List[ETerm]]): Gen[Any, ETerm] = suspend {
     for {
@@ -151,7 +163,7 @@ object Generators {
    *
    * The type of the children is defined by passed generator.
    *
-   * For example the `tupleContainerE(n, oneOf(intE, longE))` would produce tuple of integers.
+   * For example the `tupleContainerE(n, oneOf(intE, floatE))` would produce tuple of numbers.
    */
   def tupleContainerE(g: Gen[Any, List[ETerm]]): Gen[Any, ETerm] = suspend {
     for { children <- g } yield ETuple(children)
@@ -162,8 +174,8 @@ object Generators {
    *
    * The type of the children is defined by passed generator.
    *
-   * For example the `mapContainerE(n, oneOf(intE, longE))` would produce map where keys are strings and values are
-   * integers.
+   * For example the `mapContainerE(n, oneOf(intE, floatE))` would produce map where keys are strings and values are
+   * numbers.
    */
   def mapContainerE(g: Gen[Any, List[ETerm]]): Gen[Any, ETerm] = suspend {
     for {
@@ -180,8 +192,8 @@ object Generators {
    *
    * The type of the keys and values are defined by passed generators.
    *
-   * For example the `mapKVContainerE(n, stringE, oneOf(intE, longE))` would produce map where keys are strings and
-   * values are integers.
+   * For example the `mapKVContainerE(n, stringE, oneOf(intE, floatE))` would produce map where keys are strings and
+   * values are numbers.
    */
   def mapKVContainerE(kg: Gen[Any, ETerm], vg: Gen[Any, List[ETerm]]): Gen[Any, ETerm] = suspend {
     for {
@@ -192,6 +204,22 @@ object Generators {
         a += (k -> v)
       }
     } yield EMap(emap)
+  }
+
+  /**
+   * A generator of ETerm objects representing EList containing list of key-value pairs.
+   *
+   * The type of the keys and values are defined by passed generators.
+   *
+   * For example the `listKVContainerE(n, stringE, oneOf(intE, floatE))` would produce list of pairs `{key, value}`
+   * where keys are strings and values are numbers.
+   */
+  def listKVContainerE(kg: Gen[Any, ETerm], vg: Gen[Any, List[ETerm]]): Gen[Any, ETerm] = suspend {
+    for {
+      values <- vg
+      keys   <- listOfN(values.size)(kg)
+      pairs = keys.zip(values).map { case (k, v) => ETuple(List(k, v)) }
+    } yield EList(pairs)
   }
 
   /**
@@ -390,16 +418,36 @@ object Generators {
    * Shrinks toward the (EInt(0), OtpErlangInt(0)).
    */
   def intP: Gen[Any, SamplePair] = {
-    for { i <- int(Int.MinValue, Int.MaxValue) } yield (EInt(i), new OtpErlangInt(i))
+    for {
+      i <- oneOf(
+        byte(Byte.MinValue, Byte.MaxValue),
+        int(Int.MinValue, Int.MaxValue),
+        long(Long.MinValue, Long.MaxValue),
+        bigInt(Long.MinValue, Long.MaxValue)
+      )
+    } yield i match {
+      case byte: Byte  => (EInt(byte), new OtpErlangByte(byte))
+      case int: Int    => (EInt(int), new OtpErlangInt(int))
+      case long: Long  => (EInt(long), new OtpErlangLong(long))
+      case big: BigInt => (EInt(big), new OtpErlangLong(big.bigInteger))
+    }
   }
 
   /**
-   * A generator of tuples (ELong, OtpErlangLong).
+   * A generator of tuples (EInt, OtpErlangInt).
    *
-   * Shrinks toward the (ELong(0), OtpErlangLong(0)).
+   * Shrinks toward the (EInt(0), OtpErlangInt(0)).
    */
-  def longP: Gen[Any, SamplePair] = {
-    for { i <- bigIntegerJava(Long.MinValue, Long.MaxValue) } yield (ELong(i), new OtpErlangLong(i))
+  def smallIntP: Gen[Any, SamplePair] = {
+    for {
+      i <- oneOf(
+        byte(Byte.MinValue, Byte.MaxValue),
+        int(Int.MinValue, Int.MaxValue)
+      )
+    } yield i match {
+      case byte: Byte => (EInt(byte), new OtpErlangByte(byte))
+      case int: Int   => (EInt(int), new OtpErlangInt(int))
+    }
   }
 
   /**
@@ -446,10 +494,10 @@ object Generators {
   /**
    * A generator of tuples (ETerm, OtpErlangObject) objects. The generated terms can be nested.
    *
-   * Same as `termP(n, oneOf(stringP, atomP, booleanP, intP, longP, pidP, refP))`
+   * Same as `termP(n, oneOf(stringP, atomP, booleanP, intP, pidP, refP))`
    */
   def anyP(n: Int): Gen[Any, SamplePair] = {
-    treeP(n, oneOf(stringP, atomP, booleanP, intP, longP, pidP, refP))
+    treeP(n, oneOf(stringP, atomP, booleanP, intP, pidP, refP))
   }
 
   /**
@@ -478,8 +526,8 @@ object Generators {
    *
    * The type of the children is defined by passed generator.
    *
-   * For example the `termP(n, oneOf(intP, longP))` would produce integers and terms which include list of integers,
-   * tuple of integers, map where values are integers.
+   * For example the `termP(n, oneOf(intP, floatP))` would produce numbers and terms which include list of numbers,
+   * tuple of numbers, map where values are numbers.
    */
   def termP(n: Int, g: Gen[Any, SamplePair]): Gen[Any, SamplePair] = {
     treeP(n, g)
@@ -490,7 +538,7 @@ object Generators {
    *
    * The type of the children is defined by passed generator.
    *
-   * For example the `listContainerP(n, oneOf(intP, longP))` would produce list of integers.
+   * For example the `listContainerP(n, oneOf(intP, floatP))` would produce list of numbers.
    */
   def listContainerP(g: Gen[Any, List[SamplePair]]): Gen[Any, SamplePair] = suspend {
     for {
@@ -509,7 +557,7 @@ object Generators {
    *
    * The type of the children is defined by passed generator.
    *
-   * For example the `tupleContainerP(n, oneOf(intP, longP))` would produce tuple of integers.
+   * For example the `tupleContainerP(n, oneOf(intP, floatP))` would produce tuple of numbers.
    */
   def tupleContainerP(g: Gen[Any, List[SamplePair]]): Gen[Any, SamplePair] = suspend {
     for {
@@ -523,8 +571,8 @@ object Generators {
    *
    * The type of the children is defined by passed generator.
    *
-   * For example the `mapContainerP(n, oneOf(intP, longP))` would produce map where keys are strings and values are
-   * integers.
+   * For example the `mapContainerP(n, oneOf(intP, floatP))` would produce map where keys are strings and values are
+   * numbers.
    */
   def mapContainerP(g: Gen[Any, List[SamplePair]]): Gen[Any, SamplePair] = suspend {
     g.flatMap { children =>
@@ -592,16 +640,19 @@ object Generators {
    * Shrinks toward the (EInt(0), EInt(0)).
    */
   def intEq: Gen[Any, EqPair] = {
-    for { i <- int(Int.MinValue, Int.MaxValue) } yield (EInt(i), EInt(i))
-  }
-
-  /**
-   * A generator of tuples containing equal elements (ELong, ELong).
-   *
-   * Shrinks toward the (ELong(0), ELong(0)).
-   */
-  def longEq: Gen[Any, EqPair] = {
-    for { i <- bigIntegerJava(Long.MinValue, Long.MaxValue) } yield (ELong(i), ELong(i))
+    for {
+      i <- oneOf(
+        byte(Byte.MinValue, Byte.MaxValue),
+        int(Int.MinValue, Int.MaxValue),
+        long(Long.MinValue, Long.MaxValue),
+        bigInt(Long.MinValue, Long.MaxValue)
+      )
+    } yield i match {
+      case byte: Byte  => (EInt(byte), EInt(byte))
+      case int: Int    => (EInt(int), EInt(int))
+      case long: Long  => (EInt(long), EInt(long))
+      case big: BigInt => (EInt(big), EInt(big))
+    }
   }
 
   /**
@@ -643,10 +694,10 @@ object Generators {
   /**
    * A generator of tuples containing equal elements (ETerm, ETerm) objects. The generated terms can be nested.
    *
-   * Same as `termEq(n, oneOf(stringEq, atomEq, booleanEq, intEq, longEq, pidEq, refEq))`
+   * Same as `termEq(n, oneOf(stringEq, atomEq, booleanEq, intEq, pidEq, refEq))`
    */
   def anyEq(n: Int): Gen[Any, EqPair] = {
-    treeEq(n, oneOf(stringEq, atomEq, booleanEq, intEq, longEq, pidEq, refEq))
+    treeEq(n, oneOf(stringEq, atomEq, booleanEq, intEq, pidEq, refEq))
   }
 
   /**
@@ -675,8 +726,8 @@ object Generators {
    *
    * The type of the children is defined by passed generator.
    *
-   * For example the `termEq(n, oneOf(intEq, longEq))` would produce integers and terms which include list of integers,
-   * tuple of integers, map where values are integers.
+   * For example the `termEq(n, oneOf(intEq, floatEq))` would produce integers and terms which include list of integers,
+   * tuple of numbers, map where values are numbers.
    */
   def termEq(n: Int, g: Gen[Any, EqPair]): Gen[Any, EqPair] = {
     treeEq(n, g)
@@ -687,7 +738,7 @@ object Generators {
    *
    * The type of the children is defined by passed generator.
    *
-   * For example the `listContainerEq(n, oneOf(intEq, longEq))` would produce list of integers.
+   * For example the `listContainerEq(n, oneOf(intEq, floatEq))` would produce list of numbers.
    */
   def listContainerEq(g: Gen[Any, List[EqPair]]): Gen[Any, EqPair] = suspend {
     for {
@@ -706,7 +757,7 @@ object Generators {
    *
    * The type of the children is defined by passed generator.
    *
-   * For example the `tupleContainerEq(n, oneOf(intEq, longEq))` would produce tuple of integers.
+   * For example the `tupleContainerEq(n, oneOf(intEq, floatEq))` would produce tuple of numbers.
    */
   def tupleContainerEq(g: Gen[Any, List[EqPair]]): Gen[Any, EqPair] = suspend {
     for {
@@ -720,8 +771,8 @@ object Generators {
    *
    * The type of the children is defined by passed generator.
    *
-   * For example the `mapContainerEq(n, oneOf(intEq, longEq))` would produce map where keys are strings and values are
-   * integers.
+   * For example the `mapContainerEq(n, oneOf(intEq, floatEq))` would produce map where keys are strings and values are
+   * numbers.
    */
   def mapContainerEq(g: Gen[Any, List[EqPair]]): Gen[Any, EqPair] = suspend {
     g.flatMap { children =>

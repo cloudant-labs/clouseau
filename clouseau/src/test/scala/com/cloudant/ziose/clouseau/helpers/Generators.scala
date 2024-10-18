@@ -2,7 +2,6 @@ package com.cloudant.ziose.clouseau.helpers
 
 import com.cloudant.ziose.core.Codec
 import com.cloudant.ziose.core.Codec._
-import scala.collection.mutable
 import com.cloudant.ziose.clouseau._
 import com.cloudant.ziose.test.helpers.Generators._
 import zio.test.Gen
@@ -52,12 +51,12 @@ object Generators {
 
   def group1MsgPairGen(depth: Int): Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
-      query          <- alphaNumericString
-      field          <- alphaNumericString
-      refresh        <- boolean
-      (groupSort, _) <- anyP(depth)
-      groupOffset    <- int(0, 10)
-      groupLimit     <- int(0, 10)
+      query       <- alphaNumericString
+      field       <- alphaNumericString
+      refresh     <- boolean
+      groupSort   <- oneOf(atomE, stringBinaryE, fieldsGen(1))
+      groupOffset <- int(0, 10)
+      groupLimit  <- int(0, 10)
     } yield (
       ETuple(
         EAtom("group1"),
@@ -68,23 +67,18 @@ object Generators {
         EInt(groupOffset),
         EInt(groupLimit)
       ),
-      Group1Msg(query, field, refresh, groupSort, groupOffset, groupLimit)
+      Group1Msg(query, field, refresh, toScala(groupSort), groupOffset, groupLimit)
     )
   }
 
   def group2MsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
-      keys   <- setOf(alphaNumericStringBounded(1, 10))
-      values <- listOfN(keys.size)(anyE(10))
-      linkedHashMap = mutable.LinkedHashMap.empty[ETerm, ETerm]
-      pairs         = keys zip values
-    } yield {
-      pairs.foreach(i => linkedHashMap.put(EAtom(i._1), i._2))
-      (
-        ETuple(EAtom("group2"), EMap(linkedHashMap)),
-        Group2Msg((keys.map(Symbol(_)) zip values.map(Codec.toScala(_))).toMap)
-      )
-    }
+      groupsValue <- listOf(queryArg)
+      term = EList(groupsValue)
+    } yield (
+      ETuple(EAtom("group2"), term),
+      Group2Msg((toScala(term).asInstanceOf[List[(Symbol, Any)]]).toMap)
+    )
   }
 
   def openIndexMsgPairGen(depth: Int): Gen[Any, (ETerm, ClouseauMessage)] = {
@@ -148,23 +142,120 @@ object Generators {
   }
 
   def optionValueGen(depth: Int): Gen[Any, ETerm] = {
-    termE(depth, oneOf(stringE, atomE, booleanE, intE, longE))
+    termE(depth, oneOf(stringBinaryE, atomE, booleanE, intE))
   }
 
   def keyValuePairEGen(depth: Int): Gen[Any, ETerm] = {
     for {
-      key   <- stringE
+      key   <- stringBinaryE
       value <- optionValueGen(depth)
     } yield ETuple(key, value)
   }
 
   def analyzerOptionsGen(depth: Int): Gen[Any, ETerm] = {
     oneOf(
-      stringE,
-      mapKVContainerE(stringE, listOf(optionValueGen(depth))),
-      listContainerE(listOfN(1)(stringE)),
+      stringBinaryE,
+      mapKVContainerE(stringBinaryE, listOf(optionValueGen(depth))),
+      listContainerE(listOfN(1)(stringBinaryE)),
       listContainerE(listOf(keyValuePairEGen(depth)))
     )
   }
+
+  def fieldsGen(size: Int): Gen[Any, ETerm] = for {
+    term <- listContainerE(listOfN(size)(stringBinaryE))
+  } yield term
+
+  def nullE: Gen[Any, ETerm] = const(EAtom("null").asInstanceOf[ETerm])
+
+  def sortValues: Gen[Any, ETerm] = oneOf(stringBinaryE, nullE)
+
+  def groups: Gen[Any, ETerm] = {
+    for {
+      eKeys   <- fieldNames
+      eValues <- listOfN(eKeys.size)(sortValues)
+      ePairs  = eKeys.toList zip eValues
+      eTuples = ePairs.map(e => ETuple(e._1, e._2))
+    } yield EList(eTuples).asInstanceOf[ETerm]
+  }
+
+  def groupSort: Gen[Any, ETerm] = for {
+    term <- oneOf(
+      const(EAtom("relevance").asInstanceOf[ETerm]),
+      stringBinaryE,
+      listContainerE(listOf(stringBinaryE))
+    )
+  } yield term
+
+  def queryArg: Gen[Any, ETerm] = for {
+    stringValue    <- stringBinaryE
+    booleanValue   <- booleanE
+    groupsValue    <- groups
+    groupSortValue <- groupSort
+    limitValue     <- int(Int.MinValue, Int.MaxValue)
+    fieldsValue    <- fieldNames
+    tag            <- stringBinaryE
+    intValue       <- int(Int.MinValue, Int.MaxValue)
+    term <- oneOf(
+      const(ETuple(EAtom("query"), stringValue)),
+      const(ETuple(EAtom("field"), stringValue)),
+      const(ETuple(EAtom("refresh"), booleanValue)),
+      const(ETuple(EAtom("groups"), groupsValue)),
+      const(ETuple(EAtom("group_sort"), groupSortValue)),
+      const(ETuple(EAtom("limit"), EInt(limitValue))),
+      const(ETuple(EAtom("include_fields"), EList(fieldsValue))),
+      const(ETuple(EAtom("highlight_fields"), EList(fieldsValue))),
+      const(ETuple(EAtom("highlight_pre_tag"), tag)),
+      const(ETuple(EAtom("highlight_post_tag"), tag)),
+      const(ETuple(EAtom("highlight_number"), EInt(intValue))),
+      const(ETuple(EAtom("highlight_size"), EInt(intValue)))
+    )
+  } yield term
+
+  def searchArg: Gen[Any, ETerm] = for {
+    stringValue    <- stringBinaryE
+    partitionValue <- stringBinaryE
+    bookmarkValue  <- stringBinaryE
+    booleanValue   <- booleanE
+    groupsValue    <- groups
+    groupSortValue <- groupSort
+    limitValue     <- int(Int.MinValue, Int.MaxValue)
+    fieldsValue    <- fieldNames
+    rangesValue    <- ranges
+    tag            <- stringBinaryE
+    intValue       <- int(Int.MinValue, Int.MaxValue)
+    legacyValue    <- booleanE
+    term <- oneOf(
+      const(ETuple(EAtom("query"), stringValue)),
+      const(ETuple(EAtom("partition"), partitionValue)),
+      const(ETuple(EAtom("after"), bookmarkValue)),
+      const(ETuple(EAtom("refresh"), booleanValue)),
+      const(ETuple(EAtom("sort"), groupSortValue)),
+      const(ETuple(EAtom("limit"), EInt(limitValue))),
+      const(ETuple(EAtom("include_fields"), EList(fieldsValue))),
+      const(ETuple(EAtom("counts"), EList(fieldsValue))),
+      const(ETuple(EAtom("ranges"), rangesValue)),
+      const(ETuple(EAtom("highlight_fields"), EList(fieldsValue))),
+      const(ETuple(EAtom("highlight_pre_tag"), tag)),
+      const(ETuple(EAtom("highlight_post_tag"), tag)),
+      const(ETuple(EAtom("highlight_number"), EInt(intValue))),
+      const(ETuple(EAtom("highlight_size"), EInt(intValue))),
+      const(ETuple(EAtom("legacy"), legacyValue))
+    )
+  } yield term
+
+  def ranges: Gen[Any, ETerm] = for {
+    names  <- fieldNames
+    values <- listOfN(names.size)(listKVContainerE(stringBinaryE, listOf(stringBinaryE)))
+    ePairs  = names.toList zip values
+    eTuples = ePairs.map(e => ETuple(e._1, e._2))
+  } yield EList(eTuples).asInstanceOf[ETerm]
+
+  def fieldName: Gen[Any, ETerm] = for {
+    s <- alphaNumericStringBounded(1, 10)
+  } yield EBinary(s).asInstanceOf[ETerm]
+
+  def fieldNames: Gen[Any, List[ETerm]] = for {
+    s <- setOf(fieldName)
+  } yield s.toList
 
 }

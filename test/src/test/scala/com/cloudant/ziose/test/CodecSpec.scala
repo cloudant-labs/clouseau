@@ -29,16 +29,22 @@ class CodecSpec extends JUnitRunnableSpec {
   val environment = ZLayer.succeed(Clock.ClockLive) ++ ZLayer.succeed(Random.RandomLive) ++ logger
 
   def allButPid: Gen[Any, (ETerm, OtpErlangObject)] = {
-    termP(10, oneOf(stringP, atomP, atomSP, booleanP, intP, longP, refP))
+    termP(10, oneOf(stringP, atomP, atomSP, booleanP, intP, refP))
   }
 
+  /*
+   * This function is used in round trip test. Unfortunately it is not possible
+   * to implement a round trip test involving long. Since on the decoding side
+   * we cannot decide between Long and BigInt representation. Therefore we exclude
+   * Long and BigInt.
+   */
   def allButRef(size: Int): Gen[Any, (ETerm, OtpErlangObject)] = {
-    termP(size, oneOf(stringP, atomP, atomSP, booleanP, intP, longP, pidP))
+    termP(size, oneOf(stringP, atomP, atomSP, booleanP, smallIntP, pidP))
   }
 
   val listContainer = suite("list container:")(
     test("testing list container generators (erlang -> scala)") {
-      check(listContainerE(listOf(oneOf(intE, longE)))) { eTerm =>
+      check(listContainerE(listOf(intE))) { eTerm =>
         assertTrue(eTerm.isInstanceOf[EList])
       }
     },
@@ -48,7 +54,7 @@ class CodecSpec extends JUnitRunnableSpec {
       }
     },
     test("testing list container generators (scala <-> erlang)") {
-      check(listContainerP(listOf(oneOf(intP, longP)))) { case (eTerm, oTerm) =>
+      check(listContainerP(listOf(intP))) { case (eTerm, oTerm) =>
         assertTrue(eTerm.isInstanceOf[EList])
         assertTrue(oTerm.isInstanceOf[OtpErlangList])
       }
@@ -57,7 +63,7 @@ class CodecSpec extends JUnitRunnableSpec {
 
   val tupleContainer = suite("tuple container:")(
     test("testing tuple container generators (erlang -> scala)") {
-      check(tupleContainerE(listOf(oneOf(intE, longE)))) { eTerm =>
+      check(tupleContainerE(listOf(intE))) { eTerm =>
         assertTrue(eTerm.isInstanceOf[ETuple])
       }
     },
@@ -67,7 +73,7 @@ class CodecSpec extends JUnitRunnableSpec {
       }
     },
     test("testing tuple container generators (scala <-> erlang)") {
-      check(tupleContainerP(listOf(oneOf(intP, longP)))) { case (eTerm, oTerm) =>
+      check(tupleContainerP(listOf(intP))) { case (eTerm, oTerm) =>
         assertTrue(eTerm.isInstanceOf[ETuple])
         assertTrue(oTerm.isInstanceOf[OtpErlangTuple])
       }
@@ -76,17 +82,22 @@ class CodecSpec extends JUnitRunnableSpec {
 
   val mapContainer = suite("map container:")(
     test("testing map container generators (erlang -> scala)") {
-      check(mapContainerE(listOf(oneOf(stringE, longE)))) { eTerm =>
+      check(mapContainerE(listOf(oneOf(stringE, intE)))) { eTerm =>
         assertTrue(eTerm.isInstanceOf[EMap])
       }
     },
-    test("testing map container generators (scala -> erlang)") {
+    test("testing map container generators (scala -> erlang) use long") {
       check(mapContainerO(listOf(oneOf(stringO, longO)))) { oTerm =>
         assertTrue(oTerm.isInstanceOf[OtpErlangMap])
       }
     },
+    test("testing map container generators (scala -> erlang) use int") {
+      check(mapContainerO(listOf(oneOf(stringO, intO)))) { oTerm =>
+        assertTrue(oTerm.isInstanceOf[OtpErlangMap])
+      }
+    },
     test("testing map container generators (scala <-> erlang)") {
-      check(mapContainerP(listOf(oneOf(intP, longP)))) { case (eTerm, oTerm) =>
+      check(mapContainerP(listOf(oneOf(intP, intP)))) { case (eTerm, oTerm) =>
         assertTrue(eTerm.isInstanceOf[EMap])
         assertTrue(oTerm.isInstanceOf[OtpErlangMap])
       }
