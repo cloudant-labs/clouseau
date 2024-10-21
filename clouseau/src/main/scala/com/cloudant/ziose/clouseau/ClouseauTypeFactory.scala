@@ -266,9 +266,10 @@ object ClouseauTypeFactory extends TypeFactory {
   def toScala(term: Codec.ETerm): Option[Any] = {
     term match {
       // case tuple: Codec.ETuple => Some(toScala(tuple))
-      case pid: Codec.EPid => Some(Pid.toScala(pid))
-      case ref: Codec.ERef => Some(Reference.toScala(ref))
-      case _               => None
+      case pid: Codec.EPid                          => Some(Pid.toScala(pid))
+      case ref: Codec.ERef                          => Some(Reference.toScala(ref))
+      case byte: Codec.EInt if byte.toInt.isDefined => byte.toInt
+      case _                                        => None
     }
   }
 
