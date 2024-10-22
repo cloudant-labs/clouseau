@@ -34,7 +34,7 @@ object Generators {
   def commitMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       seq <- long(Long.MinValue, Long.MaxValue)
-    } yield (ETuple(EAtom("commit"), EInt(seq)), CommitMsg(seq))
+    } yield (ETuple(EAtom("commit"), ENumber(seq)), CommitMsg(seq))
   }
 
   def deleteDocMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
@@ -64,8 +64,8 @@ object Generators {
         EBinary(field),
         EBoolean(refresh),
         groupSort,
-        EInt(groupOffset),
-        EInt(groupLimit)
+        ENumber(groupOffset),
+        ENumber(groupLimit)
       ),
       Group1Msg(query, field, refresh, toScala(groupSort), groupOffset, groupLimit)
     )
@@ -112,13 +112,13 @@ object Generators {
   def setPurgeSeqMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       seq <- long(Long.MinValue, Long.MaxValue)
-    } yield (ETuple(EAtom("set_purge_seq"), EInt(seq)), SetPurgeSeqMsg(seq))
+    } yield (ETuple(EAtom("set_purge_seq"), ENumber(seq)), SetPurgeSeqMsg(seq))
   }
 
   def setUpdateSeqMsgPairGen: Gen[Any, (ETerm, ClouseauMessage)] = {
     for {
       seq <- long(Long.MinValue, Long.MaxValue)
-    } yield (ETuple(EAtom("set_update_seq"), EInt(seq)), SetUpdateSeqMsg(seq))
+    } yield (ETuple(EAtom("set_update_seq"), ENumber(seq)), SetUpdateSeqMsg(seq))
   }
 
   def anyMessagePairGen(depth: Int): Gen[Any, (ETerm, ClouseauMessage)] = {
@@ -201,13 +201,13 @@ object Generators {
       const(ETuple(EAtom("refresh"), booleanValue)),
       const(ETuple(EAtom("groups"), groupsValue)),
       const(ETuple(EAtom("group_sort"), groupSortValue)),
-      const(ETuple(EAtom("limit"), EInt(limitValue))),
+      const(ETuple(EAtom("limit"), ENumber(limitValue))),
       const(ETuple(EAtom("include_fields"), EList(fieldsValue))),
       const(ETuple(EAtom("highlight_fields"), EList(fieldsValue))),
       const(ETuple(EAtom("highlight_pre_tag"), tag)),
       const(ETuple(EAtom("highlight_post_tag"), tag)),
-      const(ETuple(EAtom("highlight_number"), EInt(intValue))),
-      const(ETuple(EAtom("highlight_size"), EInt(intValue)))
+      const(ETuple(EAtom("highlight_number"), ENumber(intValue))),
+      const(ETuple(EAtom("highlight_size"), ENumber(intValue)))
     )
   } yield term
 
@@ -230,15 +230,15 @@ object Generators {
       const(ETuple(EAtom("after"), bookmarkValue)),
       const(ETuple(EAtom("refresh"), booleanValue)),
       const(ETuple(EAtom("sort"), groupSortValue)),
-      const(ETuple(EAtom("limit"), EInt(limitValue))),
+      const(ETuple(EAtom("limit"), ENumber(limitValue))),
       const(ETuple(EAtom("include_fields"), EList(fieldsValue))),
       const(ETuple(EAtom("counts"), EList(fieldsValue))),
       const(ETuple(EAtom("ranges"), rangesValue)),
       const(ETuple(EAtom("highlight_fields"), EList(fieldsValue))),
       const(ETuple(EAtom("highlight_pre_tag"), tag)),
       const(ETuple(EAtom("highlight_post_tag"), tag)),
-      const(ETuple(EAtom("highlight_number"), EInt(intValue))),
-      const(ETuple(EAtom("highlight_size"), EInt(intValue))),
+      const(ETuple(EAtom("highlight_number"), ENumber(intValue))),
+      const(ETuple(EAtom("highlight_size"), ENumber(intValue))),
       const(ETuple(EAtom("legacy"), legacyValue))
     )
   } yield term

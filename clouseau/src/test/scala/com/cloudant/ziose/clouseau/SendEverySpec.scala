@@ -106,7 +106,7 @@ private object SendEveryService extends core.ActorConstructor[SendEveryService] 
   }
 
   def startCounting(actor: core.AddressableActor[_, _]) = {
-    val payload = core.Codec.ETuple(core.Codec.EAtom("start"), core.Codec.EInt(1))
+    val payload = core.Codec.ETuple(core.Codec.EAtom("start"), core.Codec.ENumber(1))
     actor
       .doTestCallTimeout(payload, 3.seconds)
       .unit

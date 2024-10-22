@@ -49,7 +49,7 @@ object ClouseauTypeFactory extends TypeFactory {
         Some(CleanupPathMsg(path.asString))
       case Codec.ETuple(Codec.EAtom("close_lru_by_path"), path: Codec.EBinary) =>
         Some(CloseLRUByPathMsg(path.asString))
-      case Codec.ETuple(Codec.EAtom("commit"), seq: Codec.EInt) =>
+      case Codec.ETuple(Codec.EAtom("commit"), seq: Codec.ENumber) =>
         seq.toLong.map(CommitMsg)
       case Codec.ETuple(Codec.EAtom("delete"), id: Codec.EBinary) =>
         Some(DeleteDocMsg(id.asString))
@@ -61,8 +61,8 @@ object ClouseauTypeFactory extends TypeFactory {
             field: Codec.EBinary,
             Codec.EBoolean(refresh),
             groupSort,
-            groupOffset: Codec.EInt,
-            groupLimit: Codec.EInt
+            groupOffset: Codec.ENumber,
+            groupLimit: Codec.ENumber
           ) => {
         (groupOffset.toInt, groupLimit.toInt) match {
           case (Some(groupOffset), Some(groupLimit)) => {
@@ -165,9 +165,9 @@ object ClouseauTypeFactory extends TypeFactory {
         Some(RenamePathMsg(dbName.asString))
       case Codec.ETuple(Codec.EAtom("search"), options: Codec.EList) =>
         Some(SearchRequest(options.map(adapter.toScala(_)).asInstanceOf[List[(Symbol, Any)]].toMap))
-      case Codec.ETuple(Codec.EAtom("set_purge_seq"), seq: Codec.EInt) =>
+      case Codec.ETuple(Codec.EAtom("set_purge_seq"), seq: Codec.ENumber) =>
         seq.toLong.map(SetPurgeSeqMsg(_))
-      case Codec.ETuple(Codec.EAtom("set_update_seq"), seq: Codec.EInt) =>
+      case Codec.ETuple(Codec.EAtom("set_update_seq"), seq: Codec.ENumber) =>
         seq.toLong.map(SetUpdateSeqMsg(_))
       // most of the messages would be matching here so we can handle them elsewhere
       case other => None
@@ -266,10 +266,10 @@ object ClouseauTypeFactory extends TypeFactory {
   def toScala(term: Codec.ETerm): Option[Any] = {
     term match {
       // case tuple: Codec.ETuple => Some(toScala(tuple))
-      case pid: Codec.EPid  => Some(Pid.toScala(pid))
-      case ref: Codec.ERef  => Some(Reference.toScala(ref))
-      case byte: Codec.EInt => byte.toInt
-      case Codec.ETuple(Codec.EAtom("committed"), newUpdateSeq: Codec.EInt, newPurgeSeq: Codec.EInt) => {
+      case pid: Codec.EPid     => Some(Pid.toScala(pid))
+      case ref: Codec.ERef     => Some(Reference.toScala(ref))
+      case byte: Codec.ENumber => byte.toInt
+      case Codec.ETuple(Codec.EAtom("committed"), newUpdateSeq: Codec.ENumber, newPurgeSeq: Codec.ENumber) => {
         (newUpdateSeq.toLong, newPurgeSeq.toLong) match {
           case (Some(newUpdateSeq), Some(newPurgeSeq)) =>
             Some((Symbol("committed"), newUpdateSeq, newPurgeSeq))

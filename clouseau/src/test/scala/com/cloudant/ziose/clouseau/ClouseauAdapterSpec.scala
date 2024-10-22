@@ -39,7 +39,7 @@ class ClouseauAdapterSpec extends JUnitRunnableSpec {
       ),
       test("Correctly encode nested null")(
         assertTrue(
-          EList(ETuple(EAtom("null"), EList(EInt(0)))).asInstanceOf[ETerm] == adapter.fromScala(
+          EList(ETuple(EAtom("null"), EList(ENumber(0)))).asInstanceOf[ETerm] == adapter.fromScala(
             List((null, List(0)))
           )
         )

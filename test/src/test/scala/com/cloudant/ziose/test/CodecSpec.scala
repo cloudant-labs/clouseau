@@ -170,31 +170,31 @@ class CodecSpec extends JUnitRunnableSpec {
 
   val listSuite = suite("EList suite:")(
     test("Proper EList construction") {
-      val list     = new EList(List(EInt(1), EString("hello"), EBoolean(false)), true)
+      val list     = new EList(List(ENumber(1), EString("hello"), EBoolean(false)), true)
       val elements = list.elems.toArray
       assertTrue(list.isProper) &&
-      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(ENumber(1) == elements(0).asInstanceOf[ENumber]) &&
       assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
     },
     test("Proper EList construction via apply of a List") {
-      val list     = EList(List(EInt(1), EString("hello"), EBoolean(false)))
+      val list     = EList(List(ENumber(1), EString("hello"), EBoolean(false)))
       val elements = list.elems.toArray
       assertTrue(list.isProper) &&
-      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(ENumber(1) == elements(0).asInstanceOf[ENumber]) &&
       assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
     },
     test("Proper EList construction via apply of a variable number of args") {
-      val list     = EList(EInt(1), EString("hello"), EBoolean(false))
+      val list     = EList(ENumber(1), EString("hello"), EBoolean(false))
       val elements = list.elems.toArray
       assertTrue(list.isProper) &&
-      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(ENumber(1) == elements(0).asInstanceOf[ENumber]) &&
       assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
     },
     test("Proper EList matching untyped args") {
-      val list = EList(EInt(1), EString("hello"), EBoolean(false))
+      val list = EList(ENumber(1), EString("hello"), EBoolean(false))
       // TODO there must be something better than assertTrue (spec2???)
       val match_result = list match {
         case EList(i, s, b) => Option((i, s, b))
@@ -202,25 +202,25 @@ class CodecSpec extends JUnitRunnableSpec {
       }
       assertTrue(match_result.isDefined)
       val (i, s, b) = match_result.get
-      assertTrue(EInt(1) == i.asInstanceOf[EInt]) &&
+      assertTrue(ENumber(1) == i.asInstanceOf[ENumber]) &&
       assertTrue(EString("hello") == s.asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == b.asInstanceOf[EBoolean])
     },
     test("Proper EList matching typed args") {
-      val list = EList(EInt(1), EString("hello"), EBoolean(false))
+      val list = EList(ENumber(1), EString("hello"), EBoolean(false))
       // TODO there must be something better than assertTrue (spec2???)
       val match_result = list match {
-        case EList(i: EInt, s: EString, b: EBoolean) => Option((i, s, b))
-        case _                                       => None
+        case EList(i: ENumber, s: EString, b: EBoolean) => Option((i, s, b))
+        case _                                          => None
       }
       assertTrue(match_result.isDefined)
       val (i, s, b) = match_result.get
-      assertTrue(EInt(1) == i) &&
+      assertTrue(ENumber(1) == i) &&
       assertTrue(EString("hello") == s) &&
       assertTrue(EBoolean(false) == b)
     },
     test("Proper EList matching type") {
-      val list = EList(EInt(1), EString("hello"), EBoolean(false))
+      val list = EList(ENumber(1), EString("hello"), EBoolean(false))
       // TODO there must be something better than assertTrue (spec2???)
       val match_result = list match {
         case list: EList if list.isProper => Option(list)
@@ -228,12 +228,12 @@ class CodecSpec extends JUnitRunnableSpec {
       }
       assertTrue(match_result.isDefined)
       val elements = match_result.get.elems.toArray
-      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(ENumber(1) == elements(0).asInstanceOf[ENumber]) &&
       assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
     },
     test("Proper EList doesn't match untyped args of EListImproper") {
-      val list = EList(EInt(1), EString("hello"), EBoolean(false))
+      val list = EList(ENumber(1), EString("hello"), EBoolean(false))
       // TODO there must be something better than assertTrue (spec2???)
       val match_result = list match {
         case EListImproper(i, s, b) => Option((i, s, b))
@@ -242,16 +242,16 @@ class CodecSpec extends JUnitRunnableSpec {
       assertTrue(match_result.isEmpty)
     },
     test("Proper EList doesn't match typed args") {
-      val list = EList(EInt(1), EString("hello"), EBoolean(false))
+      val list = EList(ENumber(1), EString("hello"), EBoolean(false))
       // TODO there must be something better than assertTrue (spec2???)
       val match_result = list match {
-        case EListImproper(i: EInt, s: EString, b: EBoolean) => Option((i, s, b))
-        case _                                               => None
+        case EListImproper(i: ENumber, s: EString, b: EBoolean) => Option((i, s, b))
+        case _                                                  => None
       }
       assertTrue(match_result.isEmpty)
     },
     test("Proper EList doesn't match type") {
-      val list = EList(EInt(1), EString("hello"), EBoolean(false))
+      val list = EList(ENumber(1), EString("hello"), EBoolean(false))
       // TODO there must be something better than assertTrue (spec2???)
       val match_result = list match {
         case list: EList if !list.isProper => Option(list)
@@ -260,31 +260,31 @@ class CodecSpec extends JUnitRunnableSpec {
       assertTrue(match_result.isEmpty)
     },
     test("Improper EList construction") {
-      val list     = new EList(List(EInt(1), EString("hello"), EBoolean(false)), false)
+      val list     = new EList(List(ENumber(1), EString("hello"), EBoolean(false)), false)
       val elements = list.elems.toArray
       assertTrue(!list.isProper) &&
-      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(ENumber(1) == elements(0).asInstanceOf[ENumber]) &&
       assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
     },
     test("Improper EList construction via apply of a List") {
-      val list     = EListImproper(List(EInt(1), EString("hello"), EBoolean(false)))
+      val list     = EListImproper(List(ENumber(1), EString("hello"), EBoolean(false)))
       val elements = list.elems.toArray
       assertTrue(!list.isProper) &&
-      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(ENumber(1) == elements(0).asInstanceOf[ENumber]) &&
       assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
     },
     test("Improper EList construction via apply of a variable number of args") {
-      val list     = EListImproper(EInt(1), EString("hello"), EBoolean(false))
+      val list     = EListImproper(ENumber(1), EString("hello"), EBoolean(false))
       val elements = list.elems.toArray
       assertTrue(!list.isProper) &&
-      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(ENumber(1) == elements(0).asInstanceOf[ENumber]) &&
       assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
     },
     test("Improper EList matching untyped args") {
-      val list = EListImproper(EInt(1), EString("hello"), EBoolean(false))
+      val list = EListImproper(ENumber(1), EString("hello"), EBoolean(false))
       // TODO there must be something better than assertTrue (spec2???)
       val match_result = list match {
         case EListImproper(i, s, b) => Option((i, s, b))
@@ -292,25 +292,25 @@ class CodecSpec extends JUnitRunnableSpec {
       }
       assertTrue(match_result.isDefined)
       val (i, s, b) = match_result.get
-      assertTrue(EInt(1) == i.asInstanceOf[EInt]) &&
+      assertTrue(ENumber(1) == i.asInstanceOf[ENumber]) &&
       assertTrue(EString("hello") == s.asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == b.asInstanceOf[EBoolean])
     },
     test("Improper EList matching typed args") {
-      val list = EListImproper(EInt(1), EString("hello"), EBoolean(false))
+      val list = EListImproper(ENumber(1), EString("hello"), EBoolean(false))
       // TODO there must be something better than assertTrue (spec2???)
       val match_result = list match {
-        case EListImproper(i: EInt, s: EString, b: EBoolean) => Option((i, s, b))
-        case _                                               => None
+        case EListImproper(i: ENumber, s: EString, b: EBoolean) => Option((i, s, b))
+        case _                                                  => None
       }
       assertTrue(match_result.isDefined)
       val (i, s, b) = match_result.get
-      assertTrue(EInt(1) == i) &&
+      assertTrue(ENumber(1) == i) &&
       assertTrue(EString("hello") == s) &&
       assertTrue(EBoolean(false) == b)
     },
     test("Improper EList matching type") {
-      val list = EListImproper(EInt(1), EString("hello"), EBoolean(false))
+      val list = EListImproper(ENumber(1), EString("hello"), EBoolean(false))
       // TODO there must be something better than assertTrue (spec2???)
       val match_result = list match {
         case list: EList if !list.isProper => Option(list)
@@ -318,12 +318,12 @@ class CodecSpec extends JUnitRunnableSpec {
       }
       assertTrue(match_result.isDefined)
       val elements = match_result.get.elems.toArray
-      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(ENumber(1) == elements(0).asInstanceOf[ENumber]) &&
       assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
     },
     test("Improper EList doesn't match untyped args of EListImproper") {
-      val list = EListImproper(EInt(1), EString("hello"), EBoolean(false))
+      val list = EListImproper(ENumber(1), EString("hello"), EBoolean(false))
       // TODO there must be something better than assertTrue (spec2???)
       val match_result = list match {
         case EList(i, s, b) => Option((i, s, b))
@@ -332,16 +332,16 @@ class CodecSpec extends JUnitRunnableSpec {
       assertTrue(match_result.isEmpty)
     },
     test("Improper EList doesn't match typed args") {
-      val list = EListImproper(EInt(1), EString("hello"), EBoolean(false))
+      val list = EListImproper(ENumber(1), EString("hello"), EBoolean(false))
       // TODO there must be something better than assertTrue (spec2???)
       val match_result = list match {
-        case EList(i: EInt, s: EString, b: EBoolean) => Option((i, s, b))
-        case _                                       => None
+        case EList(i: ENumber, s: EString, b: EBoolean) => Option((i, s, b))
+        case _                                          => None
       }
       assertTrue(match_result.isEmpty)
     },
     test("Improper EList doesn't match type") {
-      val list = EListImproper(EInt(1), EString("hello"), EBoolean(false))
+      val list = EListImproper(ENumber(1), EString("hello"), EBoolean(false))
       // TODO there must be something better than assertTrue (spec2???)
       val match_result = list match {
         case list: EList if list.isProper => Option(list)
@@ -353,28 +353,28 @@ class CodecSpec extends JUnitRunnableSpec {
 
   val tupleSuite = suite("ETuple suite:")(
     test("ETuple construction") {
-      val tuple    = new ETuple(List(EInt(1), EString("hello"), EBoolean(false)))
+      val tuple    = new ETuple(List(ENumber(1), EString("hello"), EBoolean(false)))
       val elements = tuple.elems.toArray
-      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(ENumber(1) == elements(0).asInstanceOf[ENumber]) &&
       assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
     },
     test("ETuple construction via apply of a List") {
-      val tuple    = EList(List(EInt(1), EString("hello"), EBoolean(false)))
+      val tuple    = EList(List(ENumber(1), EString("hello"), EBoolean(false)))
       val elements = tuple.elems.toArray
-      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(ENumber(1) == elements(0).asInstanceOf[ENumber]) &&
       assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
     },
     test("ETuple construction via apply of a variable number of args") {
-      val tuple    = EList(EInt(1), EString("hello"), EBoolean(false))
+      val tuple    = EList(ENumber(1), EString("hello"), EBoolean(false))
       val elements = tuple.elems.toArray
-      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(ENumber(1) == elements(0).asInstanceOf[ENumber]) &&
       assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
     },
     test("ETuple matching untyped args") {
-      val tuple = ETuple(EInt(1), EString("hello"), EBoolean(false))
+      val tuple = ETuple(ENumber(1), EString("hello"), EBoolean(false))
       // TODO there must be something better than assertTrue (spec2???)
       val match_result = tuple match {
         case ETuple(i, s, b) => Option((i, s, b))
@@ -382,25 +382,25 @@ class CodecSpec extends JUnitRunnableSpec {
       }
       assertTrue(match_result.isDefined)
       val (i, s, b) = match_result.get
-      assertTrue(EInt(1) == i.asInstanceOf[EInt]) &&
+      assertTrue(ENumber(1) == i.asInstanceOf[ENumber]) &&
       assertTrue(EString("hello") == s.asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == b.asInstanceOf[EBoolean])
     },
     test("ETuple matching typed args") {
-      val tuple = ETuple(EInt(1), EString("hello"), EBoolean(false))
+      val tuple = ETuple(ENumber(1), EString("hello"), EBoolean(false))
       // TODO there must be something better than assertTrue (spec2???)
       val match_result = tuple match {
-        case ETuple(i: EInt, s: EString, b: EBoolean) => Option((i, s, b))
-        case _                                        => None
+        case ETuple(i: ENumber, s: EString, b: EBoolean) => Option((i, s, b))
+        case _                                           => None
       }
       assertTrue(match_result.isDefined)
       val (i, s, b) = match_result.get
-      assertTrue(EInt(1) == i) &&
+      assertTrue(ENumber(1) == i) &&
       assertTrue(EString("hello") == s) &&
       assertTrue(EBoolean(false) == b)
     },
     test("ETuple matching type") {
-      val tuple = ETuple(EInt(1), EString("hello"), EBoolean(false))
+      val tuple = ETuple(ENumber(1), EString("hello"), EBoolean(false))
       // TODO there must be something better than assertTrue (spec2???)
       val match_result = tuple match {
         case tuple: ETuple => Option(tuple)
@@ -408,7 +408,7 @@ class CodecSpec extends JUnitRunnableSpec {
       }
       assertTrue(match_result.isDefined)
       val elements = match_result.get.elems.toArray
-      assertTrue(EInt(1) == elements(0).asInstanceOf[EInt]) &&
+      assertTrue(ENumber(1) == elements(0).asInstanceOf[ENumber]) &&
       assertTrue(EString("hello") == elements(1).asInstanceOf[EString]) &&
       assertTrue(EBoolean(false) == elements(2).asInstanceOf[EBoolean])
     },
@@ -419,9 +419,9 @@ class CodecSpec extends JUnitRunnableSpec {
     },
     test("ETuple special case when instead of TupleN we receive our own class") {
       case class MyClass(foo: Int)
-      assertTrue(fromScala(MyClass(5)) == ETuple(EAtom("my_class"), EInt(5)))
+      assertTrue(fromScala(MyClass(5)) == ETuple(EAtom("my_class"), ENumber(5)))
       case class MyClass5(foo: Int)
-      assertTrue(fromScala(MyClass5(5)) == ETuple(EAtom("my_class_5"), EInt(5)))
+      assertTrue(fromScala(MyClass5(5)) == ETuple(EAtom("my_class_5"), ENumber(5)))
     },
     test("EBinary is encoded as UTF8 fromScala/toScala") {
       val s: String     = new String("some text here".getBytes(), StandardCharsets.UTF_8)

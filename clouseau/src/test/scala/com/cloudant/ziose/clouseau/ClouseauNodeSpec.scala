@@ -264,9 +264,9 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             val actorPID                                      = actor.self
             actorPID ! core.Codec.ETuple(
               core.Codec.EAtom("echo"),
-              process.self.pid,    // from
-              core.Codec.EInt(0L), // ts
-              core.Codec.EInt(1L)  // seq
+              process.self.pid,       // from
+              core.Codec.ENumber(0L), // ts
+              core.Codec.ENumber(1L)  // seq
             )
             Unsafe.unsafe { implicit unsafe =>
               runtime.unsafe.run(addressChannel.offer(process.self))

@@ -33,7 +33,7 @@ object Generators {
   }
 
   /**
-   * A generator of ETerm objects representing EInt variant. Shrinks toward 0.
+   * A generator of ETerm objects representing ENumber variant. Shrinks toward 0.
    */
   def intE: Gen[Any, ETerm] = {
     for {
@@ -44,10 +44,10 @@ object Generators {
         bigInt(Long.MinValue, Long.MaxValue)
       )
     } yield i match {
-      case byte: Byte  => EInt(byte)
-      case int: Int    => EInt(int)
-      case long: Long  => EInt(long)
-      case big: BigInt => EInt(big)
+      case byte: Byte  => ENumber(byte)
+      case int: Int    => ENumber(int)
+      case long: Long  => ENumber(long)
+      case big: BigInt => ENumber(big)
     }
   }
 
@@ -413,9 +413,9 @@ object Generators {
   }
 
   /**
-   * A generator of tuples (EInt, OtpErlangInt).
+   * A generator of tuples (ENumber, OtpErlangInt).
    *
-   * Shrinks toward the (EInt(0), OtpErlangInt(0)).
+   * Shrinks toward the (ENumber(0), OtpErlangInt(0)).
    */
   def intP: Gen[Any, SamplePair] = {
     for {
@@ -426,17 +426,17 @@ object Generators {
         bigInt(Long.MinValue, Long.MaxValue)
       )
     } yield i match {
-      case byte: Byte  => (EInt(byte), new OtpErlangByte(byte))
-      case int: Int    => (EInt(int), new OtpErlangInt(int))
-      case long: Long  => (EInt(long), new OtpErlangLong(long))
-      case big: BigInt => (EInt(big), new OtpErlangLong(big.bigInteger))
+      case byte: Byte  => (ENumber(byte), new OtpErlangByte(byte))
+      case int: Int    => (ENumber(int), new OtpErlangInt(int))
+      case long: Long  => (ENumber(long), new OtpErlangLong(long))
+      case big: BigInt => (ENumber(big), new OtpErlangLong(big.bigInteger))
     }
   }
 
   /**
-   * A generator of tuples (EInt, OtpErlangInt).
+   * A generator of tuples (ENumber, OtpErlangInt).
    *
-   * Shrinks toward the (EInt(0), OtpErlangInt(0)).
+   * Shrinks toward the (ENumber(0), OtpErlangInt(0)).
    */
   def smallIntP: Gen[Any, SamplePair] = {
     for {
@@ -445,8 +445,8 @@ object Generators {
         int(Int.MinValue, Int.MaxValue)
       )
     } yield i match {
-      case byte: Byte => (EInt(byte), new OtpErlangByte(byte))
-      case int: Int   => (EInt(int), new OtpErlangInt(int))
+      case byte: Byte => (ENumber(byte), new OtpErlangByte(byte))
+      case int: Int   => (ENumber(int), new OtpErlangInt(int))
     }
   }
 
@@ -635,9 +635,9 @@ object Generators {
   }
 
   /**
-   * A generator of tuples containing equal elements (EInt, EInt).
+   * A generator of tuples containing equal elements (ENumber, ENumber).
    *
-   * Shrinks toward the (EInt(0), EInt(0)).
+   * Shrinks toward the (ENumber(0), ENumber(0)).
    */
   def intEq: Gen[Any, EqPair] = {
     for {
@@ -648,10 +648,10 @@ object Generators {
         bigInt(Long.MinValue, Long.MaxValue)
       )
     } yield i match {
-      case byte: Byte  => (EInt(byte), EInt(byte))
-      case int: Int    => (EInt(int), EInt(int))
-      case long: Long  => (EInt(long), EInt(long))
-      case big: BigInt => (EInt(big), EInt(big))
+      case byte: Byte  => (ENumber(byte), ENumber(byte))
+      case int: Int    => (ENumber(int), ENumber(int))
+      case long: Long  => (ENumber(long), ENumber(long))
+      case big: BigInt => (ENumber(big), ENumber(big))
     }
   }
 
