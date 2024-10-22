@@ -269,7 +269,15 @@ object ClouseauTypeFactory extends TypeFactory {
       case pid: Codec.EPid                          => Some(Pid.toScala(pid))
       case ref: Codec.ERef                          => Some(Reference.toScala(ref))
       case byte: Codec.EInt if byte.toInt.isDefined => byte.toInt
-      case _                                        => None
+      case Codec.ETuple(Codec.EAtom("committed"), newUpdateSeq: Codec.EInt, newPurgeSeq: Codec.EInt) => {
+        (newUpdateSeq.toLong, newPurgeSeq.toLong) match {
+          case (Some(newUpdateSeq), Some(newPurgeSeq)) =>
+            Some((Symbol("committed"), newUpdateSeq, newPurgeSeq))
+          case _ =>
+            None
+        }
+      }
+      case _ => None
     }
   }
 
