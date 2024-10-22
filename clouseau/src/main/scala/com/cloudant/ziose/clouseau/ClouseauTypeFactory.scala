@@ -283,10 +283,6 @@ object ClouseauTypeFactory extends TypeFactory {
 
   def fromScala(term: Any): Option[Codec.ETerm] = {
     term match {
-      case (alias @ Codec.EListImproper(Codec.EAtom("alias"), ref: Codec.ERef), reply: Any) =>
-        Some(Codec.ETuple(alias, reply.asInstanceOf[Codec.ETerm]))
-      case (ref: Codec.ERef, reply: Any) =>
-        Some(Codec.ETuple(makeTag(ref), Codec.fromScala(reply, fromScala)))
       case pid: Pid           => Some(pid.fromScala)
       case ref: Reference     => Some(ref.fromScala)
       case bytesRef: BytesRef => Some(Codec.EBinary(bytesRef.utf8ToString()))
