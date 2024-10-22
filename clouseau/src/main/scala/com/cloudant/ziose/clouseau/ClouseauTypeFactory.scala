@@ -50,7 +50,7 @@ object ClouseauTypeFactory extends TypeFactory {
       case Codec.ETuple(Codec.EAtom("close_lru_by_path"), path: Codec.EBinary) =>
         Some(CloseLRUByPathMsg(path.asString))
       case Codec.ETuple(Codec.EAtom("commit"), seq: Codec.EInt) =>
-        seq.toLong.map(CommitMsg(_))
+        seq.toLong.map(CommitMsg)
       case Codec.ETuple(Codec.EAtom("delete"), id: Codec.EBinary) =>
         Some(DeleteDocMsg(id.asString))
       case Codec.ETuple(Codec.EAtom("disk_size"), path: Codec.EBinary) =>
