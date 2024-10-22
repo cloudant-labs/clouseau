@@ -52,7 +52,7 @@ object Codec {
   case class EPid(node: Symbol, id: Int, serial: Int, creation: Int) extends ETerm {
     def this(obj: OtpErlangPid) = this(Symbol(obj.node), obj.id, obj.serial, obj.creation)
     override def toOtpErlangObject: OtpErlangPid = new OtpErlangPid(node.name, id, serial, creation)
-    override def toString: String                = s"<$id.$serial.$creation>"
+    override def toString: String                = s"<${node.name}.$id.$serial>"
   }
 
   object EPid {
