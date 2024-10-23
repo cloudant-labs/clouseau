@@ -74,7 +74,7 @@ object ClouseauTypeFactory extends TypeFactory {
         }
       }
       case Codec.ETuple(Codec.EAtom("group2"), options: Codec.EList) => {
-        Some(Group2Msg(options.map(adapter.toScala(_)).asInstanceOf[List[(Symbol, Any)]].toMap))
+        Some(Group2Msg(options.map(adapter.toScala).asInstanceOf[List[(Symbol, Any)]].toMap))
       }
       case Codec.ETuple(Codec.EAtom("update"), id: Codec.EBinary, fields: Codec.EList) => { // TODO verify maybe it should be Codec.EBinary(id)
         var doc = new Document()
@@ -164,11 +164,11 @@ object ClouseauTypeFactory extends TypeFactory {
       case Codec.ETuple(Codec.EAtom("rename"), dbName: Codec.EBinary) =>
         Some(RenamePathMsg(dbName.asString))
       case Codec.ETuple(Codec.EAtom("search"), options: Codec.EList) =>
-        Some(SearchRequest(options.map(adapter.toScala(_)).asInstanceOf[List[(Symbol, Any)]].toMap))
+        Some(SearchRequest(options.map(adapter.toScala).asInstanceOf[List[(Symbol, Any)]].toMap))
       case Codec.ETuple(Codec.EAtom("set_purge_seq"), seq: Codec.ENumber) =>
-        seq.toLong.map(SetPurgeSeqMsg(_))
+        seq.toLong.map(SetPurgeSeqMsg)
       case Codec.ETuple(Codec.EAtom("set_update_seq"), seq: Codec.ENumber) =>
-        seq.toLong.map(SetUpdateSeqMsg(_))
+        seq.toLong.map(SetUpdateSeqMsg)
       // most of the messages would be matching here so we can handle them elsewhere
       case other => None
     }

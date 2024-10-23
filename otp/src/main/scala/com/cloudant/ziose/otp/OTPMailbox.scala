@@ -337,8 +337,8 @@ class OTPMailbox private (
 
   def start(scope: Scope) = for {
     _ <- scope.addFinalizerExit(onExit)
-    _ <- ZStream.fromQueueWithShutdown(internalMailbox).mapZIO(compositeMailbox.offer(_)).runDrain.forkIn(scope)
-    _ <- ZStream.fromQueueWithShutdown(externalMailbox).mapZIO(compositeMailbox.offer(_)).runDrain.forkIn(scope)
+    _ <- ZStream.fromQueueWithShutdown(internalMailbox).mapZIO(compositeMailbox.offer).runDrain.forkIn(scope)
+    _ <- ZStream.fromQueueWithShutdown(externalMailbox).mapZIO(compositeMailbox.offer).runDrain.forkIn(scope)
     _ <- ZIO.succeed(mbox.subscribe(this))
   } yield ()
 

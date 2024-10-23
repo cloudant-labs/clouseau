@@ -14,7 +14,7 @@ object Generators {
       dbName     <- alphaNumericString
       activeSigs <- listOf(alphaNumericString)
     } yield (
-      ETuple(EAtom("cleanup"), EBinary(dbName), EList(activeSigs.map(EBinary.apply(_)))),
+      ETuple(EAtom("cleanup"), EBinary(dbName), EList(activeSigs.map(EBinary(_)))),
       CleanupDbMsg(dbName, activeSigs)
     )
   }
