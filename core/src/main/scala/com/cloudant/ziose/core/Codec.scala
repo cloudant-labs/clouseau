@@ -153,9 +153,10 @@ object Codec {
     def apply(obj: OtpErlangByte): ENumber = ENumberByte(obj.byteValue)
     def apply(obj: OtpErlangInt): ENumber  = ENumberInt(obj.intValue)
     def apply(obj: OtpErlangLong): ENumber = obj.bitLength() match {
-      case n if n <= 8  => ENumberByte(obj.byteValue)
-      case n if n <= 32 => ENumberInt(obj.intValue)
-      case n if n <= 64 => ENumberLong(obj.longValue)
+      // the most significant bit is used as sign so we have only n-1 bits
+      case n if n <= 7  => ENumberByte(obj.byteValue)
+      case n if n <= 31 => ENumberInt(obj.intValue)
+      case n if n <= 63 => ENumberLong(obj.longValue)
       case _            => ENumberBig(obj.bigIntegerValue())
     }
   }
