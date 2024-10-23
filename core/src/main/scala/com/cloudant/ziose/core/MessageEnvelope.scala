@@ -192,18 +192,46 @@ object MessageEnvelope {
     }
   }
 
+  /*
+   * Creates Exit from an Exception
+   *   All `OtpErlangException` other then `OtpErlangExit` are converted to tuples
+   *     (exception_name(), exception_message(), stack_trace())
+   * Where:
+   *   - exception_name() is an EAtom which contains original name of the exception as defined in
+   *     jInterface converted into underscore convention
+   *     - OtpErlangDecodeException -> otp_erlang_decode_exception
+   *     - OtpErlangRangeException  -> otp_erlang_range_exception
+   *   - exception_name() -> EBinary containing error message produced by jInterface
+   *   - stack_trace() -> EBinary containing textual representation of a stack trace
+   * OtpErlangException
+   */
   def fromOtpException(
     exception: OtpErlangException,
     pid: Codec.EPid,
     address: Address
   ): MessageEnvelope = {
+    def encodeStackTrace(stackTrace: Array[java.lang.StackTraceElement]) = {
+      Codec.EBinary(stackTrace.map(_.toString).mkString("\n"))
+    }
+    def camelToUnderscores(name: String) = "[A-Z\\d]".r
+      .replaceAllIn(
+        name,
+        m => "_" + m.group(0).toLowerCase()
+      )
+      .stripPrefix("_")
+
     val (from, reason) = exception match {
       case exit: OtpErlangExit =>
         (Some(Codec.fromErlang(exit.pid).asInstanceOf[Codec.EPid]), Codec.fromErlang(exit.reason))
-      case decode: OtpErlangDecodeException =>
-        (None, Codec.EAtom("term_decode_error"))
-      case range: OtpErlangRangeException =>
-        (None, Codec.EAtom("term_range_error"))
+      case e: OtpErlangException =>
+        (
+          None,
+          Codec.ETuple(
+            Codec.EAtom(camelToUnderscores(e.getClass().getSimpleName)),
+            Codec.EBinary(e.getMessage),
+            encodeStackTrace(e.getStackTrace)
+          )
+        )
     }
     MessageEnvelope.Exit(from, Address.fromPid(pid, address.workerId, address.workerNodeName), reason, address)
   }
