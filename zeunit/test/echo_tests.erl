@@ -2,6 +2,7 @@
 -include("zeunit.hrl").
 
 -define(INIT_SERVICE, init).
+-define(TIMEOUT_IN_MS, 1000).
 
 echo_service_test_() ->
     {
@@ -20,7 +21,8 @@ echo_service_test_() ->
                     ?TDEF_FEX(t_echo_spawn),
                     ?TDEF_FEX(t_call_echo),
                     ?TDEF_FEX(t_call_version),
-                    ?TDEF_FEX(t_call_build_info)
+                    ?TDEF_FEX(t_call_build_info),
+                    ?TDEF_FEX(t_concurrent_call_echo)
                 ]
             }
         }
@@ -41,6 +43,36 @@ t_echo_spawn(_Name, _) ->
     ?assert(is_pid(Pid)),
     exit(Pid, normal),
     ?assertMatch({spawned, echoX, _}, Message).
+
+t_concurrent_call_echo(Name, _) ->
+    Self = self(),
+    Concurrency = 100,
+    lists:foreach(
+        fun(Idx) ->
+            spawn(fun() ->
+                case gen_server:call({Name, ?NodeZ}, {echo, Idx}) of
+                    {echo, Idx} ->
+                        Self ! Idx;
+                    Else ->
+                        ?debugFmt("Received unexpected event for idx=~i ~p~n", [Idx, Else])
+                end
+            end)
+        end,
+        lists:seq(1, Concurrency)
+    ),
+    Results = lists:map(
+        fun(_) ->
+            receive
+                Idx when is_integer(Idx) ->
+                    Idx
+            after ?TIMEOUT_IN_MS ->
+                timeout
+            end
+        end,
+        lists:seq(1, Concurrency)
+    ),
+    ?assertEqual(Concurrency, length([Idx || Idx <- Results, is_integer(Idx)])),
+    ok.
 
 t_call_echo(Name, _) ->
     ?assertEqual({echo, {}}, gen_server:call({Name, ?NodeZ}, {echo, {}})).
