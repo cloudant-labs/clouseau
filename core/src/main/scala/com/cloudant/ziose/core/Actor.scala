@@ -70,9 +70,6 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   } yield res
 
   def stream = ctx.stream
-    // TODO make it configurable
-    .groupedWithin(3, Duration.fromMillis(50))
-    .flattenChunks
     // .tap(x => Console.printLine(s"actor stream: $x"))
     .refineOrDie {
       // TODO use Cause.annotate to add extra metainfo about location of a failure
