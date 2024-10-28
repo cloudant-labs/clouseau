@@ -1,5 +1,6 @@
 -module(util).
 -export([a2l/1, l2a/1, b2l/1, l2b/1, b2t/1, t2b/1, to_binary/1]).
+-export([call/2]).
 -export([get_value/2, get_value/3]).
 -export([seconds/1, receive_msg/0, receive_msg/1]).
 -export([
@@ -34,6 +35,25 @@ to_binary(V) when is_atom(V) ->
     l2b(a2l(V));
 to_binary(V) ->
     l2b(io_lib:format("~p", [V])).
+
+call(ServerRef, Request) ->
+    case catch gen_call(ServerRef, '$gen_call', Request) of
+        {ok, Res} ->
+            Res;
+        {'EXIT', Reason} ->
+            exit({Reason, {?MODULE, call, [ServerRef, Request]}})
+    end.
+
+gen_call(Process, Label, Request) ->
+    Mref = erlang:monitor(process, Process),
+    Process ! {Label, {self(), Mref}, Request},
+    receive
+        {Mref, Reply} ->
+            erlang:demonitor(Mref, [flush]),
+            {ok, Reply};
+        {'DOWN', Mref, _, _, Reason} ->
+            exit(Reason)
+    end.
 
 get_value(Key, List) ->
     get_value(Key, List, undefined).

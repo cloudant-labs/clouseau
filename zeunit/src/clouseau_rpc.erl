@@ -1,11 +1,12 @@
 -module(clouseau_rpc).
--include("zeunit.hrl").
 -export([open_index/3]).
 -export([await/2, commit/2, get_update_seq/1, info/1, search/2]).
 -export([group1/7, group2/2]).
 -export([delete/2, update/3, cleanup/1, cleanup/2, rename/1]).
 -export([analyze/2, version/0, disk_size/1]).
 -export([set_purge_seq/2, get_purge_seq/1, get_root_dir/0]).
+
+-include("zeunit.hrl").
 
 open_index(Peer, Path, Analyzer) ->
     rpc({main, clouseau()}, {open, Peer, Path, Analyzer}).
@@ -21,6 +22,7 @@ await(Ref, MinSeq) ->
 
 commit(Ref, NewCommitSeq) ->
     rpc(Ref, {commit, NewCommitSeq}).
+
 info(Ref) ->
     rpc(Ref, info).
 
@@ -78,4 +80,4 @@ clouseau() ->
     ?NodeZ.
 
 rpc(Ref, Msg) ->
-    gen_server:call(Ref, Msg).
+    util:call(Ref, Msg).

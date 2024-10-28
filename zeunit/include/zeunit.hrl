@@ -1,8 +1,15 @@
 -include_lib("eunit/include/eunit.hrl").
+-compile([{nowarn_unused_function, [{with, 1}]}]).
 
 -define(COOKIE, cookie).
 -define(HOST, "127.0.0.1").
 -define(NodeZ, list_to_atom("clouseau1@" ++ ?HOST)).
+
+%% Test DEFinition
+-ifndef(TDEF).
+-define(TDEF(Name), {atom_to_list(Name), fun Name/1}).
+-define(TDEF(Name, Timeout), {atom_to_list(Name), Timeout, fun Name/1}).
+-endif.
 
 %% Test DEFinition For Each (fixtures which use foreach)”
 -ifndef(TDEF_FE).
@@ -78,3 +85,16 @@ end).
     counts,
     ranges
 }).
+
+with(Tests) ->
+    fun(ArgsTuple) ->
+        lists:map(
+            fun
+                ({Name, Fun}) ->
+                    {Name, ?_test(Fun(ArgsTuple))};
+                ({Name, Timeout, Fun}) ->
+                    {Name, {timeout, Timeout, ?_test(Fun(ArgsTuple))}}
+            end,
+            Tests
+        )
+    end.
