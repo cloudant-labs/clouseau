@@ -45,10 +45,10 @@ object LoggerFactory {
 
   private val slf4jLogger = org.slf4j.LoggerFactory.getLogger("SLF4J-LOGGER")
 
-  private val logFilterConfig = LogFilter.LogLevelByNameConfig(
-    LogLevel.Debug,
-    "zio.logging.slf4j" -> LogLevel.Debug,
-    "SLF4J-LOGGER"      -> LogLevel.Debug
+  private def logFilterConfig(level: LogLevel) = LogFilter.LogLevelByNameConfig(
+    level,
+    "zio.logging.slf4j" -> level,
+    "SLF4J-LOGGER"      -> level
   )
 
   private val logFormatPlainText = {
@@ -80,20 +80,22 @@ object LoggerFactory {
       label("message", quoted(line)) + (space + label("cause", cause)).filter(LogFilter.causeNonEmpty)
   }
 
-  private def loggerForOutput(format: LogOutput) = {
+  private def loggerForOutput(cfg: LogConfiguration) = {
+    val format: LogOutput = cfg.output.getOrElse(LogOutput.PlainText)
+    val level: LogLevel   = cfg.level.getOrElse(LogLevel.Debug)
     val (config, logger) = format match {
       case LogOutput.PlainText =>
-        val config = ConsoleLoggerConfig(logFormatPlainText, logFilterConfig)
+        val config = ConsoleLoggerConfig(logFormatPlainText, logFilterConfig(level))
         (config, consoleLogger(config))
       case LogOutput.JSON =>
-        val config = ConsoleLoggerConfig(logFormatJSON, logFilterConfig)
+        val config = ConsoleLoggerConfig(logFormatJSON, logFilterConfig(level))
         (config, consoleJsonLogger(config))
     }
     logger >+> Slf4jBridge.init(config.toFilter)
   }
 
-  def loggerDefault(format: LogOutput) = {
-    Runtime.removeDefaultLoggers >>> loggerForOutput(format)
+  def loggerDefault(cfg: LogConfiguration) = {
+    Runtime.removeDefaultLoggers >>> loggerForOutput(cfg)
   }
 
   def getLogger(id: String): NamedLogger = NamedLogger(id)

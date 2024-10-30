@@ -94,13 +94,13 @@ object Main extends ZIOAppDefault {
       appCfg  <- getConfig(cfgFile)
       nodeIdx <- getNodeIdx
       workerCfg       = appCfg.config(nodeIdx)
-      logOutput       = appCfg.logger.output.getOrElse(LogOutput.PlainText)
+      loggerCfg       = appCfg.logger
       metricsRegistry = ClouseauMetrics.makeRegistry
       metricsLayer    = ClouseauMetrics.makeLayer(metricsRegistry)
       _ <- ZIO
         .scoped(app(workerCfg, metricsRegistry))
         .provide(
-          LoggerFactory.loggerDefault(logOutput),
+          LoggerFactory.loggerDefault(loggerCfg),
           metricsLayer
         )
     } yield ()

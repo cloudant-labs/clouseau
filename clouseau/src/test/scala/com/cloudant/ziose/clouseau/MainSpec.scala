@@ -63,6 +63,11 @@ class MainSpec extends JUnitRunnableSpec {
         for {
           result <- Main.getConfig("src/test/resources/testMalformedApp.conf").exit
         } yield assert(result)(fails(isSubtype[Config.Error](anything)))
+      },
+      test("Can get logger config") {
+        for {
+          appConfig <- Main.getConfig("src/test/resources/testApp.conf")
+        } yield assertTrue(appConfig.logger.level == Some(zio.LogLevel.Debug))
       }
     )
   }

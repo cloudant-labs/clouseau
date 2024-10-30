@@ -1,10 +1,12 @@
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.macros.checkEnv
-import zio.Config
+import zio.{Config, LogLevel}
 import _root_.com.cloudant.ziose.otp
 import otp.OTPNodeConfig
 import zio.config.magnolia.deriveConfig
+import zio.Config.Error
+import zio.config.magnolia.DeriveConfig
 
 sealed abstract class LogOutput
 
@@ -14,7 +16,28 @@ object LogOutput {
 }
 
 final case class WorkerConfiguration(node: OTPNodeConfig, clouseau: Option[ClouseauConfiguration])
-final case class LogConfiguration(output: Option[LogOutput])
+final case class LogConfiguration(output: Option[LogOutput], level: Option[LogLevel])
+
+object LogConfiguration {
+  implicit val logLevelDescriptor: DeriveConfig[LogLevel] = {
+    DeriveConfig[String].mapOrFail(readLogLevel)
+  }
+
+  def readLogLevel(value: String): Either[Error, LogLevel] = {
+    value.toUpperCase match {
+      case "ALL"     => Right(LogLevel.All)
+      case "FATAL"   => Right(LogLevel.Fatal)
+      case "ERROR"   => Right(LogLevel.Error)
+      case "WARNING" => Right(LogLevel.Warning)
+      case "INFO"    => Right(LogLevel.Info)
+      case "DEBUG"   => Right(LogLevel.Debug)
+      case "TRACE"   => Right(LogLevel.Trace)
+      case "NONE"    => Right(LogLevel.None)
+      case _ =>
+        Left(Error.InvalidData(message = "LogLevel must be one of ALL|FATAL|ERROR|WARNING|INFO|DEBUG|TRACE|NONE"))
+    }
+  }
+}
 
 object AppConfiguration {
   val config: Config[WorkerConfiguration] = deriveConfig[WorkerConfiguration]

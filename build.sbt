@@ -17,7 +17,7 @@ updateOptions := updateOptions.value.withCachedResolution(true)
 
 val versions: Map[String, String] = Map(
   "zio"         -> "2.0.21",
-  "zio.config"  -> "4.0.0-RC16",
+  "zio.config"  -> "4.0.2",
   "zio.logging" -> "2.3.1",
   "zio.metrics" -> "2.3.1",
   "jmx"         -> "1.12.3",
