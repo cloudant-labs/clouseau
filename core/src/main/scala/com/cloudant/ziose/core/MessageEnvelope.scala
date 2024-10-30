@@ -1,13 +1,6 @@
 package com.cloudant.ziose.core
 
-import com.ericsson.otp.erlang.{
-  OtpMsg,
-  OtpErlangPid,
-  OtpErlangException,
-  OtpErlangExit,
-  OtpErlangDecodeException,
-  OtpErlangRangeException
-}
+import com.ericsson.otp.erlang.{OtpMsg, OtpErlangPid, OtpErlangException, OtpErlangExit}
 import zio._
 
 sealed trait MessageEnvelope extends WithWorkerId[Engine.WorkerId] {
