@@ -2,7 +2,7 @@ package com.cloudant.ziose.scalang
 
 import com.cloudant.ziose.core.{Address, Codec, MessageEnvelope, PID, ProcessContext}
 import com.cloudant.ziose.macros.checkEnv
-import zio.Runtime
+import zio.{LogLevel, Runtime}
 import com.cloudant.ziose.core.Engine
 
 case object InvalidAdapter extends Exception
@@ -14,9 +14,10 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
   val workerId: Engine.WorkerId,
   val workerNodeName: Symbol
 ) {
-  def ctx: C      = process_ctx.getOrElse(throw InvalidAdapter)
-  def node: SNode = snode.getOrElse(throw InvalidAdapter)
-  def factory: F  = type_factory.getOrElse(throw InvalidAdapter)
+  def ctx: C             = process_ctx.getOrElse(throw InvalidAdapter)
+  def node: SNode        = snode.getOrElse(throw InvalidAdapter)
+  def logLevel: LogLevel = node.logLevel
+  def factory: F         = type_factory.getOrElse(throw InvalidAdapter)
 
   def runtime: Runtime[Any] = snode match {
     case Some(node) => node.runtime

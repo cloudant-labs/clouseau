@@ -21,25 +21,37 @@ import java.time.ZoneOffset
 object LoggerFactory {
   case class NamedLogger(id: String) extends ZioSupport {
     def debug(msg: String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
-      (logDebug(msg) @@ loggerName(id)).unsafeRun
+      if (LogLevel.Debug >= adapter.logLevel) {
+        (logDebug(msg) @@ loggerName(id)).unsafeRun
+      }
     }
 
     def info(msg: String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
-      (logInfo(msg) @@ loggerName(id)).unsafeRun
+      if (LogLevel.Info >= adapter.logLevel) {
+        (logInfo(msg) @@ loggerName(id)).unsafeRun
+      }
     }
 
     def warn(msg: String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
-      (logWarning(msg) @@ loggerName(id)).unsafeRun
+      if (LogLevel.Warning >= adapter.logLevel) {
+        (logWarning(msg) @@ loggerName(id)).unsafeRun
+      }
     }
     def warn(msg: String, e: Throwable)(implicit adapter: Adapter[_, _]): Unit = {
-      (logWarningCause(msg, Cause.die(e)) @@ loggerName(id)).unsafeRun
+      if (LogLevel.Warning >= adapter.logLevel) {
+        (logWarningCause(msg, Cause.die(e)) @@ loggerName(id)).unsafeRun
+      }
     }
 
     def error(msg: String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
-      (logError(msg) @@ loggerName(id)).unsafeRun
+      if (LogLevel.Error >= adapter.logLevel) {
+        (logError(msg) @@ loggerName(id)).unsafeRun
+      }
     }
     def error(msg: String, e: Throwable)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
-      (logErrorCause(msg, Cause.die(e)) @@ loggerName(id)).unsafeRun
+      if (LogLevel.Error >= adapter.logLevel) {
+        (logErrorCause(msg, Cause.die(e)) @@ loggerName(id)).unsafeRun
+      }
     }
   }
 

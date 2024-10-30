@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 import com.cloudant.ziose.macros.checkEnv
 import zio._
 
-case class SNode(metricsRegistry: ScalangMeterRegistry)(implicit
+case class SNode(metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(implicit
   val runtime: Runtime[core.EngineWorker & core.Node]
 ) {
   type RegName  = Symbol

@@ -13,13 +13,14 @@ import zio.Exit.Failure
 import zio.Exit.Success
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
 import com.cloudant.ziose.macros.checkEnv
-import zio.{&, Runtime, Tag, Unsafe}
+import zio.{&, LogLevel, Runtime, Tag, Unsafe}
 
 class ClouseauNode(implicit
   override val runtime: Runtime[core.EngineWorker & core.Node],
   worker: core.EngineWorker,
-  metricsRegistry: ScalangMeterRegistry
-) extends SNode(metricsRegistry)(runtime) {
+  metricsRegistry: ScalangMeterRegistry,
+  logLevel: LogLevel
+) extends SNode(metricsRegistry, logLevel)(runtime) {
   /*
    * Each service would need to implement a constructor in the following form
    *

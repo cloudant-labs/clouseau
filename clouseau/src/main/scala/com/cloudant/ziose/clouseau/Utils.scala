@@ -15,7 +15,7 @@ package com.cloudant.ziose.clouseau
 import org.apache.lucene.index.Term
 import org.apache.lucene.util.BytesRef
 import org.apache.lucene.util.NumericUtils
-import zio.{&, ZIO}
+import zio.{&, LogLevel, ZIO}
 import com.cloudant.ziose.core.EngineWorker
 import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.core.ActorFactory
@@ -92,7 +92,7 @@ object Utils {
     runtime <- ZIO.runtime[EngineWorker & Node & ActorFactory]
     worker  <- ZIO.service[EngineWorker]
     metricsRegistry = ClouseauMetrics.makeRegistry
-    node <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry))
+    node <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry, LogLevel.Debug))
   } yield node
 
   def defaultConfig: ZIO[OTPNodeConfig, Throwable, Configuration] = for {

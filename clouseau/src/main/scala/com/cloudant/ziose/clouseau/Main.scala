@@ -8,7 +8,7 @@ import com.cloudant.ziose.otp.{OTPLayers, OTPNodeConfig}
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
 import zio.config.magnolia.deriveConfig
 import zio.config.typesafe.FromConfigSourceTypesafe
-import zio.{&, Config, ConfigProvider, IO, RIO, Scope, System, Task, UIO, ZIO, ZIOAppArgs, ZIOAppDefault}
+import zio.{&, Config, ConfigProvider, IO, LogLevel, RIO, Scope, System, Task, UIO, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import java.io.FileNotFoundException
 import scala.reflect.io.File
@@ -59,7 +59,8 @@ object Main extends ZIOAppDefault {
 
   private def main(
     workerCfg: WorkerConfiguration,
-    metricsRegistry: ScalangMeterRegistry
+    metricsRegistry: ScalangMeterRegistry,
+    loggerCfg: LogConfiguration
   ): RIO[EngineWorker & Node & ActorFactory, Unit] = {
     for {
       runtime  <- ZIO.runtime[EngineWorker & Node & ActorFactory]
@@ -67,22 +68,27 @@ object Main extends ZIOAppDefault {
       remote_node = s"node${workerCfg.node.name.last}@${workerCfg.node.domain}"
       _      <- otp_node.monitorRemoteNode(remote_node)
       worker <- ZIO.service[EngineWorker]
-      node   <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry))
-      _      <- startSupervisor(node, workerCfg)
-      _      <- worker.awaitShutdown
+      logLevel = loggerCfg.level.getOrElse(LogLevel.Debug)
+      node <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry, logLevel))
+      _    <- startSupervisor(node, workerCfg)
+      _    <- worker.awaitShutdown
     } yield ()
   }
 
   private val workerId: Int = 1
   private val engineId: Int = 1
 
-  private def app(workerCfg: WorkerConfiguration, metricsRegistry: ScalangMeterRegistry): Task[Unit] = {
+  private def app(
+    workerCfg: WorkerConfiguration,
+    metricsRegistry: ScalangMeterRegistry,
+    loggerCfg: LogConfiguration
+  ): Task[Unit] = {
     val node = workerCfg.node
     val name = s"${node.name}@${node.domain}"
     for {
       _ <- ZIO.logInfo("Clouseau running as " + name)
       _ <- ZIO
-        .scoped(main(workerCfg, metricsRegistry))
+        .scoped(main(workerCfg, metricsRegistry, loggerCfg))
         .provide(OTPLayers.nodeLayers(engineId, workerId, node))
     } yield ()
   }
@@ -98,7 +104,7 @@ object Main extends ZIOAppDefault {
       metricsRegistry = ClouseauMetrics.makeRegistry
       metricsLayer    = ClouseauMetrics.makeLayer(metricsRegistry)
       _ <- ZIO
-        .scoped(app(workerCfg, metricsRegistry))
+        .scoped(app(workerCfg, metricsRegistry, loggerCfg))
         .provide(
           LoggerFactory.loggerDefault(loggerCfg),
           metricsLayer
