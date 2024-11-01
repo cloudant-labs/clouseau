@@ -21,7 +21,8 @@
     "^target/*",
     "^node_modules/*",
     "TEST-*.xml",
-    "^vendor/*"
+    "^vendor/*",
+    "*.lock"
   ],
   "AllowedContentTypes": [],
   "PassedFiles": [],
