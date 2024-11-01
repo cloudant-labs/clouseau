@@ -22,3 +22,5 @@ bat 0.24.0
 
 # static analysis tool
 spotbugs 4.8.6
+
+rebar 3.24.0
