@@ -6,7 +6,8 @@ java openjdk-17
 scala 2.13.12
 # erlang needs java so it should be after it in the list
 # the only version which supports observer
-erlang 25.3.2.9
+erlang 25.3.2.15
+rebar 3.24.0
 coursier 2.1.8
 editorconfig-checker 3.0.3
 sbt 1.9.8
@@ -23,4 +24,6 @@ bat 0.24.0
 # static analysis tool
 spotbugs 4.8.6
 
-rebar 3.24.0
+# CouchDB tests
+elixir 1.17.3-otp-25
+python 3.12.7

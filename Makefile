@@ -11,6 +11,17 @@ DIRENV_VERSION := $(shell grep -F 'direnv' .tool-versions | awk '{print $$2}')
 REBAR?=rebar3
 ERLFMT?=erlfmt
 
+COUCHDB_REPO?=https://github.com/apache/couchdb
+COUCHDB_COMMIT?=main
+COUCHDB_ROOT?=deps/couchdb
+COUCHDB_CONFIGURE_ARGS?=--js-engine=quickjs --disable-docs --disable-fauxton --disable-spidermonkey
+
+TIMEOUT_CLOUSEAU_SEC?=120
+TIMEOUT_MANGO_TEST?=15m
+TIMEOUT_ELIXIR_SEARCH?=15m
+
+ERLANG_COOKIE?=	#
+
 ifneq ($(JENKINS_URL),)
 # CI invocation
 	REGISTRY?=docker-na.artifactory.swg-devops.com/wcp-cloudant-registry-hub-docker-remote
@@ -58,7 +69,7 @@ ERL_EPMD_ADDRESS?=127.0.0.1
 TERM?=xterm
 
 node_name?=clouseau1
-cookie=
+cookie=$(ERLANG_COOKIE)
 # Rebar options
 suites=
 tests=
@@ -139,7 +150,7 @@ deps:
 
 .PHONY: all-tests
 # target: all-tests - Run all test suites
-all-tests: test zeunit
+all-tests: test zeunit couchdb-tests
 
 .PHONY: test
 # target: test - Run all Scala tests
@@ -215,20 +226,26 @@ clean-user-cache:
 	@rm -fvr ./project/project/target
 	@rm -fvr  ~/Library/Caches/Coursier/v1/https
 
+ifneq ($(ERLANG_COOKIE),)
+_COOKIE=-Dcookie=$(ERLANG_COOKIE)
+else
+_COOKIE=
+endif
+
 .PHONY: clouseau1
 # target: clouseau1 - Start local instance of clouseau1 node
 clouseau1:
-	@sbt run -Dnode=$@
+	@sbt run -Dnode=$@ $(_COOKIE)
 
 .PHONY: clouseau2
 # target: clouseau2 - Start local instance of clouseau2 node
 clouseau2:
-	@sbt run -Dnode=$@
+	@sbt run -Dnode=$@ $(_COOKIE)
 
 .PHONY: clouseau3
 # target: clouseau3 - Start local instance of clouseau3 node
 clouseau3:
-	@sbt run -Dnode=$@
+	@sbt run -Dnode=$@ $(_COOKIE)
 
 .PHONY: help
 # target: help - Print this help
@@ -300,9 +317,13 @@ eshell:
 	&& (cd zeunit && $(REBAR) shell --name eshell@127.0.0.1) \
 	|| (cd zeunit && $(REBAR) shell --name eshell@127.0.0.1 --setcookie $(cookie))
 
+define clouseauPid
+	sh -c "jps -l | grep -F com.cloudant.ziose.clouseau.Main | cut -d' ' -f1"
+endef
+
 .PHONY: jconsole
 # target: jconsole - Connect jconsole to running Clouseau
-jconsole: CLOUSEAU_PID := $(shell jps -l | grep -F com.cloudant.ziose.clouseau.Main | cut -d' ' -f1)
+jconsole: CLOUSEAU_PID := $(shell $(clouseauPid))
 jconsole:
 	@[ "${CLOUSEAU_PID}" ] \
 		|| ( echo '>>>>> clouseau is not running' ; exit 1 )
@@ -378,10 +399,82 @@ bom:
 .PHONY: visualVM
 # target: visualVM - Attach to running clouseau instance with VisualVM tool
 visualVM: visualVM := $(shell mdfind -name 'VisualVM' -onlyin /Applications 2>/dev/null)
-visualVM: CLOUSEAU_PID := $(shell jps -l | grep -F com.cloudant.ziose.clouseau.Main | cut -d' ' -f1)
+visualVM: CLOUSEAU_PID := $(shell $(clouseauPid))
 visualVM:
 	@[ "${CLOUSEAU_PID}" ] \
 		|| ( echo '>>>>> clouseau is not running' ; exit 1 )
 	@[ "$(visualVM)" ] \
 		|| ( echo '>>>>> 'VisualVM' is not installed' ; exit 1 )
 	@${visualVM}/Contents/MacOS/visualvm --jdkhome $(JAVA_HOME) --openpid $(CLOUSEAU_PID)
+
+COUCHDB_DIR = $(COUCHDB_ROOT).$(COUCHDB_COMMIT)
+
+$(COUCHDB_DIR)/.checked_out:
+	@git clone $(COUCHDB_REPO) $(COUCHDB_DIR)
+	@cd $(COUCHDB_DIR) && git checkout $(COUCHDB_COMMIT)
+	@touch $(COUCHDB_DIR)/.checked_out
+
+$(COUCHDB_DIR)/.configured: $(COUCHDB_DIR)/.checked_out
+	@cd $(COUCHDB_DIR) && ./configure $(COUCHDB_CONFIGURE_ARGS)
+	@touch $(COUCHDB_DIR)/.configured
+
+$(COUCHDB_DIR)/.compiled: $(COUCHDB_DIR)/.configured
+	@$(MAKE) -C $(COUCHDB_DIR)
+	@touch $(COUCHDB_DIR)/.compiled
+
+.PHONY: couchdb
+
+couchdb: $(COUCHDB_DIR)/.compiled
+
+.PHONY: couchdb-clean
+couchdb-clean:
+	@rm -rf $(COUCHDB_DIR)
+
+start-clouseau: CLOUSEAU_PID := $(shell $(clouseauPid))
+start-clouseau: couchdb
+	@if [ -n "${CLOUSEAU_PID}" ]; then echo '>>>>>> Clouseau is already running'; exit 1; fi
+	@mkdir -p $(COUCHDB_DIR)/dev/logs
+	@echo '>>>>> Starting Clouseau...'
+	@$(MAKE) clouseau1 > $(COUCHDB_DIR)/dev/logs/clouseau1.log 2>&1 &
+	@for i in $$(seq 1 ${TIMEOUT_CLOUSEAU_SEC}); do \
+		printf ">>>>>> Waiting... (%d seconds left)\n" $$(expr ${TIMEOUT_CLOUSEAU_SEC} - $$i); \
+		sleep 1; \
+		pid=$$($(value clouseauPid)); \
+		[ -n "$$pid" ] && break; \
+	done
+	@echo '>>>>>> Clouseau started'
+
+stop-clouseau: CLOUSEAU_PID := $(shell $(clouseauPid))
+stop-clouseau:
+	@echo '>>>>> Stopping Clouseau...'
+	@if [ -z "${CLOUSEAU_PID}" ]; then echo '>>>>>> Clouseau is not running'; exit 1; fi
+	@kill -9 $(CLOUSEAU_PID)
+	@for i in $$(seq 1 ${TIMEOUT_CLOUSEAU_SEC}); do \
+		printf ">>>>>> Waiting... (%d seconds left)\n" $$(expr ${TIMEOUT_CLOUSEAU_SEC} - $$i); \
+		sleep 1; \
+		pid=$$($(value clouseauPid)); \
+		if [ -z "$$pid" ]; then \
+			echo '>>>>>> Clouseau stopped'; \
+			break; \
+		fi; \
+	done
+
+mango-test: couchdb
+	@$(MAKE) -C $(COUCHDB_DIR) mango-test
+
+elixir-search: couchdb
+	@#                                       v-this is a hack
+	@$(MAKE) -C $(COUCHDB_DIR) elixir-search _WITH_CLOUSEAU=-q
+
+.PHONY: couchdb-tests-failed
+couchdb-tests-failed:
+	@$(MAKE) stop-clouseau
+	@exit 1
+
+.PHONY: couchdb-tests
+# target: couchdb-tests - Run test suites from upstream CouchDB that use Clouseau
+couchdb-tests: couchdb
+	@$(MAKE) start-clouseau
+	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) couchdb-tests-failed
+	@timeout $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) couchdb-tests-failed
+	@$(MAKE) stop-clouseau

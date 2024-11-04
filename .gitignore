@@ -17,6 +17,7 @@ _build
 artifacts
 build/
 ci-artifacts/
+deps/
 zeunit/*.xml
 gradle/
 gradlew
