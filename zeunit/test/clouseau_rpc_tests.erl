@@ -131,7 +131,7 @@ t_version(_) ->
     {ok, Version} = clouseau_rpc:version(),
     ?assertEqual(
         match,
-        re:run(Version, "^[0-9]+\\.[0-9]+\\.[0-9]+$", [{capture, none}]),
+        re:run(Version, "^[0-9]+\\.[0-9]+\\.[0-9]+($|[-])", [{capture, none}]),
         "Expected version to be in A.B.C format, where A, B and C are integers."
     ).
 
