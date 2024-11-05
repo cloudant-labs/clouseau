@@ -114,11 +114,13 @@ stop_service(_, Pid) ->
 %%%%%%%%%%%%%%% Utility Functions %%%%%%%%%%%%%%%
 
 ensure_semantic(BinaryVersion) when is_binary(BinaryVersion) ->
-    [?assert(is_binary_integer(E)) || E <- binary:split(BinaryVersion, <<".">>, [global])].
+    Version = hd(binary:split(BinaryVersion, <<"-">>)),
+    [?assert(is_binary_integer(E)) || E <- binary:split(Version, <<".">>, [global])].
 
 parse_semantic(BinaryVersion) ->
     ensure_semantic(BinaryVersion),
-    list_to_tuple([binary_to_integer(E) || E <- binary:split(BinaryVersion, <<".">>, [global])]).
+    Version = hd(binary:split(BinaryVersion, <<"-">>)),
+    list_to_tuple([binary_to_integer(E) || E <- binary:split(Version, <<".">>, [global])]).
 
 is_binary_integer(Binary) ->
     try binary_to_integer(Binary) of
