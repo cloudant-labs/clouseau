@@ -59,7 +59,11 @@ final case class ClouseauConfiguration(
   dir_class: Option[String] = None
 ) {
   def getString(key: String, default: String) = key match {
-    case "clouseau.dir"        => dir.getOrElse(default).asInstanceOf[String]
+    case "clouseau.dir" =>
+      dir match {
+        case Some(RootDir(value)) => value
+        case None                 => default
+      }
     case "clouseau.lock_class" => lock_class.getOrElse(default).asInstanceOf[String]
     case "clouseau.dir_class"  => dir_class.getOrElse(default).asInstanceOf[String]
     case _                     => throw new Exception(s"Unexpected String key '$key'")

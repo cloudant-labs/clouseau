@@ -51,7 +51,14 @@ class MainSpec extends JUnitRunnableSpec {
           node1.clouseau.get.close_if_idle.contains(false),
           node1.clouseau.get.max_indexes_open.contains(10),
           node2.node.domain == "bss1.cloudant.com",
-          node2.clouseau.get.dir.contains(RootDir("ziose/src"))
+          node2.clouseau.get.dir.contains(RootDir("ziose/src")),
+          node1.clouseau.get.getString("clouseau.dir", "defaultDir") == "defaultDir",
+          node1.clouseau.get.getString("clouseau.dir_class", "defaultDirClass") == "defaultDirClass",
+          node1.clouseau.get.getString("clouseau.lock_class", "defaultLockClass") == "defaultLockClass",
+          node2.clouseau.get.getString("clouseau.dir", "default") == "ziose/src",
+          node2.clouseau.get.getString("clouseau.dir_class", "default") == "com.cloudant.ziose.store.NIOFSDirectory",
+          node2.clouseau.get
+            .getString("clouseau.lock_class", "default") == "com.cloudant.ziose.store.NativeFSLockFactory"
         )
       },
       test("getConfig success: no cookie in the config file") {
