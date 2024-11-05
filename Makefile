@@ -91,8 +91,7 @@ GHE_AUTH_URL=https://${ENCODED_GHE_USR}:${GHE_PSW}@github.ibm.com
 KNOWN_CVEs = \
 
 JAR_FILES := \
-	clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar \
-	clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
+	clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
 
 RELEASE_FILES := \
 	$(JAR_FILES) \
