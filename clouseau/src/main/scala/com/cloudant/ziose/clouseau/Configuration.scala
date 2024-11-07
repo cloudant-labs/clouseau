@@ -50,6 +50,7 @@ final case class ClouseauConfiguration(
   dir: Option[RootDir] = None,
   search_allowed_timeout_msecs: Option[Long] = None,
   count_fields: Option[Boolean] = None,
+  count_locks: Option[Boolean] = None,
   close_if_idle: Option[Boolean] = None,
   idle_check_interval_secs: Option[Int] = None,
   max_indexes_open: Option[Int] = None,
@@ -80,7 +81,7 @@ final case class ClouseauConfiguration(
   }
   def getBoolean(key: String, default: Boolean) = key match {
     case "clouseau.count_fields"  => count_fields.getOrElse(default)
-    case "clouseau.count_locks"   => count_fields.getOrElse(default)
+    case "clouseau.count_locks"   => count_locks.getOrElse(default)
     case "clouseau.close_if_idle" => close_if_idle.getOrElse(default)
     case "field_cache_metrics"    => field_cache_metrics.getOrElse(default)
     case _                        => throw new Exception(s"Unexpected Boolean key '$key'")
@@ -92,6 +93,7 @@ final case class ClouseauConfiguration(
     s"dir=$dir",
     s"search_allowed_timeout_msecs=$search_allowed_timeout_msecs",
     s"count_fields=$count_fields",
+    s"count_locks=$count_locks",
     s"close_if_idle=$close_if_idle",
     s"idle_check_interval_secs=$idle_check_interval_secs",
     s"max_indexes_open=$max_indexes_open",
