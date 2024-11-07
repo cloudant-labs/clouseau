@@ -120,6 +120,7 @@ lazy val otp = (project in file("otp"))
   .dependsOn(test % "test->test")
 lazy val scalang = (project in file("scalang"))
   .settings(commonSettings *)
+  .enablePlugins(plugins.JUnitXmlReportPlugin)
   .dependsOn(core)
   .dependsOn(macros)
 

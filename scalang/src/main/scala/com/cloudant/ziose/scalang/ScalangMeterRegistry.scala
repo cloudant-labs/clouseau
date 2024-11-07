@@ -80,4 +80,13 @@ object ScalangMeterRegistry {
     registry.config().namingConvention(NamingConvention.dot)
     registry
   }
+
+  def testRegistry = {
+    val rateUnit     = TimeUnit.SECONDS
+    val durationUnit = TimeUnit.MILLISECONDS
+    class EmptyFilter extends MetricFilter {
+      def matches(name: String, metric: com.codahale.metrics.Metric) = true
+    }
+    make("com.cloudant.test", new EmptyFilter, (a) => a, rateUnit, durationUnit)
+  }
 }

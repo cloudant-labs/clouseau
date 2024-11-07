@@ -42,6 +42,8 @@ case class MetricsGroup(klass: Class[_], metricsRegistry: ScalangMeterRegistry) 
 
   class Timer(codahaleTimer: metrics.Timer) {
     def time[A](fun: => A): A = codahaleTimer.time(new Callable[A] { def call = fun })
+    def getCount              = codahaleTimer.getCount()
+    def getMeanRate           = codahaleTimer.getMeanRate()
   }
 
   def counter(name: String): Counter = {
