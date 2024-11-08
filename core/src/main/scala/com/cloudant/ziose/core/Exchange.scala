@@ -9,7 +9,7 @@ package com.cloudant.ziose.core
  * 2. As part of EngineWorker. In this case it does routing based on Address.
  */
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio.stream.ZStream
 import zio.{Enqueue, Queue, Scope, Trace, UIO, ZIO}
 
@@ -79,7 +79,7 @@ class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], val registry
     queue.size
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"queue=$queue",

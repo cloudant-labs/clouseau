@@ -13,7 +13,7 @@ import com.cloudant.ziose.core.{
   Result,
   Success
 }
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import com.ericsson.otp.erlang.{OtpErlangPid, OtpErlangRef, OtpMbox, OtpNode}
 import zio.stream.{UStream, ZStream}
 import zio.{&, Duration, IO, Promise, Queue, RIO, RLayer, Schedule, Scope, Trace, UIO, URIO, ZIO, ZLayer, durationInt}
@@ -169,7 +169,7 @@ object OTPNode {
       }
     }
 
-    @checkEnv(System.getProperty("env"))
+    @CheckEnv(System.getProperty("env"))
     def toStringMacro: List[String] = List(
       s"${getClass.getSimpleName}",
       s"node=$node",

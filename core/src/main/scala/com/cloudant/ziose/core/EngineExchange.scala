@@ -1,6 +1,6 @@
 package com.cloudant.ziose.core
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio.{Queue, Scope, Trace, UIO, ZIO}
 
 class EngineExchange private (
@@ -55,7 +55,7 @@ class EngineExchange private (
   def foreach(fn: (EngineWorker) => Unit): UIO[Unit]    = exchange.foreach(fn)
   def map[B](fn: (EngineWorker) => B): UIO[Iterable[B]] = exchange.map(fn)
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"exchange=$exchange"

@@ -5,11 +5,11 @@ import scala.reflect.macros.whitebox
 import scala.annotation.{StaticAnnotation, compileTimeOnly}
 
 @compileTimeOnly("Enable macro paradise to expand macro annotations")
-class checkEnv(key: String) extends StaticAnnotation {
-  def macroTransform(annottees: Any*): Any = macro checkEnv.impl
+class CheckEnv(key: String) extends StaticAnnotation {
+  def macroTransform(annottees: Any*): Any = macro CheckEnv.impl
 }
 
-object checkEnv {
+object CheckEnv {
   def impl(c: whitebox.Context)(annottees: c.Expr[Any]*): c.Expr[Any] = {
     import c.universe._
 

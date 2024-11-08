@@ -11,7 +11,7 @@ Eshell V13.2.2.6  (abort with ^G)
 (node1@127.0.0.1)2>
  */
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import com.cloudant.ziose.{core, scalang}
 import core.ActorBuilder.State
 import core.{ActorBuilder, ActorConstructor, BuildInfo, Codec, ProcessContext}
@@ -87,7 +87,7 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
     }
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"ctx=$ctx",

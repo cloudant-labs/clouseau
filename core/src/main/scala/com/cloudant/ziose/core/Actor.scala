@@ -1,6 +1,6 @@
 package com.cloudant.ziose.core
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio.{Cause, Duration, Trace, UIO, ZIO}
 import java.util.concurrent.atomic.AtomicBoolean
 import zio.Promise
@@ -260,7 +260,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
    */
   def lookUpName(name: String) = ctx.lookUpName(name)
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"id=${ctx.id}",

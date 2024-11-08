@@ -14,7 +14,7 @@ import core.Node
 import core.MessageEnvelope
 import core.ProcessContext
 import core.ZioSupport
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio._
 
 import java.util.concurrent.TimeUnit
@@ -25,21 +25,21 @@ import com.cloudant.ziose.core.PID
 trait Error extends Throwable
 
 case class HandleCallCBError(err: Throwable) extends Error {
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"Error.${getClass.getSimpleName}",
     s"err=${err.getMessage}"
   )
 }
 case class HandleCastCBError(err: Throwable) extends Error {
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"Error.${getClass.getSimpleName}",
     s"err=${err.getMessage}"
   )
 }
 case class HandleInfoCBError(err: Throwable) extends Error {
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"Error.${getClass.getSimpleName}",
     s"err=${err.getMessage}"
@@ -310,7 +310,7 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
    */
   def trapMonitorExit(monitored: Any, ref: Reference, reason: Any) = ()
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"adapter=$adapter",
@@ -330,7 +330,7 @@ class PidSend(to: Pid, proc: Process) {
     proc.send(to, msg)
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"to=$to",
@@ -343,7 +343,7 @@ class SymSend(to: Symbol, proc: Process) {
     proc.send(to, msg)
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"to=$to",
@@ -356,7 +356,7 @@ class DestSend(to: (Symbol, Symbol), from: Pid, proc: Process) {
     proc.send(to, from, msg)
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"to=$to",
@@ -548,7 +548,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     err.getStackTrace().foreach(e => println(s"  ${e.toString()}"))
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"ctx=$ctx",

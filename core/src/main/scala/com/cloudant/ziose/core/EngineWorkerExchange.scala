@@ -1,6 +1,6 @@
 package com.cloudant.ziose.core
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio.{Queue, Scope, Trace, UIO, ZIO}
 
 class EngineWorkerExchange private (
@@ -57,7 +57,7 @@ class EngineWorkerExchange private (
   }
   def run = exchange.run
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"exchange=$exchange"

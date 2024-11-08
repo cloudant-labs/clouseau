@@ -1,6 +1,6 @@
 package com.cloudant.ziose.core
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 
 trait ActorBuilder[A <: Actor]
 
@@ -121,7 +121,7 @@ object ActorBuilder {
       AddressableActor(constructor(ctx), ctx)
     }
 
-    @checkEnv(System.getProperty("env"))
+    @CheckEnv(System.getProperty("env"))
     def toStringMacro: List[String] = List(
       s"${getClass.getSimpleName}",
       s"capacity=$capacity",

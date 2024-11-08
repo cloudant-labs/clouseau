@@ -18,7 +18,7 @@ EngineWorker needs Engine
 
  */
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio.{Queue, Scope, UIO, ZIO}
 
 class Engine(exchange: EngineExchange) {
@@ -48,7 +48,7 @@ class Engine(exchange: EngineExchange) {
     exchange.offer(msg)
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"exchange=$exchange",

@@ -6,7 +6,7 @@ import _root_.com.cloudant.ziose.core
 import core.Codec.EPid
 import core.Codec.ToScala
 import core.Codec.FromScala
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 
 case class Pid(node: Symbol, id: Int, serial: Int, creation: Int) extends FromScala {
   def fromScala = EPid(node.name, id, serial, creation)
@@ -22,7 +22,7 @@ case class Pid(node: Symbol, id: Int, serial: Int, creation: Int) extends FromSc
     Pid.e2pid(pid)
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"node=$node",

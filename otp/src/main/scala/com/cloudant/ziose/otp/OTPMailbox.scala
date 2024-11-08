@@ -21,7 +21,7 @@ import com.cloudant.ziose.core.PID
 import com.cloudant.ziose.core.Name
 import com.cloudant.ziose.core.NameOnNode
 import com.cloudant.ziose.core.Node
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio._
 import zio.stream.ZStream
 import zio.Exit
@@ -385,7 +385,7 @@ class OTPMailbox private (
     }
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"id=$id",
