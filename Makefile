@@ -149,7 +149,7 @@ deps:
 
 .PHONY: all-tests
 # target: all-tests - Run all test suites
-all-tests: test zeunit couchdb-tests
+all-tests: test zeunit couchdb-tests metrics-tests
 
 .PHONY: test
 # target: test - Run all Scala tests
@@ -195,6 +195,7 @@ jartest: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
 # target: clean - Clean Java/Scala artifacts
 clean:
 	@rm -rf tmp $(ARTIFACTS_DIR)/*
+	@rm collectd/*.class
 	@sbt clean
 
 .PHONY: epmd
@@ -479,3 +480,31 @@ couchdb-tests: couchdb
 	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) couchdb-tests-failed
 	@timeout $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) couchdb-tests-failed
 	@$(MAKE) stop-clouseau
+
+collectd/clouseau.class: collectd/clouseau.java
+	javac -source 1.7 -target 1.7 "$<"
+
+.PHONY: metrics-tests-failed
+metrics-tests-failed:
+	@cli stop $(node_name)
+	@exit 1
+
+.PHONY: metrics-tests
+# target: metrics-tests - Run JMX metrics collection tests
+metrics-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar collectd/clouseau.class
+	@chmod 600 jmxremote.password
+	@cli start $(node_name) \
+		"java \
+                      -Dcom.sun.management.jmxremote.port=9090 \
+                      -Dcom.sun.management.jmxremote.ssl=false \
+		      -Dcom.sun.management.jmxremote.password.file=jmxremote.password \
+                      -jar $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar" > /dev/null
+	@echo Warming up Clouseau to expose all the metrics
+	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) metrics-tests-failed
+	@echo "Collecting metrics"
+	@java -cp collectd clouseau "service:jmx:rmi:///jndi/rmi://localhost:9090/jmxrmi" monitorRole password > collectd/metrics.out
+	@cli stop $(node_name)
+	@echo "Comparing collected metrics with expectations":
+	@if diff -u collectd/metrics.out collectd/metrics.expected; then \
+		echo "Everything is in order"; \
+	fi

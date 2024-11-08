@@ -1,0 +1,8 @@
+"com.cloudant.clouseau":name="searches",type="IndexService"
+"com.cloudant.clouseau":name="opens",type="IndexManagerService"
+"com.cloudant.clouseau":name="commits",type="IndexService"
+"com.cloudant.clouseau":name="updates",type="IndexService"
+"com.cloudant.clouseau":name="deletes",type="IndexService"
+"com.cloudant.clouseau":name="lru.misses",type="IndexManagerService"
+"com.cloudant.clouseau":name="lru.evictions",type="IndexManagerService"
+"com.cloudant.clouseau":name="partition_search.timeout.count",type="IndexService"

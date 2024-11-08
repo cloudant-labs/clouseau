@@ -55,13 +55,13 @@ class JmxObjectNameFactory(
       if (components.service.isEmpty) throw new RuntimeException("JMX name transformer must return valid service")
       if (components.name.isEmpty) throw new RuntimeException("JMX name transformer must return valid name")
 
-      val metricNameBuilder = new StringBuilder(components.domain)
+      val metricNameBuilder = new StringBuilder(ObjectName.quote(components.domain))
       metricNameBuilder.append(':')
       metricNameBuilder.append("type=")
-      metricNameBuilder.append(components.service)
+      metricNameBuilder.append(ObjectName.quote(components.service))
       metricNameBuilder.append(',')
       metricNameBuilder.append("name=")
-      metricNameBuilder.append(components.name)
+      metricNameBuilder.append(ObjectName.quote(components.name))
 
       new ObjectName(metricNameBuilder.toString)
     } catch {
