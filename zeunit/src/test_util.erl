@@ -2,6 +2,7 @@
 -export([
     spawn_echo/1,
     tempdb/0,
+    random_atom/0,
     wait_healthy/0
 ]).
 
@@ -19,6 +20,9 @@ rand_char(N, Acc) ->
 
 tempdb() ->
     iolist_to_binary(["eunit-test-db-", rand_char(10)]).
+
+random_atom() ->
+    list_to_atom("eunit-atom-" ++ rand_char(10)).
 
 spawn_echo(Name) ->
     {ok, Pid} = gen_server:call({init, ?NodeZ}, {spawn, echo, Name}),
