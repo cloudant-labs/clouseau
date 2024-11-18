@@ -308,7 +308,7 @@ version:
 zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
 	@cli start $(node_name) "java -jar $<"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)"
-	@epmd -stop $(node_name)
+	@epmd -stop $(node_name) >/dev/null 2>&1 || true
 	@$(call to_artifacts,test-reports)
 
 .PHONY: eshell
@@ -459,7 +459,7 @@ stop-clouseau:
 			break; \
 		fi; \
 	done
-	@epmd -stop $(node_name)
+	@epmd -stop $(node_name) >/dev/null 2>&1 || true
 
 mango-test: couchdb
 	@$(MAKE) -C $(COUCHDB_DIR) mango-test
