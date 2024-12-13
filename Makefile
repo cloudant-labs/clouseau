@@ -495,16 +495,16 @@ metrics-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
 	@chmod 600 jmxremote.password
 	@cli start $(node_name) \
 		"java \
-                      -Dcom.sun.management.jmxremote.port=9090 \
-                      -Dcom.sun.management.jmxremote.ssl=false \
-		      -Dcom.sun.management.jmxremote.password.file=jmxremote.password \
-                      -jar $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar" > /dev/null
-	@echo Warming up Clouseau to expose all the metrics
+       -Dcom.sun.management.jmxremote.port=9090 \
+       -Dcom.sun.management.jmxremote.ssl=false \
+       -Dcom.sun.management.jmxremote.password.file=jmxremote.password \
+       -jar $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar" > /dev/null
+	@echo "Warming up Clouseau to expose all the metrics"
 	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) metrics-tests-failed
 	@echo "Collecting metrics"
 	@java -cp collectd clouseau "service:jmx:rmi:///jndi/rmi://localhost:9090/jmxrmi" monitorRole password > collectd/metrics.out
 	@cli stop $(node_name)
-	@echo "Comparing collected metrics with expectations":
+	@echo "Comparing collected metrics with expectations:"
 	@if diff -u collectd/metrics.out collectd/metrics.expected; then \
 		echo "Everything is in order"; \
 	fi
