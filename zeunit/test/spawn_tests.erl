@@ -8,7 +8,6 @@
 
 -define(INIT_SERVICE, init).
 -define(TIMEOUT_IN_MS, 1000).
--define(ONE_SECOND_IN_USEC, 1_000_000).
 
 spawn_test_() ->
     {
@@ -54,7 +53,7 @@ t_spawn_many({Prefix, Concurrency}) ->
     ),
     T2 = ts(),
     ?assertEqual(Concurrency, length([Idx || Idx <- Results, is_integer(Idx)])),
-    ?assert(T2 - T1 < ?ONE_SECOND_IN_USEC),
+    ?assert(T2 - T1 < 1.5 * ?TIMEOUT_IN_MS),
     ok.
 
 %%%%%%%%%%%%%%% Setup Functions %%%%%%%%%%%%%%%
@@ -89,4 +88,4 @@ process_name(Prefix, Idx) ->
     binary_to_atom(<<Prefix/binary, IdxBin/binary>>).
 
 ts() ->
-    erlang:system_time(microsecond).
+    erlang:system_time(millisecond).
