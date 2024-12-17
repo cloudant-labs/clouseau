@@ -16,7 +16,7 @@ sbt 1.9.8
 yq 4.40.7
 
 # project management tools
-github-cli 2.43.1
+github-cli 2.63.2
 
 # optional auxiliary tools
 bat 0.24.0

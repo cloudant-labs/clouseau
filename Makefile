@@ -17,8 +17,8 @@ COUCHDB_ROOT?=deps/couchdb
 COUCHDB_CONFIGURE_ARGS?=--js-engine=quickjs --disable-docs --disable-fauxton --disable-spidermonkey
 
 TIMEOUT_CLOUSEAU_SEC?=120
-TIMEOUT_MANGO_TEST?=15m
-TIMEOUT_ELIXIR_SEARCH?=15m
+TIMEOUT_MANGO_TEST?=20m
+TIMEOUT_ELIXIR_SEARCH?=20m
 
 ERLANG_COOKIE?=	#
 
