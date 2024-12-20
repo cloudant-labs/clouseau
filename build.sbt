@@ -1,17 +1,15 @@
-ThisBuild / scalaVersion := "2.13.12"
+ThisBuild / scalaVersion := "2.13.15"
 
 val readVersion = {
-  val content = IO.read(file("version.sbt"))
+  val content      = IO.read(file("version.sbt"))
   val versionRegex = """.*version\s*:=\s*"([^"]+)".*""".r
   versionRegex.findFirstMatchIn(content) match {
-    case Some(m) => {
-      m.group(1)
-    }
-    case None => throw new Exception("Could not parse version from version.sbt")
+    case Some(m) => m.group(1)
+    case None    => throw new Exception("Could not parse version from version.sbt")
   }
 }
 
-ThisBuild / version      := s"${readVersion}"
+ThisBuild / version := s"${readVersion}"
 
 updateOptions := updateOptions.value.withCachedResolution(true)
 
@@ -143,7 +141,7 @@ lazy val clouseau = (project in file("clouseau"))
     libraryDependencies ++= luceneComponents
   )
   .settings(
-    assembly / assemblyJarName              := {
+    assembly / assemblyJarName := {
       if (sys.props.getOrElse("jartest", "false").toBoolean) {
         s"${name.value}_${scalaVersion.value}_${version.value}_test.jar"
       } else {

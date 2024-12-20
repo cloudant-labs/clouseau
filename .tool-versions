@@ -3,14 +3,14 @@ direnv 2.33.0
 
 # build tools
 java openjdk-17
-scala 2.13.12
+scala 2.13.15
 # erlang needs java so it should be after it in the list
 # the only version which supports observer
 erlang 25.3.2.15
 rebar 3.24.0
 coursier 2.1.8
 editorconfig-checker 3.0.3
-sbt 1.9.8
+sbt 1.10.6
 
 # required tools
 yq 4.40.7
