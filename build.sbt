@@ -20,7 +20,8 @@ val versions: Map[String, String] = Map(
   "zio.metrics" -> "2.3.1",
   "jmx"         -> "1.12.3",
   "reflect"     -> "2.13.14",
-  "lucene"      -> "4.6.1-cloudant1"
+  "lucene"      -> "4.6.1-cloudant1",
+  "tinylog"     -> "2.7.0"
 )
 
 lazy val luceneComponents = Seq(
@@ -39,6 +40,16 @@ lazy val luceneComponents = Seq(
   "org.apache.lucene" % "lucene-highlighter"        % versions("lucene")
 )
 
+val commonMergeStrategy: String => sbtassembly.MergeStrategy = {
+  case PathList(ps @ _*) if ps.last == "module-info.class" => MergeStrategy.discard
+  case PathList("META-INF", "services", xs @ _*) if xs.last.contains("org.apache.lucene") =>
+    MergeStrategy.preferProject
+  case PathList("META-INF", "MANIFEST.MF")             => MergeStrategy.discard
+  case PathList("NOTICE", _*)                          => MergeStrategy.discard
+  case PathList(ps @ _*) if Assembly.isReadme(ps.last) => MergeStrategy.discard
+  case _                                               => MergeStrategy.deduplicate
+}
+
 lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(
     // The single % is for java libraries
@@ -55,19 +66,14 @@ lazy val commonSettings = Seq(
     "dev.zio"       %% "zio-streams"                       % versions("zio"),
     "io.micrometer"  % "micrometer-registry-jmx"           % versions("jmx"),
     "org.scala-lang" % "scala-reflect"                     % versions("reflect"),
+    "org.tinylog"    % "tinylog-api"                       % versions("tinylog"),
+    "org.tinylog"    % "tinylog-impl"                      % versions("tinylog"),
     "dev.zio"       %% "zio-test"                          % versions("zio") % Test,
     "dev.zio"       %% "zio-test-junit"                    % versions("zio") % Test,
     "com.github.sbt" % "junit-interface"                   % "0.13.3"        % Test,
     "junit"          % "junit"                             % "4.13.2"        % Test
   ),
-  assembly / assemblyMergeStrategy := {
-    case PathList("META-INF", "services", xs @ _*) if xs.last.contains("org.apache.lucene") =>
-      MergeStrategy.preferProject
-    case PathList("META-INF", "MANIFEST.MF")             => MergeStrategy.discard
-    case PathList("NOTICE", _*)                          => MergeStrategy.discard
-    case PathList(ps @ _*) if Assembly.isReadme(ps.last) => MergeStrategy.discard
-    case _                                               => MergeStrategy.deduplicate
-  },
+  assembly / assemblyMergeStrategy := commonMergeStrategy,
   assembly / fullClasspath ++= (
     if (sys.props.getOrElse("jartest", "false").toBoolean) (Test / fullClasspath).value else Seq()
   ),
@@ -190,7 +196,8 @@ lazy val root = (project in file("."))
   .settings(
     scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports"),
     inThisBuild(List(organization := "com.cloudant")),
-    name := "ziose"
+    name := "ziose",
+    assembly / assemblyMergeStrategy := commonMergeStrategy
   )
   .settings(
     Compile / console / scalacOptions -= "-Ywarn-unused:imports"

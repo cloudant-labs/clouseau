@@ -1,22 +1,83 @@
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.scalang.Adapter
-import zio.{Cause, Runtime, LogLevel, Trace}
+import zio.{Cause, Runtime, LogLevel, Trace, ZIO, ZLayer, ZLogger}
 import zio.ZIO.{logDebug, logError, logErrorCause, logInfo, logWarning, logWarningCause}
 import zio.logging.{
   loggerName,
   consoleLogger,
   consoleJsonLogger,
   ConsoleLoggerConfig,
-  LogFormat,
   LogFilter,
   LogGroup,
-  LoggerNameExtractor
+  LoggerNameExtractor,
+  FilteredLogger
 }
 import zio.logging.LogFormat._
 import zio.logging.slf4j.bridge.Slf4jBridge
+import org.tinylog.Logger
+import org.tinylog.configuration.Configuration
 import java.time.format.DateTimeFormatter
 import java.time.ZoneOffset
+
+// ad-hoc extension of zio.logging.LoggerLayers, shall be backported to upstream
+object LoggerLayers {
+  def syslogLogger(
+    config: ConsoleLoggerConfig,
+    syslogConfig: Option[SyslogConfiguration]
+  ): ZLayer[Any, Nothing, Unit] = {
+    makeZLayer(config.format.toLogger, config.toFilter, syslogConfig)
+  }
+
+  def syslogJsonLogger(
+    config: ConsoleLoggerConfig,
+    syslogConfig: Option[SyslogConfiguration]
+  ): ZLayer[Any, Nothing, Unit] = {
+    makeZLayer(config.format.toJsonLogger, config.toFilter, syslogConfig)
+  }
+
+  private def makeZLayer(
+    logger: ZLogger[String, String],
+    filter: LogFilter[String],
+    config: Option[SyslogConfiguration]
+  ): ZLayer[Any, Nothing, Unit] = {
+    ZLayer.scoped {
+      ZIO
+        .succeed(syslogLogger(logger, config))
+        .map(FilteredLogger(_, filter))
+        .flatMap(ZIO.withLoggerScoped(_))
+    }
+  }
+
+  private def syslogLogger(
+    logger: ZLogger[String, String],
+    config: Option[SyslogConfiguration]
+  ): ZLogger[String, Any] = {
+    val protocol = config.flatMap(_.protocol).getOrElse(SyslogProtocol.UDP)
+    val host     = config.flatMap(_.host).getOrElse("localhost")
+    val port     = config.flatMap(_.port).getOrElse(514)
+    val facility = config.flatMap(_.facility).getOrElse("CONSOLE")
+    val level    = config.flatMap(_.level).getOrElse("debug")
+    val tag      = config.flatMap(_.tag).getOrElse("")
+
+    Configuration.set("writer", "syslog")
+    Configuration.set("writer.format", s"${tag}{message}")
+    Configuration.set("writer.protocol", protocol.toString)
+    Configuration.set("writer.host", host)
+    Configuration.set("writer.port", port.toString)
+    Configuration.set("writer.facility", facility)
+    Configuration.set("writer.level", level)
+
+    val syslogLogger = logger.map { line =>
+      try Logger.info(line.asInstanceOf[Object])
+      catch {
+        case t: VirtualMachineError => throw t
+        case _: Throwable           => ()
+      }
+    }
+    syslogLogger
+  }
+}
 
 object LoggerFactory {
   case class NamedLogger(id: String) extends ZioSupport {
@@ -70,7 +131,9 @@ object LoggerFactory {
         level.fixed(7) +
         fiberId.fixed(21) + space +
         (enclosingClass + text(":") + traceLine).fixed(32) + space +
-        (text("[") + LogFormat.loggerName(LoggerNameExtractor.annotation("logger_name")) + text("]") + space) +
+        (text("[") + zio.logging.LogFormat.loggerName(LoggerNameExtractor.annotation("logger_name")) + text(
+          "]"
+        ) + space) +
         line +
         (space + cause).filter(LogFilter.causeNonEmpty)
     ).highlight
@@ -93,15 +156,18 @@ object LoggerFactory {
   }
 
   private def loggerForOutput(cfg: LogConfiguration) = {
-    val format: LogOutput = cfg.output.getOrElse(LogOutput.PlainText)
+    val output: LogOutput = cfg.output.getOrElse(LogOutput.Stdout)
+    val format: LogFormat = cfg.format.getOrElse(LogFormat.PlainText)
     val level: LogLevel   = cfg.level.getOrElse(LogLevel.Debug)
-    val (config, logger) = format match {
-      case LogOutput.PlainText =>
-        val config = ConsoleLoggerConfig(logFormatPlainText, logFilterConfig(level))
-        (config, consoleLogger(config))
-      case LogOutput.JSON =>
-        val config = ConsoleLoggerConfig(logFormatJSON, logFilterConfig(level))
-        (config, consoleJsonLogger(config))
+    val config = format match {
+      case LogFormat.PlainText => ConsoleLoggerConfig(logFormatPlainText, logFilterConfig(level))
+      case LogFormat.JSON      => ConsoleLoggerConfig(logFormatJSON, logFilterConfig(level))
+    }
+    val logger = (output, format) match {
+      case (LogOutput.Stdout, LogFormat.PlainText) => consoleLogger(config)
+      case (LogOutput.Stdout, LogFormat.JSON)      => consoleJsonLogger(config)
+      case (LogOutput.Syslog, LogFormat.PlainText) => LoggerLayers.syslogLogger(config, cfg.syslog)
+      case (LogOutput.Syslog, LogFormat.JSON)      => LoggerLayers.syslogJsonLogger(config, cfg.syslog)
     }
     logger >+> Slf4jBridge.init(config.toFilter)
   }

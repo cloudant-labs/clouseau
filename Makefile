@@ -149,7 +149,7 @@ deps:
 
 .PHONY: all-tests
 # target: all-tests - Run all test suites
-all-tests: test zeunit couchdb-tests metrics-tests
+all-tests: test zeunit couchdb-tests metrics-tests syslog-tests
 
 .PHONY: test
 # target: test - Run all Scala tests
@@ -508,3 +508,38 @@ metrics-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
 	@if diff -u collectd/metrics.out collectd/metrics.expected; then \
 		echo "Everything is in order"; \
 	fi
+
+FORCE: # https://www.gnu.org/software/make/manual/html_node/Force-Targets.html
+
+syslog-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar FORCE
+	@sed \
+	  -e "s/%%FORMAT%%/$(FORMAT)/" \
+	  -e "s/%%PROTOCOL%%/$(PROTOCOL)/" \
+	  -e "s/%%HOST%%/$(HOST)/" \
+	  -e "s/%%PORT%%/$(PORT)/" \
+	  -e "s/%%FACILITY%%/$(FACILITY)/" \
+	  -e "s/%%LEVEL%%/$(LEVEL)/" \
+	  syslog.app.conf.templ > syslog.app.conf
+	@cli start $(node_name) "java -jar $< syslog.app.conf"
+	@echo ">>> Waiting for Clouseau to generate logs (5 seconds)"
+	@sleep 5
+	@cli stop $(node_name)
+	@if grep -Fq "Clouseau running as clouseau1@127.0.0.1" syslog.out; then \
+		echo ">>> Log events received!"; \
+	else \
+		echo ">>> FAILED to receive log events!"; \
+		exit 1; \
+	fi
+
+.PHONY: syslog-tests
+# target: syslog-tests - Run syslog output tests
+syslog-tests:
+	@echo "Syslog test case: TCP/PlainText"
+	@nc -l 127.0.0.1 2000 > syslog.out &
+	@echo ">>> Receiver started"
+	@$(MAKE) syslog-test FORMAT=PlainText PROTOCOL=TCP HOST=127.0.0.1 PORT=2000 FACILITY=LOCAL5 LEVEL=info
+
+	@echo "Syslog test case: UDP/JSON"
+	@nc -lu 127.0.0.1 2000 > syslog.out &
+	@echo ">>> Receiver started"
+	@$(MAKE) syslog-test FORMAT=JSON PROTOCOL=UDP HOST=127.0.0.1 PORT=2000 FACILITY=LOCAL5 LEVEL=info
