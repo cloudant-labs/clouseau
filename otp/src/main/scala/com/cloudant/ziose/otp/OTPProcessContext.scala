@@ -3,7 +3,6 @@ package com.cloudant.ziose.otp
 import java.util.concurrent.atomic.AtomicBoolean
 
 import zio._
-import zio.stream.ZStream
 
 import com.ericsson.otp.erlang.OtpMbox
 import com.cloudant.ziose.core.ProcessContext
@@ -83,7 +82,7 @@ class OTPProcessContext private (
   def monitor(monitored: Address) = mailbox.monitor(monitored)
   def demonitor(ref: Codec.ERef)  = mailbox.demonitor(ref)
 
-  def stream: ZStream[Any, Throwable, MessageEnvelope] = mailbox.stream
+  def nextEvent: ZIO[Any, Nothing, Option[MessageEnvelope]] = mailbox.nextEvent
 
   def forkScoped[R, E, A](effect: ZIO[R, E, A]): URIO[R, Fiber.Runtime[E, A]] = {
     effect.forkIn(scope)

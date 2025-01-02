@@ -1,7 +1,6 @@
 package com.cloudant.ziose.core
 
 import zio._
-import zio.stream.ZStream
 
 trait ProcessContext extends EnqueueWithId[Address, MessageEnvelope] {
   val id: Address // FIXME
@@ -14,7 +13,7 @@ trait ProcessContext extends EnqueueWithId[Address, MessageEnvelope] {
   def call(msg: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response]
   def cast(msg: MessageEnvelope.Cast): UIO[Unit]
   def send(msg: MessageEnvelope.Send): UIO[Unit]
-  def stream: ZStream[Any, Throwable, MessageEnvelope]
+  def nextEvent: ZIO[Any, Nothing, Option[MessageEnvelope]]
   def exit(reason: Codec.ETerm): UIO[Unit]
   def exit(msg: MessageEnvelope.Exit): UIO[Unit]
   def unlink(to: Codec.EPid): UIO[Unit]

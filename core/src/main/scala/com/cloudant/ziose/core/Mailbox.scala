@@ -1,7 +1,6 @@
 package com.cloudant.ziose.core
 
 import zio._
-import zio.stream.ZStream
 
 /*
  * - def stream: - is used by Actor to retrieve messages
@@ -19,7 +18,7 @@ import zio.stream.ZStream
  */
 
 trait Mailbox extends EnqueueWithId[Address, MessageEnvelope] {
-  def stream: ZStream[Any, Throwable, MessageEnvelope]
+  def nextEvent: ZIO[Any, Nothing, Option[MessageEnvelope]]
   def start(scope: Scope): ZIO[Any with Scope, Nothing, Unit]
   def exit(msg: MessageEnvelope.Exit): ZIO[Any with Scope, Nothing, Unit]
   def unlink(to: Codec.EPid): UIO[Unit]

@@ -157,8 +157,7 @@ class OTPMailbox private (
   val mbox: OtpMbox,
   private val compositeMailbox: Queue[MessageEnvelope],
   private val internalMailbox: Queue[MessageEnvelope],
-  private val externalMailbox: Queue[MessageEnvelope],
-  private val s: ZStream[Any, Throwable, MessageEnvelope]
+  private val externalMailbox: Queue[MessageEnvelope]
 ) extends Mailbox
     with OtpMboxListener {
 
@@ -166,8 +165,7 @@ class OTPMailbox private (
   private val callResults: HashMap[Codec.ERef, Codec.ETerm]    = HashMap()
   private var isFinalized: AtomicBoolean                       = new AtomicBoolean(false)
 
-  // TODO: Make it private and make `run` public instead in the trait
-  def stream = s.map(handleCall).collect { case Some(message) => message }
+  def nextEvent = compositeMailbox.take.flatMap(e => ZIO.succeed(handleCall(e)))
 
   def handleCall(envelope: MessageEnvelope): Option[MessageEnvelope] = {
     def maybeConstructResult(ref: Codec.ERef, term: Codec.ETerm) = {
@@ -395,7 +393,6 @@ class OTPMailbox private (
     s"compositeMailbox=$compositeMailbox",
     s"internalMailbox=$internalMailbox",
     s"externalMailbox=$externalMailbox",
-    s"stream=$stream",
     s"compositeMailbox.capacity=$capacity",
     s"compositeMailbox.size=$size"
   )
@@ -424,8 +421,7 @@ object OTPMailbox {
       internalMailbox: Queue[MessageEnvelope],
       externalMailbox: Queue[MessageEnvelope]
     ): OTPMailbox = {
-      val aggregatedStream = ZStream.fromQueueWithShutdown(compositeMailbox)
-      new OTPMailbox(address, mbox, compositeMailbox, internalMailbox, externalMailbox, aggregatedStream)
+      new OTPMailbox(address, mbox, compositeMailbox, internalMailbox, externalMailbox)
     }
     capacity match {
       case None =>

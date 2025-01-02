@@ -69,21 +69,6 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
       )) @@ AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnInit)
   } yield res
 
-  def stream = ctx.stream
-    // .tap(x => Console.printLine(s"actor stream: $x"))
-    .refineOrDie {
-      // TODO use Cause.annotate to add extra metainfo about location of a failure
-      case e: ArithmeticException => {
-        println(s"refining ArithmeticException ${e}")
-        e
-      }
-      case e: Throwable => {
-        println(s"refining Throwable ${e}")
-        e
-      }
-    }
-  // .tap(x => printLine(s"actor stream after onMessage: $x"))
-
   def onTermination(result: ActorResult): ZIO[Any, Nothing, ActorResult] = for {
     _ <- ctx.worker.unregister(self)
     res <- (actor
@@ -143,10 +128,20 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
      * ```
      */
     val handleMessage = handleActorMessage(continue)
+    def loop(): ZIO[Any, Nothing, Boolean] = {
+      ZIO.iterate(true)(res => res) { _ =>
+        for {
+          event <- ctx.nextEvent
+          shouldContinue <- event match {
+            case Some(event) => handleMessage(event)
+            case None        => ZIO.succeed(true)
+          }
+        } yield shouldContinue
+      }
+    }
     for {
       _ <- ctx.forkScoped(
-        stream
-          .runForeachWhileScoped(handleMessage)
+        loop()
       ) @@ AddressableActor.addressLogAnnotation(ctx.id) @@ AddressableActor.actorTypeLogAnnotation(
         actor.getClass.getSimpleName
       )
