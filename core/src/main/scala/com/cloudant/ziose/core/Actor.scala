@@ -123,7 +123,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     ctx.size
   }
 
-  def start(continue: Promise[Nothing, Unit]) = for {
+  def start(continue: Promise[Nothing, Unit]) = {
     /*
      * The use of `continue` makes sure we don't return to the caller of the spawn before
      * we start handling the `MessageEnvelope.Init` to prevent the caller from sending the
@@ -142,15 +142,18 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
      * Note right of actorFiber: call Actor.onInit
      * ```
      */
-    _ <- ctx.forkScoped(
-      stream
-        .runForeachWhileScoped(handleActorMessage(continue))
-    ) @@ AddressableActor.addressLogAnnotation(ctx.id) @@ AddressableActor.actorTypeLogAnnotation(
-      actor.getClass.getSimpleName
-    )
-    _ <- offer(MessageEnvelope.Init(id))
-    _ <- ctx.start()
-  } yield ()
+    val handleMessage = handleActorMessage(continue)
+    for {
+      _ <- ctx.forkScoped(
+        stream
+          .runForeachWhileScoped(handleMessage)
+      ) @@ AddressableActor.addressLogAnnotation(ctx.id) @@ AddressableActor.actorTypeLogAnnotation(
+        actor.getClass.getSimpleName
+      )
+      _ <- offer(MessageEnvelope.Init(id))
+      _ <- ctx.start()
+    } yield ()
+  }
 
   def handleActorMessage(
     continue: Promise[Nothing, Unit]
