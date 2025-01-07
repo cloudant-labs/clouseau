@@ -115,7 +115,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   // TODO the ClouseauTypeFactory should happen elsewhere
   def internalHandleCall(tag: (Pid, Any), msg: Any): Any = msg match {
     case request: SearchRequest =>
-      search(request)
+      node.spawn(_ => {
+        val result = search(request)
+        Service.reply(tag, result)
+      })
+      'noreply
     case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
       groupLimit: Int) =>
       group1(query, field, refresh, groupSort, groupOffset, groupLimit)
