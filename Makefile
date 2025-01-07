@@ -449,7 +449,7 @@ stop-clouseau: CLOUSEAU_PID := $(shell $(clouseauPid))
 stop-clouseau:
 	@echo '>>>>> Stopping Clouseau...'
 	@if [ -z "${CLOUSEAU_PID}" ]; then echo '>>>>>> Clouseau is not running'; exit 1; fi
-	@kill -9 $(CLOUSEAU_PID)
+	@kill $(CLOUSEAU_PID)
 	@for i in $$(seq 1 ${TIMEOUT_CLOUSEAU_SEC}); do \
 		printf ">>>>>> Waiting... (%d seconds left)\n" $$(expr ${TIMEOUT_CLOUSEAU_SEC} - $$i); \
 		sleep 1; \
