@@ -8,6 +8,8 @@
 
 -define(INIT_SERVICE, init).
 -define(TIMEOUT_IN_MS, 1000).
+% We expect at least 3x speed up when doing things in parallel
+-define(ACCEPTABLE_CONCURENCY_TIME_RATIO, 3).
 
 spawn_test_() ->
     {
@@ -30,9 +32,11 @@ t_spawn_many({Prefix, Concurrency}) ->
             Name = process_name(Prefix, Idx),
             spawn(fun() ->
                 Pid = start_service(Name),
+                T1Call = ts(),
                 case gen_server:call(Pid, {echo, Idx}) of
                     {echo, Idx} ->
-                        Self ! Idx;
+                        T2Call = ts(),
+                        Self ! {Idx, T2Call - T1Call};
                     Else ->
                         ?debugFmt("Received unexpected event for idx=~i ~p~n", [Idx, Else])
                 end
@@ -43,8 +47,8 @@ t_spawn_many({Prefix, Concurrency}) ->
     Results = lists:map(
         fun(_) ->
             receive
-                Idx when is_integer(Idx) ->
-                    Idx
+                {Idx, Time} when is_integer(Idx) ->
+                    {Idx, Time}
             after ?TIMEOUT_IN_MS ->
                 timeout
             end
@@ -52,8 +56,11 @@ t_spawn_many({Prefix, Concurrency}) ->
         lists:seq(1, Concurrency)
     ),
     T2 = ts(),
-    ?assertEqual(Concurrency, length([Idx || Idx <- Results, is_integer(Idx)])),
-    ?assert(T2 - T1 < 1.5 * ?TIMEOUT_IN_MS),
+    %% make sure there were no timeouts
+    ?assertEqual(Concurrency, length([Idx || {Idx, _} <- Results, is_integer(Idx)])),
+    TotalTime = lists:foldl(fun({_Idx, RoundTripTime}, Acc) -> RoundTripTime + Acc end, 0, Results),
+    %% make sure the calls happened concurrently
+    ?assert(TotalTime > (T2 - T1) * ?ACCEPTABLE_CONCURENCY_TIME_RATIO),
     ok.
 
 %%%%%%%%%%%%%%% Setup Functions %%%%%%%%%%%%%%%
