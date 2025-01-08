@@ -29,6 +29,8 @@ import com.cloudant.ziose.core.ActorFactory
 import com.cloudant.ziose.scalang.Pid
 import com.cloudant.ziose.core.ActorResult
 import com.cloudant.ziose.core.Codec
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 case class ClouseauSupervisor(
     ctx: ServiceContext[ConfigurationArgs],
@@ -119,6 +121,8 @@ case class ClouseauSupervisor(
   private def spawnAndMonitorService[TS <: Service[A] with Actor: Tag, A <: Product](regName: Symbol, args: A)(implicit
     adapter: Adapter[_, _]
   ) = {
+    val beginTs = Instant.now()
+
     val result = (regName, args) match {
       // case (Symbol("IndexService"), args: IndexServiceArgs) => IndexServiceBuilder.start(adapter.node, args)
       case (Symbol("cleanup"), ConfigurationArgs(args))  => IndexCleanupServiceBuilder.start(adapter.node, args)
@@ -126,10 +130,13 @@ case class ClouseauSupervisor(
       case (Symbol("main"), ConfigurationArgs(args))     => IndexManagerServiceBuilder.start(adapter.node, args)
       case (Symbol("init"), ConfigurationArgs(args))     => InitService.start(adapter.node, "init", args)
     }
+    val timeSpentInMs = ChronoUnit.MILLIS.between(beginTs, Instant.now)
     val pid = result match {
       case (Symbol("ok"), pidUntyped) =>
+        logger.debug(s"${regName.name} is started after ${timeSpentInMs} ms")
         pidUntyped.asInstanceOf[Pid]
-      case e => throw new Throwable(s"cannot start ${e.toString}")
+      case e =>
+        throw new Throwable(s"cannot start ${regName.name} after ${timeSpentInMs} ms, due to ${e.toString}")
     }
     val ref = monitor(pid)
 
