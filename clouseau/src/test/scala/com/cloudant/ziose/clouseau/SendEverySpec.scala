@@ -226,7 +226,7 @@ class SendEverySpec extends JUnitRunnableSpec {
       )
     ).provideLayer(
       Utils.testEnvironment(1, 1, "SendEveryHandleCallSuite")
-    ) @@ TestAspect.withLiveClock
+    ) @@ TestAspect.withLiveClock @@ TestAspect.sequential
   }
 
   val handleInfoSuite: Spec[Any, Throwable] = {
@@ -253,7 +253,7 @@ class SendEverySpec extends JUnitRunnableSpec {
       )
     ).provideLayer(
       Utils.testEnvironment(1, 1, "SendEveryHandleInfoSuite")
-    ) @@ TestAspect.withLiveClock
+    ) @@ TestAspect.withLiveClock @@ TestAspect.sequential
   }
 
   def spec: Spec[Any, Throwable] = {

@@ -124,8 +124,8 @@ class ClouseauSupervisorSpec extends JUnitRunnableSpec {
           ?? "The new instance of actor should be responsive"
       )
     ).provideLayer(
-      Utils.testEnvironment(1, 1, "ServiceSpecClouseauSupervisorSpecSuite")
-    ) @@ TestAspect.withLiveClock @@ TestAspect.timeout(15.seconds)
+      Utils.testEnvironment(1, 1, "ClouseauSupervisorSpecSuite")
+    ) @@ TestAspect.withLiveClock @@ TestAspect.timeout(15.seconds) @@ TestAspect.sequential
   }
 
   def spec: Spec[Any, Throwable] = {

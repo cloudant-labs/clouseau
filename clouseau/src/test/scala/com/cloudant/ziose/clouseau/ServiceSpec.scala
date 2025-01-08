@@ -165,7 +165,7 @@ class ServiceSpec extends JUnitRunnableSpec {
       )
     ).provideLayer(
       Utils.testEnvironment(1, 1, "ServiceSpecTrapMonitorExitSuite")
-    ) @@ TestAspect.withLiveClock
+    ) @@ TestAspect.withLiveClock @@ TestAspect.sequential
   }
 
   def spec: Spec[Any, Throwable] = {
