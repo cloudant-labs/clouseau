@@ -104,7 +104,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     }
   }
 
-  debug("Opened at update_seq %d".format(updateSeq))
+  logger.debug(prefix_name("Opened at update_seq %d".format(updateSeq)))
 
   override def handleCall(tag: (Pid, Any), msg: Any): Any = {
     idle = false
@@ -126,28 +126,28 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     case 'get_purge_seq =>
       ('ok, purgeSeq)
     case UpdateDocMsg(id: String, doc: Document) =>
-      debug("Updating %s".format(id))
+      logger.debug(prefix_name("Updating %s".format(id)))
       updateTimer.time {
         ctx.args.writer.updateDocument(new Term("_id", id), doc)
       }
       'ok
     case DeleteDocMsg(id: String) =>
-      debug("Deleting %s".format(id))
+      logger.debug(prefix_name("Deleting %s".format(id)))
       deleteTimer.time {
         ctx.args.writer.deleteDocuments(new Term("_id", id))
       }
       'ok
     case CommitMsg(commitSeq: Long) => // deprecated
       pendingSeq = commitSeq
-      debug("Pending sequence is now %d".format(commitSeq))
+      logger.debug(prefix_name("Pending sequence is now %d".format(commitSeq)))
       'ok
     case SetUpdateSeqMsg(newSeq: Long) =>
       pendingSeq = newSeq
-      debug("Pending sequence is now %d".format(newSeq))
+      logger.debug(prefix_name("Pending sequence is now %d".format(newSeq)))
       'ok
     case SetPurgeSeqMsg(newPurgeSeq: Long) =>
       pendingPurgeSeq = newPurgeSeq
-      debug("purge sequence is now %d".format(newPurgeSeq))
+      logger.debug(prefix_name("purge sequence is now %d".format(newPurgeSeq)))
       'ok
     case 'info =>
       ('ok, getInfo)
@@ -157,12 +157,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
 
   override def handleCast(msg: Any) = msg match {
     case ('merge, maxNumSegments: Int) =>
-      debug("Forcibly merging index to no more than " + maxNumSegments + " segments.")
+      logger.debug(prefix_name("Forcibly merging index to no more than %d segments.".format(maxNumSegments)))
       node.spawn((_: Mailbox) => {
         ctx.args.writer.forceMerge(maxNumSegments, true)
         ctx.args.writer.commit
         forceRefresh = true
-        debug("Forced merge complete.")
+        logger.debug(prefix_name("Forced merge complete."))
       })
       ()
     case _ =>
@@ -195,7 +195,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       purgeSeq = newPurgeSeq
       forceRefresh = true
       committing = false
-      debug("Committed update sequence %d and purge sequence %d".format(newUpdateSeq, newPurgeSeq))
+      logger.debug(prefix_name("Committed update sequence %d and purge sequence %d".format(newUpdateSeq, newPurgeSeq)))
     case 'commit_failed =>
       committing = false
   }
@@ -213,26 +213,27 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
         }
       }
       if (fields.size > warningThreshold) {
-        warn("Index has more than %d fields, ".format(warningThreshold) +
-          "too many fields will lead to heap exhuastion")
+        logger.warn(prefix_name(
+          "Index has more than %d fields, ".format(warningThreshold) +
+            "too many fields will lead to heap exhaustion"))
       }
     }
     ()
   }
 
   override def exit(msg: Any) = {
-    debug("Closed with reason: %.1000s".format(msg))
+    logger.debug(prefix_name("Closed with reason: %.1000s".format(msg)))
     try {
       reader.close()
     } catch {
-      case e: IOException => warn("Error while closing reader", e)
+      case e: IOException => logger.warn(prefix_name("Error while closing reader"), e)
     }
     try {
       ctx.args.writer.rollback()
     } catch {
       case e: AlreadyClosedException => 'ignored
       case e: IOException =>
-        warn("Error while closing writer", e)
+        logger.warn(prefix_name("Error while closing writer"), e)
         val dir = ctx.args.writer.getDirectory
         if (IndexWriter.isLocked(dir)) {
           IndexWriter.unlock(dir);
@@ -258,10 +259,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
           index ! ('committed, newUpdateSeq, newPurgeSeq)
         } catch {
           case e: AlreadyClosedException =>
-            error("Commit failed to closed writer", e)
+            logger.error(prefix_name("Commit failed to closed writer"), e)
             index ! 'commit_failed
           case e: IOException =>
-            error("Failed to commit changes", e)
+            logger.error(prefix_name("Failed to commit changes"), e)
             index ! 'commit_failed
         }
       })
@@ -393,8 +394,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
                 }
             }
           }
-          debug("search for '%s' limit=%d, refresh=%s had %d hits".
-            format(query, limit, refresh, getTotalHits(hitsCollector)))
+          logger.debug(prefix_name(
+            "search for '%s' limit=%d, refresh=%s had %d hits"
+              .format(query, limit, refresh, getTotalHits(hitsCollector))))
           val HPs = getHighlightParameters(request.options, query)
 
           val hits = getHits(hitsCollector, searcher, includeFields, HPs)
@@ -842,26 +844,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     ctx.args.writer.getConfig().getIndexDeletionPolicy().asInstanceOf[ExternalSnapshotDeletionPolicy]
   }
 
-  private def debug(str: String) = {
-    IndexService.logger.debug(prefix_name(str))
-  }
-
-  private def info(str: String) = {
-    IndexService.logger.info(prefix_name(str))
-  }
-
-  private def warn(str: String) = {
-    IndexService.logger.warn(prefix_name(str))
-  }
-
-  private def warn(str: String, e: Throwable) = {
-    IndexService.logger.warn(prefix_name(str), e)
-  }
-
-  private def error(str: String, e: Throwable) = {
-    IndexService.logger.error(prefix_name(str), e)
-  }
-
   private def prefix_name(str: String): String = {
     ctx.args.name + " " + str
   }
@@ -869,11 +851,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   override def toString: String = {
     ctx.args.name
   }
-
 }
 
 object IndexService {
-
   val logger = LoggerFactory.getLogger("clouseau")
   val version = Version.LUCENE_46
   val INVERSE_FIELD_SCORE = new SortField(null, SortField.Type.SCORE, true)
