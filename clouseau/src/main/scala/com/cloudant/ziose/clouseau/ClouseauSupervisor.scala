@@ -37,8 +37,7 @@ case class ClouseauSupervisor(
     var analyzer: Option[Pid] = None,
     var init: Option[Pid] = None,
   )(implicit adapter: Adapter[_, _])
-    extends Service(ctx)
-    with Actor {
+    extends Service(ctx) {
   val logger = LoggerFactory.getLogger("clouseau.supervisor")
 
   override def onInit[P <: ProcessContext](_ctx: P): ZIO[Any, Throwable, _ <: ActorResult] = for {
