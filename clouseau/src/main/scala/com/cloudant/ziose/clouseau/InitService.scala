@@ -17,6 +17,7 @@ import core.ActorBuilder.State
 import core.{ActorBuilder, ActorConstructor, BuildInfo, Codec, ProcessContext}
 import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
 
+import java.nio.charset.StandardCharsets
 import scala.collection.immutable.HashMap
 
 class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
@@ -63,7 +64,7 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
 
   override def handleCall(tag: (Pid, Any), request: Any): Any = {
     request match {
-      case (Symbol("version")) => (Symbol("reply"), Codec.EBinary(BuildInfo.version.getBytes))
+      case (Symbol("version")) => (Symbol("reply"), Codec.EBinary(BuildInfo.version.getBytes(StandardCharsets.UTF_8)))
       case (Symbol("build_info")) =>
         (
           Symbol("reply"),

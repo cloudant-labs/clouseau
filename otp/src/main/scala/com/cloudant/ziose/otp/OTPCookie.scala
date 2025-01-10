@@ -1,6 +1,7 @@
 package com.cloudant.ziose.otp
 
 import java.io.{BufferedReader, File, FileReader, FileWriter}
+import java.nio.charset.StandardCharsets
 import scala.util.Random
 
 object OTPCookie {
@@ -25,7 +26,7 @@ object OTPCookie {
   }
 
   private def readFile(file: File): String = {
-    val in = new BufferedReader(new FileReader(file))
+    val in = new BufferedReader(new FileReader(file, StandardCharsets.UTF_8))
     try {
       in.readLine
     } finally {
@@ -38,7 +39,7 @@ object OTPCookie {
   }
 
   private def writeCookie(file: File, cookie: String): Unit = {
-    val out = new FileWriter(file)
+    val out = new FileWriter(file, StandardCharsets.UTF_8)
     try {
       out.write(cookie)
       file.setReadOnly()

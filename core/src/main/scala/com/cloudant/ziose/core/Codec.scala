@@ -354,7 +354,7 @@ object Codec {
   }
 
   object EBinary {
-    def apply(atom: Symbol)         = new EBinary(atom.name.getBytes(), true)
+    def apply(atom: Symbol)         = new EBinary(atom.name.getBytes(StandardCharsets.UTF_8), true)
     def apply(obj: OtpErlangBinary) = new EBinary(obj.binaryValue)
     def apply(str: String)          = new EBinary(str.getBytes(StandardCharsets.UTF_8), true)
     def apply(bytes: Array[Byte])   = new EBinary(bytes)
