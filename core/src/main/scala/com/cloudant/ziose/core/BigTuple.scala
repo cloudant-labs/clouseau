@@ -26,6 +26,4 @@ class BigTuple(val elements: Seq[Any]) extends Product {
       case _           => false
     }
   }
-
-  override def equals(other: Any) = canEqual(other)
 }
