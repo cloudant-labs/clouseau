@@ -11,7 +11,7 @@
 
 -define(TIMEOUT_IN_MS, 3000).
 -define(PING_TIMEOUT_IN_MS, 3000).
--define(SERVICE_TIMEOUT_IN_MS, 3000).
+-define(SERVICE_TIMEOUT_IN_MS, 10000).
 
 a2l(V) -> atom_to_list(V).
 l2a(V) -> list_to_atom(V).
@@ -90,9 +90,9 @@ check_service(Node) ->
 check_service(Node, TimeoutInMs) when is_atom(Node) ->
     wait(
         fun() ->
-            try gen_server:call({init, Node}, version) of
+            try gen_server:call({main, Node}, version) of
                 timeout -> wait;
-                Version -> Version
+                {ok, Version} -> Version
             catch
                 _:_ -> wait
             end
