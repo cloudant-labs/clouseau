@@ -532,8 +532,8 @@ object Codec {
     def fromScala: ETerm
   }
 
-  class ExtendedPF[A, B](val pf: PartialFunction[A, B]) {
-    object Extractor {
+  final class ExtendedPF[A, B](val pf: PartialFunction[A, B]) {
+    final object Extractor {
       def unapply(a: A): Option[B] = pf.lift(a)
     }
   }

@@ -21,7 +21,7 @@ case class MetricsGroup(klass: Class[_], metricsRegistry: ScalangMeterRegistry) 
   private val rateUnit       = metricsRegistry.getRateUnit
   private val durationUnit   = metricsRegistry.getDurationUnit
   private val durationFactor = 1.0 / durationUnit.toNanos(1)
-  class Counter(zioCounter: Metric.Counter[Long]) {
+  final class Counter(zioCounter: Metric.Counter[Long]) {
     def +=(delta: Int): Unit = (
       for {
         _ <- zioCounter.update(delta)
@@ -34,13 +34,13 @@ case class MetricsGroup(klass: Class[_], metricsRegistry: ScalangMeterRegistry) 
     def get: Metric.Counter[Long] = this.zioCounter
   }
 
-  class Gauge[T](zioGauge: Metric.Gauge[Double])(f: => T) {
+  final class Gauge[T](zioGauge: Metric.Gauge[Double])(f: => T) {
     def value(): T = f
 
     def get: Metric.Gauge[Double] = this.zioGauge
   }
 
-  class Timer(codahaleTimer: metrics.Timer) {
+  final class Timer(codahaleTimer: metrics.Timer) {
     def time[A](fun: => A): A = codahaleTimer.time(new Callable[A] { def call = fun })
     def getCount              = codahaleTimer.getCount()
     def getMeanRate           = codahaleTimer.getMeanRate()
