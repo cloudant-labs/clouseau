@@ -1,6 +1,6 @@
 package com.cloudant.ziose.otp
 
-import java.io.{BufferedReader, File, FileReader, FileWriter}
+import java.io.{BufferedReader, File, FileReader, FileWriter, IOException}
 import java.nio.charset.StandardCharsets
 import scala.util.Random
 
@@ -42,9 +42,10 @@ object OTPCookie {
     val out = new FileWriter(file, StandardCharsets.UTF_8)
     try {
       out.write(cookie)
-      file.setReadOnly()
-      file.setReadable(false, false)
-      file.setReadable(true, true)
+
+      if (!(file.setReadOnly() && file.setReadable(false, false) && file.setReadable(true, true))) {
+        throw new IOException("Can't change permission of the file to owner read-only: " + file)
+      }
     } finally {
       out.close()
     }
