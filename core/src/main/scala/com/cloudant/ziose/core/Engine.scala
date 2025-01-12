@@ -72,12 +72,12 @@ object Engine {
   type EngineId = Int
   type WorkerId = Int
 
-  trait Error                    extends Throwable
-  case class EngineIsSingleton() extends Error
+  trait Error                   extends Throwable
+  case object EngineIsSingleton extends Error
 
   def make(capacity: Int): zio.ZIO[Any, Error, com.cloudant.ziose.core.Engine] = {
     if (once) {
-      ZIO.fail(EngineIsSingleton())
+      ZIO.fail(EngineIsSingleton)
     } else {
       this.once = true
       for {
