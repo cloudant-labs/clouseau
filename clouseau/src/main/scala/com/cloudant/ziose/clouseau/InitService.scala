@@ -24,9 +24,9 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
   val logger = LoggerFactory.getLogger("clouseau.InitService")
   logger.debug("Created")
 
-  val spawnedSuccess = metrics.counter("spawned.success")
-  val spawnedFailure = metrics.counter("spawned.failure")
-  val spawnedTimer   = metrics.timer("spawned.timer")
+  private val spawnedSuccess = metrics.counter("spawned.success")
+  private val spawnedFailure = metrics.counter("spawned.failure")
+  private val spawnedTimer   = metrics.timer("spawned.timer")
 
   private def spawnEcho(id: Symbol): Either[Any, Codec.EPid] = {
     val ConfigurationArgs(args) = ctx.args

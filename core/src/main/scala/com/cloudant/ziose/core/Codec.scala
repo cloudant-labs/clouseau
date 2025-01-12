@@ -39,9 +39,14 @@ object Codec {
 
     override def toOtpErlangObject: OtpErlangRef = obj
     override def toString: String                = obj.toString
-    val node                                     = obj.node
-    val ids                                      = obj.ids
-    val creation                                 = obj.creation
+
+    // `def` is used instead of `val` because `val` may expose the
+    // internal representation by returning Codec$ERef.ids, which
+    // will cause an EI_EXPOSE_REP warning in the spotbugs check
+    def ids = obj.ids
+
+    val node     = obj.node
+    val creation = obj.creation
   }
   object ERef {
     def apply(node: String, ids: Array[Int], creation: Int) = new ERef(new OtpErlangRef(node, ids, creation))

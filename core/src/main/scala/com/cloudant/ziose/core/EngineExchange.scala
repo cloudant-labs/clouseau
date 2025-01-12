@@ -3,7 +3,7 @@ package com.cloudant.ziose.core
 import com.cloudant.ziose.macros.CheckEnv
 import zio.{Queue, Scope, Trace, UIO, ZIO}
 
-class EngineExchange private (
+class EngineExchange(
   exchange: Exchange[Engine.WorkerId, MessageEnvelope, EngineWorker]
 ) extends Exchange.WithConstructor[Engine.WorkerId, MessageEnvelope, EngineWorker] {
 

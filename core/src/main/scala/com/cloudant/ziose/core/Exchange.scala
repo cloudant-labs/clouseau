@@ -13,7 +13,7 @@ import com.cloudant.ziose.macros.CheckEnv
 import zio.stream.ZStream
 import zio.{Enqueue, Queue, Scope, Trace, UIO, ZIO}
 
-class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], val registry: Registry[K, M, E], val keyFn: M => K)
+class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], registry: Registry[K, M, E], val keyFn: M => K)
     extends Exchange.WithConstructor[K, M, E] {
   def add(entity: E): UIO[Unit] = {
     registry.add(entity)

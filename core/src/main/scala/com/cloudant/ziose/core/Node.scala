@@ -32,8 +32,6 @@ object Node {
         s"name=$name"
       )
     }
-    case class ActorFailure()               extends Error
-    case class SpawnFailure(err: Throwable) extends Error
     case class Constructor(err: Throwable) extends Error with Codec.FromScala {
       def fromScala: Codec.ETerm = Codec.fromScala((Symbol("bad_constructor"), err.getMessage()))
 
