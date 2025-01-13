@@ -231,7 +231,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       )
     ).provideLayer(
       Utils.testEnvironment(1, 1, "ServiceCommunication")
-    ) @@ TestAspect.withLiveClock
+    ) @@ TestAspect.withLiveClock @@ TestAspect.sequential
   }
 
   val processSpawnSuite: Spec[Any, Throwable] = {
@@ -710,7 +710,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       )
     ).provideLayer(
       Utils.testEnvironment(1, 1, "MonitorSuite")
-    ) @@ TestAspect.withLiveClock
+    ) @@ TestAspect.withLiveClock @@ TestAspect.sequential
   }
 
   def spec: Spec[Any, Throwable] = {

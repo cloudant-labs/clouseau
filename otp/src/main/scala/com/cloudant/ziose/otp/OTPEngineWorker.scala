@@ -23,10 +23,10 @@ final class OTPEngineWorker private (
   type Context = OTPProcessContext
   val id = workerId
   def acquire: UIO[Unit] = {
-    ZIO.logDebug(s"Acquired ${nodeName}")
+    ZIO.logDebug(s"Acquired ${nodeName.name}")
   }
   def release: UIO[Unit] = {
-    ZIO.logDebug(s"Released ${nodeName}")
+    ZIO.logDebug(s"Released ${nodeName.name}")
   }
   def spawn[A <: Actor](
     builder: ActorBuilder.Sealed[A]

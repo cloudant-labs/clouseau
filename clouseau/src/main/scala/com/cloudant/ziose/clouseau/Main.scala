@@ -61,7 +61,7 @@ object Main extends ZIOAppDefault {
     workerCfg: WorkerConfiguration,
     metricsRegistry: ScalangMeterRegistry,
     loggerCfg: LogConfiguration
-  ): RIO[EngineWorker & Node & ActorFactory, Unit] = {
+  ): RIO[Scope & EngineWorker & Node & ActorFactory, Unit] = {
     for {
       runtime  <- ZIO.runtime[EngineWorker & Node & ActorFactory]
       otp_node <- ZIO.service[Node]
@@ -69,9 +69,10 @@ object Main extends ZIOAppDefault {
       _      <- otp_node.monitorRemoteNode(remote_node)
       worker <- ZIO.service[EngineWorker]
       logLevel = loggerCfg.level.getOrElse(LogLevel.Debug)
-      node <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry, logLevel))
-      _    <- startSupervisor(node, workerCfg)
-      _    <- worker.awaitShutdown
+      node       <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry, logLevel))
+      supervisor <- startSupervisor(node, workerCfg)
+      _          <- ZIO.addFinalizer(supervisor.shutdown)
+      _          <- worker.awaitShutdown
     } yield ()
   }
 
