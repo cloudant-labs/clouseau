@@ -1,6 +1,6 @@
 package com.cloudant.ziose.clouseau
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio.{Config, LogLevel}
 import _root_.com.cloudant.ziose.otp
 import otp.OTPNodeConfig
@@ -87,7 +87,7 @@ final case class ClouseauConfiguration(
     case _                        => throw new Exception(s"Unexpected Boolean key '$key'")
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"dir=$dir",

@@ -18,7 +18,7 @@ EngineWorker needs Engine
 
  */
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio.{Queue, Scope, UIO, ZIO}
 
 class Engine(exchange: EngineExchange) {
@@ -48,7 +48,7 @@ class Engine(exchange: EngineExchange) {
     exchange.offer(msg)
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"exchange=$exchange",
@@ -72,12 +72,12 @@ object Engine {
   type EngineId = Int
   type WorkerId = Int
 
-  trait Error                    extends Throwable
-  case class EngineIsSingleton() extends Error
+  trait Error                   extends Throwable
+  case object EngineIsSingleton extends Error
 
   def make(capacity: Int): zio.ZIO[Any, Error, com.cloudant.ziose.core.Engine] = {
     if (once) {
-      ZIO.fail(EngineIsSingleton())
+      ZIO.fail(EngineIsSingleton)
     } else {
       this.once = true
       for {

@@ -5,10 +5,10 @@ import core.Address
 import core.MessageEnvelope
 import core.Codec
 import java.util.concurrent.TimeUnit
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio._
 
-case class SNode(metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(implicit
+class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(implicit
   val runtime: Runtime[core.EngineWorker & core.Node]
 ) {
   type RegName  = Symbol
@@ -293,7 +293,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(
     )
   } yield isTerminated
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"metricsRegistry=$metricsRegistry",

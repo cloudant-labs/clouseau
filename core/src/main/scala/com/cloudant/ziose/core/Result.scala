@@ -12,7 +12,7 @@ The order of types follows the order in other Scala types
 
  */
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio.ZIO
 
 sealed abstract class Result[+E, +T] extends Product {
@@ -39,7 +39,7 @@ sealed abstract class Result[+E, +T] extends Product {
 }
 
 final case class Success[E, +T](value: T) extends Result[E, T] {
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"Result.${getClass.getSimpleName}",
     s"value=$value"
@@ -47,7 +47,7 @@ final case class Success[E, +T](value: T) extends Result[E, T] {
 }
 
 final case class Failure[+E, T](reason: E) extends Result[E, T] {
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"Result.${getClass.getSimpleName}",
     s"reason=$reason"

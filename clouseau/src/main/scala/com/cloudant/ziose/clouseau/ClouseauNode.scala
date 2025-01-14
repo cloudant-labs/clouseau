@@ -12,7 +12,7 @@ import scalang.SNode
 import zio.Exit.Failure
 import zio.Exit.Success
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio.{&, LogLevel, Runtime, Tag, Unsafe}
 
 class ClouseauNode(implicit
@@ -118,7 +118,7 @@ class ClouseauNode(implicit
     } yield addressable
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"runtime=$runtime",

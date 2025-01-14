@@ -10,7 +10,7 @@ import com.cloudant.ziose.core.EngineWorkerExchange
 import com.cloudant.ziose.core.MessageEnvelope
 import com.cloudant.ziose.core.AddressableActor
 import com.cloudant.ziose.core.ProcessContext
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio.{&, ConfigProvider, Duration, Queue, UIO, ZIO, ZLayer}
 
 final class OTPEngineWorker private (
@@ -38,7 +38,7 @@ final class OTPEngineWorker private (
   }
   def kind = ZIO.succeed("OTP")
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"engineId=$engineId",

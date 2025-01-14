@@ -1,7 +1,7 @@
 package com.cloudant.ziose.scalang
 
 import com.cloudant.ziose.core.{Address, Codec, MessageEnvelope, PID, ProcessContext}
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio.{LogLevel, Runtime}
 import com.cloudant.ziose.core.Engine
 
@@ -52,7 +52,7 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
 
   def forkScoped[R, E, A](effect: zio.ZIO[R, E, A]): zio.URIO[R, zio.Fiber.Runtime[E, A]] = ctx.forkScoped(effect)
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"ctx=$ctx",

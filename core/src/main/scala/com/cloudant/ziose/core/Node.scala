@@ -1,6 +1,6 @@
 package com.cloudant.ziose.core
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio.{&, Duration, FiberId, Scope, ZIO}
 
 trait Node {
@@ -26,18 +26,16 @@ object Node {
     case class NameInUse(name: String) extends Error with Codec.FromScala {
       def fromScala: Codec.ETerm = Codec.fromScala((Symbol("name_in_use"), Symbol(name)))
 
-      @checkEnv(System.getProperty("env"))
+      @CheckEnv(System.getProperty("env"))
       def toStringMacro: List[String] = List(
         s"Error.${getClass.getSimpleName}",
         s"name=$name"
       )
     }
-    case class ActorFailure()               extends Error
-    case class SpawnFailure(err: Throwable) extends Error
     case class Constructor(err: Throwable) extends Error with Codec.FromScala {
       def fromScala: Codec.ETerm = Codec.fromScala((Symbol("bad_constructor"), err.getMessage()))
 
-      @checkEnv(System.getProperty("env"))
+      @CheckEnv(System.getProperty("env"))
       def toStringMacro: List[String] = List(
         s"Error.${getClass.getSimpleName}",
         s"err=${err.getMessage}"

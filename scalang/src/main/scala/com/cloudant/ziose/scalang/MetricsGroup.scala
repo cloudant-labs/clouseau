@@ -5,7 +5,7 @@ import scala.collection.JavaConverters._
 import zio.metrics.Metric
 import zio.metrics.MetricState
 import com.cloudant.ziose.core.ZioSupport
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import com.codahale.metrics.MetricFilter
 import scala.collection.immutable.HashMap
 import com.codahale.metrics
@@ -21,7 +21,7 @@ case class MetricsGroup(klass: Class[_], metricsRegistry: ScalangMeterRegistry) 
   private val rateUnit       = metricsRegistry.getRateUnit
   private val durationUnit   = metricsRegistry.getDurationUnit
   private val durationFactor = 1.0 / durationUnit.toNanos(1)
-  class Counter(zioCounter: Metric.Counter[Long]) {
+  final class Counter(zioCounter: Metric.Counter[Long]) {
     def +=(delta: Int): Unit = (
       for {
         _ <- zioCounter.update(delta)
@@ -34,13 +34,13 @@ case class MetricsGroup(klass: Class[_], metricsRegistry: ScalangMeterRegistry) 
     def get: Metric.Counter[Long] = this.zioCounter
   }
 
-  class Gauge[T](zioGauge: Metric.Gauge[Double])(f: => T) {
+  final class Gauge[T](zioGauge: Metric.Gauge[Double])(f: => T) {
     def value(): T = f
 
     def get: Metric.Gauge[Double] = this.zioGauge
   }
 
-  class Timer(codahaleTimer: metrics.Timer) {
+  final class Timer(codahaleTimer: metrics.Timer) {
     def time[A](fun: => A): A = codahaleTimer.time(new Callable[A] { def call = fun })
     def getCount              = codahaleTimer.getCount()
     def getMeanRate           = codahaleTimer.getMeanRate()
@@ -181,7 +181,7 @@ case class MetricsGroup(klass: Class[_], metricsRegistry: ScalangMeterRegistry) 
     meters ++ timers
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"klass=$klass",
