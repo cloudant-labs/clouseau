@@ -30,17 +30,9 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
 
   class LRU(initialCapacity: Int = 100, loadFactor: Float = 0.75f) {
 
-    class InnerLRU(initialCapacity: Int, loadFactor: Float) extends LinkedHashMap[String, Pid](initialCapacity, loadFactor, true) {
+    class InnerLRU(initialCapacity: Int, loadFactor: Float) extends LinkedHashMap[String, Pid](initialCapacity, loadFactor, true)
 
-      override def removeEldestEntry(eldest: Entry[String, Pid]): Boolean = {
-        val result = size() > ctx.args.config.getInt("clouseau.max_indexes_open", 100)
-        if (result) {
-          eldest.getValue ! ('close, 'lru)
-        }
-        result
-      }
-    }
-
+    val capacity = ctx.args.config.getInt("clouseau.max_indexes_open", 100)
     val lruMisses = metrics.counter("lru.misses")
     val lruEvictions = metrics.counter("lru.evictions")
 
@@ -48,6 +40,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
     val pidToPath: JMap[Pid, String] = new HashMap(initialCapacity, loadFactor)
 
     def get(path: String): Pid = {
+      assert(pathToPid.size == pidToPath.size)
       val pid: Pid = pathToPid.get(path)
       if (!Option(pid).isDefined) {
         lruMisses += 1
@@ -56,12 +49,15 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
     }
 
     def put(path: String, pid: Pid) = {
+      assert(pathToPid.size == pidToPath.size)
+      enforceCapacity
       val prev = pathToPid.put(path, pid)
       pidToPath.remove(prev)
       pidToPath.put(pid, path)
     }
 
     def remove(pid: Pid) = {
+      assert(pathToPid.size == pidToPath.size)
       val path = pidToPath.remove(pid)
       pathToPid.remove(path)
       if (Option(path).isDefined) {
@@ -88,6 +84,19 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
           }
       }
     }
+
+    private def enforceCapacity() {
+      var excess = pathToPid.size - capacity
+      if (excess > 0) {
+        val it = pathToPid.entrySet.iterator
+        while (excess > 0 && it.hasNext) {
+          val eldest = it.next
+          eldest.getValue ! ('close, 'lru)
+          excess -= 1
+        }
+      }
+    }
+
   }
 
   val logger = LoggerFactory.getLogger("clouseau.main")
