@@ -9,14 +9,25 @@ import zio.Config.Error
 import zio.config.magnolia.DeriveConfig
 
 sealed abstract class LogOutput
+sealed abstract class LogFormat
 
 object LogOutput {
-  final case object PlainText extends LogOutput
-  final case object JSON      extends LogOutput
+  final case object Stdout extends LogOutput
+  final case object Syslog extends LogOutput
+}
+
+object LogFormat {
+  final case object PlainText extends LogFormat
+  final case object JSON      extends LogFormat
 }
 
 final case class WorkerConfiguration(node: OTPNodeConfig, clouseau: Option[ClouseauConfiguration])
-final case class LogConfiguration(output: Option[LogOutput], level: Option[LogLevel])
+final case class LogConfiguration(
+  output: Option[LogOutput],
+  format: Option[LogFormat],
+  level: Option[LogLevel],
+  syslog: Option[SyslogConfiguration]
+)
 
 object LogConfiguration {
   implicit val logLevelDescriptor: DeriveConfig[LogLevel] = {
@@ -115,3 +126,23 @@ case class Configuration(clouseau: ClouseauConfiguration, workers: OTPNodeConfig
 }
 
 final case class ConfigurationArgs(config: Configuration)
+
+sealed abstract class SyslogProtocol
+
+object SyslogProtocol {
+  final case object TCP extends SyslogProtocol
+  final case object UDP extends SyslogProtocol
+}
+
+final case class SyslogConfiguration(
+  protocol: Option[SyslogProtocol] = None,
+  host: Option[String] = None,
+  port: Option[Int] = None,
+  facility: Option[String] = None,
+  level: Option[String] = None,
+  tag: Option[String] = None
+)
+
+object SyslogConfiguration {
+  val config: Config[SyslogConfiguration] = deriveConfig[SyslogConfiguration]
+}
