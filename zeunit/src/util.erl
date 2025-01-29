@@ -12,6 +12,7 @@
 -define(TIMEOUT_IN_MS, 3000).
 -define(PING_TIMEOUT_IN_MS, 3000).
 -define(SERVICE_TIMEOUT_IN_MS, 10000).
+-define(RETRY_DELAY, 50).
 
 a2l(V) -> atom_to_list(V).
 l2a(V) -> list_to_atom(V).
@@ -117,7 +118,7 @@ now_us() ->
 
 wait(Fun, TimeoutInMs) ->
     Now = now_us(),
-    wait(Fun, TimeoutInMs * 1000, 50, Now, Now).
+    wait(Fun, TimeoutInMs * 1000, ?RETRY_DELAY, Now, Now).
 
 wait(_Fun, TimeoutInUs, _DelayInMs, Started, Prev) when Prev - Started > TimeoutInUs ->
     timeout;
