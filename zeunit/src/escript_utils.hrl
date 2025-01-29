@@ -8,7 +8,6 @@
 -define(ANSI_YELLOW, "33").
 
 -define(PING_TIMEOUT_IN_MS, 10_000).
--define(SERVICE_TIMEOUT_IN_MS, 120_000).
 
 app_dir() ->
     filename:dirname(filename:dirname(escript:script_name())).
@@ -84,7 +83,7 @@ get_node(Options) ->
     end.
 
 check_service(Node) ->
-    case util:check_service(Node, ?SERVICE_TIMEOUT_IN_MS) of
+    case util:check_service(Node) of
         Version when is_binary(Version) ->
             ok("Service is live");
         _ ->
