@@ -26,13 +26,13 @@ spawn_test_() ->
 
 t_spawn_many({Prefix, Concurrency}) ->
     ets:new(t_spawn_many_results, [set, public, named_table]),
-    Self = self(),
     T1 = ts(),
     lists:foreach(
         fun(Idx) ->
             Name = process_name(Prefix, Idx),
             spawn(fun() ->
                 Pid = start_service(Name),
+                test_util:rand_delay_ms(500),
                 TI1 = ts(),
                 case gen_server:call(Pid, {echo, Idx}) of
                     {echo, Idx} ->

@@ -3,6 +3,8 @@
     spawn_echo/1,
     tempdb/0,
     random_atom/0,
+    rand_delay_sec/1,
+    rand_delay_ms/1,
     wait_healthy/0
 ]).
 
@@ -17,6 +19,12 @@ rand_char(0, Acc) ->
     Acc;
 rand_char(N, Acc) ->
     rand_char(N - 1, [rand:uniform(?ALPHABET_SIZE) - 1 + $a | Acc]).
+
+rand_delay_sec(Max) ->
+    timer:sleep(round(timer:seconds(rand:uniform(Max)))).
+
+rand_delay_ms(Max) ->
+    timer:sleep(round(rand:uniform(Max))).
 
 tempdb() ->
     iolist_to_binary(["eunit-test-db-", rand_char(10)]).
