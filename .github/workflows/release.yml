@@ -19,6 +19,12 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.7
+      - name: Setup Maven
+        uses: s4u/setup-maven-action@v1.8.0
+        with:
+          java-version: 1.7
+      - name: Check Maven Version Again
+        run: mvn -version
       - name: Set up Erlang
         uses: erlef/setup-beam@v1.16.0
         with:
