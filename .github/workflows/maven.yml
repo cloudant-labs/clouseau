@@ -20,6 +20,12 @@ jobs:
       uses: actions/setup-java@v1
       with:
         java-version: 1.7
+    - name: Set up Maven
+      uses: stCarolas/setup-maven@v5
+      with:
+        maven-version: 3.8.2
+    - name: Check Maven version
+      run: mvn -version
     - name: Set up Erlang
       uses: erlef/setup-beam@v1.16.0
       with:
