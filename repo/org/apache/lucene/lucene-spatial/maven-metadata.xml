@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>org.apache.lucene</groupId>
+  <artifactId>lucene-spatial</artifactId>
+  <versioning>
+    <release>4.6.1-cloudant1</release>
+    <versions>
+      <version>4.6.1-cloudant1</version>
+    </versions>
+    <lastUpdated>20250205142800</lastUpdated>
+  </versioning>
+</metadata>
