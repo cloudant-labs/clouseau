@@ -13,13 +13,21 @@
 
   <properties>
     <encoding>UTF-8</encoding>
-    <lucene-version>4.6.1</lucene-version>
+    <lucene-version>4.6.1-cloudant1</lucene-version>
     <maven.compiler.source>1.6</maven.compiler.source>
     <maven.compiler.target>1.6</maven.compiler.target>
     <scala.version>2.9.1</scala.version>
     <scala.plugin.version>3.2.0</scala.plugin.version>
     <slf4j.version>1.7.32</slf4j.version>
   </properties>
+
+  <repositories>
+    <repository>
+      <id>CloudantPublicRepo</id>
+      <name>Cloudant Public Repo</name>
+      <url>https://pgj.github.io/maven/repo/</url>
+    </repository>
+  </repositories>
 
   <dependencies>
     <!-- Lucene -->
