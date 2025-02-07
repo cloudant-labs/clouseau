@@ -57,7 +57,6 @@ SCALA_MICRO              := $(word 3,$(SCALA_VERSION_PARTS))
 SCALA_SHORT_VERSION := $(SCALA_MAJOR).$(SCALA_MINOR)
 
 SUBPROJECTS := \
-	benchmarks \
 	clouseau \
 	core \
 	otp \
