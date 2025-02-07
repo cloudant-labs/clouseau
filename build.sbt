@@ -110,9 +110,6 @@ lazy val core = (project in file("core"))
   .dependsOn(macros)
   .dependsOn(vendor)
 
-lazy val benchmarks = (project in file("benchmarks"))
-  .settings(commonSettings *)
-  .dependsOn(core)
 lazy val otp = (project in file("otp"))
   .settings(commonSettings *)
   .settings(
@@ -193,7 +190,7 @@ lazy val macros = (project in file("macros"))
   .settings(commonSettings *)
 
 lazy val root = (project in file("."))
-  .aggregate(benchmarks, core, clouseau, macros, otp, test)
+  .aggregate(core, clouseau, macros, otp, test)
   .enablePlugins(plugins.JUnitXmlReportPlugin)
   .settings(
     scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports"),
