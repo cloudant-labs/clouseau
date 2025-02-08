@@ -17,7 +17,7 @@
     <maven.compiler.source>1.6</maven.compiler.source>
     <maven.compiler.target>1.6</maven.compiler.target>
     <scala.version>2.9.1</scala.version>
-    <scala.plugin.version>3.1.0</scala.plugin.version>
+    <scala.plugin.version>3.2.0</scala.plugin.version>
     <tika-version>1.0</tika-version>
     <slf4j.version>1.7.32</slf4j.version>
   </properties>
@@ -97,16 +97,30 @@
     </dependency>
     -->
 
-    <!-- Scalang -->
+    <!-- Scalang dependencies -->
     <dependency>
-      <groupId>com.boundary</groupId>
-      <artifactId>scalang-scala_2.9.1</artifactId>
-      <version>1.0.4</version>
+      <groupId>org.jetlang</groupId>
+      <artifactId>jetlang</artifactId>
+      <version>0.2.12</version>
     </dependency>
+
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>${slf4j.version}</version>
+      <groupId>org.jboss.netty</groupId>
+      <artifactId>netty</artifactId>
+      <version>3.2.10.Final</version>
+    </dependency>
+
+    <!-- Overlock dependencies -->
+    <dependency>
+      <groupId>com.yammer.metrics</groupId>
+      <artifactId>metrics-core</artifactId>
+      <version>2.2.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.yammer.metrics</groupId>
+      <artifactId>metrics-scala_${scala.version}</artifactId>
+      <version>2.2.0</version>
     </dependency>
 
     <!-- Scala -->
@@ -154,6 +168,7 @@
         <artifactId>scala-maven-plugin</artifactId>
         <version>${scala.plugin.version}</version>
         <configuration>
+	  <recompileMode>incremental</recompileMode>
           <launchers>
             <launcher>
               <id>standard</id>
