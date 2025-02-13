@@ -84,8 +84,8 @@ ifeq ($(UNAME_S),Darwin)
 	OS=darwin
 endif
 
-ENCODED_GHE_USR=$(shell echo ${GHE_USR} | sed 's/@/%40/g' )
-GHE_AUTH_URL=https://${ENCODED_GHE_USR}:${GHE_PSW}@github.ibm.com
+ENCODED_GH_USR=$(shell echo ${GH_USR} | sed 's/@/%40/g' )
+GH_AUTH_URL=https://${ENCODED_GH_USR}:${GH_PSW}@github.com
 
 KNOWN_CVEs = \
 
@@ -344,9 +344,9 @@ erlfmt-format:
 .PHONY: release
 # target: release - Push release to github
 release: $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
-	GH_DEBUG=1 GH_HOST=github.ibm.com gh release list --repo github.ibm.com/cloudant/ziose
-	GH_DEBUG=1 GH_HOST=github.ibm.com gh release create "$(PROJECT_VERSION)" \
-		--repo github.ibm.com/cloudant/ziose \
+	GH_DEBUG=1 GH_HOST=github.com gh release list --repo github.com/cloudant-labs/clouseau
+	GH_DEBUG=1 GH_HOST=github.com gh release create "$(PROJECT_VERSION)" \
+		--repo github.com/cloudant-labs/clouseau \
 		--title "Release $(PROJECT_VERSION)" \
 		--generate-notes $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 
