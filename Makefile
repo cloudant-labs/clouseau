@@ -532,10 +532,10 @@ artifacts: $(ARTIFACTS_DIR) $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt 
 # target: release - Push release to github
 release: MAYBE_PRERELEASE := $(shell [[ "$(PROJECT_VSN)" =~ ^.*-[rR][cC][0-9]*$$ ]] && echo "--prerelease")
 release: $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
-	GH_DEBUG=1 GH_HOST=github.ibm.com gh release list --repo github.ibm.com/cloudant/ziose
-	GH_DEBUG=1 GH_HOST=github.ibm.com gh release create "$(PROJECT_VSN)" \
+	GH_DEBUG=1 GH_HOST=github.com gh release list --repo github.com/cloudant-labs/clouseau
+	GH_DEBUG=1 GH_HOST=github.com gh release create "$(PROJECT_VSN)" \
 		$(MAYBE_PRERELEASE) --target "$$(git rev-parse HEAD)" \
-		--repo github.ibm.com/cloudant/ziose \
+		--repo github.com/cloudant-labs/clouseau \
 		--title "Release $(PROJECT_VSN)" \
 		--generate-notes $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 

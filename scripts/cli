@@ -7,8 +7,8 @@
 set -Eeuo pipefail
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GHE=github.ibm.com
-ISSUES_REPO=https://${GHE}/cloudant/dbcore
+GH=github.com
+ISSUES_REPO=https://${GH}/cloudant-labs/clouseau
 PROJECT_LABEL=type:technical-foundation
 
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -81,8 +81,8 @@ function deps_cmd() {
   esac
 }
 
-is_ghe_authenticated() {
-  gh auth status --hostname ${GHE} >>/dev/null 2>&1
+is_gh_authenticated() {
+  gh auth status --hostname ${GH} >>/dev/null 2>&1
   return
 }
 
@@ -91,7 +91,7 @@ function gh_cmd() {
   local command=${1}
   case "${command}" in
   login)
-    gh auth login --hostname ${GHE} -w --git-protocol https
+    gh auth login --hostname ${GH} -w --git-protocol https
     return
     ;;
   *)
@@ -104,8 +104,8 @@ function gh_cmd() {
 
 function issue_cmd() {
   ensure_args 1 "help_topic issue" $@
-  if ! is_ghe_authenticated; then
-    echo -e "\n$(console::red)ERROR: Not authenticated with ${GHE}$(console::reset)\n"
+  if ! is_gh_authenticated; then
+    echo -e "\n$(console::red)ERROR: Not authenticated with ${GH}$(console::reset)\n"
     echo -e "  Please run $(console::bold)cli gh login$(console::reset)\n"
     exit 1
   fi
