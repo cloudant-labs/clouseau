@@ -10,7 +10,7 @@ The classes carried over from Clouseau 2.x are not subject to this style guide s
 
 # Scala conventions
 
-1. Use argumentless form (`def foo: String`) of function only for pure functions if possible. At the call site follow the same convention. Don't add parentheses if the method was defined without them.
+1. Use argumentless form (`def foo: String`) of function only for pure functions if possible. Keep in mind that in some cases it might not work (see (here)[https://stackoverflow.com/questions/21701452/scala-import-not-working-object-name-is-not-a-member-of-package-sbt-preppen]). At the call site follow the same convention. Don't add parentheses if the method was defined without them.
 2. Use empty list of arguments for non-pure functions `def foo(): Unit`
 3. Use `import _root_.com.cloudant.ziose.core` to resolve importing problem (see [here](https://stackoverflow.com/questions/21701452/scala-import-not-working-object-name-is-not-a-member-of-package-sbt-preppen)). However before doing so check your files to make sure you don't have multiple  `package` directives in any of them.
 4. Don't use `Any` type. The exceptions are: `clouseau`/`scalang` packages and `ZIO[Any, Error, Return]` where `Any` means we accept `Any` environment. In all other cases think twice before using `Any`.
