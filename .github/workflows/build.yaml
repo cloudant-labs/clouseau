@@ -1,0 +1,34 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+name: Clouseau 3.x CI
+
+on:
+  push:
+    branches: [ "ziose-import" ]
+  pull_request:
+    branches: [ "ziose-import" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install asdf & tools
+      uses: asdf-vm/actions/install@v3
+      with:
+        asdf_branch: v0.15.0
+    - name: Unit tests
+      run: direnv allow . && eval "$(direnv export bash)" && make test
+    - name: ZEunit tests
+      run: direnv allow . && eval "$(direnv export bash)" && make zeunit
+    - name: CouchDB tests
+      run: direnv allow . && eval "$(direnv export bash)" && make couchdb-tests || cat deps/couchdb.main/dev/logs/clouseau1.log
+    - name: Metrics tests
+      run: direnv allow . && eval "$(direnv export bash)" && make metrics-tests || cat deps/couchdb.main/dev/logs/clouseau1.log
