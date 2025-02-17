@@ -368,7 +368,7 @@ eshell:
 	|| (cd zeunit && $(REBAR) shell --name eshell@127.0.0.1 --setcookie $(cookie))
 
 define clouseauPid
-	sh -c "jcmd | grep -F com.cloudant.ziose.clouseau.Main | cut -d' ' -f1"
+	sh -c "jcmd | grep -F clouseau | cut -d' ' -f1"
 endef
 
 .PHONY: jconsole
@@ -384,7 +384,7 @@ jconsole:
 .PHONY: jlist
 # target: jlist - List clouseau related java processes
 jlist:
-	@jcmd | grep com.cloudant.ziose || exit 0
+	@jcmd | grep clouseau || exit 0
 
 .PHONY: jstack
 # target: jstack - List of threads for running clouseau
