@@ -392,6 +392,26 @@ jstack: CLOUSEAU_PID := $(shell $(clouseauPid))
 jstack:
 	@jstack -l $(CLOUSEAU_PID)
 
+.PHONY: tdump
+# target: tdump - Capture thread dumps
+tdump: CLOUSEAU_PID := $(shell $(clouseauPid))
+tdump: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
+	@cli start $(node_name) "java -jar $<"
+	@echo "Generate thread dumps..."
+	@rm -f tmp/thread_dump*.log
+	@for i in {1..3}; do \
+		echo "=== Captured dump $$i at $$(date) ===" >> tmp/thread_dump$$i.log; \
+		$(MAKE) jstack >> tmp/thread_dump$$i.log; \
+		for j in {1..10}; do \
+			echo -n "."; \
+			sleep 1; \
+		done; \
+	done
+	@cli stop $(node_name)
+	@echo ""
+	@echo "Thread dump collection completed."
+	@echo 'Please check "tmp/thread_dump*.log".'
+
 .PHONY: erlfmt-format
 # target: erlfmt-format - Format Erlang code automatically
 erlfmt-format:
