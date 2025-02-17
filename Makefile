@@ -386,6 +386,12 @@ jconsole:
 jlist:
 	@jcmd | grep com.cloudant.ziose || exit 0
 
+.PHONY: jstack
+# target: jstack - List of threads for running clouseau
+jstack: CLOUSEAU_PID := $(shell $(clouseauPid))
+jstack:
+	@jstack -l $(CLOUSEAU_PID)
+
 .PHONY: erlfmt-format
 # target: erlfmt-format - Format Erlang code automatically
 erlfmt-format:
