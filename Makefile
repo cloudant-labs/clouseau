@@ -234,7 +234,7 @@ endif
 .PHONY: clouseau1
 # target: clouseau1 - Start local instance of clouseau1 node
 clouseau1:
-	@sbt run -Dnode=$@ $(_COOKIE)
+	@sbt -v run -Dnode=$@ $(_COOKIE)
 
 .PHONY: clouseau2
 # target: clouseau2 - Start local instance of clouseau2 node
