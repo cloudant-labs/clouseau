@@ -16,6 +16,7 @@ Use `cli help <command>` to get more help.
 * `tdump`     - do a java tread dump
 * `await`     - await the clouseau node
 * `logs`      - get recent logs file for terminated clouseau node
+* `processId` - get clouseau PID
 * `zeunit`    - run `zeunit` tests
 * `fmt`       - reformat scala code
 * `gh`        - GitHub related commands
@@ -98,6 +99,16 @@ cli await "clouseau" "myCookie"
 
 ```bash
 cli logs "clouseau"
+```
+
+---
+
+### `processId`: Get clouseau PID
+
+* `cli processId [name]` - get clouseau PID
+
+```bash
+cli processId "clouseau1"
 ```
 
 ---

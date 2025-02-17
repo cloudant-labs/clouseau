@@ -201,6 +201,12 @@ logs)
   run::last_log "$1"
   exit $?
   ;;
+processId)
+  ensure_args 1 "help_topic processId" "$@"
+  name=$1
+  run::processId "$name"
+  exit $?
+  ;;
 zeunit)
   ensure_args 1 "help_topic zeunit" "$@"
   name=$1

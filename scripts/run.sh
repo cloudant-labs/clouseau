@@ -68,6 +68,24 @@ run::java_thread_dump() {
   jstack "$(cat "${pid_file}")"
 }
 
+run::processId() {
+  local hash
+  hash=$(run::get_hash "$1")
+  local pid_file="${TMP_DIR}/${hash}.pid"
+
+  if [ -f "$pid_file" ]; then
+    cat "$pid_file"
+  else
+    if jcmd | grep -F clouseau | cut -d' ' -f1 >temp && [ -s temp ]; then
+      cat temp
+      rm -f temp
+    else
+      rm -f temp
+      console::errorLn "Can't find the running node: $1!" && return 1
+    fi
+  fi
+}
+
 run::health-check() {
   [ -z "$2" ] && escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "$1" ||
   escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "$1" "-setcookie" "$2"
