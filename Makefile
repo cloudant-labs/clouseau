@@ -307,7 +307,10 @@ version:
 # target: zeunit - Run integration tests with ~/.erlang.cookie: `make zeunit`; otherwise `make zeunit cookie=<cookie>`
 zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
 	@cli start $(node_name) "java -jar $<"
+	@cli processId $(node_name) "$@"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)"
+	@echo "The thread dump after attempt to shutdown"
+	@pkill -3 -F tmp/$@.pid
 	@epmd -stop $(node_name) >/dev/null 2>&1 || true
 	@$(call to_artifacts,test-reports)
 
@@ -382,11 +385,11 @@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)-dist.zip: $(JAR_ARTIFACTS)
 	@cp $(ARTIFACTS_DIR)/*.jar $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
 	@zip --junk-paths -r $@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
 
-$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar:
+$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar: $(ARTIFACTS_DIR)
 	@sbt assembly
 	@cp clouseau/target/scala-$(SCALA_SHORT_VERSION)/$(@F) $@
 
-$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar:
+$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar: $(ARTIFACTS_DIR)
 	@sbt assembly -Djartest=true
 	@cp clouseau/target/scala-$(SCALA_SHORT_VERSION)/$(@F) $@
 
