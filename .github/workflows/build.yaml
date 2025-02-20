@@ -19,9 +19,6 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    env:
-      ASDF_SILENT_UPGRADE: 'true'
-
     steps:
     - uses: actions/checkout@v4
     - name: Install asdf & tools
