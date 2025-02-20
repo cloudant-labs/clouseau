@@ -13,6 +13,7 @@ Use `cli help <command>` to get more help.
 * `bootstrap` - a step-by-step guide to help set up environment
 * `start`     - start clouseau node
 * `stop`      - stop clouseau node
+* `processId` - store clouseau PID
 * `zeunit`    - run `zeunit` tests
 * `fmt`       - reformat scala code
 * `gh`        - GitHub related commands
@@ -50,10 +51,9 @@ Execute set of check which would verify the environment and print out hints what
 
 ### `start`: Start clouseau node
 
-* `cli start [name] [command]` - start clouseau node
+* `cli start [node_name] [command]` - start clouseau node
 
 ```bash
-cli start "clouseau1" "sbt run -Dnode=clouseau1"
 cli start "clouseau" "java -jar clouseau.jar"
 ```
 
@@ -61,7 +61,7 @@ cli start "clouseau" "java -jar clouseau.jar"
 
 ### `stop`: Stop clouseau node
 
-* `cli stop [name]` - stop clouseau node
+* `cli stop [node_name]` - stop clouseau node
 
 ```bash
 cli stop "clouseau"
@@ -69,9 +69,19 @@ cli stop "clouseau"
 
 ---
 
+### `processId`: Store clouseau PID
+
+* `cli processId [node_name] [file_name]` - store clouseau PID
+
+```bash
+cli processId "clouseau" "pidfile"
+```
+
+---
+
 ### `zeunit`: Run zeunit tests
 
-* `cli zeunit [name] [cookie=cookie] [suites=] [tests=]` - Run zeunit tests using specified `cookie`, `suites` and `tests`
+* `cli zeunit [node_name] [cookie=cookie] [suites=] [tests=]` - Run zeunit tests using specified `cookie`, `suites` and `tests`
 
 ```bash
 cli zeunit clouseau1 # Run all zeunit tests

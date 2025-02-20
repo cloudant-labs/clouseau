@@ -307,7 +307,10 @@ version:
 # target: zeunit - Run integration tests with ~/.erlang.cookie: `make zeunit`; otherwise `make zeunit cookie=<cookie>`
 zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
 	@cli start $(node_name) "java -jar $<"
+	@cli processId $(node_name) "$@"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)"
+	@echo "The thread dump after attempt to shutdown"
+	@pkill -3 -F tmp/$@.pid
 	@epmd -stop $(node_name) >/dev/null 2>&1 || true
 	@$(call to_artifacts,test-reports)
 
@@ -319,7 +322,7 @@ eshell:
 	|| (cd zeunit && $(REBAR) shell --name eshell@127.0.0.1 --setcookie $(cookie))
 
 define clouseauPid
-	sh -c "jps -l | grep -F com.cloudant.ziose.clouseau.Main | cut -d' ' -f1"
+	sh -c "jcmd | grep -F clouseau | cut -d' ' -f1"
 endef
 
 .PHONY: jconsole
@@ -335,7 +338,33 @@ jconsole:
 .PHONY: jlist
 # target: jlist - List clouseau related java processes
 jlist:
-	@jps -l | grep com.cloudant.ziose || exit 0
+	@jcmd | grep clouseau || exit 0
+
+.PHONY: jstack
+# target: jstack - List of threads for running clouseau
+jstack: CLOUSEAU_PID := $(shell $(clouseauPid))
+jstack:
+	@jstack -l $(CLOUSEAU_PID)
+
+.PHONY: tdump
+# target: tdump - Capture thread dumps
+tdump: CLOUSEAU_PID := $(shell $(clouseauPid))
+tdump: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
+	@cli start $(node_name) "java -jar $<"
+	@echo "Generate thread dumps..."
+	@rm -f tmp/thread_dump*.log
+	@for i in {1..3}; do \
+		echo "=== Captured dump $$i at $$(date) ===" >> tmp/thread_dump$$i.log; \
+		$(MAKE) jstack >> tmp/thread_dump$$i.log; \
+		for j in {1..10}; do \
+			echo -n "."; \
+			sleep 1; \
+		done; \
+	done
+	@cli stop $(node_name)
+	@echo ""
+	@echo "Thread dump collection completed."
+	@echo 'Please check "tmp/thread_dump*.log".'
 
 .PHONY: erlfmt-format
 # target: erlfmt-format - Format Erlang code automatically
@@ -356,11 +385,11 @@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)-dist.zip: $(JAR_ARTIFACTS)
 	@cp $(ARTIFACTS_DIR)/*.jar $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
 	@zip --junk-paths -r $@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
 
-$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar:
+$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar: $(ARTIFACTS_DIR)
 	@sbt assembly
 	@cp clouseau/target/scala-$(SCALA_SHORT_VERSION)/$(@F) $@
 
-$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar:
+$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar: $(ARTIFACTS_DIR)
 	@sbt assembly -Djartest=true
 	@cp clouseau/target/scala-$(SCALA_SHORT_VERSION)/$(@F) $@
 
