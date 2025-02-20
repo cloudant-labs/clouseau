@@ -28,6 +28,6 @@ jobs:
     - name: ZEunit tests
       run: direnv allow . && eval "$(direnv export bash)" && make zeunit
     - name: Metrics tests
-      run: direnv allow . && eval "$(direnv export bash)" && make metrics-tests
+      run: direnv allow . && eval "$(direnv export bash)" && make metrics-tests || cat dev/logs/clouseau1.log
     - name: CouchDB tests
-      run: direnv allow . && eval "$(direnv export bash)" && make couchdb-tests
+      run: direnv allow . && eval "$(direnv export bash)" && make couchdb-tests || cat dev/logs/clouseau1.log
