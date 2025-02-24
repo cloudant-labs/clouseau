@@ -17,7 +17,6 @@ import java.io.IOException
 import java.util.HashMap
 import java.util.LinkedHashMap
 import java.util.{ Map => JMap }
-import java.util.Map.Entry
 import scala.collection.mutable.Map
 import _root_.com.cloudant.ziose.scalang
 
@@ -25,6 +24,9 @@ import scalang._
 
 import scala.collection.JavaConverters._
 import java.util.HashSet
+import com.cloudant.ziose.core.ProcessContext
+import com.cloudant.ziose.core.Codec
+import zio.ZIO
 
 class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
 
@@ -115,6 +117,10 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
 
   def getNativeFSLockHeldSize(lockHeld: scala.collection.mutable.Set[String]) = lockHeld.synchronized {
     lockHeld.size
+  }
+
+  override def onTermination[PContext <: ProcessContext](reason: Codec.ETerm, ctx: PContext) = {
+    ZIO.logTrace("onTermination")
   }
 
   override def handleCall(tag: (Pid, Any), msg: Any): Any = msg match {
