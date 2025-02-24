@@ -25,9 +25,7 @@ final class OTPEngineWorker private (
   def acquire: UIO[Unit] = {
     ZIO.logDebug(s"Acquired ${nodeName.name}")
   }
-  def release: UIO[Unit] = {
-    ZIO.logDebug(s"Released ${nodeName.name}")
-  }
+  def release: UIO[Unit] = exchange.shutdown
   def spawn[A <: Actor](
     builder: ActorBuilder.Sealed[A]
   ): ZIO[Node & EngineWorker, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
