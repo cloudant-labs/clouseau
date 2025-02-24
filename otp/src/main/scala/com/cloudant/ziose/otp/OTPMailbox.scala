@@ -267,7 +267,7 @@ class OTPMailbox private (
   }
 
   def monitor(monitored: Address): ZIO[Node, _ <: Node.Error, Codec.ERef] = {
-    for {
+    ZIO.blocking(for {
       node <- ZIO.service[Node]
       ref <- attempt(monitored match {
         case PID(pid, _workerId, _workerName) =>
@@ -277,7 +277,7 @@ class OTPMailbox private (
         case NameOnNode(name, node, _workerId, _workerName) =>
           mbox.monitorNamed(name.asString, node.asString)
       })
-    } yield Codec.ERef(ref)
+    } yield Codec.ERef(ref))
   }
 
   def demonitor(ref: Codec.ERef): UIO[Unit] = {
