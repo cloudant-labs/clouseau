@@ -2,6 +2,8 @@
 SELF_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
 TMP_DIR=${SELF_DIR}/../tmp
 ZEUNIT_DIR=${SELF_DIR}/../zeunit
+STOP_TIMEOUT_SEC=60
+
 : "${REBAR:=rebar3}"
 
 mkdir -p "$TMP_DIR"
@@ -31,7 +33,16 @@ run::stop() {
   [ ! -f "$pid_file" ] && console::errorLn "Not found PID file!" && exit 1
 
   pkill -F "$pid_file" && console::infoLn "Stopping \"${1}\"...."
-  rm -f "$pid_file"
+  for i in $(seq 1 ${STOP_TIMEOUT_SEC}); do \
+    printf ">>>>>> Waiting... (%d seconds left)\n" $(expr ${STOP_TIMEOUT_SEC} - $i); \
+    sleep 1; \
+    pid=$(cat "$pid_file"); \
+    if ! pgrep -F "$pid_file" ; then \
+      echo ">>>>>> \"${1}\" stopped"; \
+      rm -f "$pid_file"; \
+      break; \
+    fi; \
+  done
 }
 
 run::health-check() {
