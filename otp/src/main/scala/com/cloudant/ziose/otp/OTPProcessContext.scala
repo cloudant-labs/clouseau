@@ -17,6 +17,7 @@ import com.cloudant.ziose.core.Address
 
 import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.core.ActorResult
+import scala.collection.mutable.ListBuffer
 
 class OTPProcessContext private (
   val name: Option[String],
@@ -25,12 +26,19 @@ class OTPProcessContext private (
   val worker: EngineWorker,
   private val mbox: OtpMbox
 ) extends ProcessContext {
-  val id                                 = mailbox.id
-  val engineId: Engine.EngineId          = worker.engineId
-  val workerId: Engine.WorkerId          = worker.id
-  val nodeName: Symbol                   = worker.nodeName
-  val self                               = PID(new Codec.EPid(mbox.self), worker.id, worker.nodeName)
-  private val isFinalized: AtomicBoolean = new AtomicBoolean(false)
+  val id                                               = mailbox.id
+  val engineId: Engine.EngineId                        = worker.engineId
+  val workerId: Engine.WorkerId                        = worker.id
+  val nodeName: Symbol                                 = worker.nodeName
+  private var fibers: Map[Symbol, Fiber.Runtime[_, _]] = Map()
+  val self                                             = PID(new Codec.EPid(mbox.self), worker.id, worker.nodeName)
+  private val isFinalized: AtomicBoolean               = new AtomicBoolean(false)
+
+  def status(): UIO[Map[Symbol, Fiber.Status]] = for {
+    ids <- ZIO.foldLeft(fibers)(new ListBuffer[(Symbol, Fiber.Status)]()) { case (state, (id, fiber)) =>
+      fiber.status.flatMap(status => ZIO.succeed(state.addOne(id, status)))
+    }
+  } yield ids.toMap
 
   def lookUpName(name: String): UIO[Option[Address]] = ZIO.succeedBlocking {
     mbox.whereis(name) match {
@@ -106,13 +114,13 @@ class OTPProcessContext private (
   def mailbox(accessKey: OTPNode.AccessKey): OtpMbox = mbox
 
   // The order here is important since we need to run finalizers in reverse order
-  def start() = mailbox.start(scope) *> scope.addFinalizerExit(onExit)
-
-  def exitToReason(exit: Exit[_, _]) = {
-    exit.causeOption match {
-      case Some(cause) => causeToReason(cause)
-      case None        => Codec.EAtom("normal")
-    }
+  def start(actorFiber: Fiber.Runtime[_, _]) = {
+    fibers += Symbol("actorLoop") -> actorFiber
+    for {
+      mailboxFibers <- mailbox.start(scope)
+      _             <- ZIO.succeed(fibers ++= mailboxFibers)
+      _             <- scope.addFinalizerExit(onExit)
+    } yield ()
   }
 
   def causeToReason(cause: Cause[_]) = {

@@ -59,6 +59,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   val self                               = ctx.self
   private val isFinalized: AtomicBoolean = new AtomicBoolean(false)
   def ctx                                = context
+  def status()                           = context.status()
 
   def onInit(): ZIO[Any, Nothing, ActorResult] = for {
     _ <- ctx.worker.register(this)
@@ -141,13 +142,13 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
       }
     }
     for {
-      _ <- ctx.forkScoped(
+      fiber <- ctx.forkScoped(
         loop()
       ) @@ AddressableActor.addressLogAnnotation(ctx.id) @@ AddressableActor.actorTypeLogAnnotation(
         actor.getClass.getSimpleName
       )
       _ <- offer(MessageEnvelope.Init(id))
-      _ <- ctx.start()
+      _ <- ctx.start(fiber)
     } yield ()
   }
 

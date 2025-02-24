@@ -6,6 +6,7 @@ trait ProcessContext extends EnqueueWithId[Address, MessageEnvelope] {
   val id: Address // FIXME
   // Only accessed from AddressableActor
   val worker: EngineWorker
+  def status(): UIO[Map[Symbol, Fiber.Status]]
   def name: Option[String]
   def self: PID
   def lookUpName(name: String): UIO[Option[Address]]
@@ -20,7 +21,7 @@ trait ProcessContext extends EnqueueWithId[Address, MessageEnvelope] {
   def link(to: Codec.EPid): ZIO[Any, _ <: Node.Error, Unit]
   def monitor(monitored: Address): ZIO[Node, _ <: Node.Error, Codec.ERef]
   def demonitor(ref: Codec.ERef): UIO[Unit]
-  def start(): ZIO[Any with zio.Scope, Nothing, Unit]
+  def start(actorLoopFiber: Fiber.Runtime[_, _]): ZIO[Any with zio.Scope, Nothing, Unit]
   def onExit(exit: Exit[_, _]): UIO[Unit]
   def onStop(reason: ActorResult): UIO[Unit]
 }

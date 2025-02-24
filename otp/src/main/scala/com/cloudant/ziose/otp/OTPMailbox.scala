@@ -334,11 +334,21 @@ class OTPMailbox private (
   }
 
   def start(scope: Scope) = for {
-    _ <- scope.addFinalizerExit(onExit)
-    _ <- ZStream.fromQueueWithShutdown(internalMailbox).mapZIO(compositeMailbox.offer).runDrain.forkIn(scope)
-    _ <- ZStream.fromQueueWithShutdown(externalMailbox).mapZIO(compositeMailbox.offer).runDrain.forkIn(scope)
+    internalMailboxFiber <- ZStream
+      .fromQueueWithShutdown(internalMailbox)
+      .mapZIO(compositeMailbox.offer)
+      .runDrain
+      .forkIn(scope)
+    externalMailboxFiber <- ZStream
+      .fromQueueWithShutdown(externalMailbox)
+      .mapZIO(compositeMailbox.offer)
+      .runDrain
+      .forkIn(scope)
     _ <- ZIO.succeed(mbox.subscribe(this))
-  } yield ()
+  } yield Map(
+    Symbol("internalMailboxConsumerFiber") -> internalMailboxFiber,
+    Symbol("externalMailboxConsumerFiber") -> externalMailboxFiber
+  )
 
   def onExit(exit: Exit[_, _]): UIO[Unit] = {
     val reason = exitToReason(exit)
