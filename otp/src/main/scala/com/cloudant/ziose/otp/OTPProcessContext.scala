@@ -96,6 +96,14 @@ class OTPProcessContext private (
     effect.forkIn(scope)
   }
 
+  def forkScopedWithFinalizerExit[R, E, A, R1 <: R](
+    effect: ZIO[R, E, A],
+    finalizer: Exit[Any, Any] => UIO[Any]
+  )(implicit trace: Trace): URIO[R, Fiber.Runtime[E, A]] = for {
+    _     <- scope.addFinalizerExit(finalizer)
+    fiber <- effect.forkIn(scope)
+  } yield fiber
+
   def call(msg: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response] = {
     mailbox.call(msg)
   }

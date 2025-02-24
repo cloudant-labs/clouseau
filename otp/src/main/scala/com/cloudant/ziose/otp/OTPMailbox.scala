@@ -13,7 +13,6 @@ import com.ericsson.otp.erlang.{
   OtpErlangAtom
 }
 
-import com.cloudant.ziose.core.ActorResult
 import com.cloudant.ziose.core.Codec
 import com.cloudant.ziose.core.Address
 import com.cloudant.ziose.core.MessageEnvelope
@@ -198,9 +197,7 @@ class OTPMailbox private (
     compositeMailbox.isShutdown
   }
   def shutdown(implicit trace: Trace): UIO[Unit] = {
-    if (!isFinalized.getAndSet(true)) {
-      compositeMailbox.shutdown <&> internalMailbox.shutdown
-    } else { ZIO.unit }
+    ZIO.unit
   }
   def offer(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
     internalMailbox.offer(msg)
@@ -333,16 +330,21 @@ class OTPMailbox private (
     })
   }
 
-  def start(scope: Scope) = for {
+  def start(scope: Scope.Closeable) = for {
+    _ <- scope.addFinalizerExit(onExit)
     internalMailboxFiber <- ZStream
       .fromQueueWithShutdown(internalMailbox)
       .mapZIO(compositeMailbox.offer)
       .runDrain
+      // Make sure we terminate the scope on Interruption
+      .onTermination(cause => scope.close(Exit.failCause(cause)))
       .forkIn(scope)
     externalMailboxFiber <- ZStream
       .fromQueueWithShutdown(externalMailbox)
       .mapZIO(compositeMailbox.offer)
       .runDrain
+      // Make sure we terminate the scope on Interruption
+      .onTermination(cause => scope.close(Exit.failCause(cause)))
       .forkIn(scope)
     _ <- ZIO.succeed(mbox.subscribe(this))
   } yield Map(

@@ -11,6 +11,10 @@ trait ProcessContext extends EnqueueWithId[Address, MessageEnvelope] {
   def self: PID
   def lookUpName(name: String): UIO[Option[Address]]
   def forkScoped[R, E, A](effect: ZIO[R, E, A]): URIO[R, Fiber.Runtime[E, A]]
+  def forkScopedWithFinalizerExit[R, E, A, R1 <: R](
+    effect: ZIO[R, E, A],
+    finalizer: Exit[Any, Any] => UIO[Any]
+  )(implicit trace: Trace): URIO[R, Fiber.Runtime[E, A]]
   def call(msg: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response]
   def cast(msg: MessageEnvelope.Cast): UIO[Unit]
   def send(msg: MessageEnvelope.Send): UIO[Unit]

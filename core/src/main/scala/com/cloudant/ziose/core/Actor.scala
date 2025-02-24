@@ -5,6 +5,7 @@ import zio.{Cause, Duration, Trace, UIO, ZIO}
 import java.util.concurrent.atomic.AtomicBoolean
 import zio.Promise
 import zio.logging.LogAnnotation
+import zio.Exit
 import zio.StackTrace
 
 /*
@@ -109,10 +110,14 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   def isShutdown(implicit trace: Trace): UIO[Boolean] = {
     ctx.isShutdown
   }
+
+  /*
+   * shutdown is called by exchange when it terminates
+   */
   def shutdown(implicit trace: Trace): UIO[Unit] = {
-    if (!isFinalized.getAndSet(true)) { ctx.shutdown }
-    else { ZIO.unit }
+    ctx.onExit(Exit.succeed(ActorResult.Shutdown()))
   }
+
   def offer(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
     ctx.offer(msg)
   }
@@ -145,21 +150,32 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     val handleMessage = handleActorMessage(continue)
     def loop(): ZIO[Any, Nothing, Boolean] = {
       ZIO.iterate(true)(res => res) { _ =>
-        for {
+        (for {
           event <- ctx.nextEvent
           shouldContinue <- event match {
-            case Some(event) => handleMessage(event)
-            case None        => ZIO.succeed(true)
+            case Some(event) if !isFinalized.get => handleMessage(event)
+            case Some(event)                     => ZIO.succeed(false)
+            case None                            => ZIO.succeed(true)
           }
-        } yield shouldContinue
+        } yield shouldContinue).onTermination(cause => {
+          val result = ActorResult.recoverFromCause(cause).getOrElse(ActorResult.Shutdown())
+          onTermination(result) *> ctx.onExit(Exit.fail(result))
+        })
       }
     }
     for {
-      fiber <- ctx.forkScoped(
-        loop()
-      ) @@ AddressableActor.addressLogAnnotation(ctx.id) @@ AddressableActor.actorTypeLogAnnotation(
-        actor.getClass.getSimpleName
-      )
+      fiber <- ctx
+        .forkScopedWithFinalizerExit(
+          loop(),
+          exit => {
+            onTermination(
+              ActorResult.recoverFromExit(exit).getOrElse(ActorResult.Shutdown())
+            )
+          }
+        ) @@ AddressableActor.addressLogAnnotation(ctx.id) @@ AddressableActor
+        .actorTypeLogAnnotation(
+          actor.getClass.getSimpleName
+        )
       _ <- offer(MessageEnvelope.Init(id))
       _ <- ctx.start(fiber)
     } yield ()
@@ -184,7 +200,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
               case ActorResult.Continue() => ZIO.succeed(result.shouldContinue)
               case ActorResult.StopWithCause(callback, cause) =>
                 onTermination(result) *>
-                  ctx.onExit(zio.Exit.fail(result)) *>
+                  ctx.onExit(Exit.fail(result)) *>
                   ZIO.succeed(result.shouldContinue)
               case _ =>
                 onTermination(result) *>
@@ -202,7 +218,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
               case ActorResult.Continue() => ZIO.succeed(result.shouldContinue)
               case ActorResult.StopWithCause(callback, cause) =>
                 onTermination(result) *>
-                  ctx.onExit(zio.Exit.fail(result)) *>
+                  ctx.onExit(Exit.fail(result)) *>
                   ZIO.succeed(result.shouldContinue)
               case _ =>
                 onTermination(result) *>
@@ -345,6 +361,10 @@ object ActorResult {
     val shouldContinue: Boolean             = true
     val asReasonOption: Option[Codec.ETerm] = None
   }
+  case class Shutdown() extends ActorResult {
+    val shouldContinue: Boolean             = false
+    val asReasonOption: Option[Codec.ETerm] = Some(Codec.EAtom("shutdown"))
+  }
   case class Stop() extends ActorResult {
     val shouldContinue: Boolean             = false
     val asReasonOption: Option[Codec.ETerm] = Some(Codec.EAtom("normal"))
@@ -376,5 +396,20 @@ object ActorResult {
   }
   def onTerminationError(failure: Throwable) = {
     ActorResult.StopWithCause(ActorCallback.OnTermination, failureToCause(failure)).asInstanceOf[ActorResult]
+  }
+
+  def recoverFromExit(exit: Exit[_, _]): Option[ActorResult] = exit match {
+    case Exit.Failure(cause)           => recoverFromCause(cause)
+    case Exit.Success(cause: Cause[_]) => recoverFromCause(cause)
+    case _                             => None
+  }
+
+  def recoverFromCause(cause: Cause[_]): Option[ActorResult] = {
+    cause match {
+      case Cause.Fail(result: ActorResult, _trace) => Some(result)
+      case Cause.Die(result: ActorResult, _trace)  => Some(result)
+      case _: Cause.Interrupt                      => Some(ActorResult.Shutdown())
+      case _                                       => None
+    }
   }
 }
