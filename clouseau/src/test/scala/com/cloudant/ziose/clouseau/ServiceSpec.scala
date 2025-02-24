@@ -153,15 +153,25 @@ class ServiceSpec extends JUnitRunnableSpec {
           _              <- assertNotAlive(address)
           monitorHistory <- SupervisorService.history(supervisor)
         } yield assert(monitorHistory)(isSome) ?? "history should be available"
-          && assert(monitorHistory)(containsShapeOption { case ("trapMonitorExit", (pid: Pid, ref, reason: String)) =>
-            pid == Pid.toScala(address.pid) && monitorRef == ref
+          && assert(monitorHistory)(containsShapeOption {
+            case (
+                  "trapMonitorExit",
+                  (pid: Pid, ref, (Symbol("error"), "OnMessage", reason: String, stackTrace: String))
+                ) =>
+              pid == Pid.toScala(address.pid) && monitorRef == ref
           }) ?? "has to contain elements of expected shape"
-          && assert(monitorHistory)(containsShapeOption { case ("trapMonitorExit", (_, _, reason: String)) =>
-            reason.contains("StopWithCause") && reason.contains("HandleCallCBError")
-          }) ?? "reason has to contain 'OnMessageResult' and 'HandleCallCBError'"
-          && assert(monitorHistory)(containsShapeOption { case ("trapMonitorExit", (_, _, reason: String)) =>
-            reason.contains("myCrashReason")
+          && assert(monitorHistory)(containsShapeOption {
+            case ("trapMonitorExit", (_, _, (Symbol("error"), "OnMessage", reason: String, stackTrace: String))) =>
+              reason.contains("HandleCallCBError")
+          }) ?? "reason has to contain 'HandleCallCBError'"
+          && assert(monitorHistory)(containsShapeOption {
+            case ("trapMonitorExit", (_, _, (Symbol("error"), "OnMessage", reason: String, stackTrace: String))) =>
+              reason.contains("myCrashReason")
           }) ?? "reason has to contain 'myCrashReason'"
+          && assert(monitorHistory)(containsShapeOption {
+            case ("trapMonitorExit", (_, _, (Symbol("error"), "OnMessage", reason: String, stackTrace: String))) =>
+              stackTrace.contains("TestService.handleCall(TestService.scala:")
+          }) ?? "reason has to contain 'TestService.handleCall'"
       )
     ).provideLayer(
       Utils.testEnvironment(1, 1, "ServiceSpecTrapMonitorExitSuite")
