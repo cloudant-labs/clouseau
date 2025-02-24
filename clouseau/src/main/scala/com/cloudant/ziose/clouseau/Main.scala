@@ -71,7 +71,7 @@ object Main extends ZIOAppDefault {
       logLevel = loggerCfg.level.getOrElse(LogLevel.Debug)
       node       <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry, logLevel))
       supervisor <- startSupervisor(node, workerCfg)
-      _          <- ZIO.addFinalizer(supervisor.shutdown)
+      _          <- ZIO.addFinalizer(supervisor.shutdown *> otp_node.shutdown)
       _          <- worker.awaitShutdown
     } yield ()
   }
