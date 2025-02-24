@@ -71,6 +71,11 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
       )) @@ AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnInit)
   } yield res
 
+  val formatAddress = name match {
+    case Some(name) => s"${name}@${id.asInstanceOf[PID].pid}"
+    case None       => s"${id.asInstanceOf[PID].pid}"
+  }
+
   def onTermination(result: ActorResult): ZIO[Any, Nothing, ActorResult] = for {
     _ <- ctx.worker.unregister(self)
     res <- (actor
