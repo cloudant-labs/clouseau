@@ -40,6 +40,7 @@ case class ClouseauSupervisor(
     var init: Option[Pid] = None,
   )(implicit adapter: Adapter[_, _])
     extends Service(ctx) {
+  val TERMINATION_TIMEOUT = Duration.fromSeconds(3)
   val logger = LoggerFactory.getLogger("clouseau.supervisor")
 
   override def onInit[P <: ProcessContext](_ctx: P): ZIO[Any, Throwable, _ <: ActorResult] = for {
@@ -48,6 +49,16 @@ case class ClouseauSupervisor(
     _ <- ZIO.succeed(spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args))
     _ <- ZIO.succeed(spawnAndMonitorService[InitService, ConfigurationArgs](Symbol("init"), ctx.args))
   } yield ActorResult.Continue()
+
+  override def onTermination[PContext <: ProcessContext](reason: Codec.ETerm, ctx: PContext) = {
+    val reasonScala = adapter.toScala(reason)
+    for {
+      _ <- stopChild(Symbol("main"), reasonScala, ctx)
+      _ <- stopChild(Symbol("cleanup"), reasonScala, ctx)
+      _ <- stopChild(Symbol("analyzer"), reasonScala, ctx)
+      _ <- stopChild(Symbol("init"), reasonScala, ctx)
+    } yield ()
+  }
 
   override def handleCall(tag: (Pid, Any), request: Any): Any = {
     request match {
@@ -115,6 +126,23 @@ case class ClouseauSupervisor(
       case Symbol("init") => init
       case _ => None
     }
+  }
+
+  def waitTermination[PContext <: ProcessContext](pid: Pid, ctx: PContext) = {
+    val address = ctx.addressFromEPid(pid.fromScala)
+    ctx.worker.exchange.isKnown(address).repeatWhile(_ == true).timeout(TERMINATION_TIMEOUT).unit
+  }
+
+  def stopChild[PContext <: ProcessContext](name: Symbol, reason: Any, ctx: PContext) = {
+    for {
+      maybeChild <- ZIO.succeedBlocking(getChild(name))
+      _ <- ZIO.succeedBlocking(maybeChild.map(pid => exit(pid, reason)))
+      duration <- maybeChild match {
+        case Some(pid) => waitTermination(pid, ctx).timed
+        case None => ZIO.succeed((Duration.Zero, ()))
+      }
+      _ <- ZIO.logDebug(s"${name.name} is shut down after ${duration._1.toMillis()} ms")
+    } yield ()
   }
 
   private def spawnAndMonitorService[TS <: Service[A] with Actor: Tag, A <: Product](regName: Symbol, args: A)(implicit
