@@ -55,12 +55,19 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     extends EnqueueWithId[Address, MessageEnvelope] {
   type Actor   = A
   type Context = C
+  val NUMBER_OF_FIBERS                   = 3
   val id                                 = ctx.id // FIXME
   val name                               = ctx.name
   val self                               = ctx.self
   private val isFinalized: AtomicBoolean = new AtomicBoolean(false)
   def ctx                                = context
   def status()                           = context.status()
+  def isRunningZIO = status().map(_.values.collect {
+    case status if !status.isDone => true
+  }.size == NUMBER_OF_FIBERS)
+  def isStoppedZIO = status().map(_.values.collect {
+    case status if status.isDone => true
+  }.size == NUMBER_OF_FIBERS)
 
   def onInit(): ZIO[Any, Nothing, ActorResult] = for {
     _ <- ctx.worker.register(this)
