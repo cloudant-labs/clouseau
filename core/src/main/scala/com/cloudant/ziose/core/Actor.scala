@@ -5,6 +5,7 @@ import zio.{Cause, Duration, Trace, UIO, ZIO}
 import java.util.concurrent.atomic.AtomicBoolean
 import zio.Promise
 import zio.logging.LogAnnotation
+import zio.StackTrace
 
 /*
  * This is the trait which implements actors. An Actor is a low level construct
@@ -345,13 +346,19 @@ object ActorResult {
     val asReasonOption: Option[Codec.ETerm] = None
   }
 
+  def failureToCause(failure: Throwable) = {
+    val stackTrace = failure.getStackTrace()
+    // Attach the stacktrace to point to actual issue in user's code
+    Cause.fail(failure).mapTrace(trace => StackTrace.fromJava(trace.fiberId, stackTrace))
+  }
+
   def onInitError(failure: Throwable) = {
-    ActorResult.StopWithCause(ActorCallback.OnInit, Cause.fail(failure)).asInstanceOf[ActorResult]
+    ActorResult.StopWithCause(ActorCallback.OnInit, failureToCause(failure)).asInstanceOf[ActorResult]
   }
   def onMessageError(failure: Throwable) = {
-    ActorResult.StopWithCause(ActorCallback.OnMessage, Cause.fail(failure)).asInstanceOf[ActorResult]
+    ActorResult.StopWithCause(ActorCallback.OnMessage, failureToCause(failure)).asInstanceOf[ActorResult]
   }
   def onTerminationError(failure: Throwable) = {
-    ActorResult.StopWithCause(ActorCallback.OnTermination, Cause.fail(failure)).asInstanceOf[ActorResult]
+    ActorResult.StopWithCause(ActorCallback.OnTermination, failureToCause(failure)).asInstanceOf[ActorResult]
   }
 }
