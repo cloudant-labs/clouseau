@@ -28,4 +28,10 @@ trait ProcessContext extends EnqueueWithId[Address, MessageEnvelope] {
   def start(actorLoopFiber: Fiber.Runtime[_, _]): ZIO[Any with zio.Scope, Nothing, Unit]
   def onExit(exit: Exit[_, _]): UIO[Unit]
   def onStop(reason: ActorResult): UIO[Unit]
+
+  /*
+   * Use it for tests only
+   */
+  def interruptNamedFiber(fiberName: Symbol)(implicit trace: Trace): UIO[Unit]
+
 }

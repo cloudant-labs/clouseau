@@ -138,6 +138,12 @@ class OTPProcessContext private (
     //  - name of Service callback (onMessage/onTerminate/handleCall and so on)
     Codec.fromScala(cause.prettyPrint)
   }
+  /*
+   * Use it for tests only
+   */
+  def interruptNamedFiber(fiberName: Symbol)(implicit trace: Trace): UIO[Unit] = {
+    fibers.get(fiberName).get.interrupt.unit
+  }
 
   def onExit(exit: Exit[_, _]) = {
     val reason = exitToReason(exit)
