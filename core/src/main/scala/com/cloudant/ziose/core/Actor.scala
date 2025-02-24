@@ -278,6 +278,14 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   /*
    * Use it for tests only
    */
+  def send(payload: Codec.ETerm) = {
+    val message = MessageEnvelope.makeSend(id, payload, id)
+    ctx.offer(message)
+  }
+
+  /*
+   * Use it for tests only
+   */
   def doTestCallTimeout(payload: Codec.ETerm, timeout: Duration) = {
     val message = MessageEnvelope.makeCall(
       Codec.EAtom("$gen_call"),
