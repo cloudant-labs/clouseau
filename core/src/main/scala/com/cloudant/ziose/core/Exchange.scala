@@ -12,9 +12,13 @@ package com.cloudant.ziose.core
 import com.cloudant.ziose.macros.CheckEnv
 import zio.stream.ZStream
 import zio.{Enqueue, Queue, Scope, Trace, UIO, ZIO}
+import java.util.concurrent.atomic.AtomicBoolean
+import zio.Unsafe
+import zio.Runtime
 
 class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], registry: Registry[K, M, E], val keyFn: M => K)
     extends Exchange.WithConstructor[K, M, E] {
+  private var isFinalized: AtomicBoolean = new AtomicBoolean(false)
   def add(entity: E): UIO[Unit] = {
     registry.add(entity)
   }
@@ -58,7 +62,7 @@ class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], registry: Re
     }
   }
 
-  def run = stream.runDrain
+  def run = stream.runForeachWhileScoped(_ => queue.isShutdown.negate)
 
   override def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
     queue.awaitShutdown
@@ -66,8 +70,15 @@ class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], registry: Re
   def isShutdown(implicit trace: Trace): UIO[Boolean] = {
     queue.isShutdown
   }
+
   def shutdown(implicit trace: Trace): UIO[Unit] = {
-    queue.shutdown
+    if (!isFinalized.getAndSet(true)) {
+      foreach(x => {
+        Unsafe.unsafe(implicit unsafe => {
+          Runtime.default.unsafe.run(x.shutdown)
+        })
+      }) *> queue.shutdown
+    } else { queue.shutdown }
   }
   def offer(msg: M)(implicit trace: zio.Trace): UIO[Boolean] = {
     queue.offer(msg)
