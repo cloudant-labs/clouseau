@@ -184,6 +184,13 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   def handleActorMessage(
     continue: Promise[Nothing, Unit]
   ): MessageEnvelope => ZIO[Any, Nothing, Boolean] = {
+    case MessageEnvelope.Exit(_from, _to, Codec.EAtom("shutdown"), _workerId) =>
+      val result = ActorResult.Shutdown()
+      for {
+        _ <- onTermination(result) *>
+          ctx.onStop(result) *>
+          ZIO.succeed(false)
+      } yield false
     case MessageEnvelope.Exit(_from, _to, reason, _workerId) =>
       val result = ActorResult.StopWithReasonTerm(reason)
       for {
