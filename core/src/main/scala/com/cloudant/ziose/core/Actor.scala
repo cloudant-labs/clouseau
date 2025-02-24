@@ -214,8 +214,10 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   }
 
   def resultToReason(result: ActorResult) = {
-    // TODO we need to handle each sub-type differently
-    Codec.fromScala(result.toString())
+    result.asReasonOption match {
+      case Some(reason) => reason
+      case None         => Codec.fromScala(result.toString())
+    }
   }
 
   /*
@@ -345,7 +347,7 @@ object ActorResult {
   }
   case class Stop() extends ActorResult {
     val shouldContinue: Boolean             = false
-    val asReasonOption: Option[Codec.ETerm] = None
+    val asReasonOption: Option[Codec.ETerm] = Some(Codec.EAtom("normal"))
   }
   case class StopWithReasonString(reason: String) extends ActorResult {
     val shouldContinue: Boolean             = false
@@ -357,7 +359,7 @@ object ActorResult {
   }
   case class StopWithCause(callback: ActorCallback, cause: Cause[_]) extends ActorResult {
     val shouldContinue: Boolean             = false
-    val asReasonOption: Option[Codec.ETerm] = None
+    val asReasonOption: Option[Codec.ETerm] = Some(Codec.EBinary(cause.toString()))
   }
 
   def failureToCause(failure: Throwable) = {
