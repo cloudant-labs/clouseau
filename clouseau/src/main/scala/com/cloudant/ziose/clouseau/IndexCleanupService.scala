@@ -29,8 +29,8 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
   override def handleCast(msg: Any) = msg match {
     case CleanupPathMsg(path: String) =>
       val dir = new File(rootDir, path)
-      logger.info("Removing %s".format(path))
-      recursivelyDelete(dir, true)
+      logger.info("****NOT Removing %s".format(path))
+      // recursivelyDelete(dir, true)
     case RenamePathMsg(dbName: String) =>
       val srcDir = new File(rootDir, dbName)
       val sdf = new SimpleDateFormat("yyyyMMdd'.'HHmmss")
@@ -45,9 +45,9 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
       )
       rename(srcDir, destDir)
     case CleanupDbMsg(dbName: String, activeSigs: List[String]) =>
-      logger.info("Cleaning up " + dbName)
+      logger.info("****NOT Cleaning up " + dbName)
       val pattern = Pattern.compile("shards/[0-9a-f]+-[0-9a-f]+/" + dbName + "\\.[0-9]+/([0-9a-f]+)$")
-      cleanup(rootDir, pattern, activeSigs)
+      // cleanup(rootDir, pattern, activeSigs)
   }
 
   private def cleanup(fileOrDir: File, includePattern: Pattern, activeSigs: List[String]): Unit = {
