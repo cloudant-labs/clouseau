@@ -131,13 +131,6 @@ class OTPProcessContext private (
     } yield ()
   }
 
-  def causeToReason(cause: Cause[_]) = {
-    // TODO: The format TBD
-    // Cause supports annotations we can annotate cause with
-    //  - location
-    //  - name of Service callback (onMessage/onTerminate/handleCall and so on)
-    Codec.fromScala(cause.prettyPrint)
-  }
   /*
    * Use it for tests only
    */
@@ -146,12 +139,10 @@ class OTPProcessContext private (
   }
 
   def onExit(exit: Exit[_, _]) = {
-    val reason = exitToReason(exit)
     if (!isFinalized.getAndSet(true)) {
-      val reason = exitToReason(exit)
       for {
         // Closing scope with reason to propagate correct reason
-        _ <- scope.close(exit.mapErrorCauseExit(cause => cause.as(ActorResult.StopWithReasonTerm(reason))))
+        _ <- scope.close(exit)
       } yield ()
     } else {
       ZIO.unit
@@ -166,14 +157,6 @@ class OTPProcessContext private (
     } else {
       ZIO.unit
     }
-  }
-
-  def resultToReason(result: ActorResult) = result match {
-    case ActorResult.Stop()                   => Codec.EAtom("normal")
-    case ActorResult.StopWithReasonTerm(term) => term
-    case ActorResult.StopWithCause(callback, cause) => // TBD
-      Codec.fromScala((Symbol("error"), (callback.toString, cause.prettyPrint)))
-    case ActorResult.StopWithReasonString(string) => Codec.fromScala(string)
   }
 
 }

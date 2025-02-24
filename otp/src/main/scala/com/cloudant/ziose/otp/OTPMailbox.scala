@@ -353,26 +353,14 @@ class OTPMailbox private (
   )
 
   def onExit(exit: Exit[_, _]): UIO[Unit] = {
-    val reason = exitToReason(exit)
-    ZIO.succeedBlocking(mbox.exit(reason.toOtpErlangObject)) *> shutdown
-  }
-
-  def exitToReason(exit: Exit[_, _]): Codec.ETerm = {
-    val joined = exit match {
-      case Exit.Failure(cause) if cause.isFailure     => Some(cause.failureOption.get)
-      case Exit.Failure(cause) if cause.isDie         => Some(cause.dieOption.get)
-      case Exit.Failure(cause) if cause.isInterrupted => Some(cause.interruptOption.get)
-      case Exit.Failure(cause)                        => None
-      case Exit.Success(result)                       => Some(result)
+    if (!isFinalized.getAndSet(true)) {
+      val reason = OTPError.fromExit(exit)
+      if (reason != Codec.EAtom("shutdown")) {
+        ZIO.succeedBlocking(mbox.exit(reason.toOtpErlangObject))
+      } else { ZIO.unit }
+    } else {
+      ZIO.unit
     }
-    // We would get non ActorResult reason only when parent scope of an actor terminates
-    // Which happen when OTPNode die.
-    // In such case we just return `normal`. Since we don't want to pass the arbitrary
-    // objects to jinterface.
-    joined.collect { case result: ActorResult =>
-      // Use "normal" for ActorResult.Stop
-      result.asReasonOption.getOrElse(Codec.EAtom("normal"))
-    }.getOrElse(Codec.EAtom("normal"))
   }
 
   private def readMessage = {
