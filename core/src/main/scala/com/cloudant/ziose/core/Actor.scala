@@ -76,15 +76,23 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     case None       => s"${id.asInstanceOf[PID].pid}"
   }
 
-  def onTermination(result: ActorResult): ZIO[Any, Nothing, ActorResult] = for {
-    _ <- ctx.worker.unregister(self)
-    res <- (actor
-      .onTermination(resultToReason(result), ctx)
-      .foldZIO(
-        failure => ZIO.succeed(ActorResult.onTerminationError(failure)),
-        _success => ZIO.succeed(ActorResult.Stop())
-      )) @@ AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnTermination)
-  } yield res
+  def onTermination(result: ActorResult): ZIO[Any, Nothing, ActorResult] = {
+    if (!isFinalized.getAndSet(true)) {
+      val reason = resultToReason(result)
+      for {
+        _ <- ctx.worker.unregister(self)
+        res <- (actor
+          .onTermination(reason, ctx)
+          .foldZIO(
+            failure => ZIO.succeed(ActorResult.onTerminationError(failure)),
+            _success => ZIO.succeed(ActorResult.Stop())
+          )) @@ AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnTermination) @@ AddressableActor
+          .actorTypeLogAnnotation(actor.getClass.getSimpleName)
+      } yield res
+    } else {
+      ZIO.succeed(ActorResult.Stop())
+    }
+  }
 
   def onMessage(message: MessageEnvelope)(implicit trace: Trace): ZIO[Any, Nothing, ActorResult] = {
     (actor
