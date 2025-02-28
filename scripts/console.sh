@@ -1,4 +1,5 @@
 #!/bin/bash
+export TERM="${TERM:-xterm}"
 # call it as
 # result=( $(console::requires) )
 console::requires() {
