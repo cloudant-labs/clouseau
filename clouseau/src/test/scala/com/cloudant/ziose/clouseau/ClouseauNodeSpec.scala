@@ -12,7 +12,7 @@ import com.cloudant.ziose.scalang.{Adapter, Pid, Reference, Service, ServiceCont
 import zio.test._
 import zio.test.Assertion._
 import zio.test.TestAspect
-import com.cloudant.ziose.clouseau.helpers.Asserts._
+import com.cloudant.ziose.test.helpers.Asserts._
 import com.cloudant.ziose.test.helpers.LogHistory
 
 class MonitorService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {

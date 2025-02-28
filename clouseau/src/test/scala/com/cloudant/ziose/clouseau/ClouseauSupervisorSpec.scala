@@ -11,7 +11,7 @@ import zio.test.Assertion._
 import com.cloudant.ziose.core
 import zio.test._
 import zio.test.TestAspect
-import com.cloudant.ziose.clouseau.helpers.Asserts._
+import com.cloudant.ziose.test.helpers.Asserts._
 
 @RunWith(classOf[ZTestJUnitRunner])
 class ClouseauSupervisorSpec extends JUnitRunnableSpec {
