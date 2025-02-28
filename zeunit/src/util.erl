@@ -8,6 +8,9 @@
     check_service/1, check_service/2,
     wait_value/3
 ]).
+-export([rand_char/1]).
+
+-define(ALPHABET_SIZE, 26).
 
 -define(TIMEOUT_IN_MS, 3000).
 -define(PING_TIMEOUT_IN_MS, 3000).
@@ -145,3 +148,11 @@ wait(Fun, TimeoutInUs, DelayInMs, Started, _Prev) ->
         Else ->
             Else
     end.
+
+rand_char(N) ->
+    rand_char(N, []).
+
+rand_char(0, Acc) ->
+    Acc;
+rand_char(N, Acc) ->
+    rand_char(N - 1, [rand:uniform(?ALPHABET_SIZE) - 1 + $a | Acc]).

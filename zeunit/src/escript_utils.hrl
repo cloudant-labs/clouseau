@@ -7,6 +7,7 @@
 -define(ANSI_GREEN, "32").
 -define(ANSI_YELLOW, "33").
 
+-define(NODE_TIMEOUT_IN_MS, 60_000).
 -define(PING_TIMEOUT_IN_MS, 10_000).
 
 app_dir() ->
@@ -98,8 +99,34 @@ check_ping(Node) ->
             nok("Node is not responding")
     end.
 
-init(Args) ->
-    Options = '$parse_args'(Args, #{name => undefined, cookie => undefined, other => []}),
+get_script(Options) ->
+    maps:get(script, Options).
+
+enable_networking(Options) ->
+    RemoteNode = get_node(Options),
+    LocalNode = list_to_atom(get_script(Options) ++ "_" ++ util:rand_char(6) ++ "@127.0.0.1"),
+    {ok, _} = net_kernel:start([LocalNode, longnames]),
     '$set_custom_cookie'(Options),
+    case
+        util:wait_value(fun() -> net_kernel:connect_node(RemoteNode) end, true, ?NODE_TIMEOUT_IN_MS)
+    of
+        true ->
+            ok(io_lib:format("Succesfully connected to node ~s", [RemoteNode]));
+        timeout ->
+            nok(io_lib:format("Cannot connect to node ~s", [RemoteNode]))
+    end,
+    ok.
+
+init(Args) ->
+    ScriptPath = escript:script_name(),
+    ScriptName = filename:rootname(filename:basename(ScriptPath)),
+    Options = '$parse_args'(Args, #{
+        script_path => ScriptPath,
+        script => ScriptName,
+        name => undefined,
+        cookie => undefined,
+        other => []
+    }),
     compile(),
+    enable_networking(Options),
     Options.

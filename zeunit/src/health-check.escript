@@ -1,6 +1,6 @@
 #!/usr/bin/env escript
 %% -*- erlang -*-
-%%! -name test@127.0.0.1
+%%! -dist_listen false -hidden -kernel dist_auto_connect never
 
 -include_lib("escript_utils.hrl").
 
