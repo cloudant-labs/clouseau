@@ -1,11 +1,14 @@
-package com.cloudant.ziose.clouseau.helpers
+package com.cloudant.ziose.test.helpers
 
 import zio.Chunk
 import zio.test.ZTestLogger.LogEntry
 import zio.LogLevel
 import zio.logging.{LogAnnotation, logContext}
+import com.cloudant.ziose.core.ActorCallback
+import com.cloudant.ziose.core.Address
+import com.cloudant.ziose.core.AddressableActor
+import zio.ZIO
 
-import com.cloudant.ziose.core._
 /*
  * This class implements a simple query language to find patterns in logs
  * ```scala
@@ -182,9 +185,27 @@ class LogHistory private (val entries: Chunk[(Int, LogEntry)]) {
     withActorLevel(actorType, level).asIndexedMessages
   }
 
-  private def isEqual[T](compareTo: T): T => Boolean = value => value == compareTo
-}
+  private def isEqual[T](compareTo: T): T => Boolean = value => {
+    value == compareTo
+  }
 
+  /*
+   * This debugging function can be used as
+   * for {
+   *   output       <- ZTestLogger.logOutput
+   *   logHistory = LogHistory(output)
+   *   _ <- logHistory.debug(core.AddressableActor.actorTypeLogAnnotation)
+   * } yield assert(....)
+   */
+
+  def debug[T](annotation: LogAnnotation[T]) = {
+    ZIO.succeed {
+      asIndexedMessageAnnotationTuples(annotation).foreach { case (idx, message, callback) =>
+        println(s"$idx:$callback: \"$message\"")
+      }
+    }
+  }
+}
 object LogHistory {
   def apply(entries: Chunk[LogEntry]) = new LogHistory(
     entries
