@@ -200,7 +200,7 @@ clean:
 
 .PHONY: epmd
 epmd:
-	@ERL_EPMD_ADDRESS=$(ERL_EPMD_ADDRESS) epmd -daemon -relaxed_command_check
+	@ERL_EPMD_ADDRESS=$(ERL_EPMD_ADDRESS) epmd -daemon
 
 # target: clean-all - Clean up the project to start afresh
 clean-all:
@@ -305,10 +305,9 @@ version:
 
 .PHONY: zeunit
 # target: zeunit - Run integration tests with ~/.erlang.cookie: `make zeunit`; otherwise `make zeunit cookie=<cookie>`
-zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
+zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd
 	@cli start $(node_name) "java -jar $<"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)"
-	@epmd -stop $(node_name) >/dev/null 2>&1 || true
 	@$(call to_artifacts,test-reports)
 
 .PHONY: eshell
@@ -459,7 +458,6 @@ stop-clouseau:
 			break; \
 		fi; \
 	done
-	@epmd -stop $(node_name) >/dev/null 2>&1 || true
 
 mango-test: couchdb
 	@$(MAKE) -C $(COUCHDB_DIR) mango-test

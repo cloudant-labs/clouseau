@@ -25,18 +25,18 @@ spawn_test_() ->
     }.
 
 t_spawn_many({Prefix, Concurrency}) ->
-    Self = self(),
+    ets:new(t_spawn_many_results, [set, public, named_table]),
     T1 = ts(),
     lists:foreach(
         fun(Idx) ->
             Name = process_name(Prefix, Idx),
             spawn(fun() ->
                 Pid = start_service(Name),
-                T1Call = ts(),
+                test_util:rand_delay_ms(500),
+                TI1 = ts(),
                 case gen_server:call(Pid, {echo, Idx}) of
                     {echo, Idx} ->
-                        T2Call = ts(),
-                        Self ! {Idx, T2Call - T1Call};
+                        ets:insert(t_spawn_many_results, {Idx, ts() - TI1});
                     Else ->
                         ?debugFmt("Received unexpected event for idx=~i ~p~n", [Idx, Else])
                 end
@@ -44,23 +44,32 @@ t_spawn_many({Prefix, Concurrency}) ->
         end,
         lists:seq(1, Concurrency)
     ),
-    Results = lists:map(
-        fun(_) ->
-            receive
-                {Idx, Time} when is_integer(Idx) ->
-                    {Idx, Time}
-            after ?TIMEOUT_IN_MS ->
-                timeout
-            end
-        end,
-        lists:seq(1, Concurrency)
+    NResults = util:wait_value(
+        fun() -> ets:info(t_spawn_many_results, size) end, Concurrency, 5000
     ),
+    ?assertEqual(Concurrency, NResults),
+    Stats = bear:get_statistics([Duration || {_Idx, Duration} <- ets:tab2list(t_spawn_many_results)]),
+    io:format(user, "~nRound trip time for concurrent gen_server:call (in msec)~n", []),
+    print_statistics(Stats),
     T2 = ts(),
-    %% make sure there were no timeouts
-    ?assertEqual(Concurrency, length([Idx || {Idx, _} <- Results, is_integer(Idx)])),
-    TotalTime = lists:foldl(fun({_Idx, RoundTripTime}, Acc) -> RoundTripTime + Acc end, 0, Results),
-    %% make sure the calls happened concurrently
-    ?assert(TotalTime > (T2 - T1) * ?ACCEPTABLE_CONCURENCY_TIME_RATIO),
+    ?assert(T2 - T1 < 1.5 * ?TIMEOUT_IN_MS),
+    ok.
+
+print_statistics(Stats) ->
+    [
+        io:format(user, "|~20.19s|~12.11w|~n", [Key, Value])
+     || {Key, Value} <- Stats, Key /= percentile, Key /= histogram
+    ],
+    io:format(user, "~npercentile~n", []),
+    [
+        io:format(user, "| ~-10w|~12.11w|~n", [Key, Value])
+     || {Key, Value} <- proplists:get_value(percentile, Stats)
+    ],
+    io:format(user, "~nhistogram~n", []),
+    [
+        io:format(user, "| ~-10w|~12.11w|~n", [Key, Value])
+     || {Key, Value} <- proplists:get_value(histogram, Stats)
+    ],
     ok.
 
 %%%%%%%%%%%%%%% Setup Functions %%%%%%%%%%%%%%%

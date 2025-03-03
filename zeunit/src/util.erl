@@ -8,10 +8,15 @@
     check_service/1, check_service/2,
     wait_value/3
 ]).
+-export([rand_char/1]).
+
+-define(ALPHABET_SIZE, 26).
 
 -define(TIMEOUT_IN_MS, 3000).
 -define(PING_TIMEOUT_IN_MS, 3000).
--define(SERVICE_TIMEOUT_IN_MS, 10000).
+-define(SERVICE_CHECK_ATTEMPTS, 30).
+-define(SERVICE_CHECK_WAITTIME_IN_MS, 300).
+-define(RETRY_DELAY, 50).
 
 a2l(V) -> atom_to_list(V).
 l2a(V) -> list_to_atom(V).
@@ -85,20 +90,34 @@ check_ping(Node, TimeoutInMs) when is_atom(Node) ->
     wait_value(fun() -> net_adm:ping(Node) end, pong, TimeoutInMs).
 
 check_service(Node) ->
-    check_service(Node, ?SERVICE_TIMEOUT_IN_MS).
+    check_service(Node, ?SERVICE_CHECK_ATTEMPTS).
 
-check_service(Node, TimeoutInMs) when is_atom(Node) ->
-    wait(
+check_service(Node, RetriesN) when is_atom(Node) ->
+    retry(
         fun() ->
-            try gen_server:call({main, Node}, version) of
+            try gen_server:call({main, Node}, version, ?SERVICE_CHECK_WAITTIME_IN_MS) of
                 timeout -> wait;
                 {ok, Version} -> Version
             catch
                 _:_ -> wait
             end
         end,
-        TimeoutInMs
+        RetriesN
     ).
+
+retry(Fun, Times) ->
+    retry(Fun, Times, ?RETRY_DELAY).
+
+retry(_Fun, Times, _DelayInMs) when Times =< 0 ->
+    timeout;
+retry(Fun, Times, DelayInMs) ->
+    case Fun() of
+        wait ->
+            ok = timer:sleep(DelayInMs),
+            retry(Fun, Times - 1, DelayInMs);
+        Else ->
+            Else
+    end.
 
 wait_value(Fun, Value, TimeoutInMs) ->
     wait(
@@ -117,7 +136,7 @@ now_us() ->
 
 wait(Fun, TimeoutInMs) ->
     Now = now_us(),
-    wait(Fun, TimeoutInMs * 1000, 50, Now, Now).
+    wait(Fun, TimeoutInMs * 1000, ?RETRY_DELAY, Now, Now).
 
 wait(_Fun, TimeoutInUs, _DelayInMs, Started, Prev) when Prev - Started > TimeoutInUs ->
     timeout;
@@ -129,3 +148,11 @@ wait(Fun, TimeoutInUs, DelayInMs, Started, _Prev) ->
         Else ->
             Else
     end.
+
+rand_char(N) ->
+    rand_char(N, []).
+
+rand_char(0, Acc) ->
+    Acc;
+rand_char(N, Acc) ->
+    rand_char(N - 1, [rand:uniform(?ALPHABET_SIZE) - 1 + $a | Acc]).

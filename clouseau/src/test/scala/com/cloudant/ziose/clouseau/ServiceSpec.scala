@@ -12,7 +12,7 @@ import com.cloudant.ziose.core
 import com.cloudant.ziose.scalang.{Adapter, Pid, Service, ServiceContext, SNode}
 import zio.test._
 import zio.test.TestAspect
-import com.cloudant.ziose.clouseau.helpers.Asserts._
+import com.cloudant.ziose.test.helpers.Asserts._
 import com.cloudant.ziose.scalang.Reference
 
 class SupervisorService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {

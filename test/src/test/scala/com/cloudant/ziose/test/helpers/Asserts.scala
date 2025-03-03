@@ -1,4 +1,4 @@
-package com.cloudant.ziose.clouseau.helpers
+package com.cloudant.ziose.test.helpers
 
 import scala.concurrent.TimeoutException
 

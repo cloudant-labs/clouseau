@@ -189,7 +189,7 @@ object OTPNode {
         ZIO.attemptBlocking(
           new NodeProcess(new OtpNode(name, cookie), queue, accessKey)
         )
-      )(node => ZIO.attempt(node.close()).orDie.unit) // TODO orDie could be too harsh
+      )(node => ZIO.attemptBlockingIO(node.close()).orDie.unit) // TODO orDie could be too harsh
     }
   }
 

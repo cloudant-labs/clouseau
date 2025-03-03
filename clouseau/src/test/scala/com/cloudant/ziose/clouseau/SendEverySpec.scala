@@ -12,7 +12,7 @@ import com.cloudant.ziose.core
 import com.cloudant.ziose.scalang.{Adapter, Pid, Service, ServiceContext, SNode, PidSend}
 import zio.test._
 import zio.test.TestAspect
-import com.cloudant.ziose.clouseau.helpers.Asserts.containsShapeOption
+import com.cloudant.ziose.test.helpers.Asserts.containsShapeOption
 
 class SendEveryService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   var calledArgs: List[Product2[String, Any]] = List()
