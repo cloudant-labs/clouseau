@@ -17,6 +17,7 @@ import com.cloudant.ziose.core.Address
 
 import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.core.ActorResult
+import scala.collection.mutable.ListBuffer
 
 class OTPProcessContext private (
   val name: Option[String],
@@ -25,12 +26,19 @@ class OTPProcessContext private (
   val worker: EngineWorker,
   private val mbox: OtpMbox
 ) extends ProcessContext {
-  val id                                 = mailbox.id
-  val engineId: Engine.EngineId          = worker.engineId
-  val workerId: Engine.WorkerId          = worker.id
-  val nodeName: Symbol                   = worker.nodeName
-  val self                               = PID(new Codec.EPid(mbox.self), worker.id, worker.nodeName)
-  private val isFinalized: AtomicBoolean = new AtomicBoolean(false)
+  val id                                               = mailbox.id
+  val engineId: Engine.EngineId                        = worker.engineId
+  val workerId: Engine.WorkerId                        = worker.id
+  val nodeName: Symbol                                 = worker.nodeName
+  private var fibers: Map[Symbol, Fiber.Runtime[_, _]] = Map()
+  val self                                             = PID(new Codec.EPid(mbox.self), worker.id, worker.nodeName)
+  private val isFinalized: AtomicBoolean               = new AtomicBoolean(false)
+
+  def status(): UIO[Map[Symbol, Fiber.Status]] = for {
+    ids <- ZIO.foldLeft(fibers)(new ListBuffer[(Symbol, Fiber.Status)]()) { case (state, (id, fiber)) =>
+      fiber.status.flatMap(status => ZIO.succeed(state.addOne(id, status)))
+    }
+  } yield ids.toMap
 
   def lookUpName(name: String): UIO[Option[Address]] = ZIO.succeedBlocking {
     mbox.whereis(name) match {
@@ -88,6 +96,14 @@ class OTPProcessContext private (
     effect.forkIn(scope)
   }
 
+  def forkScopedWithFinalizerExit[R, E, A, R1 <: R](
+    effect: ZIO[R, E, A],
+    finalizer: Exit[Any, Any] => UIO[Any]
+  )(implicit trace: Trace): URIO[R, Fiber.Runtime[E, A]] = for {
+    _     <- scope.addFinalizerExit(finalizer)
+    fiber <- effect.forkIn(scope)
+  } yield fiber
+
   def call(msg: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response] = {
     mailbox.call(msg)
   }
@@ -106,30 +122,27 @@ class OTPProcessContext private (
   def mailbox(accessKey: OTPNode.AccessKey): OtpMbox = mbox
 
   // The order here is important since we need to run finalizers in reverse order
-  def start() = mailbox.start(scope) *> scope.addFinalizerExit(onExit)
-
-  def exitToReason(exit: Exit[_, _]) = {
-    exit.causeOption match {
-      case Some(cause) => causeToReason(cause)
-      case None        => Codec.EAtom("normal")
-    }
+  def start(actorFiber: Fiber.Runtime[_, _]) = {
+    fibers += Symbol("actorLoop") -> actorFiber
+    for {
+      mailboxFibers <- mailbox.start(scope)
+      _             <- ZIO.succeed(fibers ++= mailboxFibers)
+      _             <- scope.addFinalizerExit(onExit)
+    } yield ()
   }
 
-  def causeToReason(cause: Cause[_]) = {
-    // TODO: The format TBD
-    // Cause supports annotations we can annotate cause with
-    //  - location
-    //  - name of Service callback (onMessage/onTerminate/handleCall and so on)
-    Codec.fromScala(cause.prettyPrint)
+  /*
+   * Use it for tests only
+   */
+  def interruptNamedFiber(fiberName: Symbol)(implicit trace: Trace): UIO[Unit] = {
+    fibers.get(fiberName).get.interrupt.unit
   }
 
   def onExit(exit: Exit[_, _]) = {
-    val reason = exitToReason(exit)
     if (!isFinalized.getAndSet(true)) {
-      val reason = exitToReason(exit)
       for {
         // Closing scope with reason to propagate correct reason
-        _ <- scope.close(exit.mapErrorCauseExit(cause => cause.as(ActorResult.StopWithReasonTerm(reason))))
+        _ <- scope.close(exit)
       } yield ()
     } else {
       ZIO.unit
@@ -144,14 +157,6 @@ class OTPProcessContext private (
     } else {
       ZIO.unit
     }
-  }
-
-  def resultToReason(result: ActorResult) = result match {
-    case ActorResult.Stop()                   => Codec.EAtom("normal")
-    case ActorResult.StopWithReasonTerm(term) => term
-    case ActorResult.StopWithCause(callback, cause) => // TBD
-      Codec.fromScala((Symbol("error"), (callback.toString, cause.prettyPrint)))
-    case ActorResult.StopWithReasonString(string) => Codec.fromScala(string)
   }
 
 }

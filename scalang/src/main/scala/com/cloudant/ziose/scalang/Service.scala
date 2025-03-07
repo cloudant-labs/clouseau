@@ -31,6 +31,16 @@ case class HandleCallCBError(err: Throwable) extends Error {
     s"err=${err.getMessage}"
   )
 }
+
+object HandleCallCBError {
+  def apply(err: Throwable) = {
+    val exception  = new HandleCallCBError(err)
+    val stackTrace = err.getStackTrace()
+    exception.setStackTrace(stackTrace)
+    exception
+  }
+}
+
 case class HandleCastCBError(err: Throwable) extends Error {
   @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
@@ -38,6 +48,16 @@ case class HandleCastCBError(err: Throwable) extends Error {
     s"err=${err.getMessage}"
   )
 }
+
+object HandleCastCBError {
+  def apply(err: Throwable) = {
+    val exception  = new HandleCastCBError(err)
+    val stackTrace = err.getStackTrace()
+    exception.setStackTrace(stackTrace)
+    exception
+  }
+}
+
 case class HandleInfoCBError(err: Throwable) extends Error {
   @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
@@ -45,6 +65,16 @@ case class HandleInfoCBError(err: Throwable) extends Error {
     s"err=${err.getMessage}"
   )
 }
+
+object HandleInfoCBError {
+  def apply(err: Throwable) = {
+    val exception  = new HandleInfoCBError(err)
+    val stackTrace = err.getStackTrace()
+    exception.setStackTrace(stackTrace)
+    exception
+  }
+}
+
 case class UnreachableError() extends Error
 case class HandleCallUndefined(className: String) extends Error {
   override def toString: String = s"Error.${getClass.getSimpleName}($className) did not define a call handler"

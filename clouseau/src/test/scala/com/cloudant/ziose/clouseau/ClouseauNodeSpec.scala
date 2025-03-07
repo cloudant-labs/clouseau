@@ -394,18 +394,25 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           logHistory = LogHistory(output)
           monitorHistory <- MonitorService.history(monitorerActor)
         } yield assert(monitorHistory)(isSome) ?? "history should be available"
-          && assert(monitorHistory)(containsShapeOption { case (pid: Pid, ref: Reference, reason: String) =>
-            pid == Pid.toScala(echoPid) && echoRef == ref
+          && assert(monitorHistory)(containsShapeOption {
+            case (pid: Pid, ref: Reference, (Symbol("error"), "OnMessage", reason: String, stackTrace: String)) =>
+              pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
-          && assert(monitorHistory)(containsShapeOption { case (_, _, reason: String) =>
-            reason.contains("OnMessage")
-          }) ?? "reason has to contain 'OnMessageResult'"
-          && assert(monitorHistory)(containsShapeOption { case (_, _, reason: String) =>
-            reason.contains("myCrashReason")
+          && assert(monitorHistory)(containsShapeOption {
+            case (_, _, (Symbol("error"), "OnMessage", reason: String, stackTrace: String)) =>
+              reason.contains("HandleCallCBError")
+          }) ?? "reason has to contain 'HandleCallCBError'"
+          && assert(monitorHistory)(containsShapeOption {
+            case (_, _, (Symbol("error"), "OnMessage", reason: String, stackTrace: String)) =>
+              reason.contains("myCrashReason")
           }) ?? "reason has to contain 'myCrashReason'"
+          && assert(monitorHistory)(containsShapeOption {
+            case (_, _, (Symbol("error"), "OnMessage", reason: String, stackTrace: String)) =>
+              stackTrace.contains("TestService.handleCall(TestService.scala:")
+          }) ?? "reason has to contain 'TestService.handleCall'"
           && assert(
             (logHistory.withLogLevel(LogLevel.Trace) &&
-              logHistory.withActor("TestService") &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
               logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
           )(containsShape { case (_, "onTermination", "TestService") =>
@@ -502,15 +509,22 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           logHistory = LogHistory(output)
           monitorHistory <- MonitorService.history(monitorerActor)
         } yield assert(monitorHistory)(isSome) ?? "history should be available"
-          && assert(monitorHistory)(containsShapeOption { case (pid: Pid, ref: Reference, reason: String) =>
-            pid == Pid.toScala(echoPid) && echoRef == ref
+          && assert(monitorHistory)(containsShapeOption {
+            case (pid: Pid, ref: Reference, (Symbol("error"), "OnMessage", reason: String, stackTrace: String)) =>
+              pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
-          && assert(monitorHistory)(containsShapeOption { case (_, _, reason: String) =>
-            reason.contains("OnMessage") && reason.contains("HandleCallCBError")
-          }) ?? "reason has to contain 'OnMessageResult' and 'HandleCallCBError'"
-          && assert(monitorHistory)(containsShapeOption { case (_, _, reason: String) =>
-            reason.contains("myCrashReason")
+          && assert(monitorHistory)(containsShapeOption {
+            case (_, _, (Symbol("error"), "OnMessage", reason: String, stackTrace: String)) =>
+              reason.contains("HandleCallCBError")
+          }) ?? "reason has to contain 'HandleCallCBError'"
+          && assert(monitorHistory)(containsShapeOption {
+            case (_, _, (Symbol("error"), "OnMessage", reason: String, stackTrace: String)) =>
+              reason.contains("myCrashReason")
           }) ?? "reason has to contain 'myCrashReason'"
+          && assert(monitorHistory)(containsShapeOption {
+            case (_, _, (Symbol("error"), "OnMessage", reason: String, stackTrace: String)) =>
+              stackTrace.contains("TestService.handleCall(TestService.scala:")
+          }) ?? "reason has to contain 'TestService.handleCall'"
           && assert(
             (logHistory.withLogLevel(LogLevel.Trace) &&
               logHistory.withActor("TestService") &&
@@ -551,7 +565,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             containsShapeOption { case (_, _, "myReason") => true }
           ) ?? "reason must be 'myReason'"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) && logHistory
+              .withActorCallback("TestService", core.ActorCallback.OnTermination))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
           )(containsShape { case (_, "onTermination", "TestService") =>
             true
