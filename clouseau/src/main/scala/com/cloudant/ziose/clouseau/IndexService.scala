@@ -158,7 +158,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   override def handleCast(msg: Any) = msg match {
     case ('merge, maxNumSegments: Int) =>
       logger.debug(prefix_name("Forcibly merging index to no more than %d segments.".format(maxNumSegments)))
-      node.spawn((_: Mailbox) => {
+      node.spawn(_ => {
         ctx.args.writer.forceMerge(maxNumSegments, true)
         ctx.args.writer.commit
         forceRefresh = true
@@ -248,7 +248,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     if (!committing && (newUpdateSeq > updateSeq || newPurgeSeq > purgeSeq)) {
       committing = true
       val index = self
-      node.spawn((_: Mailbox) => {
+      node.spawn(_ => {
         ctx.args.writer.setCommitData((ctx.args.writer.getCommitData.asScala +
           ("update_seq" -> newUpdateSeq.toString) +
           ("purge_seq" -> newPurgeSeq.toString)).asJava)

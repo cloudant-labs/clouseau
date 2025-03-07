@@ -95,9 +95,6 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
   type RegName  = ProcessLike.RegName
   type NodeName = ProcessLike.NodeName
 
-  /// We are not accessing this type directly in Clouseau
-  type Mailbox = Process
-
   val adapter: A
   def self: Address
 

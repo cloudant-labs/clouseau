@@ -130,7 +130,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
           waiters.get(path) match {
             case None =>
               val manager = self
-              node.spawn((_) => {
+              node.spawn(_ => {
                 openTimer.time {
                   IndexService.start(node, ctx.args.config, path, options) match {
                     case ('ok, pid: Pid) =>
