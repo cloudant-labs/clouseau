@@ -147,7 +147,7 @@ deps:
 
 .PHONY: all-tests
 # target: all-tests - Run all test suites
-all-tests: test zeunit couchdb-tests metrics-tests syslog-tests concurrent-zeunit-tests
+all-tests: test zeunit couchdb-tests metrics-tests syslog-tests concurrent-zeunit-tests restart-test
 
 .PHONY: test
 # target: test - Run all Scala tests
@@ -303,6 +303,11 @@ check-spotbugs-in-docker: login-image-registry
 version:
 	@echo $(PROJECT_VERSION)
 
+.PHONY: restart-test
+# target: restart-test - Test Clouseau terminates properly by repeatedly starting and stopping it (RETRY=30)
+restart-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
+	@restart-test $<
+
 .PHONY: zeunit
 # target: zeunit - Run integration tests with ~/.erlang.cookie: `make zeunit`; otherwise `make zeunit cookie=<cookie>`
 zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd
@@ -359,11 +364,11 @@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)-dist.zip: $(JAR_ARTIFACTS)
 	@cp $(ARTIFACTS_DIR)/*.jar $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
 	@zip --junk-paths -r $@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
 
-$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar:
+$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar: $(ARTIFACTS_DIR)
 	@sbt assembly
 	@cp clouseau/target/scala-$(SCALA_SHORT_VERSION)/$(@F) $@
 
-$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar:
+$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar: $(ARTIFACTS_DIR)
 	@sbt assembly -Djartest=true
 	@cp clouseau/target/scala-$(SCALA_SHORT_VERSION)/$(@F) $@
 
