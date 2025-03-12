@@ -6,7 +6,10 @@
 -export([
     check_ping/1, check_ping/2,
     check_service/1, check_service/2,
-    wait_value/3
+    wait_value/3,
+    race/2,
+    retry/2, retry/3,
+    concurrent_retry/2, concurrent_retry/4
 ]).
 -export([rand_char/1]).
 
@@ -15,7 +18,7 @@
 -define(TIMEOUT_IN_MS, 3000).
 -define(PING_TIMEOUT_IN_MS, 3000).
 -define(SERVICE_CHECK_ATTEMPTS, 30).
--define(SERVICE_CHECK_WAITTIME_IN_MS, 300).
+-define(SERVICE_CHECK_WAITTIME_IN_MS, 1500).
 -define(RETRY_DELAY, 50).
 
 a2l(V) -> atom_to_list(V).
@@ -93,17 +96,56 @@ check_service(Node) ->
     check_service(Node, ?SERVICE_CHECK_ATTEMPTS).
 
 check_service(Node, RetriesN) when is_atom(Node) ->
-    retry(
-        fun() ->
-            try gen_server:call({main, Node}, version, ?SERVICE_CHECK_WAITTIME_IN_MS) of
-                timeout -> wait;
-                {ok, Version} -> Version
-            catch
-                _:_ -> wait
+    concurrent_retry(RetriesN, fun() ->
+        try gen_server:call({main, Node}, version, ?SERVICE_CHECK_WAITTIME_IN_MS) of
+            timeout ->
+                wait;
+            {ok, Version} ->
+                Version
+        catch
+            _:_ ->
+                wait
+        end
+    end).
+
+concurrent_retry(RetriesN, Fun) ->
+    concurrent_retry(RetriesN, ?RETRY_DELAY, ?TIMEOUT_IN_MS, Fun).
+
+concurrent_retry(RetriesN, RetryDelay, Timeout, Fun) ->
+    Funs = lists:map(
+        fun(Idx) ->
+            fun() ->
+                timer:sleep(RetryDelay * Idx),
+                Fun()
             end
         end,
-        RetriesN
-    ).
+        lists:seq(1, RetriesN)
+    ),
+    race(Funs, Timeout).
+
+race(Funs, Timeout) ->
+    ResultRef = make_ref(),
+    Self = self(),
+    lists:foreach(
+        fun(F) ->
+            spawn(
+                fun() ->
+                    case F() of
+                        wait ->
+                            wait;
+                        Result ->
+                            Self ! {ResultRef, Result}
+                    end
+                end
+            )
+        end,
+        Funs
+    ),
+    receive
+        {ResultRef, Result} -> Result
+    after Timeout ->
+        timeout
+    end.
 
 retry(Fun, Times) ->
     retry(Fun, Times, ?RETRY_DELAY).
