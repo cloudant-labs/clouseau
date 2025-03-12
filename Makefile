@@ -154,7 +154,9 @@ all-tests: test zeunit couchdb-tests metrics-tests syslog-tests
 .PHONY: test
 # target: test - Run all Scala tests
 test: build $(ARTIFACTS_DIR)
+	@sbt shutdownall
 	@sbt clean test
+	@sbt shutdownall
 	@$(call to_artifacts,test-reports)
 
 $(ARTIFACTS_DIR):
