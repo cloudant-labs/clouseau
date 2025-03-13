@@ -518,7 +518,7 @@ couchdb-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
 	@cli stop $@
 
 collectd/clouseau.class: collectd/clouseau.java
-	javac -source 1.7 -target 1.7 "$<"
+	javac -source 8 -target 8 "$<"
 
 .PHONY: metrics-tests
 # target: metrics-tests - Run JMX metrics collection tests

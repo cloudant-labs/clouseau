@@ -5,6 +5,7 @@
 **/project
 **/target
 *.beam
+*.class
 *.orig
 .asdf
 .bloop
