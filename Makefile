@@ -349,6 +349,10 @@ release: $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 		--title "Release $(PROJECT_VERSION)" \
 		--generate-notes $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 
+.PHONY: artifacts
+# target: artifacts - Generate release artifacts
+artifacts: $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
+
 $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)-dist.zip: $(JAR_ARTIFACTS)
 	@mkdir -p $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
 	@cp $(ARTIFACTS_DIR)/*.jar $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
