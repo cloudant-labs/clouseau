@@ -479,7 +479,7 @@ couchdb-tests: couchdb
 	@$(MAKE) stop-clouseau
 
 collectd/clouseau.class: collectd/clouseau.java
-	javac -source 1.7 -target 1.7 "$<"
+	javac -source 8 -target 8 "$<"
 
 .PHONY: metrics-tests-failed
 metrics-tests-failed:
