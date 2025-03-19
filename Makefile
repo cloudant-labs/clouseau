@@ -65,8 +65,6 @@ SUBPROJECTS := \
 	vendor
 BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%TZ")
 ERL_EPMD_ADDRESS?=127.0.0.1
-# tput in docker require TERM variable
-TERM?=xterm
 
 node_name?=clouseau1
 cookie=$(ERLANG_COOKIE)
