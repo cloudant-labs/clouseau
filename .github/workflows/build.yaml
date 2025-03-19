@@ -1,0 +1,40 @@
+name: Build 3.x
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CLOUSEAU_LOG: deps/couchdb.main/dev/logs/clouseau1.log
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install asdf & tools
+        uses: asdf-vm/actions/install@v3
+        with:
+          asdf_branch: v0.15.0
+      - run: direnv allow
+
+      - name: Unit tests
+        run: make test
+      - name: Restart test
+        run: eval "$(direnv export bash)" && make restart-test
+      - name: RPC tests (zeunit)
+        run: eval "$(direnv export bash)" && make zeunit
+      - name: Concurrent RPC tests (zeunit)
+        run: eval "$(direnv export bash)" && make concurrent-zeunit-tests
+      - name: Syslog tests
+        run: eval "$(direnv export bash)" && make syslog-tests || cat $CLOUSEAU_LOG
+      - name: Metrics tests (mango)
+        run: eval "$(direnv export bash)" && make metrics-tests || cat $CLOUSEAU_LOG
+      - name: Elixir tests
+        run: eval "$(direnv export bash)" && make ci-elixir || cat $CLOUSEAU_LOG
