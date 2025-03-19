@@ -1,0 +1,37 @@
+name: Release 3.x
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release of clouseau-{version}-dist.zip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: git config advice.detachedHead false
+      - name: Set ENV for github-release
+        run: |
+          echo "RELEASE_TAG=${GITHUB_REF:10}" >> $GITHUB_ENV
+          echo "RELEASE_NAME=$GITHUB_WORKFLOW" >> $GITHUB_ENV
+      - name: Install asdf & tools
+        uses: asdf-vm/actions/install@v4
+      - name: Add shims to PATH
+        run: echo "${ASDF_DATA_DIR:-$HOME/.asdf}/shims" >> $GITHUB_PATH
+      - run: direnv allow
+
+      - name: Test
+        run: make test
+      - name: Generate artifacts
+        run: eval "$(direnv export bash)" && make artifacts
+      - name: List artifacts
+        run: ls artifacts
+      - name: Create release
+        run: eval "$(direnv export bash)" && make release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
