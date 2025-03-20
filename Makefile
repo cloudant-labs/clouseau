@@ -62,7 +62,8 @@ SUBPROJECTS := \
 	core \
 	otp \
 	scalang \
-	vendor
+	vendor \
+	zeunit
 BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%TZ")
 ERL_EPMD_ADDRESS?=127.0.0.1
 
