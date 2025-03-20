@@ -90,6 +90,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   val timeAllowed = ctx.args.config.getLong("clouseau.search_allowed_timeout_msecs", 5000)
   val countFieldsEnabled = ctx.args.config.getBoolean("clouseau.count_fields", false)
 
+  val concurrentSearchEnabled = ctx.args.config.getBoolean("clouseau.enable_concurrent_search", false)
+
   // Check if the index is idle and optionally close it if there is no activity between
   //Two consecutive idle status checks.
   val closeIfIdleEnabled = ctx.args.config.getBoolean("clouseau.close_if_idle", false)
@@ -115,7 +117,15 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   // TODO the ClouseauTypeFactory should happen elsewhere
   def internalHandleCall(tag: (Pid, Any), msg: Any): Any = msg match {
     case request: SearchRequest =>
-      search(request)
+      if (concurrentSearchEnabled) {
+        node.spawn(_ => {
+          val result = search(request)
+          Service.reply(tag, result)
+        })
+        'noreply
+      } else {
+        search(request)
+      }
     case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
       groupLimit: Int) =>
       group1(query, field, refresh, groupSort, groupOffset, groupLimit)
@@ -158,7 +168,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   override def handleCast(msg: Any) = msg match {
     case ('merge, maxNumSegments: Int) =>
       logger.debug(prefix_name("Forcibly merging index to no more than %d segments.".format(maxNumSegments)))
-      node.spawn((_: Mailbox) => {
+      node.spawn(_ => {
         ctx.args.writer.forceMerge(maxNumSegments, true)
         ctx.args.writer.commit
         forceRefresh = true
@@ -248,7 +258,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     if (!committing && (newUpdateSeq > updateSeq || newPurgeSeq > purgeSeq)) {
       committing = true
       val index = self
-      node.spawn((_: Mailbox) => {
+      node.spawn(_ => {
         ctx.args.writer.setCommitData((ctx.args.writer.getCommitData.asScala +
           ("update_seq" -> newUpdateSeq.toString) +
           ("purge_seq" -> newPurgeSeq.toString)).asJava)

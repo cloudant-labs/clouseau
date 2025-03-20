@@ -95,9 +95,6 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
   type RegName  = ProcessLike.RegName
   type NodeName = ProcessLike.NodeName
 
-  /// We are not accessing this type directly in Clouseau
-  type Mailbox = Process
-
   val adapter: A
   def self: Address
 
@@ -255,6 +252,8 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
   val name    = adapter.name
   val self    = adapter.self
   val node    = adapter.node
+
+  implicit val process: Process = this
 
   implicit def pid2sendable(pid: core.PID): PidSend            = new PidSend(pid, this)
   implicit def pid2sendable(pid: Pid): PidSend                 = new PidSend(pid, this)
@@ -523,30 +522,26 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
   }
 
   def onHandleCallMessage(fromTag: ETerm, request: ETerm)(implicit trace: Trace) = {
-    val (from, ref, replyRef) = fromTag match {
-      case ETuple(from: EPid, replyRef @ EListImproper(EAtom("alias"), ref: ERef)) => (Pid.toScala(from), ref, replyRef)
-      case ETuple(from: EPid, ref: ERef)                                           => (Pid.toScala(from), ref, ref)
-      case _                                                                       => throw new Throwable("unreachable")
+    val callerTag: (Pid, Any) = fromTag match {
+      case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
+        (Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref)))
+      case ETuple(from: EPid, ref: ERef) => (Pid.toScala(from), Reference.toScala(ref))
+      case _                             => throw new Throwable("unreachable")
     }
-
     try {
-      val result = handleCall((from, ref), adapter.toScala(request))
+      val result = handleCall(callerTag, adapter.toScala(request))
       for {
         res <- result match {
-          case (Symbol("reply"), reply) =>
-            sendZIO(from, (replyRef, adapter.fromScala(reply)))
-              .as(ActorResult.Continue())
+          case (Symbol("reply"), replyTerm) =>
+            Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
           case Symbol("noreply") =>
             ZIO.succeed(ActorResult.Continue())
-          case (Symbol("stop"), reason: String, reply) =>
-            sendZIO(from, (replyRef, adapter.fromScala(reply)))
-              .as(ActorResult.StopWithReasonString(reason))
-          case (Symbol("stop"), reason: Any, reply) =>
-            sendZIO(from, (replyRef, adapter.fromScala(reply)))
-              .as(ActorResult.StopWithReasonTerm(adapter.fromScala(reason)))
-          case reply =>
-            sendZIO(from, (replyRef, adapter.fromScala(reply)))
-              .as(ActorResult.Continue())
+          case (Symbol("stop"), reason: String, replyTerm) =>
+            Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.StopWithReasonString(reason))
+          case (Symbol("stop"), reason: Any, replyTerm) =>
+            Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.StopWithReasonTerm(adapter.fromScala(reason)))
+          case replyTerm =>
+            Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
         }
       } yield res
     } catch {
@@ -659,5 +654,25 @@ object Service {
   }
   def ping(to: Symbol, timeout: Long)(implicit adapter: Adapter[_, _]): Boolean = {
     adapter.node.call(to, ETuple(EAtom("$ping")), timeout) == ETuple(EAtom("$pong"))
+  }
+
+  def replyZIO[P <: Process](caller: (Pid, Any), reply: Any)(implicit process: P): UIO[Unit] = {
+    val (from, replyRef) = caller match {
+      case (from: Pid, List(Symbol("alias"), ref: Reference)) =>
+        (from.fromScala, EListImproper(EAtom("alias"), ref.fromScala))
+      case (from: Pid, ref: Reference) =>
+        (from.fromScala, ref.fromScala)
+      case _ =>
+        throw new Throwable("unreachable")
+    }
+    val adapter  = process.adapter
+    val address  = Address.fromPid(from, adapter.workerId, adapter.workerNodeName)
+    val envelope = MessageEnvelope.makeSend(address, adapter.fromScala((replyRef, reply)), adapter.self)
+    adapter.send(envelope)
+  }
+
+  def reply[P <: Process](caller: (Pid, Any), reply: Any)(implicit process: P): Unit = {
+    val (pid, ref) = caller
+    process.send(pid, (ref, reply))
   }
 }

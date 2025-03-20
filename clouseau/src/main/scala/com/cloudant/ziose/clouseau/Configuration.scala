@@ -68,7 +68,8 @@ final case class ClouseauConfiguration(
   field_cache_metrics: Option[Boolean] = None,
   commit_interval_secs: Option[Int] = None,
   lock_class: Option[String] = None,
-  dir_class: Option[String] = None
+  dir_class: Option[String] = None,
+  enable_concurrent_search: Option[Boolean] = None
 ) {
   def getString(key: String, default: String) = key match {
     case "clouseau.dir" =>
@@ -91,11 +92,12 @@ final case class ClouseauConfiguration(
     case _                                       => throw new Exception(s"Unexpected Long key '$key'")
   }
   def getBoolean(key: String, default: Boolean) = key match {
-    case "clouseau.count_fields"  => count_fields.getOrElse(default)
-    case "clouseau.count_locks"   => count_locks.getOrElse(default)
-    case "clouseau.close_if_idle" => close_if_idle.getOrElse(default)
-    case "field_cache_metrics"    => field_cache_metrics.getOrElse(default)
-    case _                        => throw new Exception(s"Unexpected Boolean key '$key'")
+    case "clouseau.count_fields"             => count_fields.getOrElse(default)
+    case "clouseau.count_locks"              => count_locks.getOrElse(default)
+    case "clouseau.close_if_idle"            => close_if_idle.getOrElse(default)
+    case "field_cache_metrics"               => field_cache_metrics.getOrElse(default)
+    case "clouseau.enable_concurrent_search" => enable_concurrent_search.getOrElse(default)
+    case _                                   => throw new Exception(s"Unexpected Boolean key '$key'")
   }
 
   @CheckEnv(System.getProperty("env"))

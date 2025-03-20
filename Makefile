@@ -149,7 +149,7 @@ deps:
 
 .PHONY: all-tests
 # target: all-tests - Run all test suites
-all-tests: test zeunit couchdb-tests metrics-tests syslog-tests
+all-tests: test zeunit couchdb-tests metrics-tests syslog-tests concurrent-zeunit-tests
 
 .PHONY: test
 # target: test - Run all Scala tests
@@ -543,3 +543,7 @@ syslog-tests:
 	@nc -lu 127.0.0.1 2000 > syslog.out &
 	@echo ">>> Receiver started"
 	@$(MAKE) syslog-test FORMAT=JSON PROTOCOL=UDP HOST=127.0.0.1 PORT=2000 FACILITY=LOCAL5 LEVEL=info
+
+concurrent-zeunit-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd FORCE
+	@cli start $(node_name) "java -jar $< concurrent.app.conf"
+	@cli zeunit $(node_name) "$(EUNIT_OPTS)"
