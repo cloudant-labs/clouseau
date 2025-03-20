@@ -47,11 +47,11 @@ t_spawn_many({Prefix, Concurrency}) ->
     NResults = util:wait_value(
         fun() -> ets:info(t_spawn_many_results, size) end, Concurrency, 5000
     ),
+    T2 = ts(),
     ?assertEqual(Concurrency, NResults),
     Stats = bear:get_statistics([Duration || {_Idx, Duration} <- ets:tab2list(t_spawn_many_results)]),
     io:format(user, "~nRound trip time for concurrent gen_server:call (in msec)~n", []),
     print_statistics(Stats),
-    T2 = ts(),
     ?assert(T2 - T1 < 1.5 * ?TIMEOUT_IN_MS),
     ok.
 

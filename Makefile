@@ -154,7 +154,9 @@ all-tests: test zeunit couchdb-tests metrics-tests syslog-tests
 .PHONY: test
 # target: test - Run all Scala tests
 test: build $(ARTIFACTS_DIR)
+	@sbt shutdownall
 	@sbt clean test
+	@sbt shutdownall
 	@$(call to_artifacts,test-reports)
 
 $(ARTIFACTS_DIR):
@@ -279,7 +281,7 @@ linter-in-docker: login-image-registry
 	@cp $(ARTIFACTS_DIR)/*.log $(CI_ARTIFACTS_DIR)
 
 build-in-docker: login-image-registry
-	@$(call docker_func,test $(addprefix /artifacts/, $(RELEASE_FILES)))
+	@$(call docker_func,all-tests $(addprefix /artifacts/, $(RELEASE_FILES)))
 	@cp -R $(ARTIFACTS_DIR)/* $(CI_ARTIFACTS_DIR)
 
 bom-in-docker: login-image-registry
