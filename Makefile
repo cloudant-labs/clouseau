@@ -350,7 +350,6 @@ erlfmt-format:
 .PHONY: artifacts
 # target: artifacts - Generate release artifacts
 artifacts: $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
-	@cp -R $(ARTIFACTS_DIR)/* $(CI_ARTIFACTS_DIR)
 
 .PHONY: release
 # target: release - Push release to github
