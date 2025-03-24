@@ -349,7 +349,7 @@ erlfmt-format:
 
 .PHONY: artifacts
 # target: artifacts - Generate release artifacts
-artifacts: $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
+artifacts: $(ARTIFACTS_DIR) $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 
 .PHONY: release
 # target: release - Push release to github
@@ -365,11 +365,11 @@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)-dist.zip: $(JAR_ARTIFACTS)
 	@cp $(ARTIFACTS_DIR)/*.jar $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
 	@zip --junk-paths -r $@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
 
-$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar: $(ARTIFACTS_DIR)
+$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar:
 	@sbt assembly
 	@cp clouseau/target/scala-$(SCALA_SHORT_VERSION)/$(@F) $@
 
-$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar: $(ARTIFACTS_DIR)
+$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar:
 	@sbt assembly -Djartest=true
 	@cp clouseau/target/scala-$(SCALA_SHORT_VERSION)/$(@F) $@
 
