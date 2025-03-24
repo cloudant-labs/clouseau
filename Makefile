@@ -354,9 +354,9 @@ artifacts: $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 # target: release - Push release to github
 
 release: artifacts
-	GH_DEBUG=1 GH_HOST=github.com gh release list --repo github.com/cloudant/ziose
+	GH_DEBUG=1 GH_HOST=github.com gh release list --repo github.com/cloudant-labs/clouseau
 	GH_DEBUG=1 GH_HOST=github.com gh release create "$(PROJECT_VERSION)" \
-		--repo github.com/cloudant/ziose \
+		--repo github.com/cloudant-labs/clouseau \
 		--title "Release $(PROJECT_VERSION)" \
 		--generate-notes $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 
