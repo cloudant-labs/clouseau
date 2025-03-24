@@ -3,7 +3,7 @@ SHELL := /bin/bash
 PROJECT_NAME=ziose
 CACHE?=true
 BUILD_DIR=$(shell pwd)
-ARTIFACTS_DIR?=$(BUILD_DIR)/artifacts
+ARTIFACTS_DIR=$(BUILD_DIR)/artifacts
 CI_ARTIFACTS_DIR=$(BUILD_DIR)/ci-artifacts
 GIT_COMMIT?=$(shell git rev-parse HEAD)
 GIT_REPOSITORY?=$(shell git config --get remote.origin.url)
@@ -151,12 +151,14 @@ all-tests: test zeunit couchdb-tests metrics-tests syslog-tests concurrent-zeuni
 .PHONY: test
 # target: test - Run all Scala tests
 test: build $(ARTIFACTS_DIR)
-	@sbt shutdownall
 	@sbt clean test
-	@sbt shutdownall
+	@echo done
 	@$(call to_artifacts,test-reports)
 
 $(ARTIFACTS_DIR):
+	@mkdir -p $@
+
+$(CI_ARTIFACTS_DIR):
 	@mkdir -p $@
 
 .PHONY: check-fmt
@@ -272,6 +274,43 @@ define docker_func
 	@$(call extract,${PROJECT_NAME}:${GIT_COMMIT},/artifacts,.)
 	@mkdir -p $(CI_ARTIFACTS_DIR)
 endef
+
+ci-lint: check-fmt $(CI_ARTIFACTS_DIR)
+	@cp $(ARTIFACTS_DIR)/*.log $(CI_ARTIFACTS_DIR)
+
+ci-build: artifacts $(CI_ARTIFACTS_DIR)
+	@echo ci-build
+	@cp $(ARTIFACTS_DIR)/*.jar $(CI_ARTIFACTS_DIR)/
+	@cp $(ARTIFACTS_DIR)/*.zip $(CI_ARTIFACTS_DIR)/
+	@find $(CI_ARTIFACTS_DIR)
+	@find . -name scala-2.13 -type d | xargs find
+
+ci-unit: test $(CI_ARTIFACTS_DIR)
+	@echo ci-unit
+
+ci-zeunit: zeunit $(CI_ARTIFACTS_DIR)
+	@find $(ARTIFACTS_DIR)
+	@cp -R $(ARTIFACTS_DIR)/zeunit $(CI_ARTIFACTS_DIR)
+
+ci-mango: couchdb
+	@$(MAKE) start-clouseau
+	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) couchdb-tests-failed
+	@$(MAKE) stop-clouseau
+
+ci-elixir: couchdb
+	@$(MAKE) start-clouseau
+	@timeout $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) couchdb-tests-failed
+	@$(MAKE) stop-clouseau
+
+ci-metrics: metrics-tests
+
+ci-verify: check-spotbugs
+
+ci-syslog: syslog-tests
+
+ci-concurrent-zeunit: concurrent-zeunit-tests
+
+ci-restart: restart-test
 
 linter-in-docker: login-image-registry
 	@$(call docker_func,check-fmt)
