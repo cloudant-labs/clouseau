@@ -353,7 +353,7 @@ artifacts: $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 
 .PHONY: release
 # target: release - Push release to github
-release: artifacts
+release: $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 	GH_DEBUG=1 GH_HOST=github.ibm.com gh release list --repo github.ibm.com/cloudant/ziose
 	GH_DEBUG=1 GH_HOST=github.ibm.com gh release create "$(PROJECT_VERSION)" \
 		--repo github.ibm.com/cloudant/ziose \
