@@ -173,6 +173,7 @@ lazy val clouseau = (project in file("clouseau"))
     // parallelExecution causing a deadlock in scala-test in CI
     (Test / parallelExecution) := false,
     (Test / logLevel) := Level.Debug,
+    (Test / fork := true),
     outputStrategy       := Some(StdoutOutput)
   )
   .dependsOn(core)
