@@ -56,13 +56,12 @@ SCALA_MICRO              := $(word 3,$(SCALA_VERSION_PARTS))
 
 SCALA_SHORT_VERSION := $(SCALA_MAJOR).$(SCALA_MINOR)
 
-SUBPROJECTS := \
+SCALA_SUBPROJECTS := \
 	clouseau \
 	core \
 	otp \
-	scalang \
-	vendor \
-	zeunit
+	scalang
+
 BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%TZ")
 ERL_EPMD_ADDRESS?=127.0.0.1
 
@@ -118,7 +117,7 @@ CONTAINER_ID=`docker create --read-only $(1) dummy` \
 endef
 
 define to_artifacts
-	find $(SUBPROJECTS) -name '$(1)' -print0 | while IFS= read -r -d '' pathname; \
+	find $(1) -name '$(2)' -print0 | while IFS= read -r -d '' pathname; \
 	do \
 		project=$$(echo "$${pathname}" | cut -d "/" -f1) ; \
 		mkdir -p "$(ARTIFACTS_DIR)/$${project}"; \
@@ -173,7 +172,7 @@ check-deps: build $(ARTIFACTS_DIR)
 	@sbt dependencyCheck
 	echo "Finished dependency check"
 	@find .
-	@$(call to_artifacts,dependency-check-report.*)
+	@$(call to_artifacts,$(SCALA_SUBPROJECTS),dependency-check-report.*)
 
 .PHONY: check-spotbugs
 # target: check-spotbugs - Inspect bugs in Java bytecode
@@ -290,8 +289,8 @@ bom-in-docker: login-image-registry
 
 check-deps-in-docker: login-image-registry
 	@$(call docker_func,check-deps)
-	@$(call to_artifacts,*dependency-check-report.json)
-	@$(call to_artifacts,*dependency-check-report.xml)
+	@$(call to_artifacts,$(SCALA_SUBPROJECTS),*dependency-check-report.json)
+	@$(call to_artifacts,$(SCALA_SUBPROJECTS),*dependency-check-report.xml)
 
 check-spotbugs-in-docker: login-image-registry
 	@$(call docker_func,check-spotbugs)
@@ -313,7 +312,7 @@ restart-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
 zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd
 	@cli start $(node_name) "java -jar $<"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)"
-	@$(call to_artifacts,test-reports)
+	@$(call to_artifacts,zeunit,test-reports)
 
 .PHONY: eshell
 # target: eshell - Start erlang shell
@@ -403,7 +402,7 @@ ci-release:
 .PHONY: bom
 bom:
 	@sbt makeBom
-	@$(call to_artifacts,*.bom.xml)
+	@$(call to_artifacts,$(SCALA_SUBPROJECTS),*.bom.xml)
 
 .PHONY: visualVM
 # target: visualVM - Attach to running clouseau instance with VisualVM tool
