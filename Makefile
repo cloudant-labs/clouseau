@@ -373,14 +373,14 @@ $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar:
 	@cp clouseau/target/scala-$(SCALA_SHORT_VERSION)/$(@F) $@
 
 $(ARTIFACTS_DIR)/%.jar.chksum: $(ARTIFACTS_DIR)/%.jar
-	@cd $(ARTIFACTS_DIR) && shasum -a 256 $(<F) > $(@F)
+	@cd $(ARTIFACTS_DIR) && sha256sum $(<F) > $(@F)
 
 $(ARTIFACTS_DIR)/%.zip.chksum: $(ARTIFACTS_DIR)/%.zip
-	@cd $(ARTIFACTS_DIR) && shasum -a 256 $(<F) > $(@F)
+	@cd $(ARTIFACTS_DIR) && sha256sum $(<F) > $(@F)
 
 $(ARTIFACTS_DIR)/checksums.txt: $(addprefix $(ARTIFACTS_DIR)/, $(CHECKSUM_FILES))
 	@cat $? > $@
-	@cd $(ARTIFACTS_DIR)/ && shasum -a 256 -c checksums.txt
+	@cd $(ARTIFACTS_DIR)/ && sha256sum -c checksums.txt
 
 # Authenticate with our image registry before pulling any images
 login-image-registry: check-env-docker
