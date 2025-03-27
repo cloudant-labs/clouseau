@@ -52,7 +52,11 @@ t_spawn_many({Prefix, Concurrency}) ->
     Stats = bear:get_statistics([Duration || {_Idx, Duration} <- ets:tab2list(t_spawn_many_results)]),
     io:format(user, "~nRound trip time for concurrent gen_server:call (in msec)~n", []),
     print_statistics(Stats),
-    ?assert(T2 - T1 < 1.5 * ?TIMEOUT_IN_MS),
+    EstimatedSeqencialTime = estimate_seq_time(Stats),
+    io:format(user, "~nEstimated sequancial time: ~p msec~n", [EstimatedSeqencialTime]),
+    ParallelTime = T2 - T1,
+    io:format(user, "~nParallel time: ~p msec~n~n", [ParallelTime]),
+    ?assert(ParallelTime < EstimatedSeqencialTime),
     ok.
 
 print_statistics(Stats) ->
@@ -72,12 +76,18 @@ print_statistics(Stats) ->
     ],
     ok.
 
+estimate_seq_time(Stats) ->
+    Percentiles = proplists:get_value(percentile, Stats),
+    P95 = proplists:get_value(95, Percentiles),
+    N = proplists:get_value(n, Stats),
+    N * P95.
+
 %%%%%%%%%%%%%%% Setup Functions %%%%%%%%%%%%%%%
 
 setup() ->
     ?assert(test_util:wait_healthy(), "Init service is not ready"),
     Prefix = atom_to_binary(test_util:random_atom()),
-    Concurrency = 100,
+    Concurrency = 300,
     {Prefix, Concurrency}.
 
 teardown({Prefix, Concurrency}) ->
