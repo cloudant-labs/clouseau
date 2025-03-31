@@ -516,7 +516,7 @@ elixir-search: couchdb
 
 .PHONY: couchdb-tests-failed
 couchdb-tests-failed:
-	@$(MAKE) stop-clouseau
+	@$(MAKE) stop-clouseau || cli tdump clouseau1
 	@exit 1
 
 .PHONY: couchdb-tests

@@ -13,6 +13,7 @@ Use `cli help <command>` to get more help.
 * `bootstrap` - a step-by-step guide to help set up environment
 * `start`     - start clouseau node
 * `stop`      - stop clouseau node
+* `tdump`     - do a java tread dump
 * `zeunit`    - run `zeunit` tests
 * `fmt`       - reformat scala code
 * `gh`        - GitHub related commands
@@ -68,6 +69,14 @@ cli stop "clouseau"
 ```
 
 ---
+
+### `tdump`: Do a java tread dump
+
+* `cli tdump [name]` - do a java thread dump for clouseau node
+
+```bash
+cli tdump "ziose"
+```
 
 ### `zeunit`: Run zeunit tests
 

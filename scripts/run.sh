@@ -45,6 +45,14 @@ run::stop() {
   done
 }
 
+run::java_thread_dump() {
+  local hash=$(run::get_hash "$1")
+  local pid_file="${TMP_DIR}/${hash}.pid"
+
+  [ ! -f "$pid_file" ] && console::errorLn "Not found PID file!" && exit 1
+  jstack "$(cat "${pid_file}")"
+}
+
 run::health-check() {
   [ -z "$2" ] && escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "$1" ||
   escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "$1" "-setcookie" "$2"
