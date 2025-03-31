@@ -352,6 +352,7 @@ zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar e
 	@cli start $(node_name) "java -jar $<"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)"
 	@$(call to_artifacts,zeunit,test-reports)
+	@cli stop $(node_name)
 
 .PHONY: eshell
 # target: eshell - Start erlang shell
@@ -592,3 +593,4 @@ syslog-tests:
 concurrent-zeunit-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd FORCE
 	@cli start $(node_name) "java -jar $< concurrent.app.conf"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)"
+	@cli stop $(node_name)
