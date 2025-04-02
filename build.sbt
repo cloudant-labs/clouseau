@@ -14,12 +14,12 @@ ThisBuild / version := s"${readVersion}"
 updateOptions := updateOptions.value.withCachedResolution(true)
 
 val versions: Map[String, String] = Map(
-  "zio"         -> "2.0.21",
-  "zio.config"  -> "4.0.2",
-  "zio.logging" -> "2.3.1",
+  "zio"         -> "2.1.16",
+  "zio.config"  -> "4.0.4",
+  "zio.logging" -> "2.5.0",
   "zio.metrics" -> "2.3.1",
-  "jmx"         -> "1.12.3",
-  "reflect"     -> "2.13.14",
+  "jmx"         -> "1.14.5",
+  "reflect"     -> "2.13.16",
   "lucene"      -> "4.6.1-cloudant1",
   "tinylog"     -> "2.7.0"
 )
