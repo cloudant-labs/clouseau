@@ -45,6 +45,7 @@ val commonMergeStrategy: String => sbtassembly.MergeStrategy = {
   case PathList("META-INF", "services", xs @ _*) if xs.last.contains("org.apache.lucene") =>
     MergeStrategy.preferProject
   case PathList("META-INF", "MANIFEST.MF")             => MergeStrategy.discard
+  case PathList("META-INF", "LICENSE.txt")             => MergeStrategy.first
   case PathList("NOTICE", _*)                          => MergeStrategy.discard
   case PathList(ps @ _*) if Assembly.isReadme(ps.last) => MergeStrategy.discard
   case _                                               => MergeStrategy.deduplicate
@@ -140,7 +141,7 @@ lazy val composedOptions: Seq[String] = {
 lazy val clouseau = (project in file("clouseau"))
   .settings(commonSettings *)
   .settings(
-    resolvers += "cloudant-repo" at "https://maven.cloudant.com/repo/",
+    resolvers += "cloudant-repo" at "https://cloudant.github.io/maven/repo/",
     libraryDependencies ++= luceneComponents
   )
   .settings(
