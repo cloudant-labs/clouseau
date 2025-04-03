@@ -66,10 +66,12 @@ case class HighlightParameters(highlighter: Highlighter, highlightFields: List[S
 case class TopDocs(updateSeq: Long, totalHits: Long, hits: List[Hit])
 case class Hit(order: List[Any], fields: List[Any])
 
+case object InvalidReader extends Exception
+
 class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
   import IndexService._
 
-  var reader = DirectoryReader.open(ctx.args.writer, true)
+  var lazyReader: Option[DirectoryReader] = None
   var updateSeq = getCommittedSeq
   var pendingSeq = updateSeq
   var purgeSeq = getCommittedPurgeSeq
@@ -77,6 +79,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   var committing = false
   var forceRefresh = false
   var idle = true
+
+  def reader = lazyReader.getOrElse(throw InvalidReader)
+  def setReader(reader: DirectoryReader) =
+    lazyReader = Some(reader)
 
   val searchTimer = metrics.timer("searches")
   val updateTimer = metrics.timer("updates")
@@ -98,6 +104,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   val idleTimeout = ctx.args.config.getInt("clouseau.idle_check_interval_secs", 300)
 
   override def handleInit(): Unit = {
+    setReader(DirectoryReader.open(ctx.args.writer, true))
     sendEvery(self, 'maybe_commit, commitInterval * 1000)
     send(self, 'count_fields)
 
@@ -636,7 +643,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     val newReader = DirectoryReader.openIfChanged(reader)
     if (newReader != null) {
       reader.close()
-      reader = newReader
+      setReader(newReader)
       forceRefresh = false
     }
   }
