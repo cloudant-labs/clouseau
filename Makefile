@@ -292,15 +292,17 @@ ci-zeunit: zeunit $(CI_ARTIFACTS_DIR)
 	@find $(ARTIFACTS_DIR)
 	@cp -R $(ARTIFACTS_DIR)/zeunit $(CI_ARTIFACTS_DIR)
 
-ci-mango: couchdb
-	@$(MAKE) start-clouseau
-	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) couchdb-tests-failed
-	@$(MAKE) stop-clouseau
+ci-mango: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar couchdb epmd FORCE
+	@cli start $@ "java -jar $< $(_COOKIE)"
+	@cli await $(node_name) "$(ERLANG_COOKIE)"
+	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
+	@cli stop $@
 
-ci-elixir: couchdb
-	@$(MAKE) start-clouseau
-	@timeout $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) couchdb-tests-failed
-	@$(MAKE) stop-clouseau
+ci-elixir: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar couchdb epmd FORCE
+	@cli start $@ "java -jar $< $(_COOKIE)"
+	@cli await $(node_name) "$(ERLANG_COOKIE)"
+	@timeout $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
+	@cli stop $@
 
 ci-metrics: metrics-tests
 
@@ -343,16 +345,16 @@ version:
 
 .PHONY: restart-test
 # target: restart-test - Test Clouseau terminates properly by repeatedly starting and stopping it (RETRY=30)
-restart-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
+restart-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar epmd FORCE
 	@restart-test $<
 
 .PHONY: zeunit
 # target: zeunit - Run integration tests with ~/.erlang.cookie: `make zeunit`; otherwise `make zeunit cookie=<cookie>`
-zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd
-	@cli start $(node_name) "java -jar $<"
-	@cli zeunit $(node_name) "$(EUNIT_OPTS)"
+zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd FORCE
+	@cli start $@ "java -jar $< $(_COOKIE)"
+	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
 	@$(call to_artifacts,zeunit,test-reports)
-	@cli stop $(node_name)
+	@cli stop $@
 
 .PHONY: eshell
 # target: eshell - Start erlang shell
@@ -473,39 +475,11 @@ $(COUCHDB_DIR)/.compiled: $(COUCHDB_DIR)/.configured
 .PHONY: couchdb
 
 couchdb: $(COUCHDB_DIR)/.compiled
+	@mkdir -p $(COUCHDB_DIR)/dev/logs
 
 .PHONY: couchdb-clean
 couchdb-clean:
 	@rm -rf $(COUCHDB_DIR)
-
-start-clouseau: CLOUSEAU_PID := $(shell $(clouseauPid))
-start-clouseau: couchdb
-	@if [ -n "${CLOUSEAU_PID}" ]; then echo '>>>>>> Clouseau is already running'; exit 1; fi
-	@mkdir -p $(COUCHDB_DIR)/dev/logs
-	@echo '>>>>> Starting Clouseau...'
-	@$(MAKE) clouseau1 > $(COUCHDB_DIR)/dev/logs/clouseau1.log 2>&1 &
-	@for i in $$(seq 1 ${TIMEOUT_CLOUSEAU_SEC}); do \
-		printf ">>>>>> Waiting... (%d seconds left)\n" $$(expr ${TIMEOUT_CLOUSEAU_SEC} - $$i); \
-		sleep 1; \
-		pid=$$($(value clouseauPid)); \
-		[ -n "$$pid" ] && break; \
-	done
-	@echo '>>>>>> Clouseau started'
-
-stop-clouseau: CLOUSEAU_PID := $(shell $(clouseauPid))
-stop-clouseau:
-	@echo '>>>>> Stopping Clouseau...'
-	@if [ -z "${CLOUSEAU_PID}" ]; then echo '>>>>>> Clouseau is not running'; exit 1; fi
-	@kill $(CLOUSEAU_PID)
-	@for i in $$(seq 1 ${TIMEOUT_CLOUSEAU_SEC}); do \
-		printf ">>>>>> Waiting... (%d seconds left)\n" $$(expr ${TIMEOUT_CLOUSEAU_SEC} - $$i); \
-		sleep 1; \
-		pid=$$($(value clouseauPid)); \
-		if [ -z "$$pid" ]; then \
-			echo '>>>>>> Clouseau stopped'; \
-			break; \
-		fi; \
-	done
 
 $(COUCHDB_DIR)/src/mango/.venv: couchdb
 	@python3 -m venv $@
@@ -526,42 +500,41 @@ elixir-search: couchdb
 	@#                                       v-this is a hack
 	@$(MAKE) -C $(COUCHDB_DIR) elixir-search _WITH_CLOUSEAU=-q
 
-.PHONY: couchdb-tests-failed
-couchdb-tests-failed:
-	@$(MAKE) stop-clouseau || cli tdump clouseau1
+.PHONY: test-failed
+test-failed:
+	@cli stop $(ID)
+	@echo ">>>> The test failed bellow are the process logs"
+	@cat $(shell cli logs $(ID))
 	@exit 1
 
 .PHONY: couchdb-tests
 # target: couchdb-tests - Run test suites from upstream CouchDB that use Clouseau
-couchdb-tests: couchdb
-	@$(MAKE) start-clouseau
-	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) couchdb-tests-failed
-	@timeout $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) couchdb-tests-failed
-	@$(MAKE) stop-clouseau
+couchdb-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar couchdb epmd FORCE
+	@cli start $@ "java -jar $< $(_COOKIE)"
+	@cli await $(node_name) "$(ERLANG_COOKIE)"
+	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
+	@timeout $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
+	@cli stop $@
 
 collectd/clouseau.class: collectd/clouseau.java
 	javac -source 1.7 -target 1.7 "$<"
 
-.PHONY: metrics-tests-failed
-metrics-tests-failed:
-	@cli stop $(node_name)
-	@exit 1
-
 .PHONY: metrics-tests
 # target: metrics-tests - Run JMX metrics collection tests
-metrics-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar collectd/clouseau.class
+metrics-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar collectd/clouseau.class epmd FORCE
 	@chmod 600 jmxremote.password
-	@cli start $(node_name) \
+	@cli start $@ \
 		"java \
        -Dcom.sun.management.jmxremote.port=9090 \
        -Dcom.sun.management.jmxremote.ssl=false \
        -Dcom.sun.management.jmxremote.password.file=jmxremote.password \
        -jar $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar" > /dev/null
+	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@echo "Warming up Clouseau to expose all the metrics"
-	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) metrics-tests-failed
+	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
 	@echo "Collecting metrics"
 	@java -cp collectd clouseau "service:jmx:rmi:///jndi/rmi://localhost:9090/jmxrmi" monitorRole password > collectd/metrics.out
-	@cli stop $(node_name)
+	@cli stop $@
 	@echo "Comparing collected metrics with expectations:"
 	@if diff -u collectd/metrics.out collectd/metrics.expected; then \
 		echo "Everything is in order"; \
@@ -569,7 +542,7 @@ metrics-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
 
 FORCE: # https://www.gnu.org/software/make/manual/html_node/Force-Targets.html
 
-syslog-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar FORCE
+syslog-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar epmd FORCE
 	@sed \
 	  -e "s/%%FORMAT%%/$(FORMAT)/" \
 	  -e "s/%%PROTOCOL%%/$(PROTOCOL)/" \
@@ -578,10 +551,11 @@ syslog-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar F
 	  -e "s/%%FACILITY%%/$(FACILITY)/" \
 	  -e "s/%%LEVEL%%/$(LEVEL)/" \
 	  syslog.app.conf.templ > syslog.app.conf
-	@cli start $(node_name) "java -jar $< syslog.app.conf"
+	@cli start $@ "java -jar $< syslog.app.conf"
+	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) test-failed ID=$@
 	@echo ">>> Waiting for Clouseau to generate logs (5 seconds)"
 	@sleep 5
-	@cli stop $(node_name)
+	@cli stop $@
 	@if grep -Fq "Clouseau running as clouseau1@127.0.0.1" syslog.out; then \
 		echo ">>> Log events received!"; \
 	else \
@@ -603,6 +577,6 @@ syslog-tests:
 	@$(MAKE) syslog-test FORMAT=JSON PROTOCOL=UDP HOST=127.0.0.1 PORT=2000 FACILITY=LOCAL5 LEVEL=info
 
 concurrent-zeunit-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd FORCE
-	@cli start $(node_name) "java -jar $< concurrent.app.conf"
-	@cli zeunit $(node_name) "$(EUNIT_OPTS)"
-	@cli stop $(node_name)
+	@cli start $@ "java -jar $< $(_COOKIE) concurrent.app.conf"
+	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
+	@cli stop $@
