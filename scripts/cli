@@ -216,6 +216,12 @@ tdump)
   name=$1
   run::java_thread_dump "$name"
   ;;
+await)
+  ensure_args 2 "help_topic await" "$@"
+  name=$1
+  cookie=$(echo "$2" | sed 's/.*=//g')
+  run::health-check "$name" "$cookie" || exit 1
+  ;;
 *)
   console::errorLn "Unknown command '${command}'"
   console::infoLn "List of supported commands"

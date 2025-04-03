@@ -14,6 +14,7 @@ Use `cli help <command>` to get more help.
 * `start`     - start clouseau node
 * `stop`      - stop clouseau node
 * `tdump`     - do a java tread dump
+* `await`     - await the clouseau node
 * `logs`      - get recent logs file for terminated clouseau node
 * `zeunit`    - run `zeunit` tests
 * `fmt`       - reformat scala code
@@ -77,6 +78,16 @@ cli stop "clouseau"
 
 ```bash
 cli tdump "ziose"
+```
+
+---
+
+### `await`: Await clouseau node to finish start up
+
+* `cli await [name]` - await clouseau node to finish start up
+
+```bash
+cli await "clouseau" "myCookie"
 ```
 
 ---
