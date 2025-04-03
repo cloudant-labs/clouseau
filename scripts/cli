@@ -196,6 +196,11 @@ stop)
   run::stop "$1"
   exit $?
   ;;
+logs)
+  ensure_args 1 "help_topic logs" "$@"
+  run::last_log "$1"
+  exit $?
+  ;;
 zeunit)
   ensure_args 1 "help_topic zeunit" "$@"
   name=$1

@@ -14,6 +14,7 @@ Use `cli help <command>` to get more help.
 * `start`     - start clouseau node
 * `stop`      - stop clouseau node
 * `tdump`     - do a java tread dump
+* `logs`      - get recent logs file for terminated clouseau node
 * `zeunit`    - run `zeunit` tests
 * `fmt`       - reformat scala code
 * `gh`        - GitHub related commands
@@ -77,6 +78,18 @@ cli stop "clouseau"
 ```bash
 cli tdump "ziose"
 ```
+
+---
+
+### `logs`: Get recent logs filename for terminated clouseau node
+
+* `cli logs [name]` - get recent logs for terminated clouseau node
+
+```bash
+cli logs "clouseau"
+```
+
+---
 
 ### `zeunit`: Run zeunit tests
 
