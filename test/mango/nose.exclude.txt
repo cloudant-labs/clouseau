@@ -1,0 +1,2 @@
+06-basic-text-test.NumStringTests.test_floating_point_val
+06-basic-text-test.BasicTextTests.test_lte

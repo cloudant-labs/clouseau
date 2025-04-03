@@ -507,8 +507,20 @@ stop-clouseau:
 		fi; \
 	done
 
-mango-test: couchdb
-	@$(MAKE) -C $(COUCHDB_DIR) mango-test
+$(COUCHDB_DIR)/src/mango/.venv: couchdb
+	@python3 -m venv $@
+	@$@/bin/pip3 install --upgrade pip wheel setuptools
+	@$@/bin/pip3 install -r $(COUCHDB_DIR)/src/mango/requirements.txt
+	@$@/bin/pip3 install nose-exclude
+
+mango-test: $(COUCHDB_DIR)/src/mango/.venv
+	@$(MAKE) -C $(COUCHDB_DIR) all
+	@$(COUCHDB_DIR)/dev/run \
+		-n 1 \
+		--admin=adm:pass \
+		--no-eval "\
+COUCH_USER=adm COUCH_PASS=pass \
+$(COUCHDB_DIR)/src/mango/.venv/bin/nose2 -F -s $(COUCHDB_DIR)/src/mango/test -c test/mango/unittest.cfg"
 
 elixir-search: couchdb
 	@#                                       v-this is a hack
