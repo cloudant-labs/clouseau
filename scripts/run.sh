@@ -14,13 +14,14 @@ run::get_hash() {
 }
 
 run::start() {
-  local hash
-  hash=$(run::get_hash "$1")
+  local id=$1
+  local hash=$(run::get_hash "$id")
   local pid_file="${TMP_DIR}/${hash}.pid"
 
   [ -f "$pid_file" ] && console::errorLn "PID file already exist!" && return 1
 
   shift
+  console::infoLn "Starting \"${id}\" using \"${@}\" ...."
   $@ &
   echo $! >"$pid_file"
 }
