@@ -124,19 +124,31 @@ object LoggerFactory {
     "SLF4J-LOGGER"      -> level
   )
 
-  private val logFormatPlainText = {
-    val timeStampFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:MM:ss.SSS'Z'").withZone(ZoneOffset.UTC)
+  private val timeStampFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:MM:ss.SSS'Z'").withZone(ZoneOffset.UTC)
+
+  @inline
+  private def bracket(content: zio.logging.LogFormat) = text("[") + content + text("]")
+
+  private val logFormatText = {
     (
       timestamp(timeStampFormat).fixed(25) +
         level.fixed(7) +
         fiberId.fixed(21) + space +
         (enclosingClass + text(":") + traceLine).fixed(32) + space +
-        (text("[") + zio.logging.LogFormat.loggerName(LoggerNameExtractor.annotation("logger_name")) + text(
-          "]"
-        ) + space) +
+        bracket(zio.logging.LogFormat.loggerName(LoggerNameExtractor.annotation("logger_name"))) + space +
         line +
         (space + cause).filter(LogFilter.causeNonEmpty)
     ).highlight
+  }
+
+  private val logFormatRaw = {
+    timestamp(timeStampFormat) + space +
+      bracket(level) +
+      bracket(fiberId) +
+      bracket((enclosingClass + text(":") + traceLine)) +
+      bracket(zio.logging.LogFormat.loggerName(LoggerNameExtractor.annotation("logger_name"))) + space +
+      line +
+      (space + cause).filter(LogFilter.causeNonEmpty)
   }
 
   private val logFormatJSON = {
@@ -157,17 +169,19 @@ object LoggerFactory {
 
   private def loggerForOutput(cfg: LogConfiguration) = {
     val output: LogOutput = cfg.output.getOrElse(LogOutput.Stdout)
-    val format: LogFormat = cfg.format.getOrElse(LogFormat.PlainText)
+    val format: LogFormat = cfg.format.getOrElse(LogFormat.Raw)
     val level: LogLevel   = cfg.level.getOrElse(LogLevel.Debug)
-    val config = format match {
-      case LogFormat.PlainText => ConsoleLoggerConfig(logFormatPlainText, logFilterConfig(level))
-      case LogFormat.JSON      => ConsoleLoggerConfig(logFormatJSON, logFilterConfig(level))
+    val formatSpecifier = format match {
+      case LogFormat.Raw  => logFormatRaw
+      case LogFormat.Text => logFormatText
+      case LogFormat.JSON => logFormatJSON
     }
+    val config = ConsoleLoggerConfig(formatSpecifier, logFilterConfig(level))
     val logger = (output, format) match {
-      case (LogOutput.Stdout, LogFormat.PlainText) => consoleLogger(config)
-      case (LogOutput.Stdout, LogFormat.JSON)      => consoleJsonLogger(config)
-      case (LogOutput.Syslog, LogFormat.PlainText) => LoggerLayers.syslogLogger(config, cfg.syslog)
-      case (LogOutput.Syslog, LogFormat.JSON)      => LoggerLayers.syslogJsonLogger(config, cfg.syslog)
+      case (LogOutput.Stdout, LogFormat.JSON) => consoleJsonLogger(config)
+      case (LogOutput.Stdout, _)              => consoleLogger(config)
+      case (LogOutput.Syslog, LogFormat.JSON) => LoggerLayers.syslogJsonLogger(config, cfg.syslog)
+      case (LogOutput.Syslog, _)              => LoggerLayers.syslogLogger(config, cfg.syslog)
     }
     logger >+> Slf4jBridge.init(config.toFilter)
   }

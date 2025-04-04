@@ -17,8 +17,9 @@ object LogOutput {
 }
 
 object LogFormat {
-  final case object PlainText extends LogFormat
-  final case object JSON      extends LogFormat
+  final case object Raw  extends LogFormat
+  final case object Text extends LogFormat
+  final case object JSON extends LogFormat
 }
 
 final case class WorkerConfiguration(node: OTPNodeConfig, clouseau: Option[ClouseauConfiguration])
