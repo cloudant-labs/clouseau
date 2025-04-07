@@ -14,12 +14,12 @@ ThisBuild / version := s"${readVersion}"
 updateOptions := updateOptions.value.withCachedResolution(true)
 
 val versions: Map[String, String] = Map(
-  "zio"         -> "2.0.21",
-  "zio.config"  -> "4.0.2",
-  "zio.logging" -> "2.3.1",
+  "zio"         -> "2.1.16",
+  "zio.config"  -> "4.0.4",
+  "zio.logging" -> "2.5.0",
   "zio.metrics" -> "2.3.1",
-  "jmx"         -> "1.12.3",
-  "reflect"     -> "2.13.14",
+  "jmx"         -> "1.14.5",
+  "reflect"     -> "2.13.16",
   "lucene"      -> "4.6.1-cloudant1",
   "tinylog"     -> "2.7.0"
 )
@@ -45,6 +45,7 @@ val commonMergeStrategy: String => sbtassembly.MergeStrategy = {
   case PathList("META-INF", "services", xs @ _*) if xs.last.contains("org.apache.lucene") =>
     MergeStrategy.preferProject
   case PathList("META-INF", "MANIFEST.MF")             => MergeStrategy.discard
+  case PathList("META-INF", "LICENSE.txt")             => MergeStrategy.first
   case PathList("NOTICE", _*)                          => MergeStrategy.discard
   case PathList(ps @ _*) if Assembly.isReadme(ps.last) => MergeStrategy.discard
   case _                                               => MergeStrategy.deduplicate
@@ -140,7 +141,7 @@ lazy val composedOptions: Seq[String] = {
 lazy val clouseau = (project in file("clouseau"))
   .settings(commonSettings *)
   .settings(
-    resolvers += "cloudant-repo" at "https://maven.cloudant.com/repo/",
+    resolvers += "cloudant-repo" at "https://cloudant.github.io/maven/repo/",
     libraryDependencies ++= luceneComponents
   )
   .settings(
@@ -171,6 +172,8 @@ lazy val clouseau = (project in file("clouseau"))
     (Test / forkOptions) := (Test / forkOptions).value.withWorkingDirectory(baseDirectory.value),
     // parallelExecution causing a deadlock in scala-test in CI
     (Test / parallelExecution) := false,
+    (Test / logLevel) := Level.Debug,
+    (Test / fork := true),
     outputStrategy       := Some(StdoutOutput)
   )
   .dependsOn(core)

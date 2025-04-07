@@ -14,20 +14,34 @@ run::get_hash() {
 }
 
 run::start() {
-  local hash
-  hash=$(run::get_hash "$1")
+  local id=$1
+  local hash=$(run::get_hash "$id")
   local pid_file="${TMP_DIR}/${hash}.pid"
 
   [ -f "$pid_file" ] && console::errorLn "PID file already exist!" && return 1
 
+  local ts=$(date -u +"%Y-%m-%dT%TZ")
+  local log_file="${TMP_DIR}/${id}.${ts}.log"
+
   shift
-  $@ &
+  console::infoLn "Starting \"${id}\" using \"${@}\" ...."
+  $@ > ${log_file} 2>&1 &
   echo $! >"$pid_file"
+  run::print_log "${id}"
+}
+
+run::last_log() {
+  ls -t1 "${TMP_DIR}/" | grep "${1}.*.log" | head -n 1 | xargs -I {} echo "${TMP_DIR}/{}"
+}
+
+run::print_log() {
+  local log_file=$(run::last_log "${1}")
+  [ ! -f "$log_file" ] && console::errorLn "Not found log file!" && exit 1
+  console::infoLn "The process logs are written to ${log_file}"
 }
 
 run::stop() {
-  local hash
-  hash=$(run::get_hash "$1")
+  local hash=$(run::get_hash "$1")
   local pid_file="${TMP_DIR}/${hash}.pid"
 
   [ ! -f "$pid_file" ] && console::errorLn "Not found PID file!" && exit 1
@@ -43,6 +57,15 @@ run::stop() {
       break; \
     fi; \
   done
+  run::print_log "$1"
+}
+
+run::java_thread_dump() {
+  local hash=$(run::get_hash "$1")
+  local pid_file="${TMP_DIR}/${hash}.pid"
+
+  [ ! -f "$pid_file" ] && console::errorLn "Not found PID file!" && exit 1
+  jstack "$(cat "${pid_file}")"
 }
 
 run::health-check() {
