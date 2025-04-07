@@ -22,7 +22,7 @@ for i in $(seq 1 "$RETRY"); do
   pkill -F "$TMP_DIR/t$i.pid"
 
   for _ in $(seq 1 "$TIMEOUT"); do
-    pgrep -q -F "$TMP_DIR/t$i.pid"
+    pgrep -F "$TMP_DIR/t$i.pid" >/dev/null 2>&1
     STATUS=$?
     console::infoLn "==> Restart tests: $i, status: $STATUS"
     if [ $STATUS -eq 1 ]; then
