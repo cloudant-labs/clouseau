@@ -3,7 +3,7 @@ package com.cloudant.ziose.clouseau
 import com.cloudant.ziose.macros.CheckEnv
 import com.cloudant.ziose.{core, scalang}
 import core.ActorBuilder.State
-import core.{ActorBuilder, ActorConstructor, ProcessContext}
+import core.{ActorBuilder, ActorConstructor, Codec, ProcessContext}
 import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
 
 import java.time.Instant
@@ -17,16 +17,16 @@ case class TestServiceHandle(
   actor: core.AddressableActor[TestService, _],
   terminate: Queue[Unit]
 ) {
-  val TERMINATION_TIMEOUT                                             = 2.seconds
-  val self                                                            = actor.self
-  val id                                                              = actor.id
-  val ctx                                                             = actor.ctx
-  def doTestCall(payload: core.Codec.ETerm)                           = actor.doTestCall(payload)
-  def doTestCallTimeout(payload: core.Codec.ETerm, timeout: Duration) = actor.doTestCallTimeout(payload, timeout)
-  def sendTestCall(payload: core.Codec.ETerm)                         = actor.sendTestCall(payload)
-  def exit(reason: core.Codec.ETerm): UIO[Unit]                       = actor.exit(reason)
+  val TERMINATION_TIMEOUT                                        = 2.seconds
+  val self                                                       = actor.self
+  val id                                                         = actor.id
+  val ctx                                                        = actor.ctx
+  def doTestCall(payload: Codec.ETerm)                           = actor.doTestCall(payload)
+  def doTestCallTimeout(payload: Codec.ETerm, timeout: Duration) = actor.doTestCallTimeout(payload, timeout)
+  def sendTestCall(payload: Codec.ETerm)                         = actor.sendTestCall(payload)
+  def exit(reason: Codec.ETerm): UIO[Unit]                       = actor.exit(reason)
   def stopWithReason(reason: Any): ZIO[core.Node & core.EngineWorker, Throwable, Unit] = {
-    actor.sendTestCall(core.Codec.fromScala((Symbol("stop"), reason))) *>
+    actor.sendTestCall(Codec.fromScala((Symbol("stop"), reason))) *>
       terminate.take
         .timeout(TERMINATION_TIMEOUT)
         .someOrFail(new TimeoutException(s"stopWithReason($reason) for $id timed out"))
@@ -34,7 +34,7 @@ case class TestServiceHandle(
   }
 
   def crashWithReason(reason: String): ZIO[core.Node & core.EngineWorker, Throwable, Unit] = {
-    actor.sendTestCall(core.Codec.fromScala((Symbol("crashWithReason"), reason))) *>
+    actor.sendTestCall(Codec.fromScala((Symbol("crashWithReason"), reason))) *>
       terminate.take
         .timeout(TERMINATION_TIMEOUT)
         .someOrFail(new TimeoutException(s"crashWithReason($reason) for $id timed out"))
@@ -42,7 +42,7 @@ case class TestServiceHandle(
   }
 
   def exitWithReason(reason: String): ZIO[core.Node & core.EngineWorker, Throwable, Unit] = {
-    actor.exit(core.Codec.fromScala(reason)) *>
+    actor.exit(Codec.fromScala(reason)) *>
       terminate.take
         .timeout(TERMINATION_TIMEOUT)
         .someOrFail(new TimeoutException(s"exitWithReason($reason) for $id timed out"))
@@ -50,10 +50,10 @@ case class TestServiceHandle(
   }
 
   def history = actor
-    .doTestCallTimeout(core.Codec.EAtom("history"), 3.seconds)
+    .doTestCallTimeout(Codec.EAtom("history"), 3.seconds)
     .delay(100.millis)
     .repeatUntil(_.isSuccess)
-    .map(result => core.Codec.toScala(result.payload.get).asInstanceOf[List[Any]])
+    .map(result => Codec.toScala(result.payload.get).asInstanceOf[List[Any]])
     .timeout(3.seconds)
     .someOrFail(new TimeoutException(s"Getting history for $id timed out"))
 }
@@ -93,8 +93,22 @@ class TestService(ctx: ServiceContext[TestServiceArgs])(implicit adapter: Adapte
         logger.warn(s"Unexpected message: $msg ...")
     }
   }
-  override def onTermination[PContext <: ProcessContext](reason: core.Codec.ETerm, _ctx: PContext) = {
-    ZIO.logTrace("onTermination") *> ctx.args.terminate.offer(()).unit
+  override def onTermination[PContext <: ProcessContext](reason: Codec.ETerm, _ctx: PContext) = {
+    val reasonId = reason.getClass.getSimpleName
+    reason match {
+      case binary: Codec.EBinary =>
+        ZIO.logTrace(
+          s"[${name}]onTermination: ${reasonId} -> ${binary.asString}"
+        ) *> ctx.args.terminate
+          .offer(())
+          .unit
+      case _ =>
+        ZIO.logTrace(
+          s"[${name}]onTermination: ${reasonId} -> ${reason}"
+        ) *> ctx.args.terminate
+          .offer(())
+          .unit
+    }
   }
 
   private def now(): BigInt = ChronoUnit.MICROS.between(Instant.EPOCH, Instant.now())

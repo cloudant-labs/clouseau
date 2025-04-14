@@ -368,13 +368,17 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-          )(containsShape { case (_, "onTermination", "TestService") =>
-            true
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("reason")
           }) ?? "log should contain messages from 'TestService.onTermination' callback"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
@@ -415,11 +419,13 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
               logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-          )(containsShape { case (_, "onTermination", "TestService") =>
-            true
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("myCrashReason")
           }) ?? "log should contain messages from 'TestService.onTermination' callback"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
@@ -448,13 +454,17 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             containsShapeOption { case (_, _, "myReason") => true }
           ) ?? "reason must be 'myReason'"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-          )(containsShape { case (_, "onTermination", "TestService") =>
-            true
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("myReason")
           }) ?? "log should contain messages from 'TestService.onTermination' callback"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
@@ -481,13 +491,17 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-          )(containsShape { case (_, "onTermination", "TestService") =>
-            true
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("reason")
           }) ?? "log should contain messages from 'TestService.onTermination' callback"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
@@ -527,14 +541,16 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           }) ?? "reason has to contain 'TestService.handleCall'"
           && assert(
             (logHistory.withLogLevel(LogLevel.Trace) &&
-              logHistory.withActor("TestService") &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
               logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-          )(containsShape { case (_, "onTermination", "TestService") =>
-            true
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("myCrashReason")
           }) ?? "log should contain messages from 'TestService.onTermination' callback"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
@@ -565,14 +581,17 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             containsShapeOption { case (_, _, "myReason") => true }
           ) ?? "reason must be 'myReason'"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory
-              .withActorCallback("TestService", core.ActorCallback.OnTermination))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-          )(containsShape { case (_, "onTermination", "TestService") =>
-            true
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("myReason")
           }) ?? "log should contain messages from 'TestService.onTermination' callback"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
