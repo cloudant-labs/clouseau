@@ -192,55 +192,28 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     continue: Promise[Nothing, Unit]
   ): MessageEnvelope => ZIO[Any, Nothing, Boolean] = {
     case MessageEnvelope.Exit(_from, _to, Codec.EAtom("shutdown"), _workerId) =>
-      val result = ActorResult.Shutdown()
-      for {
-        _ <- onTermination(result) *>
-          ctx.onStop(result) *>
-          ZIO.succeed(false)
-      } yield false
+      handleActorResult(ActorResult.Shutdown())
     case MessageEnvelope.Exit(_from, _to, reason, _workerId) =>
-      val result = ActorResult.StopWithReasonTerm(reason)
-      for {
-        _ <- onTermination(result) *>
-          ctx.onStop(result) *>
-          ZIO.succeed(result.shouldContinue)
-      } yield false
+      handleActorResult(ActorResult.StopWithReasonTerm(reason))
     case _: MessageEnvelope.Init =>
       for {
-        _ <- continue.succeed(())
-        shouldContinue <- onInit()
-          .flatMap(result => {
-            result match {
-              case ActorResult.Continue() => ZIO.succeed(result.shouldContinue)
-              case ActorResult.StopWithCause(callback, cause) =>
-                onTermination(result) *>
-                  ctx.onExit(Exit.fail(result)) *>
-                  ZIO.succeed(result.shouldContinue)
-              case _ =>
-                onTermination(result) *>
-                  ctx.onStop(result) *>
-                  ZIO.succeed(result.shouldContinue)
-            }
-          })
+        _              <- continue.succeed(())
+        shouldContinue <- onInit().flatMap(handleActorResult)
       } yield shouldContinue
-
     case message =>
-      for {
-        shouldContinue <- onMessage(message)
-          .flatMap(result => {
-            result match {
-              case ActorResult.Continue() => ZIO.succeed(result.shouldContinue)
-              case ActorResult.StopWithCause(callback, cause) =>
-                onTermination(result) *>
-                  ctx.onExit(Exit.fail(result)) *>
-                  ZIO.succeed(result.shouldContinue)
-              case _ =>
-                onTermination(result) *>
-                  ctx.onStop(result) *>
-                  ZIO.succeed(result.shouldContinue)
-            }
-          })
-      } yield shouldContinue
+      onMessage(message).flatMap(handleActorResult)
+  }
+
+  def handleActorResult(result: ActorResult): UIO[Boolean] = result match {
+    case ActorResult.Continue() => ZIO.succeed(result.shouldContinue)
+    case ActorResult.StopWithCause(callback, cause) =>
+      onTermination(result) *>
+        ctx.onExit(Exit.fail(result)) *>
+        ZIO.succeed(result.shouldContinue)
+    case _ =>
+      onTermination(result) *>
+        ctx.onStop(result) *>
+        ZIO.succeed(result.shouldContinue)
   }
 
   def resultToReason(result: ActorResult) = {
