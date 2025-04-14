@@ -19,7 +19,7 @@ class MonitorService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_
   var downPids: List[Product3[Pid, Reference, Any]] = List()
 
   override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Unit = {
-    val pid = Pid.toScala(monitored.asInstanceOf[core.Codec.EPid])
+    val pid = monitored.asInstanceOf[Pid]
     downPids = (pid, ref, reason) :: downPids
   }
 
