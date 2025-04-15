@@ -58,6 +58,9 @@ import java.util.HashSet
 import conversions._
 import Utils.ensureElementsType
 import java.lang.Throwable
+import com.cloudant.ziose.core.ProcessContext
+import com.cloudant.ziose.core.Codec
+import zio.ZIO
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
 case class HighlightParameters(highlighter: Highlighter, highlightFields: List[String], highlightNumber: Int, analyzers: List[Analyzer])
@@ -113,6 +116,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     }
 
     logger.info(prefix_name("Opened at update_seq %d".format(updateSeq)))
+  }
+
+  override def onTermination[PContext <: ProcessContext](reason: Codec.ETerm, ctx: PContext) = {
+    ZIO.logTrace("onTermination") *> ZIO.succeedBlocking(exit(Codec.toScala(reason)))
   }
 
   override def handleCall(tag: (Pid, Any), msg: Any): Any = {
