@@ -105,11 +105,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
 
   override def handleInit(): Unit = {
     setReader(DirectoryReader.open(ctx.args.writer, true))
-    sendEvery(self, 'maybe_commit, commitInterval * 1000)
-    send(self, 'count_fields)
+    sendEvery(self.pid, 'maybe_commit, commitInterval * 1000)
+    send(self.pid, 'count_fields)
 
     if (closeIfIdleEnabled) {
-      sendEvery(self, 'close_if_idle, idleTimeout * 1000)
+      sendEvery(self.pid, 'close_if_idle, idleTimeout * 1000)
     }
   }
 
