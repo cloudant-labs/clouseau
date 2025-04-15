@@ -238,8 +238,32 @@ class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(i
       }
     }
   }
-  def link(from: Pid, to: Pid) {
-    // TODO
+
+  // assume same worker
+  def isLocal(pid: Pid)(implicit adapter: Adapter[_, _]) = pid.node == adapter.workerNodeName
+
+  def link(from: Pid, to: Pid)(implicit adapter: Adapter[_, _]): Boolean = {
+    def makeAddress(pid: Pid) = {
+      Address.fromPid(pid.fromScala, adapter.workerId, adapter.workerNodeName)
+    }
+    if (from == to) {
+      // Trying to link a pid to itself
+      return false
+    }
+
+    val msg = (isLocal(from), isLocal(to)) match {
+      case (true, false) => MessageEnvelope.Link(Some(from.fromScala), makeAddress(to), adapter.self)
+      case (false, true) => MessageEnvelope.Link(Some(to.fromScala), makeAddress(from), adapter.self)
+      // It doesn't matter which address to use. We pick `to` here.
+      case (true, true) => MessageEnvelope.Link(Some(from.fromScala), makeAddress(to), adapter.self)
+      // Trying to link non-local pids
+      case (false, false) => return false
+    }
+
+    Unsafe.unsafe { implicit unsafe =>
+      adapter.runtime.unsafe.run(adapter.link(msg))
+    }
+    return true
   }
 
   /*

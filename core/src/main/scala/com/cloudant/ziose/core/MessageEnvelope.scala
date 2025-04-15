@@ -31,6 +31,10 @@ object MessageEnvelope {
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
     def getPayload                = None
+    // when we forward the `Link` event we need to replace the `to` address so our message
+    // would reach the local actor
+    // Assume `PID` here and also that the dest `PID` is on the same worker
+    def forward = Link(Some(to.asInstanceOf[PID].pid), Address.fromPid(from.get, workerId, workerNodeName), base)
   }
   case class Send(from: Option[Codec.EPid], to: Address, payload: Codec.ETerm, private val base: Address)
       extends MessageEnvelope {
@@ -49,6 +53,10 @@ object MessageEnvelope {
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
     def getPayload                = None
+    // when we forward the `Unlink` event we need to replace the `to` address so our message
+    // would reach the local actor
+    // Assume `PID` here and also that the dest `PID` is on the same worker
+    def forward = Unlink(Some(to.asInstanceOf[PID].pid), Address.fromPid(from.get, workerId, workerNodeName), id, base)
   }
 
   case class Call(

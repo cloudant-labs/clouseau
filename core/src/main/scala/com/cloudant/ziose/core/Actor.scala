@@ -195,6 +195,10 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
       handleActorResult(ActorResult.Shutdown())
     case MessageEnvelope.Exit(_from, _to, reason, _workerId) =>
       handleActorResult(ActorResult.StopWithReasonTerm(reason))
+    case MessageEnvelope.Link(Some(from), _myself, _base) =>
+      ctx.link(from).orElse(ZIO.unit).as(true)
+    case MessageEnvelope.Unlink(Some(from), _myself, _id, _base) =>
+      ctx.unlink(from).as(true)
     case _: MessageEnvelope.Init =>
       for {
         _              <- continue.succeed(())

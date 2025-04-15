@@ -741,6 +741,130 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
         } yield assertTrue(
           linkResult == Symbol("noproc")
         )
+      ),
+      test("link two unrelated processes together and actor A dies")(
+        for {
+          node   <- Utils.clouseauNode
+          worker <- ZIO.service[core.EngineWorker]
+
+          actorA <- TestService.start(node, "MonitorSuite.echo_link_unrelated_A")
+          actorAPid = actorA.self.pid
+
+          actorB <- TestService.start(node, "MonitorSuite.echo_link_unrelated_B")
+          actorBPid = actorB.self.pid
+
+          unleashChannel <- Queue.bounded[Unit](1)
+
+          _ <- ZIO.succeed(node.spawn(process => {
+            Unsafe.unsafe { implicit unsafe =>
+              node.link(actorAPid, actorBPid)(process.adapter)
+              runtime.unsafe.run(unleashChannel.offer(()))
+            }
+          }))
+
+          _ <- unleashChannel.take
+
+          _ <- actorA.exitWithReason("reason")
+
+          _ <- assertNotAlive(actorA.id)
+          _ <- assertNotAlive(actorB.id)
+
+          output <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
+        } yield assert(
+          (logHistory.withLogLevel(LogLevel.Trace) &&
+            logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+            logHistory.withActorAddress(actorA.self))
+            .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+        )(containsShape { case (_, reason: String, "TestService") =>
+          true
+        }) ?? "log should contain messages from 'TestService.onTermination' callback for actor A"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(actorA.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("EBinary -> reason")
+          }) ?? "the reason for termination of actor A should be '<<\"reason\">>'"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(actorB.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, reason: String, "TestService") =>
+            true
+          }) ?? "log should contain messages from 'TestService.onTermination' callback for actor B"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(actorB.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("EBinary -> reason")
+          }) ?? "the reason for termination of actor B should be '<<\"reason\">>'"
+      ),
+      test("link two unrelated processes together and actor B dies")(
+        for {
+          node   <- Utils.clouseauNode
+          worker <- ZIO.service[core.EngineWorker]
+
+          actorA <- TestService.start(node, "MonitorSuite.echo_link_unrelated_A")
+          actorAPid = actorA.self.pid
+
+          actorB <- TestService.start(node, "MonitorSuite.echo_link_unrelated_B")
+          actorBPid = actorB.self.pid
+
+          unleashChannel <- Queue.bounded[Unit](1)
+
+          _ <- ZIO.succeed(node.spawn(process => {
+            Unsafe.unsafe { implicit unsafe =>
+              node.link(actorAPid, actorBPid)(process.adapter)
+              runtime.unsafe.run(unleashChannel.offer(()))
+            }
+          }))
+
+          _ <- unleashChannel.take
+
+          _ <- actorB.exitWithReason("reason")
+
+          _ <- assertNotAlive(actorA.id)
+          _ <- assertNotAlive(actorB.id)
+
+          output <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
+        } yield assert(
+          (logHistory.withLogLevel(LogLevel.Trace) &&
+            logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+            logHistory.withActorAddress(actorB.self))
+            .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+        )(containsShape { case (_, reason: String, "TestService") =>
+          true
+        }) ?? "log should contain messages from 'TestService.onTermination' callback for actor A"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(actorA.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("EBinary -> reason")
+          }) ?? "the reason for termination of actor A should be '<<\"reason\">>'"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(actorB.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, reason: String, "TestService") =>
+            true
+          }) ?? "log should contain messages from 'TestService.onTermination' callback for actor B"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(actorB.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("EBinary -> reason")
+          }) ?? "the reason for termination of actor B should be '<<\"reason\">>'"
       )
     ).provideLayer(
       Utils.testEnvironment(1, 1, "MonitorSuite")
