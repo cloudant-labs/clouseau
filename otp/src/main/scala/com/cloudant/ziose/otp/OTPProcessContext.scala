@@ -85,8 +85,24 @@ class OTPProcessContext private (
     }
   }
 
-  def unlink(to: Codec.EPid)      = mailbox.unlink(to)
-  def link(to: Codec.EPid)        = mailbox.link(to)
+  def unlink(to: Codec.EPid) = mailbox.unlink(to)
+  def unlink(msg: MessageEnvelope.Unlink) = {
+    if (msg.to.isRemote || msg.to == id) {
+      mailbox.unlink(msg.from.get)
+    } else {
+      worker.offer(msg.forward).unit
+    }
+  }
+
+  def link(to: Codec.EPid) = mailbox.link(to)
+  def link(msg: MessageEnvelope.Link) = {
+    if (msg.to.isRemote && msg.from.get == id.pid) {
+      mailbox.link(msg.from.get)
+    } else {
+      worker.offer(msg.forward).unit
+    }
+  }
+
   def monitor(monitored: Address) = mailbox.monitor(monitored)
   def demonitor(ref: Codec.ERef)  = mailbox.demonitor(ref)
 

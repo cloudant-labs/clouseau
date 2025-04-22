@@ -474,7 +474,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
       case Some(ETuple(EAtom("DOWN"), ref: ERef, EAtom("process"), from, reason: ETerm)) =>
         try {
           ZIO
-            .succeed(handleMonitorExit(from, Reference.toScala(ref), reason))
+            .succeed(handleMonitorExit(monitoredToScala(from), Reference.toScala(ref), reason))
             .as(ActorResult.Continue())
         } catch {
           case err: Throwable => {
@@ -509,6 +509,12 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
       }
       case None => ZIO.fail(UnreachableError())
     }
+  }
+
+  def monitoredToScala(monitored: ETerm): Any = monitored match {
+    case pid: EPid   => Pid.toScala(pid)
+    case name: EAtom => adapter.toScala(name)
+    case other       => throw new Throwable("unreachable")
   }
 
   def onHandlePingMessage(fromTag: ETerm) = {

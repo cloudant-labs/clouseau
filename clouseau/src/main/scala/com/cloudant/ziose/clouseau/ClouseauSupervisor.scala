@@ -95,7 +95,7 @@ case class ClouseauSupervisor(
   }
 
   override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Unit = {
-    val pid = Pid.toScala(monitored.asInstanceOf[Codec.EPid])
+    val pid = monitored.asInstanceOf[Pid]
     if (manager.contains(pid)) {
       logger.warn(s"manager crashed with reason: ${reason}")
       manager = None

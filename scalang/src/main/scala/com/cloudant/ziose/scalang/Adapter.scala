@@ -24,18 +24,20 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
     case None       => Runtime.default
   }
 
-  def name: Option[String]            = ctx.name
-  def self: PID                       = ctx.self
-  def call(msg: MessageEnvelope.Call) = ctx.call(msg)
-  def cast(msg: MessageEnvelope.Cast) = ctx.cast(msg)
-  def send(msg: MessageEnvelope.Send) = ctx.send(msg)
-  def exit(reason: Codec.ETerm)       = ctx.exit(reason)
-  def exit(msg: MessageEnvelope.Exit) = ctx.exit(msg)
-  def unlink(to: Codec.EPid)          = ctx.unlink(to)
-  def link(to: Codec.EPid)            = ctx.link(to)
-  def monitor(monitored: Address)     = ctx.monitor(monitored)
-  def demonitor(ref: Codec.ERef)      = ctx.demonitor(ref)
-  def lookUpName(name: String)        = ctx.lookUpName(name)
+  def name: Option[String]                = ctx.name
+  def self: PID                           = ctx.self
+  def call(msg: MessageEnvelope.Call)     = ctx.call(msg)
+  def cast(msg: MessageEnvelope.Cast)     = ctx.cast(msg)
+  def send(msg: MessageEnvelope.Send)     = ctx.send(msg)
+  def exit(reason: Codec.ETerm)           = ctx.exit(reason)
+  def exit(msg: MessageEnvelope.Exit)     = ctx.exit(msg)
+  def unlink(to: Codec.EPid)              = ctx.unlink(to)
+  def unlink(msg: MessageEnvelope.Unlink) = ctx.unlink(msg)
+  def link(to: Codec.EPid)                = ctx.link(to)
+  def link(msg: MessageEnvelope.Link)     = ctx.link(msg)
+  def monitor(monitored: Address)         = ctx.monitor(monitored)
+  def demonitor(ref: Codec.ERef)          = ctx.demonitor(ref)
+  def lookUpName(name: String)            = ctx.lookUpName(name)
   def toScala(term: Codec.ETerm): Any = {
     term match {
       case tuple: Codec.ETuple =>

@@ -19,7 +19,7 @@ class MonitorService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_
   var downPids: List[Product3[Pid, Reference, Any]] = List()
 
   override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Unit = {
-    val pid = Pid.toScala(monitored.asInstanceOf[core.Codec.EPid])
+    val pid = monitored.asInstanceOf[Pid]
     downPids = (pid, ref, reason) :: downPids
   }
 
@@ -368,13 +368,17 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-          )(containsShape { case (_, "onTermination", "TestService") =>
-            true
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("reason")
           }) ?? "log should contain messages from 'TestService.onTermination' callback"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
@@ -415,11 +419,13 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
               logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-          )(containsShape { case (_, "onTermination", "TestService") =>
-            true
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("myCrashReason")
           }) ?? "log should contain messages from 'TestService.onTermination' callback"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
@@ -448,13 +454,17 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             containsShapeOption { case (_, _, "myReason") => true }
           ) ?? "reason must be 'myReason'"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-          )(containsShape { case (_, "onTermination", "TestService") =>
-            true
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("myReason")
           }) ?? "log should contain messages from 'TestService.onTermination' callback"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
@@ -481,13 +491,17 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-          )(containsShape { case (_, "onTermination", "TestService") =>
-            true
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("reason")
           }) ?? "log should contain messages from 'TestService.onTermination' callback"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
@@ -527,14 +541,16 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           }) ?? "reason has to contain 'TestService.handleCall'"
           && assert(
             (logHistory.withLogLevel(LogLevel.Trace) &&
-              logHistory.withActor("TestService") &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
               logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-          )(containsShape { case (_, "onTermination", "TestService") =>
-            true
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("myCrashReason")
           }) ?? "log should contain messages from 'TestService.onTermination' callback"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
@@ -565,14 +581,17 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
             containsShapeOption { case (_, _, "myReason") => true }
           ) ?? "reason must be 'myReason'"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory
-              .withActorCallback("TestService", core.ActorCallback.OnTermination))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-          )(containsShape { case (_, "onTermination", "TestService") =>
-            true
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("myReason")
           }) ?? "log should contain messages from 'TestService.onTermination' callback"
           && assert(
-            (logHistory.withLogLevel(LogLevel.Trace) && logHistory.withActor("TestService"))
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
@@ -722,6 +741,130 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
         } yield assertTrue(
           linkResult == Symbol("noproc")
         )
+      ),
+      test("link two unrelated processes together and actor A dies")(
+        for {
+          node   <- Utils.clouseauNode
+          worker <- ZIO.service[core.EngineWorker]
+
+          actorA <- TestService.start(node, "MonitorSuite.echo_link_unrelated_A")
+          actorAPid = actorA.self.pid
+
+          actorB <- TestService.start(node, "MonitorSuite.echo_link_unrelated_B")
+          actorBPid = actorB.self.pid
+
+          unleashChannel <- Queue.bounded[Unit](1)
+
+          _ <- ZIO.succeed(node.spawn(process => {
+            Unsafe.unsafe { implicit unsafe =>
+              node.link(actorAPid, actorBPid)(process.adapter)
+              runtime.unsafe.run(unleashChannel.offer(()))
+            }
+          }))
+
+          _ <- unleashChannel.take
+
+          _ <- actorA.exitWithReason("reason")
+
+          _ <- assertNotAlive(actorA.id)
+          _ <- assertNotAlive(actorB.id)
+
+          output <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
+        } yield assert(
+          (logHistory.withLogLevel(LogLevel.Trace) &&
+            logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+            logHistory.withActorAddress(actorA.self))
+            .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+        )(containsShape { case (_, reason: String, "TestService") =>
+          true
+        }) ?? "log should contain messages from 'TestService.onTermination' callback for actor A"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(actorA.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("EBinary -> reason")
+          }) ?? "the reason for termination of actor A should be '<<\"reason\">>'"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(actorB.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, reason: String, "TestService") =>
+            true
+          }) ?? "log should contain messages from 'TestService.onTermination' callback for actor B"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(actorB.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("EBinary -> reason")
+          }) ?? "the reason for termination of actor B should be '<<\"reason\">>'"
+      ),
+      test("link two unrelated processes together and actor B dies")(
+        for {
+          node   <- Utils.clouseauNode
+          worker <- ZIO.service[core.EngineWorker]
+
+          actorA <- TestService.start(node, "MonitorSuite.echo_link_unrelated_A")
+          actorAPid = actorA.self.pid
+
+          actorB <- TestService.start(node, "MonitorSuite.echo_link_unrelated_B")
+          actorBPid = actorB.self.pid
+
+          unleashChannel <- Queue.bounded[Unit](1)
+
+          _ <- ZIO.succeed(node.spawn(process => {
+            Unsafe.unsafe { implicit unsafe =>
+              node.link(actorAPid, actorBPid)(process.adapter)
+              runtime.unsafe.run(unleashChannel.offer(()))
+            }
+          }))
+
+          _ <- unleashChannel.take
+
+          _ <- actorB.exitWithReason("reason")
+
+          _ <- assertNotAlive(actorA.id)
+          _ <- assertNotAlive(actorB.id)
+
+          output <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
+        } yield assert(
+          (logHistory.withLogLevel(LogLevel.Trace) &&
+            logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+            logHistory.withActorAddress(actorB.self))
+            .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+        )(containsShape { case (_, reason: String, "TestService") =>
+          true
+        }) ?? "log should contain messages from 'TestService.onTermination' callback for actor A"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(actorA.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("EBinary -> reason")
+          }) ?? "the reason for termination of actor A should be '<<\"reason\">>'"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(actorB.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, reason: String, "TestService") =>
+            true
+          }) ?? "log should contain messages from 'TestService.onTermination' callback for actor B"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(actorB.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("EBinary -> reason")
+          }) ?? "the reason for termination of actor B should be '<<\"reason\">>'"
       )
     ).provideLayer(
       Utils.testEnvironment(1, 1, "MonitorSuite")

@@ -58,6 +58,9 @@ import java.util.HashSet
 import conversions._
 import Utils.ensureElementsType
 import java.lang.Throwable
+import com.cloudant.ziose.core.ProcessContext
+import com.cloudant.ziose.core.Codec
+import zio.ZIO
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
 case class HighlightParameters(highlighter: Highlighter, highlightFields: List[String], highlightNumber: Int, analyzers: List[Analyzer])
@@ -105,15 +108,19 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
 
   override def handleInit(): Unit = {
     setReader(DirectoryReader.open(ctx.args.writer, true))
-    sendEvery(self, 'maybe_commit, commitInterval * 1000)
-    send(self, 'count_fields)
+    sendEvery(self.pid, 'maybe_commit, commitInterval * 1000)
+    send(self.pid, 'count_fields)
 
     if (closeIfIdleEnabled) {
-      sendEvery(self, 'close_if_idle, idleTimeout * 1000)
+      sendEvery(self.pid, 'close_if_idle, idleTimeout * 1000)
     }
+
+    logger.info(prefix_name("Opened at update_seq %d".format(updateSeq)))
   }
 
-  logger.debug(prefix_name("Opened at update_seq %d".format(updateSeq)))
+  override def onTermination[PContext <: ProcessContext](reason: Codec.ETerm, ctx: PContext) = {
+    ZIO.logTrace("onTermination") *> ZIO.succeedBlocking(exit(Codec.toScala(reason)))
+  }
 
   override def handleCall(tag: (Pid, Any), msg: Any): Any = {
     idle = false
