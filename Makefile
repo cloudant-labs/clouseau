@@ -422,10 +422,10 @@ artifacts: $(ARTIFACTS_DIR) $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 .PHONY: release
 # target: release - Push release to github
 release: $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
-	GH_DEBUG=1 GH_HOST=github.com gh release list --repo github.com/cloudant/ziose
+	GH_DEBUG=1 GH_HOST=github.com gh release list --repo github.com/cloudant-labs/clouseau
 	GH_DEBUG=1 GH_HOST=github.com gh release create "$(PROJECT_VERSION)" \
 		--target "$$(git rev-parse HEAD)" \
-		--repo github.com/cloudant/ziose \
+		--repo github.com/cloudant-labs/clouseau \
 		--title "Release $(PROJECT_VERSION)" \
 		--generate-notes $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 
