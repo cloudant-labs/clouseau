@@ -504,7 +504,7 @@ elixir-search: couchdb
 .PHONY: test-failed
 test-failed:
 	@cli stop $(ID)
-	@echo ">>>> The test failed bellow are the process logs"
+	@echo ">>>> The test failed below are the process logs"
 	@cat $(shell cli logs $(ID))
 	@exit 1
 

@@ -5,7 +5,7 @@ import zio.test.TestAspect
 object Aspects {
   /*
    * needsTest is a TestAspect to be used to annotate the tests that yet need to be written.
-   * See the example of its use bellow.
+   * See the example of its use below.
    *
    * ```scala
    * import com.cloudant.ziose.test.helpers.Aspects._
