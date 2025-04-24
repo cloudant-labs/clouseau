@@ -567,10 +567,10 @@ syslog-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar e
 .PHONY: syslog-tests
 # target: syslog-tests - Run syslog output tests
 syslog-tests:
-	@echo "Syslog test case: TCP/PlainText"
+	@echo "Syslog test case: TCP/Raw"
 	@nc -l 127.0.0.1 2000 > syslog.out &
 	@echo ">>> Receiver started"
-	@$(MAKE) syslog-test FORMAT=PlainText PROTOCOL=TCP HOST=127.0.0.1 PORT=2000 FACILITY=LOCAL5 LEVEL=info
+	@$(MAKE) syslog-test FORMAT=Raw PROTOCOL=TCP HOST=127.0.0.1 PORT=2000 FACILITY=LOCAL5 LEVEL=info
 
 	@echo "Syslog test case: UDP/JSON"
 	@nc -lu 127.0.0.1 2000 > syslog.out &
