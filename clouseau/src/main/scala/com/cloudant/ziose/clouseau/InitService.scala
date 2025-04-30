@@ -28,6 +28,10 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
   private val spawnedFailure = metrics.counter("spawned.failure")
   private val spawnedTimer   = metrics.timer("spawned.timer")
 
+  override def handleInit(): Unit = {
+    logger.debug(s"handleInit(capacity = ${adapter.capacity})")
+  }
+
   private def spawnEcho(id: Symbol): Either[Any, Codec.EPid] = {
     val ConfigurationArgs(args) = ctx.args
     spawnedTimer.time(EchoService.start(adapter.node, id.name, args)) match {
@@ -108,9 +112,10 @@ private object InitService extends ActorConstructor[InitService] {
       new InitService(service_context)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
+    val capacityExponent = service_context.args.config.capacity.init_exponent
+
     ActorBuilder()
-      // TODO get capacity from config
-      .withCapacity(16)
+      .withOptionalCapacityExponent(capacityExponent)
       .withName(name)
       .withMaker(maker)
       .build(this)

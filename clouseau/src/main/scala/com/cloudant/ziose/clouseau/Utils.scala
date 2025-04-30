@@ -97,7 +97,7 @@ object Utils {
 
   def defaultConfig: ZIO[OTPNodeConfig, Throwable, Configuration] = for {
     nodeCfg <- ZIO.service[OTPNodeConfig]
-  } yield Configuration(ClouseauConfiguration(), nodeCfg)
+  } yield Configuration(ClouseauConfiguration(), nodeCfg, CapacityConfiguration())
 
   def testEnvironment(engineId: Engine.EngineId, workerId: Engine.WorkerId, nodeName: String = "test") =
     otp.Utils.testEnvironment(engineId, workerId, nodeName)

@@ -26,9 +26,10 @@ object IndexCleanupServiceBuilder extends ActorConstructor[IndexCleanupService] 
       new IndexCleanupService(service_ctx)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
+    val capacityExponent = service_ctx.args.config.capacity.cleanup_exponent
+
     ActorBuilder()
-      // TODO get capacity from config
-      .withCapacity(16)
+      .withOptionalCapacityExponent(capacityExponent)
       .withName("cleanup")
       .withMaker(maker)
       .build(this)

@@ -119,6 +119,10 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
     lockHeld.size
   }
 
+  override def handleInit(): Unit = {
+    logger.debug(s"handleInit(capacity = ${adapter.capacity})")
+  }
+
   override def onTermination[PContext <: ProcessContext](reason: Codec.ETerm, ctx: PContext) = {
     ZIO.logTrace("onTermination")
   }

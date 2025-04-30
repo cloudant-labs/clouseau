@@ -12,6 +12,7 @@ import com.cloudant.ziose.core.AddressableActor
 import com.cloudant.ziose.core.ProcessContext
 import com.cloudant.ziose.macros.CheckEnv
 import zio.{&, ConfigProvider, Duration, Queue, UIO, ZIO, ZLayer}
+import com.cloudant.ziose.core.Exponent
 
 final class OTPEngineWorker private (
   val engineId: Engine.EngineId,
@@ -48,16 +49,23 @@ final class OTPEngineWorker private (
 }
 
 object OTPEngineWorker {
+  private def createQueue(capacity: Option[Exponent]) = {
+    capacity match {
+      case Some(size) => Queue.bounded[MessageEnvelope](size.toInt)
+      case None       => Queue.unbounded[MessageEnvelope]
+    }
+  }
   def live(
     engineId: Engine.EngineId,
     workerId: Engine.WorkerId,
     name: String,
+    exchangeCapacity: Option[Exponent],
     cfg: OTPNodeConfig
   ): ZLayer[Node, Throwable, EngineWorker] = ZLayer.scoped {
     for {
-      _        <- ZIO.logDebug("Constructing")
+      _        <- ZIO.logDebug(s"Constructing with capacity $exchangeCapacity")
       node     <- ZIO.service[Node]
-      queue    <- Queue.bounded[MessageEnvelope](16) // TODO retrieve capacity from config
+      queue    <- createQueue(exchangeCapacity)
       exchange <- EngineWorkerExchange.makeWithQueue(queue)
       service = new OTPEngineWorker(engineId, workerId, Symbol(name), node, exchange)
       _ <- exchange.run.forkScoped

@@ -38,6 +38,7 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
   def monitor(monitored: Address)         = ctx.monitor(monitored)
   def demonitor(ref: Codec.ERef)          = ctx.demonitor(ref)
   def lookUpName(name: String)            = ctx.lookUpName(name)
+  def capacity                            = ctx.capacity
   def toScala(term: Codec.ETerm): Any = {
     term match {
       case tuple: Codec.ETuple =>

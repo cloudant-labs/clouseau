@@ -1,12 +1,15 @@
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.macros.CheckEnv
-import zio.{Config, LogLevel}
+import zio.{Config, IO, LogLevel}
 import _root_.com.cloudant.ziose.otp
 import otp.OTPNodeConfig
 import zio.config.magnolia.deriveConfig
 import zio.Config.Error
 import zio.config.magnolia.DeriveConfig
+import zio.config.typesafe.FromConfigSourceTypesafe
+import com.cloudant.ziose.core.Exponent
+import zio.ConfigProvider
 
 sealed abstract class LogOutput
 sealed abstract class LogFormat
@@ -22,7 +25,11 @@ object LogFormat {
   final case object JSON extends LogFormat
 }
 
-final case class WorkerConfiguration(node: OTPNodeConfig, clouseau: Option[ClouseauConfiguration])
+final case class WorkerConfiguration(
+  node: OTPNodeConfig,
+  clouseau: Option[ClouseauConfiguration],
+  capacity: Option[CapacityConfiguration]
+)
 final case class LogConfiguration(
   output: Option[LogOutput],
   format: Option[LogFormat],
@@ -46,14 +53,13 @@ object LogConfiguration {
       case "TRACE"   => Right(LogLevel.Trace)
       case "NONE"    => Right(LogLevel.None)
       case _ =>
-        Left(Error.InvalidData(message = "LogLevel must be one of ALL|FATAL|ERROR|WARNING|INFO|DEBUG|TRACE|NONE"))
+        Left(
+          Error.InvalidData(message = {
+            s"LogLevel must be one of (case insensitive) ALL|FATAL|ERROR|WARNING|INFO|DEBUG|TRACE|NONE (got '${value}')"
+          })
+        )
     }
   }
-}
-
-object AppConfiguration {
-  val config: Config[WorkerConfiguration] = deriveConfig[WorkerConfiguration]
-  val logger: Config[LogConfiguration]    = deriveConfig[LogConfiguration]
 }
 
 final case class RootDir(value: String) extends AnyVal
@@ -116,11 +122,7 @@ final case class ClouseauConfiguration(
   )
 }
 
-object ClouseauConfiguration {
-  val config: Config[ClouseauConfiguration] = deriveConfig[ClouseauConfiguration]
-}
-
-case class Configuration(clouseau: ClouseauConfiguration, workers: OTPNodeConfig) {
+case class Configuration(clouseau: ClouseauConfiguration, workers: OTPNodeConfig, capacity: CapacityConfiguration) {
   // these getters are only for compatibility with old clouseau and shouldn't be used in new code
   def getString(key: String, default: String)   = clouseau.getString(key, default)
   def getInt(key: String, default: Int)         = clouseau.getInt(key, default)
@@ -146,6 +148,66 @@ final case class SyslogConfiguration(
   tag: Option[String] = None
 )
 
-object SyslogConfiguration {
-  val config: Config[SyslogConfiguration] = deriveConfig[SyslogConfiguration]
+/**
+ * A data type to hold configured capacity exponent values
+ * @param analyzer_exponent
+ *   An exponent to calculate capacity of the message queue used for `AnalyzerService`. Exponent must be greater than 0.
+ *   If not specified backpressure wouldn't be applied.
+ * @param cleanup_exponent
+ *   An exponent to calculate capacity of the message queue used for `CleanupService`. Exponent must be greater than 0.
+ *   If not specified backpressure wouldn't be applied.
+ * @param exchange_exponent
+ *   An exponent to calculate capacity of the message queue used for forwarding internal messages. Exponent must be
+ *   greater than 0. If not specified backpressure wouldn't be applied when sending internal messages. Usually you would
+ *   want the exchange capacity to be higher than the `index`.
+ * @param index_exponent
+ *   An exponent to calculate capacity of the message queue used for `IndexService`. Exponent must be greater than 0. If
+ *   not specified backpressure wouldn't be applied.
+ * @param init_exponent
+ *   An exponent to calculate capacity of the message queue used for `InitService`. Exponent must be greater than 0. If
+ *   not specified backpressure wouldn't be applied.
+ * @param main_exponent
+ *   An exponent to calculate capacity of the message queue used for `IndexManagerService`. Exponent must be greater
+ *   than 0. If not specified backpressure wouldn't be applied.
+ */
+final case class CapacityConfiguration(
+  analyzer_exponent: Option[Exponent] = None,
+  cleanup_exponent: Option[Exponent] = None,
+  exchange_exponent: Option[Exponent] = None,
+  index_exponent: Option[Exponent] = None,
+  init_exponent: Option[Exponent] = None,
+  main_exponent: Option[Exponent] = None
+)
+
+object CapacityConfiguration {
+  def readExponent(value: Int): Either[Error, Exponent] = {
+    value match {
+      case 0 =>
+        Left(Error.InvalidData(message = s"Exponent cannot be 0 (got '${value}')"))
+      case v if v < 0 =>
+        Left(Error.InvalidData(message = s"Exponent cannot be negative (got '${value}')"))
+      case v if v > 16 =>
+        Left(Error.InvalidData(message = s"Exponent cannot be greater than 16 (got '${value}')"))
+      case _ =>
+        Right(Exponent(value))
+    }
+  }
+}
+
+final case class AppCfg(config: List[WorkerConfiguration], logger: LogConfiguration)
+object AppCfg {
+  implicit val exponentDescriptor: DeriveConfig[Exponent] = {
+    DeriveConfig[Int].mapOrFail(CapacityConfiguration.readExponent)
+  }
+
+  val config: Config[AppCfg] = deriveConfig[AppCfg]
+
+  def fromHoconFilePath(pathToCfgFile: String): IO[Config.Error, AppCfg] = {
+    ConfigProvider.fromHoconFilePath(pathToCfgFile).load(config)
+  }
+
+  def fromHoconString(input: String): IO[Config.Error, AppCfg] = {
+    ConfigProvider.fromHoconString(input).load(config)
+  }
+
 }
