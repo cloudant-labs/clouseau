@@ -39,7 +39,7 @@ final case class LogConfiguration(
 
 object LogConfiguration {
   def readLogLevel(value: String): Either[Error, LogLevel] = {
-    value.toUpperCase match {
+    value.trim().toUpperCase match {
       case "ALL"     => Right(LogLevel.All)
       case "FATAL"   => Right(LogLevel.Fatal)
       case "ERROR"   => Right(LogLevel.Error)
