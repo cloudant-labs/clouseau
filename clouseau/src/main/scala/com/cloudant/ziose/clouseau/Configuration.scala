@@ -38,10 +38,6 @@ final case class LogConfiguration(
 )
 
 object LogConfiguration {
-  implicit val logLevelDescriptor: DeriveConfig[LogLevel] = {
-    DeriveConfig[String].mapOrFail(readLogLevel)
-  }
-
   def readLogLevel(value: String): Either[Error, LogLevel] = {
     value.toUpperCase match {
       case "ALL"     => Right(LogLevel.All)
@@ -198,6 +194,10 @@ final case class AppCfg(config: List[WorkerConfiguration], logger: LogConfigurat
 object AppCfg {
   implicit val exponentDescriptor: DeriveConfig[Exponent] = {
     DeriveConfig[Int].mapOrFail(CapacityConfiguration.readExponent)
+  }
+
+  implicit val logLevelDescriptor: DeriveConfig[LogLevel] = {
+    DeriveConfig[String].mapOrFail(LogConfiguration.readLogLevel)
   }
 
   val config: Config[AppCfg] = deriveConfig[AppCfg]
