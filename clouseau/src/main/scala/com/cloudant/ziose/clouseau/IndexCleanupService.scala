@@ -26,6 +26,10 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
   val logger = LoggerFactory.getLogger("clouseau.cleanup")
   val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
 
+  override def handleInit(): Unit = {
+    logger.debug(s"handleInit(capacity = ${adapter.capacity})")
+  }
+
   override def handleCast(msg: Any) = msg match {
     case CleanupPathMsg(path: String) =>
       val dir = new File(rootDir, path)

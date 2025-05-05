@@ -6,9 +6,8 @@ package com.cloudant.ziose.clouseau
 import com.cloudant.ziose.core.{ActorFactory, AddressableActor, EngineWorker, Node}
 import com.cloudant.ziose.otp.{OTPLayers, OTPNodeConfig}
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
-import zio.config.magnolia.deriveConfig
 import zio.config.typesafe.FromConfigSourceTypesafe
-import zio.{&, Config, ConfigProvider, IO, LogLevel, RIO, Scope, System, Task, UIO, ZIO, ZIOAppArgs, ZIOAppDefault}
+import zio.{&, LogLevel, RIO, Scope, System, Task, UIO, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import java.io.FileNotFoundException
 import scala.reflect.io.File
@@ -40,21 +39,13 @@ object Main extends ZIOAppDefault {
     } yield index
   }
 
-  final case class AppCfg(config: List[WorkerConfiguration], logger: LogConfiguration)
-
-  def getConfig(pathToCfgFile: String): IO[Config.Error, AppCfg] = {
-    ConfigProvider
-      .fromHoconFilePath(pathToCfgFile)
-      .load(deriveConfig[AppCfg])
-  }
-
   private def startSupervisor(
     node: ClouseauNode,
     config: WorkerConfiguration
   ): RIO[EngineWorker & Node & ActorFactory, AddressableActor[_, _]] = {
     val clouseauCfg: ClouseauConfiguration = config.clouseau.get
     val nodeCfg: OTPNodeConfig             = config.node
-    ClouseauSupervisor.start(node, Configuration(clouseauCfg, nodeCfg))
+    ClouseauSupervisor.start(node, Configuration(clouseauCfg, nodeCfg, capacity(config)))
   }
 
   private def main(
@@ -79,18 +70,24 @@ object Main extends ZIOAppDefault {
   private val workerId: Int = 1
   private val engineId: Int = 1
 
+  private def capacity(workerCfg: WorkerConfiguration) = {
+    workerCfg.capacity.getOrElse(CapacityConfiguration())
+  }
+
   private def app(
     workerCfg: WorkerConfiguration,
     metricsRegistry: ScalangMeterRegistry,
     loggerCfg: LogConfiguration
   ): Task[Unit] = {
-    val node = workerCfg.node
-    val name = s"${node.name}@${node.domain}"
+    val node             = workerCfg.node
+    val name             = s"${node.name}@${node.domain}"
+    val exchangeCapacity = capacity(workerCfg).exchange_exponent
+    println(s"exchangeCapacity $exchangeCapacity")
     for {
       _ <- ZIO.logInfo("Clouseau running as " + name)
       _ <- ZIO
         .scoped(main(workerCfg, metricsRegistry, loggerCfg))
-        .provide(OTPLayers.nodeLayers(engineId, workerId, node))
+        .provide(OTPLayers.nodeLayers(engineId, workerId, exchangeCapacity, node))
     } yield ()
   }
 
@@ -98,7 +95,7 @@ object Main extends ZIOAppDefault {
     for {
       args    <- getArgs.map(_.headOption)
       cfgFile <- getCfgFile(args)
-      appCfg  <- getConfig(cfgFile)
+      appCfg  <- AppCfg.fromHoconFilePath(cfgFile)
       nodeIdx <- getNodeIdx
       workerCfg       = appCfg.config(nodeIdx)
       loggerCfg       = appCfg.logger

@@ -23,6 +23,10 @@ class AnalyzerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: 
 
   val logger = LoggerFactory.getLogger("clouseau.analyzer")
 
+  override def handleInit(): Unit = {
+    logger.debug(s"handleInit(capacity = ${adapter.capacity})")
+  }
+
   override def handleCall(tag: (Pid, Any), msg: Any): Any = msg match {
     case ('analyze, analyzerConfig: Any, text: String) =>
       AnalyzerOptions.from(analyzerConfig).flatMap(SupportedAnalyzers.createAnalyzer) match {

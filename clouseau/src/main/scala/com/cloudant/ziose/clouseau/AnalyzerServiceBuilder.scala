@@ -26,9 +26,10 @@ object AnalyzerServiceBuilder extends ActorConstructor[AnalyzerService] {
       new AnalyzerService(service_ctx)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
+    val capacityExponent = service_ctx.args.config.capacity.analyzer_exponent
+
     ActorBuilder()
-      // TODO get capacity from config
-      .withCapacity(16)
+      .withOptionalCapacityExponent(capacityExponent)
       .withName("analyzer")
       .withMaker(maker)
       .build(this)

@@ -3,7 +3,6 @@ sbt 'clouseau/testOnly com.cloudant.ziose.clouseau.MainSpec'
  */
 package com.cloudant.ziose.clouseau
 
-import com.cloudant.ziose.clouseau.Main.AppCfg
 import org.junit.runner.RunWith
 import zio.{Config, System}
 import zio.test.Assertion.{anything, dies, equalTo, fails, hasMessage, isSubtype, succeeds}
@@ -38,10 +37,10 @@ class MainSpec extends JUnitRunnableSpec {
   }
 
   val getConfigSuite: Spec[Any, Config.Error] = {
-    suite("getConfig")(
-      test("getConfig success: config file exists") {
+    suite("readConfig")(
+      test("readConfig success: config file exists") {
         for {
-          nodes <- Main.getConfig("src/test/resources/testApp.conf")
+          nodes <- AppCfg.fromHoconFilePath("src/test/resources/testApp.conf")
           node1 = nodes.config.head
           node2 = nodes.config(1)
         } yield assertTrue(
@@ -65,17 +64,17 @@ class MainSpec extends JUnitRunnableSpec {
       },
       test("getConfig success: no cookie in the config file") {
         for {
-          result <- Main.getConfig("src/test/resources/testNoCookieApp.conf").exit
+          result <- AppCfg.fromHoconFilePath("src/test/resources/testNoCookieApp.conf").exit
         } yield assert(result)(succeeds(isSubtype[AppCfg](anything)))
       },
       test("getConfig failure: malformed config file") {
         for {
-          result <- Main.getConfig("src/test/resources/testMalformedApp.conf").exit
+          result <- AppCfg.fromHoconFilePath("src/test/resources/testMalformedApp.conf").exit
         } yield assert(result)(fails(isSubtype[Config.Error](anything)))
       },
       test("Can get logger config") {
         for {
-          appConfig <- Main.getConfig("src/test/resources/testApp.conf")
+          appConfig <- AppCfg.fromHoconFilePath("src/test/resources/testApp.conf")
         } yield assertTrue(appConfig.logger.level == Some(zio.LogLevel.Debug))
       }
     )

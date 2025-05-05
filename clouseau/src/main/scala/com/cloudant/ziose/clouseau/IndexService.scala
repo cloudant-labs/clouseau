@@ -107,6 +107,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   val idleTimeout = ctx.args.config.getInt("clouseau.idle_check_interval_secs", 300)
 
   override def handleInit(): Unit = {
+    logger.debug(s"handleInit(capacity = ${adapter.capacity})")
     setReader(DirectoryReader.open(ctx.args.writer, true))
     sendEvery(self.pid, 'maybe_commit, commitInterval * 1000)
     send(self.pid, 'count_fields)

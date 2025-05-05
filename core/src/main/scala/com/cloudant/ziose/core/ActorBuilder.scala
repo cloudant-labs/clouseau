@@ -33,6 +33,24 @@ object ActorBuilder {
     }
 
     /*
+     * Specify the size of the message queue of an actor.
+     * When actor would reach the configured threshold
+     * the sender of a new message would be blocked.
+     */
+    def withOptionalCapacity(capacity: Option[Int]): Builder[A, S] = {
+      this.copy(capacity = capacity)
+    }
+
+    /*
+     * Specify the size of the message queue of an actor using exponent.
+     * When actor would reach the configured threshold
+     * the sender of a new message would be blocked.
+     */
+    def withOptionalCapacityExponent(exponent: Option[Exponent]): Builder[A, S] = {
+      this.copy(capacity = exponent.map(_.toInt))
+    }
+
+    /*
      * Specify the name of a registered actor.
      */
     def withName(name: String): Builder[A, S] = {
