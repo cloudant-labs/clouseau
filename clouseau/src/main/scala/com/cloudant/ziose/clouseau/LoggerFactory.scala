@@ -1,7 +1,7 @@
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.scalang.Adapter
-import zio.{Cause, Runtime, LogLevel, Trace, ZIO, ZLayer, ZLogger}
+import zio.{Cause, Runtime, LogLevel, Trace, ZIO, ZLayer, ZLogger, UIO, Unsafe}
 import zio.ZIO.{logDebug, logError, logErrorCause, logInfo, logWarning, logWarningCause}
 import zio.logging.{
   loggerName,
@@ -81,38 +81,42 @@ object LoggerLayers {
 
 object LoggerFactory {
   case class NamedLogger(id: String) extends ZioSupport {
-    def debug(msg: String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
+    def debug(msg: => String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
       if (LogLevel.Debug >= adapter.logLevel) {
-        (logDebug(msg) @@ loggerName(id)).unsafeRun
+        log(logDebug(msg) @@ loggerName(id))
       }
     }
 
-    def info(msg: String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
+    def info(msg: => String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
       if (LogLevel.Info >= adapter.logLevel) {
-        (logInfo(msg) @@ loggerName(id)).unsafeRun
+        log(logInfo(msg) @@ loggerName(id))
       }
     }
 
-    def warn(msg: String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
+    def warn(msg: => String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
       if (LogLevel.Warning >= adapter.logLevel) {
-        (logWarning(msg) @@ loggerName(id)).unsafeRun
+        log(logWarning(msg) @@ loggerName(id))
       }
     }
-    def warn(msg: String, e: Throwable)(implicit adapter: Adapter[_, _]): Unit = {
+    def warn(msg: => String, e: Throwable)(implicit adapter: Adapter[_, _]): Unit = {
       if (LogLevel.Warning >= adapter.logLevel) {
-        (logWarningCause(msg, Cause.die(e)) @@ loggerName(id)).unsafeRun
+        log(logWarningCause(msg, Cause.die(e)) @@ loggerName(id))
       }
     }
 
-    def error(msg: String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
+    def error(msg: => String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
       if (LogLevel.Error >= adapter.logLevel) {
-        (logError(msg) @@ loggerName(id)).unsafeRun
+        log(logError(msg) @@ loggerName(id))
       }
     }
-    def error(msg: String, e: Throwable)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
+    def error(msg: => String, e: Throwable)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
       if (LogLevel.Error >= adapter.logLevel) {
-        (logErrorCause(msg, Cause.die(e)) @@ loggerName(id)).unsafeRun
+        log(logErrorCause(msg, Cause.die(e)) @@ loggerName(id))
       }
+    }
+
+    def log(event: UIO[Unit])(implicit adapter: Adapter[_, _]): Unit = {
+      Unsafe.unsafe(implicit u => adapter.runtime.unsafe.run(event.fork.ignore))
     }
   }
 
