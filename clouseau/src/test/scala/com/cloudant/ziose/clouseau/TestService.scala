@@ -84,6 +84,18 @@ class TestService(ctx: ServiceContext[TestServiceArgs])(implicit adapter: Adapte
         (Symbol("reply"), (Symbol("echo"), adapter.fromScala(request)))
       case (Symbol("crashWithReason"), reason: String) =>
         throw new Throwable(reason)
+      case (Symbol("crashLogger.debug"), reason: String) =>
+        logger.debug(throw new Throwable(reason))
+        (Symbol("reply"), Symbol("debug"))
+      case (Symbol("crashLogger.info"), reason: String) =>
+        logger.debug(throw new Throwable(reason))
+        (Symbol("reply"), Symbol("info"))
+      case (Symbol("crashLogger.warn"), reason: String) =>
+        logger.debug(throw new Throwable(reason))
+        (Symbol("reply"), Symbol("warn"))
+      case (Symbol("crashLogger.error"), reason: String) =>
+        logger.debug(throw new Throwable(reason))
+        (Symbol("reply"), Symbol("error"))
       case (Symbol("stop"), reason: Any) =>
         (Symbol("stop"), reason, adapter.fromScala(request))
       case Symbol("history") =>
