@@ -1,15 +1,12 @@
 package com.cloudant.ziose.clouseau
 
-import com.cloudant.ziose.macros.CheckEnv
-import zio.{Config, IO, LogLevel}
-import _root_.com.cloudant.ziose.otp
-import otp.OTPNodeConfig
-import zio.config.magnolia.deriveConfig
+import _root_.com.cloudant.ziose.core.Exponent
+import _root_.com.cloudant.ziose.macros.CheckEnv
+import _root_.com.cloudant.ziose.otp.OTPNodeConfig
 import zio.Config.Error
-import zio.config.magnolia.DeriveConfig
+import zio.config.magnolia.{DeriveConfig, deriveConfig}
 import zio.config.typesafe.FromConfigSourceTypesafe
-import com.cloudant.ziose.core.Exponent
-import zio.ConfigProvider
+import zio.{Config, ConfigProvider, IO, LogLevel, ZIOAppArgs, ZLayer}
 
 sealed abstract class LogOutput
 sealed abstract class LogFormat
@@ -210,4 +207,16 @@ object AppCfg {
     ConfigProvider.fromHoconString(input).load(config)
   }
 
+  private val DEFAULT_CFG: String = "app.conf"
+
+  def layer: ZLayer[ZIOAppArgs, Config.Error, AppCfg] = {
+    ZLayer {
+      for {
+        config <- ZIOAppArgs.getArgs
+          .map(_.headOption.getOrElse(DEFAULT_CFG))
+          .map(fromHoconFilePath)
+        cfg <- config
+      } yield cfg
+    }
+  }
 }

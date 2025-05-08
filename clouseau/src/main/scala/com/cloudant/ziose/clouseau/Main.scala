@@ -6,25 +6,9 @@ package com.cloudant.ziose.clouseau
 import com.cloudant.ziose.core.{ActorFactory, AddressableActor, EngineWorker, Node}
 import com.cloudant.ziose.otp.{OTPLayers, OTPNodeConfig}
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
-import zio.config.typesafe.FromConfigSourceTypesafe
-import zio.{&, LogLevel, RIO, Scope, System, Task, UIO, ZIO, ZIOAppArgs, ZIOAppDefault}
-
-import java.io.FileNotFoundException
-import scala.reflect.io.File
+import zio.{&, LogLevel, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 object Main extends ZIOAppDefault {
-  private val defaultCfgFile: String = "app.conf"
-
-  def getCfgFile(args: Option[String]): UIO[String] = {
-    args match {
-      case Some(file) =>
-        if (File(file).exists) ZIO.succeed(file)
-        else ZIO.die(new FileNotFoundException(s"The system cannot find the file specified"))
-      case None =>
-        ZIO.succeed(defaultCfgFile)
-    }
-  }
-
   def getNodeIdx: Task[Int] = {
     for {
       prop <- System.property("node")
@@ -91,11 +75,9 @@ object Main extends ZIOAppDefault {
     } yield ()
   }
 
-  override def run: RIO[ZIOAppArgs & Scope, Unit] = {
+  override def run: RIO[ZIOAppArgs & Scope, Unit] = (
     for {
-      args    <- getArgs.map(_.headOption)
-      cfgFile <- getCfgFile(args)
-      appCfg  <- AppCfg.fromHoconFilePath(cfgFile)
+      appCfg  <- ZIO.service[AppCfg]
       nodeIdx <- getNodeIdx
       workerCfg       = appCfg.config(nodeIdx)
       loggerCfg       = appCfg.logger
@@ -108,5 +90,5 @@ object Main extends ZIOAppDefault {
           metricsLayer
         )
     } yield ()
-  }
+  ).provideSome[ZIOAppArgs](AppCfg.layer)
 }
