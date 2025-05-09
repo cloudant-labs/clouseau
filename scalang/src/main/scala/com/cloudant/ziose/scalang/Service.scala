@@ -495,7 +495,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
         }
       }
       case Some(info) => {
-        println(s"nothing matched but it is not a ETerm $info")
+        ZIO.logError(s"nothing matched but it is not a ETerm $info")
         try {
           ZIO
             .succeed(handleInfo(adapter.toScala(info)))
@@ -575,8 +575,9 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
   def cast(to: (RegName, NodeName), msg: Any) = Service.cast(to, msg)
 
   def printThrowable(location: String, err: Throwable) = {
-    println(s"$location Throwable ${err.getMessage()}:")
-    err.getStackTrace().foreach(e => println(s"  ${e.toString()}"))
+    ZIO.logError(
+      s"$location Throwable ${err.getMessage()}:\n" + err.getStackTrace().map(e => s"  ${e.toString()}").mkString("\n")
+    )
   }
 
   @CheckEnv(System.getProperty("env"))
