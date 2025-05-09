@@ -21,7 +21,7 @@ end).
 
 %% Test DEFinition For Each X (fixtures which use foreachx)”
 -define(TDEF_FEX(Name),
-    {Name, fun(Name, Args) -> ?_test(Name(Name, Args)) end}
+    {Name, fun(Name, Args) -> {atom_to_list(Name), ?_test(Name(Name, Args))} end}
 ).
 
 %% Auxilary macro to simplify definition of other asserts
