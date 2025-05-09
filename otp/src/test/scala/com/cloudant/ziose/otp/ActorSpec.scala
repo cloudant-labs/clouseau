@@ -4,16 +4,12 @@
 
 package com.cloudant.ziose.otp
 
-import _root_.com.cloudant.ziose.test.helpers
 import _root_.com.cloudant.ziose.core
-import core.Actor
-import core.ActorResult
+import _root_.com.cloudant.ziose.otp.Utils.testEnvironment
+import _root_.com.cloudant.ziose.test.helpers
+import core._
 import core.Codec._
-import core.ProcessContext
-import Utils.testEnvironment
-import helpers.Utils
-import helpers.Aspects._
-import helpers.LogHistory
+import helpers.{LogHistory, Utils}
 import org.junit.runner.RunWith
 import zio._
 import zio.test._
@@ -21,30 +17,35 @@ import zio.test.Assertion._
 import zio.test.junit._
 
 class TestActor()(implicit ctx: ProcessContext) extends Actor {
-  override def onInit[C <: ProcessContext](ctx: C): ZIO[Any, Throwable, _ <: ActorResult] = {
-    ZIO.logTrace(s"onInit ${ctx.name}") *> ZIO.succeed(ActorResult.Continue())
+  override def onInit[C <: ProcessContext](ctx: C): Task[_ <: ActorResult] = {
+    ZIO.logTrace(s"onInit ${ctx.name}").as(ActorResult.Continue())
   }
 
-  override def onMessage[C <: ProcessContext](msg: core.MessageEnvelope, ctx: C)(implicit
+  override def onMessage[C <: ProcessContext](msg: MessageEnvelope, ctx: C)(implicit
     trace: Trace
-  ): ZIO[Any, Throwable, _ <: ActorResult] = {
-    var result = msg.getPayload match {
+  ): Task[_ <: ActorResult] = {
+    val result = msg.getPayload match {
       case Some(ETuple(EAtom("interrupt"), fiberName: EAtom)) =>
-        ctx.interruptNamedFiber(fiberName.atom) *> ZIO.succeed(ActorResult.Continue())
-      case _ => ZIO.succeed(ActorResult.Continue())
+        ctx.interruptNamedFiber(fiberName.atom).as(ActorResult.Continue())
+      case Some(ETuple(EAtom("throw"), EString(reason))) =>
+        throw new Throwable(reason)
+      case Some(ETuple(EAtom("error"), EString(reason))) =>
+        ZIO.succeed(ActorResult.StopWithReasonTerm(EString(reason)))
+      case _ =>
+        ZIO.succeed(ActorResult.Continue())
     }
     ZIO.logTrace(s"onMessage ${ctx.name} -> ${msg.to}") *> result
   }
 
-  override def onTermination[C <: ProcessContext](reason: ETerm, ctx: C): ZIO[Any, Throwable, Unit] = {
+  override def onTermination[C <: ProcessContext](reason: ETerm, ctx: C): Task[Unit] = {
     ZIO.logTrace(s"onTermination ${ctx.name}: ${reason.getClass.getSimpleName} -> ${reason}")
   }
 }
 
-private object TestActor extends core.ActorConstructor[TestActor] {
+private object TestActor extends ActorConstructor[TestActor] {
   private def make(
     name: String
-  ): core.ActorBuilder.Builder[TestActor, core.ActorBuilder.State.Spawnable] = {
+  ): ActorBuilder.Builder[TestActor, ActorBuilder.State.Spawnable] = {
     def maker[PContext <: ProcessContext](process_context: PContext): TestActor = {
       new TestActor()(process_context)
     }
@@ -60,8 +61,8 @@ private object TestActor extends core.ActorConstructor[TestActor] {
 
   def startZIO(
     name: String
-  ): ZIO[core.EngineWorker & core.Node & core.ActorFactory, core.Node.Error, core.AddressableActor[_, _]] = for {
-    worker <- ZIO.service[core.EngineWorker]
+  ): ZIO[EngineWorker & Node & ActorFactory, Node.Error, AddressableActor[_, _]] = for {
+    worker <- ZIO.service[EngineWorker]
     actor  <- worker.spawn[TestActor](make(name))
   } yield actor
 }
@@ -73,10 +74,74 @@ class ActorSpec extends JUnitRunnableSpec {
   val environment   = ZLayer.succeed(Clock.ClockLive) ++ ZLayer.succeed(Random.RandomLive) ++ logger
 
   val onMessageSuite = suite("Actor onMessage callback")(
-    test("testing throwing onMessage") {
-      ???
-    } @@ needsTest
-  )
+    test("test onMessage terminate properly when throw error")(
+      for {
+        actor      <- TestActor.startZIO("testActor")
+        _          <- actor.status()
+        _          <- actor.send(ETuple(EAtom("throw"), EString("throw => Die")))
+        _          <- actor.isStoppedZIO.repeatUntil(_ == true).unit
+        statusDone <- actor.status()
+        output     <- ZTestLogger.logOutput
+        logHistory = LogHistory(output)
+      } yield assert(
+        (logHistory
+          .withLogLevel(LogLevel.Trace) && logHistory
+          .withActorCallback("TestActor", ActorCallback.OnTermination))
+          .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+      )(helpers.Asserts.containsShape { case (_, reason: String, "TestActor") =>
+        reason.contains("throw => Die")
+      }) ?? "log should contain messages from 'TestActor.onTermination' callback"
+        && assertTrue(
+          (logHistory.withLogLevel(LogLevel.Trace) &&
+            logHistory.withActorCallback("TestActor", ActorCallback.OnTermination))
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 1
+        ) ?? "'TestService.onTermination' callback should be only called once"
+        && assertTrue(
+          statusDone(Symbol("actorLoop")) == Fiber.Status.Done
+        ) ?? "'actorLoop' should have Done status"
+        && assertTrue(
+          statusDone(Symbol("internalMailboxConsumerFiber")) == Fiber.Status.Done
+        ) ?? "'internalMailboxConsumerFiber' should have Done status"
+        && assertTrue(
+          statusDone(Symbol("externalMailboxConsumerFiber")) == Fiber.Status.Done
+        ) ?? "'externalMailboxConsumerFiber' should have Done status"
+    ),
+    test("testing onMessage send error with StopWithReasonTerm")(
+      for {
+        actor      <- TestActor.startZIO("testActor")
+        _          <- actor.status()
+        _          <- actor.send(ETuple(EAtom("error"), EString("error => StopWithReasonTerm")))
+        _          <- actor.isStoppedZIO.repeatUntil(_ == true).unit
+        statusDone <- actor.status()
+        output     <- ZTestLogger.logOutput
+        logHistory = LogHistory(output)
+      } yield assert(
+        (logHistory.withLogLevel(LogLevel.Trace) &&
+          logHistory.withActorCallback("TestActor", ActorCallback.OnTermination))
+          .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+      )(helpers.Asserts.containsShape { case (_, reason: String, "TestActor") =>
+        reason.contains("error => StopWithReasonTerm")
+      }) ?? "log should contain messages from 'TestActor.onTermination' callback"
+        && assertTrue(
+          (logHistory.withLogLevel(LogLevel.Trace) &&
+            logHistory.withActorCallback("TestActor", ActorCallback.OnTermination))
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 1
+        ) ?? "'TestService.onTermination' callback should be only called once"
+        && assertTrue(
+          statusDone(Symbol("actorLoop")) == Fiber.Status.Done
+        ) ?? "'actorLoop' should have Done status"
+        && assertTrue(
+          statusDone(Symbol("internalMailboxConsumerFiber")) == Fiber.Status.Done
+        ) ?? "'internalMailboxConsumerFiber' should have Done status"
+        && assertTrue(
+          statusDone(Symbol("externalMailboxConsumerFiber")) == Fiber.Status.Done
+        ) ?? "'externalMailboxConsumerFiber' should have Done status"
+    )
+  ).provideLayer(
+    testEnvironment(1, 1, "ActorSpec")
+  ) @@ TestAspect.withLiveClock
 
   val onTerminateSuite = suite("Actor onTerminate callback")(
     test("test onTerminate is called on exit(normal)")(
@@ -226,13 +291,7 @@ class ActorSpec extends JUnitRunnableSpec {
         && assert(statusDone.get(Symbol("externalMailboxConsumerFiber")).get)(
           equalTo(Fiber.Status.Done)
         ) ?? "'externalMailboxConsumerFiber' should have Done status"
-    ),
-    test("test catching of Throwable from throwing onMessage") {
-      ???
-    } @@ needsTest,
-    test("do not brutally crash on throwing onTerminate") {
-      ???
-    } @@ needsTest
+    )
   ).provideLayer(
     testEnvironment(1, 1, "ActorSpec")
   ) @@ TestAspect.withLiveClock
