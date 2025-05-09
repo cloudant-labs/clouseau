@@ -7,6 +7,7 @@ import zio.Promise
 import zio.logging.LogAnnotation
 import zio.Exit
 import zio.StackTrace
+import scala.util.Try
 
 /*
  * This is the trait which implements actors. An Actor is a low level construct
@@ -69,14 +70,10 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     case status if status.isDone => true
   }.size == NUMBER_OF_FIBERS)
 
-  def onInit(): ZIO[Any, Nothing, ActorResult] = for {
+  def onInit(): UIO[ActorResult] = for {
     _ <- ctx.worker.register(this)
-    res <- (actor
-      .onInit(ctx)
-      .foldZIO(
-        failure => ZIO.succeed(ActorResult.onInitError(failure)),
-        success => ZIO.succeed(success)
-      )) @@ AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnInit)
+    res <- tryCatch(Try(actor.onInit(ctx)), ActorResult.onInitError) @@
+      AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnInit)
   } yield res
 
   val formatAddress = name match {
@@ -84,31 +81,26 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     case None       => s"${id.asInstanceOf[PID].pid}"
   }
 
-  def onTermination(result: ActorResult): ZIO[Any, Nothing, ActorResult] = {
+  def onTermination(result: ActorResult): UIO[ActorResult] = {
     if (!isFinalized.getAndSet(true)) {
       val reason = resultToReason(result)
       for {
         _ <- ctx.worker.unregister(self)
-        res <- (actor
-          .onTermination(reason, ctx)
-          .foldZIO(
-            failure => ZIO.succeed(ActorResult.onTerminationError(failure)),
-            _success => ZIO.succeed(ActorResult.Stop())
-          )) @@ AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnTermination) @@ AddressableActor
-          .actorTypeLogAnnotation(actor.getClass.getSimpleName)
+        res <- tryCatch(
+          Try(actor.onTermination(reason, ctx).as(ActorResult.Stop())),
+          ActorResult.onTerminationError
+        ) @@
+          AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnTermination) @@
+          AddressableActor.actorTypeLogAnnotation(actor.getClass.getSimpleName)
       } yield res
     } else {
       ZIO.succeed(ActorResult.Stop())
     }
   }
 
-  def onMessage(message: MessageEnvelope)(implicit trace: Trace): ZIO[Any, Nothing, ActorResult] = {
-    (actor
-      .onMessage(message, ctx)
-      .foldZIO(
-        failure => ZIO.succeed(ActorResult.onMessageError(failure)),
-        success => ZIO.succeed(success)
-      )) @@ AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnMessage)
+  def onMessage(message: MessageEnvelope)(implicit trace: Trace): UIO[ActorResult] = {
+    tryCatch(Try(actor.onMessage(message, ctx)), ActorResult.onMessageError) @@
+      AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnMessage)
   }
   def capacity: Int = ctx.capacity
   override def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
@@ -208,16 +200,15 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
       onMessage(message).flatMap(handleActorResult)
   }
 
-  def handleActorResult(result: ActorResult): UIO[Boolean] = result match {
-    case ActorResult.Continue() => ZIO.succeed(result.shouldContinue)
-    case ActorResult.StopWithCause(callback, cause) =>
-      onTermination(result) *>
-        ctx.onExit(Exit.fail(result)) *>
+  def handleActorResult(result: ActorResult): UIO[Boolean] = {
+    result match {
+      case ActorResult.Continue() =>
         ZIO.succeed(result.shouldContinue)
-    case _ =>
-      onTermination(result) *>
-        ctx.onStop(result) *>
-        ZIO.succeed(result.shouldContinue)
+      case ActorResult.StopWithCause(_callback, _cause) =>
+        onTermination(result) *> ctx.onExit(Exit.fail(result)).as(result.shouldContinue)
+      case _ =>
+        onTermination(result) *> ctx.onStop(result).as(result.shouldContinue)
+    }
   }
 
   def resultToReason(result: ActorResult) = {
@@ -225,6 +216,13 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
       case Some(reason) => reason
       case None         => Codec.fromScala(result.toString())
     }
+  }
+
+  private def tryCatch(
+    onFunc: Try[ZIO[Any, Throwable, ActorResult]],
+    onFailure: Throwable => ActorResult
+  ): UIO[ActorResult] = {
+    ZIO.fromTry(onFunc).flatten.catchAll(e => ZIO.succeed(onFailure(e)))
   }
 
   /*
