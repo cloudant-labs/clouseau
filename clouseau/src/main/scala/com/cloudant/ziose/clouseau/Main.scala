@@ -66,8 +66,8 @@ object Main extends ZIOAppDefault {
     val node             = workerCfg.node
     val name             = s"${node.name}@${node.domain}"
     val exchangeCapacity = capacity(workerCfg).exchange_exponent
-    println(s"exchangeCapacity $exchangeCapacity")
     for {
+      _ <- ZIO.logDebug(s"exchangeCapacity $exchangeCapacity")
       _ <- ZIO.logInfo("Clouseau running as " + name)
       _ <- ZIO
         .scoped(main(workerCfg, metricsRegistry, loggerCfg))
