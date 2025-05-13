@@ -74,8 +74,8 @@ case class Event()
 trait Mailbox {
   val name: Option[String]
 }
-case class OTPMailbox(val name: Option[String] = None)  extends Mailbox
-case class GRPCMailbox(val name: Option[String] = None) extends Mailbox
+case class OTPMailbox(name: Option[String] = None)  extends Mailbox
+case class GRPCMailbox(name: Option[String] = None) extends Mailbox
 
 case class OTPActor() extends Actor {
   def handle_event(event: Event): UIO[Unit] = {

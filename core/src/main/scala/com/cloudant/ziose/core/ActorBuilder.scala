@@ -16,12 +16,12 @@ object ActorBuilder {
   }
 
   case class Builder[A <: Actor, S <: State] private (
-    val capacity: Option[Int] = None,
-    val name: Option[String] = None,
-    val constructor: Option[ActorConstructor[A]] = None,
+    capacity: Option[Int] = None,
+    name: Option[String] = None,
+    constructor: Option[ActorConstructor[A]] = None,
     // We erase the type here. But since the only way to set this field is via
     // withMaker it is good enough
-    val maker: Option[(Any) => A] = None
+    maker: Option[Any => A] = None
   ) {
     /*
      * Specify the size of the message queue of an actor.
