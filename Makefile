@@ -228,25 +228,27 @@ clean-user-cache:
 	@rm -fvr  ~/Library/Caches/Coursier/v1/https
 
 ifneq ($(ERLANG_COOKIE),)
-_COOKIE=-Dcookie=$(ERLANG_COOKIE)
+_JAVA_COOKIE=-Dcookie=$(ERLANG_COOKIE)
+_DEVRUN_COOKIE=--erlang-cookie=$(ERLANG_COOKIE)
 else
-_COOKIE=
+_JAVA_COOKIE=
+_DEVRUN_COOKIE=
 endif
 
 .PHONY: clouseau1
 # target: clouseau1 - Start local instance of clouseau1 node
 clouseau1:
-	@sbt run -Dnode=$@ $(_COOKIE)
+	@sbt run -Dnode=$@ $(_JAVA_COOKIE)
 
 .PHONY: clouseau2
 # target: clouseau2 - Start local instance of clouseau2 node
 clouseau2:
-	@sbt run -Dnode=$@ $(_COOKIE)
+	@sbt run -Dnode=$@ $(_JAVA_COOKIE)
 
 .PHONY: clouseau3
 # target: clouseau3 - Start local instance of clouseau3 node
 clouseau3:
-	@sbt run -Dnode=$@ $(_COOKIE)
+	@sbt run -Dnode=$@ $(_JAVA_COOKIE)
 
 .PHONY: help
 # target: help - Print this help
@@ -293,13 +295,13 @@ ci-zeunit: zeunit $(CI_ARTIFACTS_DIR)
 	@cp -R $(ARTIFACTS_DIR)/zeunit $(CI_ARTIFACTS_DIR)
 
 ci-mango: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar couchdb epmd FORCE
-	@cli start $@ "java -jar $< $(_COOKIE)"
+	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
 	@cli stop $@
 
 ci-elixir: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar couchdb epmd FORCE
-	@cli start $@ "java -jar $< $(_COOKIE)"
+	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@timeout $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
 	@cli stop $@
@@ -351,7 +353,7 @@ restart-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar 
 .PHONY: zeunit
 # target: zeunit - Run integration tests with ~/.erlang.cookie: `make zeunit`; otherwise `make zeunit cookie=<cookie>`
 zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd FORCE
-	@cli start $@ "java -jar $< $(_COOKIE)"
+	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
 	@$(call to_artifacts,zeunit,test-reports)
 	@cli stop $@
@@ -493,13 +495,14 @@ mango-test: $(COUCHDB_DIR)/src/mango/.venv
 	@$(COUCHDB_DIR)/dev/run \
 		-n 1 \
 		--admin=adm:pass \
+		$(_DEVRUN_COOKIE) \
 		--no-eval "\
 COUCH_USER=adm COUCH_PASS=pass \
 $(COUCHDB_DIR)/src/mango/.venv/bin/nose2 -F -s $(COUCHDB_DIR)/src/mango/test -c test/mango/unittest.cfg"
 
 elixir-search: couchdb
 	@#                                       v-this is a hack
-	@$(MAKE) -C $(COUCHDB_DIR) elixir-search _WITH_CLOUSEAU=-q
+	@$(MAKE) -C $(COUCHDB_DIR) elixir-search _WITH_CLOUSEAU=-q ERLANG_COOKIE=$(ERLANG_COOKIE)
 
 .PHONY: test-failed
 test-failed:
@@ -511,7 +514,7 @@ test-failed:
 .PHONY: couchdb-tests
 # target: couchdb-tests - Run test suites from upstream CouchDB that use Clouseau
 couchdb-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar couchdb epmd FORCE
-	@cli start $@ "java -jar $< $(_COOKIE)"
+	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
 	@timeout $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
@@ -578,6 +581,6 @@ syslog-tests:
 	@$(MAKE) syslog-test FORMAT=JSON PROTOCOL=UDP HOST=127.0.0.1 PORT=2000 FACILITY=LOCAL5 LEVEL=info
 
 concurrent-zeunit-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd FORCE
-	@cli start $@ "java -jar $< $(_COOKIE) concurrent.app.conf"
+	@cli start $@ "java $(_JAVA_COOKIE) -jar $< concurrent.app.conf"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
 	@cli stop $@
