@@ -1,7 +1,7 @@
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.scalang.Adapter
-import zio.{Cause, Runtime, LogLevel, Trace, ZIO, ZLayer, ZLogger, UIO, Unsafe}
+import zio.{Cause, Runtime, LogLevel, Trace, ZIO, ZLayer, ZLogger, UIO, Unsafe, Duration}
 import zio.ZIO.{logDebug, logError, logErrorCause, logInfo, logWarning, logWarningCause}
 import zio.logging.{
   loggerName,
@@ -116,7 +116,7 @@ object LoggerFactory {
     }
 
     def log(event: UIO[Unit])(implicit adapter: Adapter[_, _]): Unit = {
-      Unsafe.unsafe(implicit u => adapter.runtime.unsafe.run(event.fork.ignore))
+      Unsafe.unsafe(implicit u => adapter.runtime.unsafe.run(event.timeout(Duration.fromSeconds(10)).forkDaemon))
     }
   }
 
