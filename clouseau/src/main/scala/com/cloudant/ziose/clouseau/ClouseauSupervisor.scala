@@ -94,6 +94,13 @@ case class ClouseauSupervisor(
     }
   }
 
+  override def handleInfo(msg: Any) = msg match {
+    case ('ping, sender: Pid, ref: Reference) =>
+      send(sender, ('pong, ref))
+    case _ =>
+      logger.warn(s"Unknown message: ${msg}")
+  }
+
   override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Unit = {
     val pid = monitored.asInstanceOf[Pid]
     if (manager.contains(pid)) {

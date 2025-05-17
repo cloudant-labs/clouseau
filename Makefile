@@ -146,7 +146,7 @@ deps:
 
 .PHONY: all-tests
 # target: all-tests - Run all test suites
-all-tests: test zeunit couchdb-tests metrics-tests syslog-tests concurrent-zeunit-tests restart-test
+all-tests: test zeunit couchdb-tests metrics-tests syslog-tests compatibility-tests concurrent-zeunit-tests restart-test
 
 .PHONY: test
 # target: test - Run all Scala tests
@@ -230,9 +230,11 @@ clean-user-cache:
 ifneq ($(ERLANG_COOKIE),)
 _JAVA_COOKIE=-Dcookie=$(ERLANG_COOKIE)
 _DEVRUN_COOKIE=--erlang-cookie=$(ERLANG_COOKIE)
+_ERLCALL_COOKIE=-c $(ERLANG_COOKIE)
 else
 _JAVA_COOKIE=
 _DEVRUN_COOKIE=
+_ERLCALL_COOKIE=
 endif
 
 .PHONY: clouseau1
@@ -583,4 +585,21 @@ syslog-tests:
 concurrent-zeunit-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $< concurrent.app.conf"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
+	@cli stop $@
+
+sup-test: couchdb
+	@$(COUCHDB_DIR)/dev/run \
+		-q \
+		-n 1 \
+		--admin=adm:pass \
+		$(_DEVRUN_COOKIE) \
+		--no-eval "\
+echo \"Ref = make_ref(), {sup, 'clouseau1@127.0.0.1'} ! {ping, self(), Ref}, receive {pong, Ref} -> success end.\" | erl_call $(_ERLCALL_COOKIE) -timeout 1 -n node1@127.0.0.1 -e"
+
+.PHONY: compatibility-tests
+# target: compatibility-tests - Run Clouseau 2.x compatibility tests
+compatibility-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar couchdb epmd FORCE
+	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
+	@cli await $(node_name) "$(ERLANG_COOKIE)"
+	@$(MAKE) sup-test || $(MAKE) test-failed ID=$@
 	@cli stop $@
