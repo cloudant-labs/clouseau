@@ -53,22 +53,20 @@ class OTPProcessContext private (
   }
 
   def capacity: Int = mailbox.capacity
-  override def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
-    mailbox.awaitShutdown
-  }
-  def isShutdown(implicit trace: Trace): UIO[Boolean] = {
-    mailbox.isShutdown
-  }
+
   def shutdown(implicit trace: Trace): UIO[Unit] = {
     if (!isFinalized.getAndSet(true)) { mailbox.shutdown }
     else { ZIO.unit }
   }
-  def offer(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
-    mailbox.offer(msg)
+
+  override def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
+    mailbox.awaitShutdown
   }
-  def offerAll[A1 <: MessageEnvelope](as: Iterable[A1])(implicit trace: zio.Trace): UIO[zio.Chunk[A1]] = {
-    mailbox.offerAll(as)
+
+  def forward(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
+    mailbox.forward(msg)
   }
+
   def size(implicit trace: zio.Trace): UIO[Int] = {
     mailbox.size
   }
@@ -81,7 +79,7 @@ class OTPProcessContext private (
     if (msg.to.isRemote || msg.to == id) {
       mailbox.exit(msg)
     } else {
-      worker.offer(msg).unit
+      worker.forward(msg).unit
     }
   }
 
@@ -90,7 +88,7 @@ class OTPProcessContext private (
     if (msg.to.isRemote || msg.to == id) {
       mailbox.unlink(msg.from.get)
     } else {
-      worker.offer(msg.forward).unit
+      worker.forward(msg.forward).unit
     }
   }
 
@@ -99,7 +97,7 @@ class OTPProcessContext private (
     if (msg.to.isRemote && msg.from.get == id.pid) {
       mailbox.link(msg.from.get)
     } else {
-      worker.offer(msg.forward).unit
+      worker.forward(msg.forward).unit
     }
   }
 
@@ -130,7 +128,7 @@ class OTPProcessContext private (
     if (msg.to.isRemote || msg.to == id) {
       mailbox.send(msg)
     } else {
-      worker.offer(msg).unit
+      worker.forward(msg).unit
     }
   }
   // I want to prevent direct calls to this function

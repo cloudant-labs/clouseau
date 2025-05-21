@@ -176,7 +176,6 @@ class ConfigSpec extends JUnitRunnableSpec {
     suite("ConfigSpec")(
       suiteForCapacity("analyzer_exponent", capacity => capacity.analyzer_exponent),
       suiteForCapacity("cleanup_exponent", capacity => capacity.cleanup_exponent),
-      suiteForCapacity("exchange_exponent", capacity => capacity.exchange_exponent),
       suiteForCapacity("index_exponent", capacity => capacity.index_exponent),
       suiteForCapacity("init_exponent", capacity => capacity.init_exponent),
       suiteForCapacity("main_exponent", capacity => capacity.main_exponent),

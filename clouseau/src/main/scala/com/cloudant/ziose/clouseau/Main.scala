@@ -47,7 +47,7 @@ object Main extends ZIOAppDefault {
       node       <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry, logLevel))
       supervisor <- startSupervisor(node, workerCfg)
       _          <- ZIO.addFinalizer(supervisor.shutdown *> otp_node.shutdown)
-      _          <- worker.awaitShutdown
+      _          <- supervisor.awaitShutdown
     } yield ()
   }
 
@@ -63,15 +63,13 @@ object Main extends ZIOAppDefault {
     metricsRegistry: ScalangMeterRegistry,
     loggerCfg: LogConfiguration
   ): Task[Unit] = {
-    val node             = workerCfg.node
-    val name             = s"${node.name}@${node.domain}"
-    val exchangeCapacity = capacity(workerCfg).exchange_exponent
+    val node = workerCfg.node
+    val name = s"${node.name}@${node.domain}"
     for {
-      _ <- ZIO.logDebug(s"exchangeCapacity $exchangeCapacity")
       _ <- ZIO.logInfo("Clouseau running as " + name)
       _ <- ZIO
         .scoped(main(workerCfg, metricsRegistry, loggerCfg))
-        .provide(OTPLayers.nodeLayers(engineId, workerId, exchangeCapacity, node))
+        .provide(OTPLayers.nodeLayers(engineId, workerId, node))
     } yield ()
   }
 

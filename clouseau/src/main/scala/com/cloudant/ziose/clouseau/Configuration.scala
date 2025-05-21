@@ -149,10 +149,6 @@ final case class SyslogConfiguration(
  * @param cleanup_exponent
  *   An exponent to calculate capacity of the message queue used for `CleanupService`. Exponent must be greater than 0.
  *   If not specified backpressure wouldn't be applied.
- * @param exchange_exponent
- *   An exponent to calculate capacity of the message queue used for forwarding internal messages. Exponent must be
- *   greater than 0. If not specified backpressure wouldn't be applied when sending internal messages. Usually you would
- *   want the exchange capacity to be higher than the `index`.
  * @param index_exponent
  *   An exponent to calculate capacity of the message queue used for `IndexService`. Exponent must be greater than 0. If
  *   not specified backpressure wouldn't be applied.
@@ -166,7 +162,6 @@ final case class SyslogConfiguration(
 final case class CapacityConfiguration(
   analyzer_exponent: Option[Exponent] = None,
   cleanup_exponent: Option[Exponent] = None,
-  exchange_exponent: Option[Exponent] = None,
   index_exponent: Option[Exponent] = None,
   init_exponent: Option[Exponent] = None,
   main_exponent: Option[Exponent] = None

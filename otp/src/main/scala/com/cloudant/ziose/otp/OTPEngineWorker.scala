@@ -59,16 +59,12 @@ object OTPEngineWorker {
     engineId: Engine.EngineId,
     workerId: Engine.WorkerId,
     name: String,
-    exchangeCapacity: Option[Exponent],
     cfg: OTPNodeConfig
   ): ZLayer[Node, Throwable, EngineWorker] = ZLayer.scoped {
     for {
-      _        <- ZIO.logDebug(s"Constructing with capacity $exchangeCapacity")
       node     <- ZIO.service[Node]
-      queue    <- createQueue(exchangeCapacity)
-      exchange <- EngineWorkerExchange.makeWithQueue(queue)
+      exchange <- EngineWorkerExchange.make()
       service = new OTPEngineWorker(engineId, workerId, Symbol(name), node, exchange)
-      _ <- exchange.run.forkScoped
       _ <- service.acquire
       _ <- ZIO.addFinalizer(service.release)
       _ <- ZIO.logDebug("Adding to the environment")

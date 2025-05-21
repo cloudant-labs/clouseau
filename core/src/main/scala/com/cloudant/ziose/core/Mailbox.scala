@@ -17,7 +17,7 @@ import zio._
  * ```
  */
 
-trait Mailbox extends EnqueueWithId[Address, MessageEnvelope] {
+trait Mailbox extends ForwardWithId[Address, MessageEnvelope] {
   def nextEvent: ZIO[Any, Nothing, Option[MessageEnvelope]]
   def start(scope: Scope.Closeable): ZIO[Any with Scope, Nothing, Map[Symbol, Fiber.Runtime[_, _]]]
   def exit(msg: MessageEnvelope.Exit): ZIO[Any with Scope, Nothing, Unit]

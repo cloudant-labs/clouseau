@@ -53,7 +53,7 @@ import scala.util.Try
  */
 
 class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
-    extends EnqueueWithId[Address, MessageEnvelope] {
+    extends ForwardWithId[Address, MessageEnvelope] {
   type Actor   = A
   type Context = C
   val NUMBER_OF_FIBERS                   = 3
@@ -102,12 +102,9 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     tryCatch(Try(actor.onMessage(message, ctx)), ActorResult.onMessageError) @@
       AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnMessage)
   }
-  def capacity: Int = ctx.capacity
-  override def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
+
+  def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
     ctx.awaitShutdown
-  }
-  def isShutdown(implicit trace: Trace): UIO[Boolean] = {
-    ctx.isShutdown
   }
 
   /*
@@ -117,14 +114,8 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     ctx.onExit(Exit.succeed(ActorResult.Shutdown()))
   }
 
-  def offer(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
-    ctx.offer(msg)
-  }
-  def offerAll[A1 <: MessageEnvelope](as: Iterable[A1])(implicit trace: zio.Trace): UIO[zio.Chunk[A1]] = {
-    ctx.offerAll(as)
-  }
-  def size(implicit trace: zio.Trace): UIO[Int] = {
-    ctx.size
+  def forward(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
+    ctx.forward(msg)
   }
 
   def start(continue: Promise[Nothing, Unit]) = {
@@ -175,7 +166,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
         .actorTypeLogAnnotation(
           actor.getClass.getSimpleName
         )
-      _ <- offer(MessageEnvelope.Init(id))
+      _ <- forward(MessageEnvelope.Init(id))
       _ <- ctx.start(fiber)
     } yield ()
   }
@@ -254,7 +245,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
       ),
       id
     )
-    ctx.offer(message)
+    ctx.forward(message)
   }
 
   /*
@@ -262,7 +253,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
    */
   def send(payload: Codec.ETerm) = {
     val message = MessageEnvelope.makeSend(id, payload, id)
-    ctx.offer(message)
+    ctx.forward(message)
   }
 
   /*
