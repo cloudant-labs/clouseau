@@ -24,6 +24,10 @@ end).
     {Name, fun(Name, Args) -> {atom_to_list(Name), ?_test(Name(Name, Args))} end}
 ).
 
+-define(format(Fmt, Args),
+    lists:flatten(io_lib:format(Fmt, Args))
+).
+
 %% Auxilary macro to simplify definition of other asserts
 -ifndef(_assertGuard).
 -define(_assertGuard(Name, Guard, Expr), begin

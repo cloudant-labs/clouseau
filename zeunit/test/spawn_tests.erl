@@ -56,7 +56,12 @@ t_spawn_many({Prefix, Concurrency}) ->
     io:format(user, "~nEstimated sequancial time: ~p msec~n", [EstimatedSeqencialTime]),
     ParallelTime = T2 - T1,
     io:format(user, "~nParallel time: ~p msec~n~n", [ParallelTime]),
-    ?assert(ParallelTime < EstimatedSeqencialTime),
+    ?assert(
+        ParallelTime < EstimatedSeqencialTime,
+        ?format("Expected ParallelTime(=~p) < EstimatedSeqencialTime(=~p)", [
+            ParallelTime, EstimatedSeqencialTime
+        ])
+    ),
     ok.
 
 print_statistics(Stats) ->
