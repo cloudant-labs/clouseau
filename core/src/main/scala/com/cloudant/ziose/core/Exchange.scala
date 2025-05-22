@@ -10,13 +10,12 @@ package com.cloudant.ziose.core
  */
 
 import com.cloudant.ziose.macros.CheckEnv
-import zio.stream.ZStream
-import zio.{Enqueue, Queue, Scope, Trace, UIO, ZIO}
+import zio.{Scope, Trace, UIO, ZIO}
 import java.util.concurrent.atomic.AtomicBoolean
 import zio.Unsafe
 import zio.Runtime
 
-class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], registry: Registry[K, M, E], val keyFn: M => K)
+class Exchange[K, M, E <: ForwardWithId[K, M]](registry: Registry[K, M, E], val keyFn: M => K)
     extends Exchange.WithConstructor[K, M, E] {
   private var isFinalized: AtomicBoolean = new AtomicBoolean(false)
   def add(entity: E): UIO[Unit] = {
@@ -31,7 +30,6 @@ class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], registry: Re
   def isKnown(key: K): UIO[Boolean] = {
     registry.isKnown(key)
   }
-  def capacity: Int                        = queue.capacity
   def foreach(fn: E => Unit): UIO[Unit]    = registry.foreach(fn)
   def map[B](fn: E => B): UIO[Iterable[B]] = registry.map(fn)
   /*
@@ -45,77 +43,45 @@ class Exchange[K, M, E <: EnqueueWithId[K, M]](val queue: Queue[M], registry: Re
   def buildWith(builderFn: Int => ZIO[Any with Scope, Throwable, E]) = {
     registry.buildWith(builderFn)
   }
-  def stream = ZStream
-    .fromQueueWithShutdown(queue)
-    // .tap(x => printLine(s"exchange event: $x"))
-    .mapZIO(loop)
-  def loop(msg: M) = for {
-    destination <- this.get(keyFn(msg))
-    _           <- maybeForward(destination, msg)
-  } yield ()
-  def maybeForward(destination: Option[E], msg: M): UIO[Unit] = destination match {
+  private def maybeForward(destination: Option[E], msg: M): UIO[Boolean] = destination match {
     case Some(dst) => {
-      dst.offer(msg).unit
+      dst.forward(msg)
     }
     case None => {
-      ZIO.succeed(())
+      ZIO.succeed(false)
     }
   }
-
-  def run = stream.runForeachWhileScoped(_ => queue.isShutdown.negate)
-
-  override def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
-    queue.awaitShutdown
-  }
-  def isShutdown(implicit trace: Trace): UIO[Boolean] = {
-    queue.isShutdown
-  }
-
   def shutdown(implicit trace: Trace): UIO[Unit] = {
     if (!isFinalized.getAndSet(true)) {
       foreach(x => {
         Unsafe.unsafe(implicit unsafe => {
           Runtime.default.unsafe.run(x.shutdown)
         })
-      }) *> queue.shutdown
-    } else { queue.shutdown }
+      })
+    } else { ZIO.unit }
   }
-  def offer(msg: M)(implicit trace: zio.Trace): UIO[Boolean] = {
-    queue.offer(msg)
-  }
-  def offerAll[A1 <: M](as: Iterable[A1])(implicit trace: zio.Trace): UIO[zio.Chunk[A1]] = {
-    queue.offerAll(as)
-  }
-  def size(implicit trace: zio.Trace): UIO[Int] = {
-    queue.size
-  }
+
+  def forward(msg: M)(implicit trace: zio.Trace): UIO[Boolean] = for {
+    destination <- this.get(keyFn(msg))
+    _           <- maybeForward(destination, msg)
+  } yield true
 
   @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
-    s"queue=$queue",
     s"registry=$registry",
     s"keyFn=$keyFn"
   )
 }
 
 object Exchange {
-  trait WithConstructor[K, M, E <: EnqueueWithId[K, M]] extends Enqueue[M] {
+  trait WithConstructor[K, M, E <: ForwardWithId[K, M]] {
     def buildWith(builderFn: Int => ZIO[Any with Scope, Throwable, E]): ZIO[Any with Scope, Throwable, E]
   }
 
-  def make[K, M, E <: EnqueueWithId[K, M]](capacity: Int, keyFn: M => K): ZIO[Any, Nothing, Exchange[K, M, E]] = {
-    for {
-      queue    <- Queue.bounded[M](capacity)
-      registry <- Registry.make[K, M, E]
-    } yield new Exchange(queue, registry, keyFn)
-  }
-  def makeWithQueue[K, M, E <: EnqueueWithId[K, M]](
-    queue: Queue[M],
-    keyFn: M => K
-  ): ZIO[Any, Nothing, Exchange[K, M, E]] = {
+  def make[K, M, E <: ForwardWithId[K, M]](keyFn: M => K): ZIO[Any, Nothing, Exchange[K, M, E]] = {
     for {
       registry <- Registry.make[K, M, E]
-    } yield new Exchange(queue, registry, keyFn)
+    } yield new Exchange(registry, keyFn)
   }
 }

@@ -3,11 +3,13 @@ package com.cloudant.ziose.core
 import zio._
 import com.cloudant.ziose.core.Codec.EPid
 
-trait ProcessContext extends EnqueueWithId[Address, MessageEnvelope] {
+trait ProcessContext extends ForwardWithId[Address, MessageEnvelope] {
   val id: Address // FIXME
   // Only accessed from AddressableActor
   val worker: EngineWorker
   def addressFromEPid(epid: EPid) = Address.fromPid(epid, worker.id, worker.nodeName)
+  def awaitShutdown(implicit trace: Trace): UIO[Unit]
+  def capacity: Int
   def status(): UIO[Map[Symbol, Fiber.Status]]
   def name: Option[String]
   def self: PID

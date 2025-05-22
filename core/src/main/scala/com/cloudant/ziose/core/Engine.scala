@@ -19,7 +19,7 @@ EngineWorker needs Engine
  */
 
 import com.cloudant.ziose.macros.CheckEnv
-import zio.{Queue, Scope, UIO, ZIO}
+import zio.{Scope, UIO, ZIO}
 
 class Engine(exchange: EngineExchange) {
   val engineId: Engine.EngineId = 1
@@ -44,8 +44,8 @@ class Engine(exchange: EngineExchange) {
 
   def list                     = exchange.list
   def get(id: Engine.WorkerId) = exchange.get(id)
-  def offer(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
-    exchange.offer(msg)
+  def forward(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
+    exchange.forward(msg)
   }
 
   @CheckEnv(System.getProperty("env"))
@@ -54,17 +54,6 @@ class Engine(exchange: EngineExchange) {
     s"exchange=$exchange",
     s"engineId=$engineId"
   )
-
-  // def run = {
-  //   for {
-  //     //p <- Promise.make[Nothing, Unit] // FIXME I think we need a different mechanism here
-  //     e <- exchange.run.fork.debug("Engine exchange started") // if root exchange die we cannot recover
-  //     _ <- ZIO.logDebug("hh")
-  //     //_ <- exchange.map(worker => worker.run.debug("eeee"))
-  //     //_ <- p.await
-  //     _ <- e.join.debug("engine result")
-  //   } yield ()
-  // }
 }
 
 object Engine {
@@ -75,27 +64,14 @@ object Engine {
   trait Error                   extends Throwable
   case object EngineIsSingleton extends Error
 
-  def make(capacity: Int): zio.ZIO[Any, Error, com.cloudant.ziose.core.Engine] = {
+  def make(): zio.ZIO[Any, Error, com.cloudant.ziose.core.Engine] = {
     if (once) {
       ZIO.fail(EngineIsSingleton)
     } else {
       this.once = true
       for {
-        exchange <- EngineExchange.make(capacity)
+        exchange <- EngineExchange.make
       } yield new Engine(exchange)
     }
   }
-
-  // TODO Enforce singleton somehow
-  def makeWithQueue(queue: Queue[MessageEnvelope]) = {
-    for {
-      exchange <- EngineExchange.makeWithQueue(queue)
-    } yield new Engine(exchange)
-  }
-}
-
-object Supervisor {
-  // TODO: Add exponential back-off
-  // def supervise(worker: EngineWorker) =
-  //   ZIO(worker.run).fork.flatMap(_.join).retry(Schedule.forever)
 }

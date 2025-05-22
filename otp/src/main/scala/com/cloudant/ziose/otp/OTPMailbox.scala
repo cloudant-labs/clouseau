@@ -59,7 +59,7 @@ import zio.Exit
  * the same as for OTP.
  *
  * The OTPMailbox extends from Mailbox which requires implementation of
- * a EnqueueWithId where Address is used as an Id type.
+ * a ForwardWithId where Address is used as an Id type.
  * As a result OTPMailbox look like a queue to any external actor.
  * The aggregated stream of messages consumed by OTPActor using
  * ```scala
@@ -190,20 +190,14 @@ class OTPMailbox private (
   }
 
   def capacity: Int = compositeMailbox.capacity
-  override def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
+  def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
     compositeMailbox.awaitShutdown <&> internalMailbox.awaitShutdown
-  }
-  def isShutdown(implicit trace: Trace): UIO[Boolean] = {
-    compositeMailbox.isShutdown
   }
   def shutdown(implicit trace: Trace): UIO[Unit] = {
     ZIO.unit
   }
-  def offer(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
+  def forward(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
     internalMailbox.offer(msg)
-  }
-  def offerAll[A1 <: MessageEnvelope](as: Iterable[A1])(implicit trace: zio.Trace): UIO[zio.Chunk[A1]] = {
-    internalMailbox.offerAll(as)
   }
 
   // There is no easy way to account for externalMailbox
@@ -231,7 +225,7 @@ class OTPMailbox private (
 
   def exit(message: MessageEnvelope.Exit): UIO[Unit] = {
     for {
-      _ <- offer(message)
+      _ <- forward(message)
     } yield ()
   }
 
@@ -294,7 +288,7 @@ class OTPMailbox private (
     node <- ZIO.service[Node]
     ref  <- node.makeRef()
     _    <- ZIO.succeed(inProgressCalls += Tuple2(ref, message.from.get))
-    _    <- offer(toSend(message, ref))
+    _    <- forward(toSend(message, ref))
     result <- message.timeout match {
       case Some(duration) =>
         ZIO
@@ -312,7 +306,7 @@ class OTPMailbox private (
   } yield message.toResponse(result)
 
   def cast(message: MessageEnvelope.Cast)(implicit trace: zio.Trace): UIO[Unit] = for {
-    _ <- offer(message)
+    _ <- forward(message)
   } yield ()
 
   def send(message: MessageEnvelope.Send)(implicit trace: zio.Trace): UIO[Unit] = {
