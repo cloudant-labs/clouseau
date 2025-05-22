@@ -52,14 +52,14 @@ t_spawn_many({Prefix, Concurrency}) ->
     Stats = bear:get_statistics([Duration || {_Idx, Duration} <- ets:tab2list(t_spawn_many_results)]),
     io:format(user, "~nRound trip time for concurrent gen_server:call (in msec)~n", []),
     print_statistics(Stats),
-    EstimatedSeqencialTime = estimate_seq_time(Stats),
-    io:format(user, "~nEstimated sequancial time: ~p msec~n", [EstimatedSeqencialTime]),
+    EstimatedSequentialTime = estimate_seq_time(Stats),
+    io:format(user, "~nEstimated sequential time: ~p msec~n", [EstimatedSequentialTime]),
     ParallelTime = T2 - T1,
     io:format(user, "~nParallel time: ~p msec~n~n", [ParallelTime]),
     ?assert(
-        ParallelTime < EstimatedSeqencialTime,
-        ?format("Expected ParallelTime(=~p) < EstimatedSeqencialTime(=~p)", [
-            ParallelTime, EstimatedSeqencialTime
+        ParallelTime < EstimatedSequentialTime,
+        ?format("Expected ParallelTime(=~p) < EstimatedSequentialTime(=~p)", [
+            ParallelTime, EstimatedSequentialTime
         ])
     ),
     ok.
