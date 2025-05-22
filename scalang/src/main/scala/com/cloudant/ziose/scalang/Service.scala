@@ -454,6 +454,18 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
               // - {pid(), ref()}
               // - {pid(), [alias | ref()]}
               fromTag @ ETuple(from: EPid, _ref),
+              EAtom("metrics")
+            )
+          ) => {
+        onHandleMetricsMessage(fromTag)
+      }
+      case Some(
+            ETuple(
+              EAtom("$gen_call"),
+              // Match on either
+              // - {pid(), ref()}
+              // - {pid(), [alias | ref()]}
+              fromTag @ ETuple(from: EPid, _ref),
               request: ETerm
             )
           ) => {
@@ -525,6 +537,17 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     }
     sendZIO(from, (Symbol("$pong"), replyRef))
       .as(ActorResult.Continue())
+  }
+
+  def onHandleMetricsMessage(fromTag: ETerm) = {
+    val callerTag: (Pid, Any) = fromTag match {
+      case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
+        (Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref)))
+      case ETuple(from: EPid, ref: ERef) => (Pid.toScala(from), Reference.toScala(ref))
+      case _                             => throw new Throwable("unreachable")
+    }
+    val replyTerm = (Symbol("ok"), metrics.dumpAsSymbolValuePairs())
+    Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
   }
 
   def onHandleCallMessage(fromTag: ETerm, request: ETerm)(implicit trace: Trace) = {

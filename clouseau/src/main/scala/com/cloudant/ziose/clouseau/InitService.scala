@@ -84,9 +84,6 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
           case Left(reason) => (Symbol("error"), reason)
         }
         (Symbol("reply"), result)
-      case Symbol("metrics") => {
-        (Symbol("ok"), metrics.dumpAsSymbolValuePairs())
-      }
       case msg =>
         logger.info(s"[WARNING][handleCall] Unexpected message: $msg ...")
     }
