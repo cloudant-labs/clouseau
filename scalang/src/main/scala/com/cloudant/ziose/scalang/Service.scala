@@ -430,9 +430,9 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     ctx: PContext
   )(implicit trace: Trace): ZIO[Any, Throwable, _ <: ActorResult] = {
     event.getPayload match {
-      case Some(ETuple(EAtom("$ping"), from: EPid, ref: ERef)) => {
+      case Some(ETuple(EAtom("ping"), from: EPid, ref: ERef)) => {
         val fromPid = Pid.toScala(from)
-        sendZIO(fromPid, (Symbol("$pong"), ref))
+        sendZIO(fromPid, (Symbol("pong"), ref))
           .as(ActorResult.Continue())
       }
       case Some(
@@ -442,7 +442,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
               // - {pid(), ref()}
               // - {pid(), [alias | ref()]}
               fromTag @ ETuple(from: EPid, _ref),
-              ETuple(EAtom("$ping"))
+              ETuple(EAtom("ping"))
             )
           ) => {
         onHandlePingMessage(fromTag)
@@ -535,7 +535,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
       case ETuple(from: EPid, ref: ERef)                                           => (Pid.toScala(from), ref, ref)
       case _                                                                       => throw new Throwable("unreachable")
     }
-    sendZIO(from, (Symbol("$pong"), replyRef))
+    sendZIO(from, (Symbol("pong"), replyRef))
       .as(ActorResult.Continue())
   }
 
@@ -663,27 +663,27 @@ object Service {
   }
 
   def ping(to: core.PID)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(Pid.toScala(to.pid), ETuple(EAtom("$ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("$pong"))
+    adapter.node.call(Pid.toScala(to.pid), ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
   }
   def ping(to: core.Name)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(to.name.atom, ETuple(EAtom("$ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("$pong"))
+    adapter.node.call(to.name.atom, ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
   }
   def ping(to: core.NameOnNode)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call((to.name.atom, to.node.atom), ETuple(EAtom("$ping")), PING_TIMEOUT_IN_MSEC) == ETuple(
-      EAtom("$pong")
+    adapter.node.call((to.name.atom, to.node.atom), ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(
+      EAtom("pong")
     )
   }
   def ping(to: Pid)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(to, ETuple(EAtom("$ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("$pong"))
+    adapter.node.call(to, ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
   }
   def ping(to: Pid, timeout: Long)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(to, ETuple(EAtom("$ping")), timeout) == ETuple(EAtom("$pong"))
+    adapter.node.call(to, ETuple(EAtom("ping")), timeout) == ETuple(EAtom("pong"))
   }
   def ping(to: Symbol)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(to, ETuple(EAtom("$ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("$pong"))
+    adapter.node.call(to, ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
   }
   def ping(to: Symbol, timeout: Long)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(to, ETuple(EAtom("$ping")), timeout) == ETuple(EAtom("$pong"))
+    adapter.node.call(to, ETuple(EAtom("ping")), timeout) == ETuple(EAtom("pong"))
   }
 
   def replyZIO[P <: Process](caller: (Pid, Any), reply: Any)(implicit process: P): UIO[Unit] = {
