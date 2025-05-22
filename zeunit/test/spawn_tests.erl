@@ -85,7 +85,9 @@ estimate_seq_time(Stats) ->
     Percentiles = proplists:get_value(percentile, Stats),
     P95 = proplists:get_value(95, Percentiles),
     N = proplists:get_value(n, Stats),
-    N * P95.
+    %% Minimum round-trip time below which we'll ignore the result
+    MinRoundTripTimeInMSec = 10,
+    N * max(MinRoundTripTimeInMSec, P95).
 
 %%%%%%%%%%%%%%% Setup Functions %%%%%%%%%%%%%%%
 
