@@ -14,6 +14,8 @@ import zio.test.TestAspect
 
 @RunWith(classOf[ZTestJUnitRunner])
 class LoggerFactorySpec extends JUnitRunnableSpec {
+  val TIMEOUT_SUITE = 5.minutes
+
   val loggerSuite: Spec[Any, Throwable] = {
     val logLevelTests = (List("debug", "info", "warn", "error")).map(level => {
       test(s"crash in '${level}' doesn't terminate actor")(
@@ -40,7 +42,6 @@ class LoggerFactorySpec extends JUnitRunnableSpec {
   def spec: Spec[Any, Throwable] = {
     suite("LoggerFactorySpec")(
       loggerSuite
-    ) @@ TestAspect.timeout(15.minutes)
+    ) @@ TestAspect.timeout(TIMEOUT_SUITE)
   }
-
 }

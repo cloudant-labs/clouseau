@@ -123,7 +123,8 @@ private object SendEveryService extends core.ActorConstructor[SendEveryService] 
 @RunWith(classOf[ZTestJUnitRunner])
 class SendEverySpec extends JUnitRunnableSpec {
   def dummyCaller(actorName: String) = core.Name(core.Codec.EAtom("test"), 1, Symbol(actorName))
-  val TIMEOUT                        = 2.seconds
+  val TIMEOUT_SUITE                  = 5.minutes
+  val TIMEOUT_TEST                   = 2.seconds
   val WAIT_DURATION                  = 500.milliseconds
 
   val handleCallSuite: Spec[Any, Throwable] = {
@@ -245,7 +246,7 @@ class SendEverySpec extends JUnitRunnableSpec {
           history <- SendEveryService
             .history(actor)
             .repeatUntil(h => h.isDefined && h.get.nonEmpty)
-            .timeout(TIMEOUT)
+            .timeout(TIMEOUT_TEST)
             .map(_.flatten)
         } yield assert(history)(isSome) ?? "history should be available"
           && assert(history)(
@@ -261,6 +262,6 @@ class SendEverySpec extends JUnitRunnableSpec {
     suite("SendEverySpec")(
       handleCallSuite,
       handleInfoSuite
-    ) @@ TestAspect.timeout(15.minutes)
+    ) @@ TestAspect.timeout(TIMEOUT_SUITE)
   }
 }
