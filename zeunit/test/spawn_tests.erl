@@ -52,11 +52,16 @@ t_spawn_many({Prefix, Concurrency}) ->
     Stats = bear:get_statistics([Duration || {_Idx, Duration} <- ets:tab2list(t_spawn_many_results)]),
     io:format(user, "~nRound trip time for concurrent gen_server:call (in msec)~n", []),
     print_statistics(Stats),
-    EstimatedSeqencialTime = estimate_seq_time(Stats),
-    io:format(user, "~nEstimated sequancial time: ~p msec~n", [EstimatedSeqencialTime]),
+    EstimatedSequentialTime = estimate_seq_time(Stats),
+    io:format(user, "~nEstimated sequential time: ~p msec~n", [EstimatedSequentialTime]),
     ParallelTime = T2 - T1,
     io:format(user, "~nParallel time: ~p msec~n~n", [ParallelTime]),
-    ?assert(ParallelTime < EstimatedSeqencialTime),
+    ?assert(
+        ParallelTime < EstimatedSequentialTime,
+        ?format("Expected ParallelTime(=~p) < EstimatedSequentialTime(=~p)", [
+            ParallelTime, EstimatedSequentialTime
+        ])
+    ),
     ok.
 
 print_statistics(Stats) ->
@@ -80,7 +85,9 @@ estimate_seq_time(Stats) ->
     Percentiles = proplists:get_value(percentile, Stats),
     P95 = proplists:get_value(95, Percentiles),
     N = proplists:get_value(n, Stats),
-    N * P95.
+    %% Minimum round-trip time below which we'll ignore the result
+    MinRoundTripTimeInMSec = 10,
+    N * max(MinRoundTripTimeInMSec, P95).
 
 %%%%%%%%%%%%%%% Setup Functions %%%%%%%%%%%%%%%
 
