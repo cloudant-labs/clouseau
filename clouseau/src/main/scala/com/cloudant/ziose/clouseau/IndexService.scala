@@ -61,6 +61,9 @@ import java.lang.Throwable
 import com.cloudant.ziose.core.ProcessContext
 import com.cloudant.ziose.core.Codec
 import zio.ZIO
+import java.time.temporal.ChronoUnit
+import java.time.Instant
+import zio.Duration
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
 case class HighlightParameters(highlighter: Highlighter, highlightFields: List[String], highlightNumber: Int, analyzers: List[Analyzer])
@@ -105,6 +108,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   //Two consecutive idle status checks.
   val closeIfIdleEnabled = ctx.args.config.getBoolean("clouseau.close_if_idle", false)
   val idleTimeout = ctx.args.config.getInt("clouseau.idle_check_interval_secs", 300)
+  val lruUpdateInterval = ctx.args.config.getInt("clouseau.lru_update_interval_msecs", 1000)
+  // Set initial default to be in the past so we don't miss first LRU update
+  var lastLRUUpdate = Instant.now().minus(Duration.fromMillis(lruUpdateInterval * 2))
 
   override def handleInit(): Unit = {
     logger.debug(s"handleInit(capacity = ${adapter.capacity})")
@@ -125,7 +131,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
 
   override def handleCall(tag: (Pid, Any), msg: Any): Any = {
     idle = false
-    send('main, ('touch_lru, ctx.args.name))
+    val now = Instant.now
+    val timeSinceLRUUpdateInMs = ChronoUnit.MILLIS.between(lastLRUUpdate, now)
+    if (timeSinceLRUUpdateInMs > lruUpdateInterval) {
+      lastLRUUpdate = now
+      send('main, ('touch_lru, ctx.args.name))
+    }
     internalHandleCall(tag, msg)
   }
 
