@@ -3,6 +3,7 @@
 -export([call/2]).
 -export([get_value/2, get_value/3]).
 -export([seconds/1, receive_msg/0, receive_msg/1]).
+-export([receive_pong/1, receive_pong/2]).
 -export([
     check_ping/1, check_ping/2,
     check_service/1, check_service/2,
@@ -83,6 +84,17 @@ receive_msg() ->
 receive_msg(TimeoutInMs) ->
     receive
         Msg -> Msg
+    after TimeoutInMs ->
+        {error, timeout}
+    end.
+
+receive_pong(Ref) ->
+    receive_pong(Ref, ?TIMEOUT_IN_MS).
+
+receive_pong(Ref, TimeoutInMs) ->
+    receive
+        {pong, Ref} -> pong;
+        _ -> false
     after TimeoutInMs ->
         {error, timeout}
     end.
