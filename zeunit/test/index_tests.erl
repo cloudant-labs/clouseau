@@ -103,91 +103,19 @@ t_metrics_format(IndexPid) ->
 
     ?assertMatch(#{}, maps:get('commits', Metrics), "Expected 'commits' Timer value to be a map"),
     CommitsTimer = maps:get('commits', Metrics, {no_such_key, 'commits'}),
-    ?assertNonNegFloat(maps:get(p75, CommitsTimer, {no_such_key, p75})),
-    ?assertNonNegFloat(maps:get(p95, CommitsTimer, {no_such_key, p95})),
-    ?assertNonNegFloat(maps:get(p98, CommitsTimer, {no_such_key, p98})),
-    ?assertNonNegFloat(maps:get(p99, CommitsTimer, {no_such_key, p99})),
-    ?assertNonNegFloat(maps:get(p999, CommitsTimer, {no_such_key, p999})),
-    ?assertNonNegNumber(maps:get(max, CommitsTimer, {no_such_key, max})),
-    ?assertNonNegFloat(maps:get(mean, CommitsTimer, {no_such_key, mean})),
-    ?assertNonNegFloat(maps:get(median, CommitsTimer, {no_such_key, median})),
-    ?assertNonNegNumber(maps:get(min, CommitsTimer, {no_such_key, min})),
-    ?assertNonNegFloat(maps:get(stddev, CommitsTimer, {no_such_key, stddev})),
-    ?assertNonNegFloat(maps:get(oneMinuteRate, CommitsTimer, {no_such_key, oneMinuteRate})),
-    ?assertNonNegFloat(maps:get(fiveMinutesRate, CommitsTimer, {no_such_key, fiveMinutesRate})),
-    ?assertNonNegFloat(
-        maps:get(fifteenMinutesRate, CommitsTimer, {no_such_key, fifteenMinutesRate})
-    ),
-    ?assertEqual(
-        <<"milliseconds">>, maps:get(durationUnit, CommitsTimer, {no_such_key, durationUnit})
-    ),
-    ?assertEqual(<<"events/second">>, maps:get(rateUnit, CommitsTimer, {no_such_key, rateUnit})),
+    metrics_asserts:assertTimerFormat(CommitsTimer),
 
     ?assertMatch(#{}, maps:get('deletes', Metrics), "Expected 'deletes' Timer value to be a map"),
     DeletesTimer = maps:get('deletes', Metrics, {no_such_key, 'deletes'}),
-    ?assertNonNegFloat(maps:get(p75, DeletesTimer, {no_such_key, p75})),
-    ?assertNonNegFloat(maps:get(p95, DeletesTimer, {no_such_key, p95})),
-    ?assertNonNegFloat(maps:get(p98, DeletesTimer, {no_such_key, p98})),
-    ?assertNonNegFloat(maps:get(p99, DeletesTimer, {no_such_key, p99})),
-    ?assertNonNegFloat(maps:get(p999, DeletesTimer, {no_such_key, p999})),
-    ?assertNonNegNumber(maps:get(max, DeletesTimer, {no_such_key, max})),
-    ?assertNonNegFloat(maps:get(mean, DeletesTimer, {no_such_key, mean})),
-    ?assertNonNegFloat(maps:get(median, DeletesTimer, {no_such_key, median})),
-    ?assertNonNegNumber(maps:get(min, DeletesTimer, {no_such_key, min})),
-    ?assertNonNegFloat(maps:get(stddev, DeletesTimer, {no_such_key, stddev})),
-    ?assertNonNegFloat(maps:get(oneMinuteRate, DeletesTimer, {no_such_key, oneMinuteRate})),
-    ?assertNonNegFloat(maps:get(fiveMinutesRate, DeletesTimer, {no_such_key, fiveMinutesRate})),
-    ?assertNonNegFloat(
-        maps:get(fifteenMinutesRate, DeletesTimer, {no_such_key, fifteenMinutesRate})
-    ),
-    ?assertEqual(
-        <<"milliseconds">>, maps:get(durationUnit, DeletesTimer, {no_such_key, durationUnit})
-    ),
-    ?assertEqual(<<"events/second">>, maps:get(rateUnit, DeletesTimer, {no_such_key, rateUnit})),
+    metrics_asserts:assertTimerFormat(DeletesTimer),
 
     ?assertMatch(#{}, maps:get('searches', Metrics), "Expected 'searches' Timer value to be a map"),
     SearchesTimer = maps:get('searches', Metrics, {no_such_key, 'searches'}),
-    ?assertNonNegFloat(maps:get(p75, SearchesTimer, {no_such_key, p75})),
-    ?assertNonNegFloat(maps:get(p95, SearchesTimer, {no_such_key, p95})),
-    ?assertNonNegFloat(maps:get(p98, SearchesTimer, {no_such_key, p98})),
-    ?assertNonNegFloat(maps:get(p99, SearchesTimer, {no_such_key, p99})),
-    ?assertNonNegFloat(maps:get(p999, SearchesTimer, {no_such_key, p999})),
-    ?assertNonNegNumber(maps:get(max, SearchesTimer, {no_such_key, max})),
-    ?assertNonNegFloat(maps:get(mean, SearchesTimer, {no_such_key, mean})),
-    ?assertNonNegFloat(maps:get(median, SearchesTimer, {no_such_key, median})),
-    ?assertNonNegNumber(maps:get(min, SearchesTimer, {no_such_key, min})),
-    ?assertNonNegFloat(maps:get(stddev, SearchesTimer, {no_such_key, stddev})),
-    ?assertNonNegFloat(maps:get(oneMinuteRate, SearchesTimer, {no_such_key, oneMinuteRate})),
-    ?assertNonNegFloat(maps:get(fiveMinutesRate, SearchesTimer, {no_such_key, fiveMinutesRate})),
-    ?assertNonNegFloat(
-        maps:get(fifteenMinutesRate, SearchesTimer, {no_such_key, fifteenMinutesRate})
-    ),
-    ?assertEqual(
-        <<"milliseconds">>, maps:get(durationUnit, SearchesTimer, {no_such_key, durationUnit})
-    ),
-    ?assertEqual(<<"events/second">>, maps:get(rateUnit, SearchesTimer, {no_such_key, rateUnit})),
+    metrics_asserts:assertTimerFormat(SearchesTimer),
 
     ?assertMatch(#{}, maps:get('updates', Metrics), "Expected 'updates' Timer value to be a map"),
     UpdatesTimer = maps:get('updates', Metrics, {no_such_key, 'updates'}),
-    ?assertNonNegFloat(maps:get(p75, UpdatesTimer, {no_such_key, p75})),
-    ?assertNonNegFloat(maps:get(p95, UpdatesTimer, {no_such_key, p95})),
-    ?assertNonNegFloat(maps:get(p98, UpdatesTimer, {no_such_key, p98})),
-    ?assertNonNegFloat(maps:get(p99, UpdatesTimer, {no_such_key, p99})),
-    ?assertNonNegFloat(maps:get(p999, UpdatesTimer, {no_such_key, p999})),
-    ?assertNonNegNumber(maps:get(max, UpdatesTimer, {no_such_key, max})),
-    ?assertNonNegFloat(maps:get(mean, UpdatesTimer, {no_such_key, mean})),
-    ?assertNonNegFloat(maps:get(median, UpdatesTimer, {no_such_key, median})),
-    ?assertNonNegNumber(maps:get(min, UpdatesTimer, {no_such_key, min})),
-    ?assertNonNegFloat(maps:get(stddev, UpdatesTimer, {no_such_key, stddev})),
-    ?assertNonNegFloat(maps:get(oneMinuteRate, UpdatesTimer, {no_such_key, oneMinuteRate})),
-    ?assertNonNegFloat(maps:get(fiveMinutesRate, UpdatesTimer, {no_such_key, fiveMinutesRate})),
-    ?assertNonNegFloat(
-        maps:get(fifteenMinutesRate, UpdatesTimer, {no_such_key, fifteenMinutesRate})
-    ),
-    ?assertEqual(
-        <<"milliseconds">>, maps:get(durationUnit, UpdatesTimer, {no_such_key, durationUnit})
-    ),
-    ?assertEqual(<<"events/second">>, maps:get(rateUnit, UpdatesTimer, {no_such_key, rateUnit})),
+    metrics_asserts:assertTimerFormat(UpdatesTimer),
     ok.
 
 %%%%%%%%%%%%%%% Setup Functions %%%%%%%%%%%%%%%
