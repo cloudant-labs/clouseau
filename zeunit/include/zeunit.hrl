@@ -102,3 +102,14 @@ with(Tests) ->
             Tests
         )
     end.
+
+-type error(_Reason) :: no_return().
+
+-type assert_opt() ::
+    {module, atom()}
+    | {line, pos_integer()}
+    | {expression, string()}
+    | {pattern, string()}
+    | {value, any()}.
+
+-type assert_error() :: {Name :: atom(), [assert_opt()]}.

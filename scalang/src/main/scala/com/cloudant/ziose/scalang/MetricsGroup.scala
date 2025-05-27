@@ -130,6 +130,7 @@ case class MetricsGroup(klass: Class[_], metricsRegistry: ScalangMeterRegistry) 
   private def timerToMap(timer: com.codahale.metrics.Timer) = {
     val snapshot = timer.getSnapshot()
     HashMap(
+      "count"              -> timer.getCount(),
       "p75"                -> snapshot.get75thPercentile() * durationFactor,
       "p95"                -> snapshot.get95thPercentile() * durationFactor,
       "p98"                -> snapshot.get98thPercentile() * durationFactor,
@@ -151,6 +152,7 @@ case class MetricsGroup(klass: Class[_], metricsRegistry: ScalangMeterRegistry) 
   private def timerToSymbolMap(timer: com.codahale.metrics.Timer) = {
     val snapshot = timer.getSnapshot()
     HashMap(
+      Symbol("count")              -> timer.getCount(),
       Symbol("p75")                -> snapshot.get75thPercentile() * durationFactor,
       Symbol("p95")                -> snapshot.get95thPercentile() * durationFactor,
       Symbol("p98")                -> snapshot.get98thPercentile() * durationFactor,
