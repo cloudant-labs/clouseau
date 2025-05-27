@@ -9,6 +9,7 @@
 %% Verify we get following shape
 %% ```erlang
 %% #{
+%%     count => 12,
 %%     durationUnit => <<"milliseconds">>,
 %%     fifteenMinutesRate => 0.0,
 %%     fiveMinutesRate => 0.0,
@@ -29,6 +30,7 @@
 
 -spec assertTimerFormat(any()) -> ok | error(assert_error()).
 assertTimerFormat(Timer) ->
+    ?assertNonNegInteger(maps:get(count, Timer, {no_such_key, count})),
     ?assertNonNegFloat(maps:get(p75, Timer, {no_such_key, p75})),
     ?assertNonNegFloat(maps:get(p95, Timer, {no_such_key, p95})),
     ?assertNonNegFloat(maps:get(p98, Timer, {no_such_key, p98})),

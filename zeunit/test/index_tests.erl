@@ -18,6 +18,7 @@ index_service_test_() ->
 %% ```erlang
 %% {ok, #{
 %%   commits => #{
+%%     count => 12,
 %%     durationUnit => <<"milliseconds">>,
 %%     fifteenMinutesRate => 0.0,
 %%     fiveMinutesRate => 0.0,
@@ -35,6 +36,7 @@ index_service_test_() ->
 %%     stddev => 0.0
 %%   },
 %%   deletes => #{
+%%     count => 12,
 %%     durationUnit => <<"milliseconds">>,
 %%     fifteenMinutesRate => 0.0,
 %%     fiveMinutesRate => 0.0,
@@ -53,6 +55,7 @@ index_service_test_() ->
 %%   },
 %%   'partition_search.timeout.count' => 0,
 %%   searches => #{
+%%     count => 12,
 %%     durationUnit => <<"milliseconds">>,
 %%     fifteenMinutesRate => 0.0,
 %%     fiveMinutesRate => 0.0,
@@ -70,6 +73,7 @@ index_service_test_() ->
 %%     stddev => 0.019667
 %%   },
 %%   updates => #{
+%%     count => 12,
 %%     durationUnit => <<"milliseconds">>,
 %%     fifteenMinutesRate => 0.0,
 %%     fiveMinutesRate => 0.0,

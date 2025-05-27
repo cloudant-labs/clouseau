@@ -23,6 +23,7 @@ index_manager_service_test_() ->
 %%   'lru.evictions' => 1,
 %%   'lru.misses' => 2,
 %%   opens => #{
+%%     count => 12,
 %%     durationUnit => <<"milliseconds">>,
 %%     fifteenMinutesRate => 0.0,
 %%     fiveMinutesRate => 0.0,
