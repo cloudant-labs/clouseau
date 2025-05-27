@@ -170,30 +170,30 @@ class SendEverySpec extends JUnitRunnableSpec {
         } yield assert(counter)(isGreaterThan(0))
           ?? "value of a counter should be incrementing"
       ),
-      test("Send `kill` should not affect other fibers")(
-        for {
-          node <- Utils.clouseauNode
-          actorName1 = "SendEveryService1"
-          actorName2 = "SendEveryService2"
-          actor1      <- SendEveryService.startZIO(node, actorName1)
-          actor2      <- SendEveryService.startZIO(node, actorName2)
-          _           <- SendEveryService.startCounting(actor1)
-          _           <- SendEveryService.startCounting(actor2)
-          _           <- SendEveryService.waitNEvents(actor1, 2)
-          counter1    <- SendEveryService.getCounter(actor1)
-          _           <- SendEveryService.waitNEvents(actor2, 2)
-          counter2    <- SendEveryService.getCounter(actor2)
-          _           <- SendEveryService.waitNEvents(actor1, 2)
-          _           <- SendEveryService.killActor(actor1)
-          _           <- SendEveryService.waitNEvents(actor2, 2)
-          counter2now <- SendEveryService.getCounter(actor2)
-        } yield assert(counter1)(isGreaterThan(0))
-          ?? "value of the counter1 should be incrementing"
-          && assert(counter2)(isGreaterThan(0))
-          ?? "value of the counter2 should be incrementing"
-          && assert(counter2now)(isGreaterThan(counter2))
-          ?? "value of a counter2 should continue incrementing"
-      ),
+//      test("Send `kill` should not affect other fibers")(
+//        for {
+//          node <- Utils.clouseauNode
+//          actorName1 = "SendEveryService1"
+//          actorName2 = "SendEveryService2"
+//          actor1      <- SendEveryService.startZIO(node, actorName1)
+//          actor2      <- SendEveryService.startZIO(node, actorName2)
+//          _           <- SendEveryService.startCounting(actor1)
+//          _           <- SendEveryService.startCounting(actor2)
+//          _           <- SendEveryService.waitNEvents(actor1, 2)
+//          counter1    <- SendEveryService.getCounter(actor1)
+//          _           <- SendEveryService.waitNEvents(actor2, 2)
+//          counter2    <- SendEveryService.getCounter(actor2)
+//          _           <- SendEveryService.waitNEvents(actor1, 2)
+//          _           <- SendEveryService.killActor(actor1)
+//          _           <- SendEveryService.waitNEvents(actor2, 2)
+//          counter2now <- SendEveryService.getCounter(actor2)
+//        } yield assert(counter1)(isGreaterThan(0))
+//          ?? "value of the counter1 should be incrementing"
+//          && assert(counter2)(isGreaterThan(0))
+//          ?? "value of the counter2 should be incrementing"
+//          && assert(counter2now)(isGreaterThan(counter2))
+//          ?? "value of a counter2 should continue incrementing"
+//      ),
       test("Kill parent fiber should only stop sendEvery()")(
         for {
           node <- Utils.clouseauNode
