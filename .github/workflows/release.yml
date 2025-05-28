@@ -8,7 +8,7 @@ on:
 jobs:
   release:
     name: Release of clouseau-{version}-dist.zip
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v2
       - name: Set ENV for github-release
@@ -28,7 +28,7 @@ jobs:
       - name: Set up Erlang
         uses: erlef/setup-beam@v1.16.0
         with:
-          otp-version: '23.3.1'
+          otp-version: '25.x'
       - name: Start epmd daemon
         run: epmd -daemon
       - name: Build with Maven
