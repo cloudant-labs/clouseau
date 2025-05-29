@@ -196,11 +196,6 @@ stop)
   run::stop "$1"
   exit $?
   ;;
-processId)
-  ensure_args 2 "help_topic processId" "$@"
-  run::processId "$@"
-  exit $?
-  ;;
 zeunit)
   ensure_args 1 "help_topic zeunit" "$@"
   name=$1
