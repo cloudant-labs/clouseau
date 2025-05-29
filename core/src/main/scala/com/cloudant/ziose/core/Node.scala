@@ -1,13 +1,13 @@
 package com.cloudant.ziose.core
 
-import com.cloudant.ziose.macros.checkEnv
-import zio.{&, Duration, FiberId, Scope, ZIO}
+import com.cloudant.ziose.macros.CheckEnv
+import zio.{&, Duration, FiberId, Scope, ZIO, UIO}
+import zio.Trace
 
 trait Node {
   def spawn[A <: Actor](
     builder: ActorBuilder.Sealed[A]
   ): ZIO[Scope & Node & EngineWorker, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]]
-  def close: ZIO[Node, _ <: Node.Error, Unit]
   def ping(nodeName: String, timeout: Option[Duration] = None): ZIO[Node, _ <: Node.Error, Boolean]
   // testing only
   def listNames(): ZIO[Node, _ <: Node.Error, List[String]]
@@ -15,6 +15,7 @@ trait Node {
   def lookUpName(name: String): ZIO[Node, _ <: Node.Error, Option[Codec.EPid]]
   def monitorRemoteNode(name: String, timeout: Option[Duration] = None): ZIO[Node, _ <: Node.Error, Unit]
   def makeRef(): ZIO[Any, _ <: Node.Error, Codec.ERef]
+  def shutdown(implicit trace: Trace): UIO[Unit]
 }
 
 object Node {
@@ -26,18 +27,16 @@ object Node {
     case class NameInUse(name: String) extends Error with Codec.FromScala {
       def fromScala: Codec.ETerm = Codec.fromScala((Symbol("name_in_use"), Symbol(name)))
 
-      @checkEnv(System.getProperty("env"))
+      @CheckEnv(System.getProperty("env"))
       def toStringMacro: List[String] = List(
         s"Error.${getClass.getSimpleName}",
         s"name=$name"
       )
     }
-    case class ActorFailure()               extends Error
-    case class SpawnFailure(err: Throwable) extends Error
     case class Constructor(err: Throwable) extends Error with Codec.FromScala {
       def fromScala: Codec.ETerm = Codec.fromScala((Symbol("bad_constructor"), err.getMessage()))
 
-      @checkEnv(System.getProperty("env"))
+      @CheckEnv(System.getProperty("env"))
       def toStringMacro: List[String] = List(
         s"Error.${getClass.getSimpleName}",
         s"err=${err.getMessage}"
@@ -56,8 +55,8 @@ object Node {
     ZIO.serviceWithZIO[Node](_.spawn(builder))
   }
 
-  def close: ZIO[Node, _ <: Node.Error, Unit] = {
-    ZIO.serviceWithZIO[Node](_.close)
+  def shutdown: ZIO[Node, _ <: Node.Error, Unit] = {
+    ZIO.serviceWithZIO[Node](_.shutdown)
   }
 
   def ping(nodeName: String, timeout: Option[Duration] = None): ZIO[Node, _ <: Node.Error, Boolean] = {

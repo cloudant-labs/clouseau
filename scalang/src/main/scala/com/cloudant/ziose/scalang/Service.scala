@@ -14,7 +14,7 @@ import core.Node
 import core.MessageEnvelope
 import core.ProcessContext
 import core.ZioSupport
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio._
 
 import java.util.concurrent.TimeUnit
@@ -25,26 +25,56 @@ import com.cloudant.ziose.core.PID
 trait Error extends Throwable
 
 case class HandleCallCBError(err: Throwable) extends Error {
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"Error.${getClass.getSimpleName}",
     s"err=${err.getMessage}"
   )
 }
+
+object HandleCallCBError {
+  def apply(err: Throwable) = {
+    val exception  = new HandleCallCBError(err)
+    val stackTrace = err.getStackTrace()
+    exception.setStackTrace(stackTrace)
+    exception
+  }
+}
+
 case class HandleCastCBError(err: Throwable) extends Error {
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"Error.${getClass.getSimpleName}",
     s"err=${err.getMessage}"
   )
 }
+
+object HandleCastCBError {
+  def apply(err: Throwable) = {
+    val exception  = new HandleCastCBError(err)
+    val stackTrace = err.getStackTrace()
+    exception.setStackTrace(stackTrace)
+    exception
+  }
+}
+
 case class HandleInfoCBError(err: Throwable) extends Error {
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"Error.${getClass.getSimpleName}",
     s"err=${err.getMessage}"
   )
 }
+
+object HandleInfoCBError {
+  def apply(err: Throwable) = {
+    val exception  = new HandleInfoCBError(err)
+    val stackTrace = err.getStackTrace()
+    exception.setStackTrace(stackTrace)
+    exception
+  }
+}
+
 case class UnreachableError() extends Error
 case class HandleCallUndefined(className: String) extends Error {
   override def toString: String = s"Error.${getClass.getSimpleName}($className) did not define a call handler"
@@ -64,9 +94,6 @@ object ProcessLike {
 trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
   type RegName  = ProcessLike.RegName
   type NodeName = ProcessLike.NodeName
-
-  /// We are not accessing this type directly in Clouseau
-  type Mailbox = Process
 
   val adapter: A
   def self: Address
@@ -226,6 +253,8 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
   val self    = adapter.self
   val node    = adapter.node
 
+  implicit val process: Process = this
+
   implicit def pid2sendable(pid: core.PID): PidSend            = new PidSend(pid, this)
   implicit def pid2sendable(pid: Pid): PidSend                 = new PidSend(pid, this)
   implicit def sym2sendable(to: Symbol): SymSend               = new SymSend(to, this)
@@ -310,7 +339,7 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
    */
   def trapMonitorExit(monitored: Any, ref: Reference, reason: Any) = ()
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"adapter=$adapter",
@@ -330,7 +359,7 @@ class PidSend(to: Pid, proc: Process) {
     proc.send(to, msg)
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"to=$to",
@@ -343,7 +372,7 @@ class SymSend(to: Symbol, proc: Process) {
     proc.send(to, msg)
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"to=$to",
@@ -356,7 +385,7 @@ class DestSend(to: (Symbol, Symbol), from: Pid, proc: Process) {
     proc.send(to, from, msg)
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"to=$to",
@@ -401,9 +430,9 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     ctx: PContext
   )(implicit trace: Trace): ZIO[Any, Throwable, _ <: ActorResult] = {
     event.getPayload match {
-      case Some(ETuple(EAtom("$ping"), from: EPid, ref: ERef)) => {
+      case Some(ETuple(EAtom("ping"), from: EPid, ref: ERef)) => {
         val fromPid = Pid.toScala(from)
-        sendZIO(fromPid, (Symbol("$pong"), ref))
+        sendZIO(fromPid, (Symbol("pong"), ref))
           .as(ActorResult.Continue())
       }
       case Some(
@@ -413,10 +442,22 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
               // - {pid(), ref()}
               // - {pid(), [alias | ref()]}
               fromTag @ ETuple(from: EPid, _ref),
-              ETuple(EAtom("$ping"))
+              EAtom("ping")
             )
           ) => {
         onHandlePingMessage(fromTag)
+      }
+      case Some(
+            ETuple(
+              EAtom("$gen_call"),
+              // Match on either
+              // - {pid(), ref()}
+              // - {pid(), [alias | ref()]}
+              fromTag @ ETuple(from: EPid, _ref),
+              EAtom("metrics")
+            )
+          ) => {
+        onHandleMetricsMessage(fromTag)
       }
       case Some(
             ETuple(
@@ -445,7 +486,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
       case Some(ETuple(EAtom("DOWN"), ref: ERef, EAtom("process"), from, reason: ETerm)) =>
         try {
           ZIO
-            .succeed(handleMonitorExit(from, Reference.toScala(ref), reason))
+            .succeed(handleMonitorExit(monitoredToScala(from), Reference.toScala(ref), reason))
             .as(ActorResult.Continue())
         } catch {
           case err: Throwable => {
@@ -466,7 +507,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
         }
       }
       case Some(info) => {
-        println(s"nothing matched but it is not a ETerm $info")
+        ZIO.logError(s"nothing matched but it is not a ETerm $info")
         try {
           ZIO
             .succeed(handleInfo(adapter.toScala(info)))
@@ -482,41 +523,54 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     }
   }
 
+  def monitoredToScala(monitored: ETerm): Any = monitored match {
+    case pid: EPid   => Pid.toScala(pid)
+    case name: EAtom => adapter.toScala(name)
+    case other       => throw new Throwable("unreachable")
+  }
+
   def onHandlePingMessage(fromTag: ETerm) = {
-    val (from, ref, replyRef) = fromTag match {
-      case ETuple(from: EPid, replyRef @ EListImproper(EAtom("alias"), ref: ERef)) => (Pid.toScala(from), ref, replyRef)
-      case ETuple(from: EPid, ref: ERef)                                           => (Pid.toScala(from), ref, ref)
-      case _                                                                       => throw new Throwable("unreachable")
+    val callerTag: (Pid, Any) = fromTag match {
+      case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
+        (Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref)))
+      case ETuple(from: EPid, ref: ERef) => (Pid.toScala(from), Reference.toScala(ref))
+      case _                             => throw new Throwable("unreachable")
     }
-    sendZIO(from, (Symbol("$pong"), replyRef))
-      .as(ActorResult.Continue())
+    Service.replyZIO(callerTag, Symbol("pong"))(this).as(ActorResult.Continue())
+  }
+
+  def onHandleMetricsMessage(fromTag: ETerm) = {
+    val callerTag: (Pid, Any) = fromTag match {
+      case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
+        (Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref)))
+      case ETuple(from: EPid, ref: ERef) => (Pid.toScala(from), Reference.toScala(ref))
+      case _                             => throw new Throwable("unreachable")
+    }
+    val replyTerm = (Symbol("ok"), metrics.dumpAsSymbolValuePairs())
+    Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
   }
 
   def onHandleCallMessage(fromTag: ETerm, request: ETerm)(implicit trace: Trace) = {
-    val (from, ref, replyRef) = fromTag match {
-      case ETuple(from: EPid, replyRef @ EListImproper(EAtom("alias"), ref: ERef)) => (Pid.toScala(from), ref, replyRef)
-      case ETuple(from: EPid, ref: ERef)                                           => (Pid.toScala(from), ref, ref)
-      case _                                                                       => throw new Throwable("unreachable")
+    val callerTag: (Pid, Any) = fromTag match {
+      case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
+        (Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref)))
+      case ETuple(from: EPid, ref: ERef) => (Pid.toScala(from), Reference.toScala(ref))
+      case _                             => throw new Throwable("unreachable")
     }
-
     try {
-      val result = handleCall((from, ref), adapter.toScala(request))
+      val result = handleCall(callerTag, adapter.toScala(request))
       for {
         res <- result match {
-          case (Symbol("reply"), reply) =>
-            sendZIO(from, (replyRef, adapter.fromScala(reply)))
-              .as(ActorResult.Continue())
+          case (Symbol("reply"), replyTerm) =>
+            Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
           case Symbol("noreply") =>
             ZIO.succeed(ActorResult.Continue())
-          case (Symbol("stop"), reason: String, reply) =>
-            sendZIO(from, (replyRef, adapter.fromScala(reply)))
-              .as(ActorResult.StopWithReasonString(reason))
-          case (Symbol("stop"), reason: Any, reply) =>
-            sendZIO(from, (replyRef, adapter.fromScala(reply)))
-              .as(ActorResult.StopWithReasonTerm(adapter.fromScala(reason)))
-          case reply =>
-            sendZIO(from, (replyRef, adapter.fromScala(reply)))
-              .as(ActorResult.Continue())
+          case (Symbol("stop"), reason: String, replyTerm) =>
+            Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.StopWithReasonString(reason))
+          case (Symbol("stop"), reason: Any, replyTerm) =>
+            Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.StopWithReasonTerm(adapter.fromScala(reason)))
+          case replyTerm =>
+            Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
         }
       } yield res
     } catch {
@@ -544,11 +598,12 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
   def cast(to: (RegName, NodeName), msg: Any) = Service.cast(to, msg)
 
   def printThrowable(location: String, err: Throwable) = {
-    println(s"$location Throwable ${err.getMessage()}:")
-    err.getStackTrace().foreach(e => println(s"  ${e.toString()}"))
+    ZIO.logError(
+      s"$location Throwable ${err.getMessage()}:\n" + err.getStackTrace().map(e => s"  ${e.toString()}").mkString("\n")
+    )
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"ctx=$ctx",
@@ -608,26 +663,46 @@ object Service {
   }
 
   def ping(to: core.PID)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(Pid.toScala(to.pid), ETuple(EAtom("$ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("$pong"))
+    adapter.node.call(Pid.toScala(to.pid), ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
   }
   def ping(to: core.Name)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(to.name.atom, ETuple(EAtom("$ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("$pong"))
+    adapter.node.call(to.name.atom, ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
   }
   def ping(to: core.NameOnNode)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call((to.name.atom, to.node.atom), ETuple(EAtom("$ping")), PING_TIMEOUT_IN_MSEC) == ETuple(
-      EAtom("$pong")
+    adapter.node.call((to.name.atom, to.node.atom), ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(
+      EAtom("pong")
     )
   }
   def ping(to: Pid)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(to, ETuple(EAtom("$ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("$pong"))
+    adapter.node.call(to, ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
   }
   def ping(to: Pid, timeout: Long)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(to, ETuple(EAtom("$ping")), timeout) == ETuple(EAtom("$pong"))
+    adapter.node.call(to, ETuple(EAtom("ping")), timeout) == ETuple(EAtom("pong"))
   }
   def ping(to: Symbol)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(to, ETuple(EAtom("$ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("$pong"))
+    adapter.node.call(to, ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
   }
   def ping(to: Symbol, timeout: Long)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(to, ETuple(EAtom("$ping")), timeout) == ETuple(EAtom("$pong"))
+    adapter.node.call(to, ETuple(EAtom("ping")), timeout) == ETuple(EAtom("pong"))
+  }
+
+  def replyZIO[P <: Process](caller: (Pid, Any), reply: Any)(implicit process: P): UIO[Unit] = {
+    val (from, replyRef) = caller match {
+      case (from: Pid, List(Symbol("alias"), ref: Reference)) =>
+        (from.fromScala, EListImproper(EAtom("alias"), ref.fromScala))
+      case (from: Pid, ref: Reference) =>
+        (from.fromScala, ref.fromScala)
+      case _ =>
+        throw new Throwable("unreachable")
+    }
+    val adapter  = process.adapter
+    val address  = Address.fromPid(from, adapter.workerId, adapter.workerNodeName)
+    val envelope = MessageEnvelope.makeSend(address, adapter.fromScala((replyRef, reply)), adapter.self)
+    adapter.send(envelope)
+  }
+
+  def reply[P <: Process](caller: (Pid, Any), reply: Any)(implicit process: P): Unit = {
+    val (pid, ref) = caller
+    process.send(pid, (ref, reply))
   }
 }

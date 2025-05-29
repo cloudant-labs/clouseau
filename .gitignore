@@ -5,6 +5,7 @@
 **/project
 **/target
 *.beam
+*.class
 *.orig
 .asdf
 .bloop
@@ -33,3 +34,6 @@ tmp/
 .vscode
 
 erl_crash.dump
+
+syslog.app.conf
+syslog.out

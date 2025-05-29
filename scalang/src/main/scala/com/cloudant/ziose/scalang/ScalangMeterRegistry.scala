@@ -1,6 +1,6 @@
 package com.cloudant.ziose.scalang
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import com.codahale.metrics.MetricRegistry
 import com.codahale.metrics.jmx.JmxReporter
 import io.micrometer.jmx.{JmxConfig, JmxMeterRegistry}
@@ -32,7 +32,7 @@ class ScalangMeterRegistry(registry: MetricRegistry, durationUnit: TimeUnit, rat
     }
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"registry=$registry",

@@ -3,45 +3,20 @@ sbt 'clouseau/testOnly com.cloudant.ziose.clouseau.MainSpec'
  */
 package com.cloudant.ziose.clouseau
 
-import com.cloudant.ziose.clouseau.Main.AppCfg
 import org.junit.runner.RunWith
 import zio.{Config, System}
-import zio.test.Assertion.{anything, dies, equalTo, fails, hasMessage, isSubtype, succeeds}
+import zio.test.Assertion.{anything, fails, isSubtype, succeeds}
 import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
 import zio.test.TestSystem.{Data, DefaultData}
 import zio.test.{Spec, TestSystem, assert, assertTrue}
 
-import java.io.FileNotFoundException
-
 @RunWith(classOf[ZTestJUnitRunner])
 class MainSpec extends JUnitRunnableSpec {
-  val getCfgFileSuite: Spec[Any, Nothing] = {
-    suite("getCfgFile")(
-      test("getCfgFile: Use specified config file if it exists") {
-        for {
-          file <- Main.getCfgFile(Some("src/test/resources/testApp.conf"))
-        } yield assertTrue(file == "src/test/resources/testApp.conf")
-      },
-      test("getCfgFile: Throws an error if the argument is not a file") {
-        for {
-          result <- Main.getCfgFile(Some("not_exist.conf")).exit
-        } yield assert(result)(
-          dies(isSubtype[FileNotFoundException](hasMessage(equalTo("The system cannot find the file specified"))))
-        )
-      },
-      test("getCfgFile: Use default config file if no arguments are provided") {
-        for {
-          file <- Main.getCfgFile(None)
-        } yield assertTrue(file == "app.conf")
-      }
-    )
-  }
-
   val getConfigSuite: Spec[Any, Config.Error] = {
-    suite("getConfig")(
-      test("getConfig success: config file exists") {
+    suite("readConfig")(
+      test("readConfig success: config file exists") {
         for {
-          nodes <- Main.getConfig("src/test/resources/testApp.conf")
+          nodes <- AppCfg.fromHoconFilePath("src/test/resources/testApp.conf")
           node1 = nodes.config.head
           node2 = nodes.config(1)
         } yield assertTrue(
@@ -65,17 +40,17 @@ class MainSpec extends JUnitRunnableSpec {
       },
       test("getConfig success: no cookie in the config file") {
         for {
-          result <- Main.getConfig("src/test/resources/testNoCookieApp.conf").exit
+          result <- AppCfg.fromHoconFilePath("src/test/resources/testNoCookieApp.conf").exit
         } yield assert(result)(succeeds(isSubtype[AppCfg](anything)))
       },
       test("getConfig failure: malformed config file") {
         for {
-          result <- Main.getConfig("src/test/resources/testMalformedApp.conf").exit
+          result <- AppCfg.fromHoconFilePath("src/test/resources/testMalformedApp.conf").exit
         } yield assert(result)(fails(isSubtype[Config.Error](anything)))
       },
       test("Can get logger config") {
         for {
-          appConfig <- Main.getConfig("src/test/resources/testApp.conf")
+          appConfig <- AppCfg.fromHoconFilePath("src/test/resources/testApp.conf")
         } yield assertTrue(appConfig.logger.level == Some(zio.LogLevel.Debug))
       }
     )
@@ -110,7 +85,5 @@ class MainSpec extends JUnitRunnableSpec {
     )
   }
 
-  def spec: Spec[Any, Throwable] = {
-    suite("MainSpec")(getCfgFileSuite, getConfigSuite, nodeIdxSuite)
-  }
+  def spec: Spec[Any, Throwable] = suite("MainSpec")(getConfigSuite, nodeIdxSuite)
 }

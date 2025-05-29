@@ -2,8 +2,8 @@
 direnv 2.33.0
 
 # build tools
-java openjdk-17
-scala 2.13.15
+java openjdk-21.0.2
+scala 2.13.16
 # erlang needs java so it should be after it in the list
 # the only version which supports observer
 erlang 25.3.2.15

@@ -1,6 +1,6 @@
 package com.cloudant.ziose.core
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 
 trait ActorBuilder[A <: Actor]
 
@@ -16,12 +16,12 @@ object ActorBuilder {
   }
 
   case class Builder[A <: Actor, S <: State] private (
-    val capacity: Option[Int] = None,
-    val name: Option[String] = None,
-    val constructor: Option[ActorConstructor[A]] = None,
+    capacity: Option[Int] = None,
+    name: Option[String] = None,
+    constructor: Option[ActorConstructor[A]] = None,
     // We erase the type here. But since the only way to set this field is via
     // withMaker it is good enough
-    val maker: Option[(Any) => A] = None
+    maker: Option[Any => A] = None
   ) {
     /*
      * Specify the size of the message queue of an actor.
@@ -30,6 +30,24 @@ object ActorBuilder {
      */
     def withCapacity(capacity: Int): Builder[A, S] = {
       this.copy(capacity = Some(capacity))
+    }
+
+    /*
+     * Specify the size of the message queue of an actor.
+     * When actor would reach the configured threshold
+     * the sender of a new message would be blocked.
+     */
+    def withOptionalCapacity(capacity: Option[Int]): Builder[A, S] = {
+      this.copy(capacity = capacity)
+    }
+
+    /*
+     * Specify the size of the message queue of an actor using exponent.
+     * When actor would reach the configured threshold
+     * the sender of a new message would be blocked.
+     */
+    def withOptionalCapacityExponent(exponent: Option[Exponent]): Builder[A, S] = {
+      this.copy(capacity = exponent.map(_.toInt))
     }
 
     /*
@@ -121,7 +139,7 @@ object ActorBuilder {
       AddressableActor(constructor(ctx), ctx)
     }
 
-    @checkEnv(System.getProperty("env"))
+    @CheckEnv(System.getProperty("env"))
     def toStringMacro: List[String] = List(
       s"${getClass.getSimpleName}",
       s"capacity=$capacity",

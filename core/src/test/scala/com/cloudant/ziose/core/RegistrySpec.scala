@@ -239,14 +239,9 @@ class RegistrySpec extends JUnitRunnableSpec {
     )
   }
 
-  class TestEntry(val id: Int, val content: String) extends EnqueueWithId[Int, String] {
-    override def awaitShutdown(implicit trace: Trace): UIO[Unit]                                 = ???
-    override def capacity: RuntimeFlags                                                          = ???
-    override def isShutdown(implicit trace: Trace): UIO[Boolean]                                 = ???
-    override def offer(a: String)(implicit trace: Trace): UIO[Boolean]                           = ???
-    override def offerAll[A1 <: String](as: Iterable[A1])(implicit trace: Trace): UIO[Chunk[A1]] = ???
-    override def shutdown(implicit trace: Trace): UIO[Unit]                                      = ???
-    override def size(implicit trace: Trace): UIO[RuntimeFlags]                                  = ???
+  class TestEntry(val id: Int, val content: String) extends ForwardWithId[Int, String] {
+    override def forward(a: String)(implicit trace: Trace): UIO[Boolean] = ???
+    override def shutdown(implicit trace: Trace): UIO[Unit]              = ???
   }
 
   val entry1                                                          = new TestEntry(1, "entry1")

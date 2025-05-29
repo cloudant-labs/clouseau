@@ -5,10 +5,10 @@ import core.Address
 import core.MessageEnvelope
 import core.Codec
 import java.util.concurrent.TimeUnit
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio._
 
-case class SNode(metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(implicit
+class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(implicit
   val runtime: Runtime[core.EngineWorker & core.Node]
 ) {
   type RegName  = Symbol
@@ -238,8 +238,32 @@ case class SNode(metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(
       }
     }
   }
-  def link(from: Pid, to: Pid) {
-    // TODO
+
+  // assume same worker
+  def isLocal(pid: Pid)(implicit adapter: Adapter[_, _]) = pid.node == adapter.workerNodeName
+
+  def link(from: Pid, to: Pid)(implicit adapter: Adapter[_, _]): Boolean = {
+    def makeAddress(pid: Pid) = {
+      Address.fromPid(pid.fromScala, adapter.workerId, adapter.workerNodeName)
+    }
+    if (from == to) {
+      // Trying to link a pid to itself
+      return false
+    }
+
+    val msg = (isLocal(from), isLocal(to)) match {
+      case (true, false) => MessageEnvelope.Link(Some(from.fromScala), makeAddress(to), adapter.self)
+      case (false, true) => MessageEnvelope.Link(Some(to.fromScala), makeAddress(from), adapter.self)
+      // It doesn't matter which address to use. We pick `to` here.
+      case (true, true) => MessageEnvelope.Link(Some(from.fromScala), makeAddress(to), adapter.self)
+      // Trying to link non-local pids
+      case (false, false) => return false
+    }
+
+    Unsafe.unsafe { implicit unsafe =>
+      adapter.runtime.unsafe.run(adapter.link(msg))
+    }
+    return true
   }
 
   /*
@@ -293,7 +317,7 @@ case class SNode(metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(
     )
   } yield isTerminated
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"metricsRegistry=$metricsRegistry",

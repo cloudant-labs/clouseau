@@ -26,9 +26,10 @@ object IndexManagerServiceBuilder extends ActorConstructor[IndexManagerService] 
       new IndexManagerService(service_ctx)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
+    val capacityExponent = service_ctx.args.config.capacity.main_exponent
+
     ActorBuilder()
-      // TODO get capacity from config
-      .withCapacity(16)
+      .withOptionalCapacityExponent(capacityExponent)
       .withName("main")
       .withMaker(maker)
       .build(this)

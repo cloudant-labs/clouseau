@@ -29,6 +29,8 @@ import com.cloudant.ziose.core.ActorFactory
 import com.cloudant.ziose.scalang.Pid
 import com.cloudant.ziose.core.ActorResult
 import com.cloudant.ziose.core.Codec
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 case class ClouseauSupervisor(
     ctx: ServiceContext[ConfigurationArgs],
@@ -37,8 +39,8 @@ case class ClouseauSupervisor(
     var analyzer: Option[Pid] = None,
     var init: Option[Pid] = None,
   )(implicit adapter: Adapter[_, _])
-    extends Service(ctx)
-    with Actor {
+    extends Service(ctx) {
+  val TERMINATION_TIMEOUT = Duration.fromSeconds(3)
   val logger = LoggerFactory.getLogger("clouseau.supervisor")
 
   override def onInit[P <: ProcessContext](_ctx: P): ZIO[Any, Throwable, _ <: ActorResult] = for {
@@ -47,6 +49,16 @@ case class ClouseauSupervisor(
     _ <- ZIO.succeed(spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args))
     _ <- ZIO.succeed(spawnAndMonitorService[InitService, ConfigurationArgs](Symbol("init"), ctx.args))
   } yield ActorResult.Continue()
+
+  override def onTermination[PContext <: ProcessContext](reason: Codec.ETerm, ctx: PContext) = {
+    val reasonScala = adapter.toScala(reason)
+    for {
+      _ <- stopChild(Symbol("main"), reasonScala, ctx)
+      _ <- stopChild(Symbol("cleanup"), reasonScala, ctx)
+      _ <- stopChild(Symbol("analyzer"), reasonScala, ctx)
+      _ <- stopChild(Symbol("init"), reasonScala, ctx)
+    } yield ()
+  }
 
   override def handleCall(tag: (Pid, Any), request: Any): Any = {
     request match {
@@ -83,7 +95,7 @@ case class ClouseauSupervisor(
   }
 
   override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Unit = {
-    val pid = Pid.toScala(monitored.asInstanceOf[Codec.EPid])
+    val pid = monitored.asInstanceOf[Pid]
     if (manager.contains(pid)) {
       logger.warn(s"manager crashed with reason: ${reason}")
       manager = None
@@ -116,9 +128,28 @@ case class ClouseauSupervisor(
     }
   }
 
+  def waitTermination[PContext <: ProcessContext](pid: Pid, ctx: PContext) = {
+    val address = ctx.addressFromEPid(pid.fromScala)
+    ctx.worker.exchange.isKnown(address).repeatWhile(_ == true).timeout(TERMINATION_TIMEOUT).unit
+  }
+
+  def stopChild[PContext <: ProcessContext](name: Symbol, reason: Any, ctx: PContext) = {
+    for {
+      maybeChild <- ZIO.succeedBlocking(getChild(name))
+      _ <- ZIO.succeedBlocking(maybeChild.map(pid => exit(pid, reason)))
+      duration <- maybeChild match {
+        case Some(pid) => waitTermination(pid, ctx).timed
+        case None => ZIO.succeed((Duration.Zero, ()))
+      }
+      _ <- ZIO.logDebug(s"${name.name} is shut down after ${duration._1.toMillis()} ms")
+    } yield ()
+  }
+
   private def spawnAndMonitorService[TS <: Service[A] with Actor: Tag, A <: Product](regName: Symbol, args: A)(implicit
     adapter: Adapter[_, _]
   ) = {
+    val beginTs = Instant.now()
+
     val result = (regName, args) match {
       // case (Symbol("IndexService"), args: IndexServiceArgs) => IndexServiceBuilder.start(adapter.node, args)
       case (Symbol("cleanup"), ConfigurationArgs(args))  => IndexCleanupServiceBuilder.start(adapter.node, args)
@@ -126,10 +157,13 @@ case class ClouseauSupervisor(
       case (Symbol("main"), ConfigurationArgs(args))     => IndexManagerServiceBuilder.start(adapter.node, args)
       case (Symbol("init"), ConfigurationArgs(args))     => InitService.start(adapter.node, "init", args)
     }
+    val timeSpentInMs = ChronoUnit.MILLIS.between(beginTs, Instant.now)
     val pid = result match {
       case (Symbol("ok"), pidUntyped) =>
+        logger.debug(s"${regName.name} is started after ${timeSpentInMs} ms")
         pidUntyped.asInstanceOf[Pid]
-      case e => throw new Throwable(s"cannot start ${e.toString}")
+      case e =>
+        throw new Throwable(s"cannot start ${regName.name} after ${timeSpentInMs} ms, due to ${e.toString}")
     }
     val ref = monitor(pid)
 

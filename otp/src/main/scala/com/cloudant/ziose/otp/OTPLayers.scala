@@ -7,7 +7,11 @@ import com.cloudant.ziose.core.{Engine, EngineWorker, Node, ActorFactory}
 // TODO: I couldn't make it to work (tried in ClouseauEchoExperiment), so maybe we need to remove it.
 
 object OTPLayers {
-  def liveEngineWorker(engineId: Engine.EngineId, workerId: Engine.WorkerId, cfg: OTPNodeConfig) = {
+  def liveEngineWorker(
+    engineId: Engine.EngineId,
+    workerId: Engine.WorkerId,
+    cfg: OTPNodeConfig
+  ) = {
     val name = s"${cfg.name}${engineId}.${workerId}@${cfg.domain}"
     OTPEngineWorker.live(engineId, workerId, name, cfg)
   }

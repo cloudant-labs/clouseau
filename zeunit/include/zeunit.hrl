@@ -21,7 +21,11 @@ end).
 
 %% Test DEFinition For Each X (fixtures which use foreachx)”
 -define(TDEF_FEX(Name),
-    {Name, fun(Name, Args) -> ?_test(Name(Name, Args)) end}
+    {Name, fun(Name, Args) -> {atom_to_list(Name), ?_test(Name(Name, Args))} end}
+).
+
+-define(format(Fmt, Args),
+    lists:flatten(io_lib:format(Fmt, Args))
 ).
 
 %% Auxilary macro to simplify definition of other asserts
@@ -98,3 +102,14 @@ with(Tests) ->
             Tests
         )
     end.
+
+-type error(_Reason) :: no_return().
+
+-type assert_opt() ::
+    {module, atom()}
+    | {line, pos_integer()}
+    | {expression, string()}
+    | {pattern, string()}
+    | {value, any()}.
+
+-type assert_error() :: {Name :: atom(), [assert_opt()]}.

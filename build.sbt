@@ -1,4 +1,4 @@
-ThisBuild / scalaVersion := "2.13.15"
+ThisBuild / scalaVersion := "2.13.16"
 
 val readVersion = {
   val content      = IO.read(file("version.sbt"))
@@ -14,13 +14,14 @@ ThisBuild / version := s"${readVersion}"
 updateOptions := updateOptions.value.withCachedResolution(true)
 
 val versions: Map[String, String] = Map(
-  "zio"         -> "2.0.21",
-  "zio.config"  -> "4.0.2",
-  "zio.logging" -> "2.3.1",
+  "zio"         -> "2.1.16",
+  "zio.config"  -> "4.0.4",
+  "zio.logging" -> "2.5.0",
   "zio.metrics" -> "2.3.1",
-  "jmx"         -> "1.12.3",
-  "reflect"     -> "2.13.14",
-  "lucene"      -> "4.6.1-cloudant1"
+  "jmx"         -> "1.14.5",
+  "reflect"     -> "2.13.16",
+  "lucene"      -> "4.6.1-cloudant1",
+  "tinylog"     -> "2.7.0"
 )
 
 lazy val luceneComponents = Seq(
@@ -39,6 +40,17 @@ lazy val luceneComponents = Seq(
   "org.apache.lucene" % "lucene-highlighter"        % versions("lucene")
 )
 
+val commonMergeStrategy: String => sbtassembly.MergeStrategy = {
+  case PathList(ps @ _*) if ps.last == "module-info.class" => MergeStrategy.discard
+  case PathList("META-INF", "services", xs @ _*) if xs.last.contains("org.apache.lucene") =>
+    MergeStrategy.preferProject
+  case PathList("META-INF", "MANIFEST.MF")             => MergeStrategy.discard
+  case PathList("META-INF", "LICENSE.txt")             => MergeStrategy.first
+  case PathList("NOTICE", _*)                          => MergeStrategy.discard
+  case PathList(ps @ _*) if Assembly.isReadme(ps.last) => MergeStrategy.discard
+  case _                                               => MergeStrategy.deduplicate
+}
+
 lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(
     // The single % is for java libraries
@@ -55,19 +67,14 @@ lazy val commonSettings = Seq(
     "dev.zio"       %% "zio-streams"                       % versions("zio"),
     "io.micrometer"  % "micrometer-registry-jmx"           % versions("jmx"),
     "org.scala-lang" % "scala-reflect"                     % versions("reflect"),
+    "org.tinylog"    % "tinylog-api"                       % versions("tinylog"),
+    "org.tinylog"    % "tinylog-impl"                      % versions("tinylog"),
     "dev.zio"       %% "zio-test"                          % versions("zio") % Test,
     "dev.zio"       %% "zio-test-junit"                    % versions("zio") % Test,
     "com.github.sbt" % "junit-interface"                   % "0.13.3"        % Test,
     "junit"          % "junit"                             % "4.13.2"        % Test
   ),
-  assembly / assemblyMergeStrategy := {
-    case PathList("META-INF", "services", xs @ _*) if xs.last.contains("org.apache.lucene") =>
-      MergeStrategy.preferProject
-    case PathList("META-INF", "MANIFEST.MF")             => MergeStrategy.discard
-    case PathList("NOTICE", _*)                          => MergeStrategy.discard
-    case PathList(ps @ _*) if Assembly.isReadme(ps.last) => MergeStrategy.discard
-    case _                                               => MergeStrategy.deduplicate
-  },
+  assembly / assemblyMergeStrategy := commonMergeStrategy,
   assembly / fullClasspath ++= (
     if (sys.props.getOrElse("jartest", "false").toBoolean) (Test / fullClasspath).value else Seq()
   ),
@@ -104,9 +111,6 @@ lazy val core = (project in file("core"))
   .dependsOn(macros)
   .dependsOn(vendor)
 
-lazy val benchmarks = (project in file("benchmarks"))
-  .settings(commonSettings *)
-  .dependsOn(core)
 lazy val otp = (project in file("otp"))
   .settings(commonSettings *)
   .settings(
@@ -137,7 +141,7 @@ lazy val composedOptions: Seq[String] = {
 lazy val clouseau = (project in file("clouseau"))
   .settings(commonSettings *)
   .settings(
-    resolvers += "cloudant-repo" at "https://maven.cloudant.com/repo/",
+    resolvers += "cloudant-repo" at "https://cloudant.github.io/maven/repo/",
     libraryDependencies ++= luceneComponents
   )
   .settings(
@@ -166,6 +170,10 @@ lazy val clouseau = (project in file("clouseau"))
       (ThisBuild / baseDirectory).value
     ),
     (Test / forkOptions) := (Test / forkOptions).value.withWorkingDirectory(baseDirectory.value),
+    // parallelExecution causing a deadlock in scala-test in CI
+    (Test / parallelExecution) := false,
+    // (Test / logLevel) := Level.Debug,
+    (Test / fork := true),
     outputStrategy       := Some(StdoutOutput)
   )
   .dependsOn(core)
@@ -185,12 +193,13 @@ lazy val macros = (project in file("macros"))
   .settings(commonSettings *)
 
 lazy val root = (project in file("."))
-  .aggregate(benchmarks, core, clouseau, macros, otp, test)
+  .aggregate(core, clouseau, macros, otp, test)
   .enablePlugins(plugins.JUnitXmlReportPlugin)
   .settings(
     scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports"),
     inThisBuild(List(organization := "com.cloudant")),
-    name := "ziose"
+    name := "ziose",
+    assembly / assemblyMergeStrategy := commonMergeStrategy
   )
   .settings(
     Compile / console / scalacOptions -= "-Ywarn-unused:imports"

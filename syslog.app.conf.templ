@@ -1,0 +1,20 @@
+logger: {
+  format: %%FORMAT%%
+  output: Syslog
+  syslog: {
+    protocol: %%PROTOCOL%%
+    host: %%HOST%%
+    port: %%PORT%%
+    facility: %%FACILITY%%
+    level: %%LEVEL%%
+    tag: "clouseau: "
+  }
+}
+config: [
+  {
+    node: {
+      name: clouseau1
+      domain: 127.0.0.1
+    }
+  }
+]

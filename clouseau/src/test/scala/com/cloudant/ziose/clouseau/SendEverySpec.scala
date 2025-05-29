@@ -12,7 +12,7 @@ import com.cloudant.ziose.core
 import com.cloudant.ziose.scalang.{Adapter, Pid, Service, ServiceContext, SNode, PidSend}
 import zio.test._
 import zio.test.TestAspect
-import com.cloudant.ziose.clouseau.helpers.Asserts.containsShapeOption
+import com.cloudant.ziose.test.helpers.Asserts.containsShapeOption
 
 class SendEveryService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   var calledArgs: List[Product2[String, Any]] = List()
@@ -164,7 +164,7 @@ class SendEverySpec extends JUnitRunnableSpec {
           actorName = "SendEveryHandleCallSuite.SendStart"
           actor   <- SendEveryService.startZIO(node, actorName)
           _       <- SendEveryService.startCounting(actor)
-          _       <- ZIO.sleep(200.milliseconds) // we count every millisecond, 200 should be enough
+          _       <- SendEveryService.waitNEvents(actor, 2)
           counter <- SendEveryService.getCounter(actor)
         } yield assert(counter)(isGreaterThan(0))
           ?? "value of a counter should be incrementing"
@@ -178,12 +178,13 @@ class SendEverySpec extends JUnitRunnableSpec {
           actor2      <- SendEveryService.startZIO(node, actorName2)
           _           <- SendEveryService.startCounting(actor1)
           _           <- SendEveryService.startCounting(actor2)
-          _           <- ZIO.sleep(200.milliseconds) // we count every millisecond, 200 should be enough
+          _           <- SendEveryService.waitNEvents(actor1, 2)
           counter1    <- SendEveryService.getCounter(actor1)
+          _           <- SendEveryService.waitNEvents(actor2, 2)
           counter2    <- SendEveryService.getCounter(actor2)
-          _           <- ZIO.sleep(200.milliseconds)
+          _           <- SendEveryService.waitNEvents(actor1, 2)
           _           <- SendEveryService.killActor(actor1)
-          _           <- ZIO.sleep(200.milliseconds)
+          _           <- SendEveryService.waitNEvents(actor2, 2)
           counter2now <- SendEveryService.getCounter(actor2)
         } yield assert(counter1)(isGreaterThan(0))
           ?? "value of the counter1 should be incrementing"
@@ -226,7 +227,7 @@ class SendEverySpec extends JUnitRunnableSpec {
       )
     ).provideLayer(
       Utils.testEnvironment(1, 1, "SendEveryHandleCallSuite")
-    ) @@ TestAspect.withLiveClock
+    ) @@ TestAspect.withLiveClock @@ TestAspect.sequential
   }
 
   val handleInfoSuite: Spec[Any, Throwable] = {
@@ -253,7 +254,7 @@ class SendEverySpec extends JUnitRunnableSpec {
       )
     ).provideLayer(
       Utils.testEnvironment(1, 1, "SendEveryHandleInfoSuite")
-    ) @@ TestAspect.withLiveClock
+    ) @@ TestAspect.withLiveClock @@ TestAspect.sequential
   }
 
   def spec: Spec[Any, Throwable] = {

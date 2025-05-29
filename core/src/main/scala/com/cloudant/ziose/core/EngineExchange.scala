@@ -1,9 +1,9 @@
 package com.cloudant.ziose.core
 
-import com.cloudant.ziose.macros.checkEnv
-import zio.{Queue, Scope, Trace, UIO, ZIO}
+import com.cloudant.ziose.macros.CheckEnv
+import zio.{Scope, Trace, UIO, ZIO}
 
-class EngineExchange private (
+class EngineExchange(
   exchange: Exchange[Engine.WorkerId, MessageEnvelope, EngineWorker]
 ) extends Exchange.WithConstructor[Engine.WorkerId, MessageEnvelope, EngineWorker] {
 
@@ -21,41 +21,18 @@ class EngineExchange private (
     this.buildWith(builderFn)
   }
 
-  override def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
-    exchange.awaitShutdown
-  }
-  def capacity = exchange.capacity
-  def isShutdown(implicit trace: Trace): UIO[Boolean] = {
-    exchange.isShutdown
-  }
   def shutdown(implicit trace: Trace): UIO[Unit] = {
     exchange.shutdown
   }
-  def offer(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
-    exchange.offer(msg)
+  def forward(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
+    exchange.forward(msg)
   }
-  def offerAll[A1 <: MessageEnvelope](as: Iterable[A1])(implicit trace: zio.Trace): UIO[zio.Chunk[A1]] = {
-    exchange.offerAll(as)
-  }
-  def size(implicit trace: zio.Trace): UIO[Int] = {
-    exchange.size
-  }
-  def list = exchange.list
-  // def run =
-  //   for {
-  //     e <- exchange.run
-  //     fibers <- exchange.map(worker => {
-  //       ZIO.logDebug(s"starting: ${worker}")
-  //       worker.run
-  //     })
-  //     _ <- ZIO.forkAll(fibers.toList)
-  //     _ <- e.join.debug("engine result")
-  //   } yield ()
+  def list                                              = exchange.list
   def get(id: Engine.WorkerId)                          = exchange.get(id)
   def foreach(fn: (EngineWorker) => Unit): UIO[Unit]    = exchange.foreach(fn)
   def map[B](fn: (EngineWorker) => B): UIO[Iterable[B]] = exchange.map(fn)
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"exchange=$exchange"
@@ -63,16 +40,11 @@ class EngineExchange private (
 }
 
 object EngineExchange {
-  def make(capacity: Int) = {
+  def make = {
     for {
-      exchange <- Exchange.make[Engine.WorkerId, MessageEnvelope, EngineWorker](capacity, EngineExchange.getKey)
+      exchange <- Exchange.make[Engine.WorkerId, MessageEnvelope, EngineWorker](EngineExchange.getKey)
     } yield new EngineExchange(exchange)
   }
 
-  def makeWithQueue(queue: Queue[MessageEnvelope]) = {
-    for {
-      exchange <- Exchange.makeWithQueue[Engine.WorkerId, MessageEnvelope, EngineWorker](queue, EngineExchange.getKey)
-    } yield new EngineExchange(exchange)
-  }
   def getKey(msg: MessageEnvelope) = msg.workerId
 }

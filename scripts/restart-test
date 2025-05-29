@@ -1,0 +1,42 @@
+#!/bin/bash
+SELF_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
+TMP_DIR=${SELF_DIR}/../tmp
+
+mkdir -p "$TMP_DIR"
+. "${SELF_DIR}"/console.sh
+
+JAR=$1
+: "${RETRY:=30}"
+# Make sure the "InitService" is created and started,
+# otherwise the tests will become unstable.
+: "${RUNNING_TIME:=8}"
+: "${TIMEOUT:=10}"
+
+console::infoLn "==> Restart tests: run $RETRY times"
+rm -f "$TMP_DIR"/t*.pid "$TMP_DIR"/t*.thread_dump
+for i in $(seq 1 "$RETRY"); do
+  console::infoLn "==> Restart tests: $i start"
+  java -jar "$JAR" &
+  sleep "$RUNNING_TIME"
+  jcmd | grep clouseau | cut -d' ' -f1 >"$TMP_DIR/t$i.pid"
+  pkill -F "$TMP_DIR/t$i.pid"
+
+  for _ in $(seq 1 "$TIMEOUT"); do
+    pgrep -F "$TMP_DIR/t$i.pid" >/dev/null 2>&1
+    STATUS=$?
+    console::infoLn "==> Restart tests: $i, status: $STATUS"
+    if [ $STATUS -eq 1 ]; then
+      console::infoLn "==> Restart tests: $i stopped successfully\n"
+      rm "$TMP_DIR/t$i.pid"
+      break
+    fi
+    sleep 1
+  done
+
+  if [ -f "$TMP_DIR/t$i.pid" ]; then
+    jstack "$(cat "$TMP_DIR/t$i.pid")" >"$TMP_DIR/t$i.thread_dump"
+    pkill -9 -F "$TMP_DIR/t$i.pid"
+    console::errorLn "==> Restart tests: $i failed. Please check $TMP_DIR/t$i.thread_dump"
+    exit 1
+  fi
+done

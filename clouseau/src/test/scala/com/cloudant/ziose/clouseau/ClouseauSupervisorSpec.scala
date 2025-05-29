@@ -11,7 +11,7 @@ import zio.test.Assertion._
 import com.cloudant.ziose.core
 import zio.test._
 import zio.test.TestAspect
-import com.cloudant.ziose.clouseau.helpers.Asserts._
+import com.cloudant.ziose.test.helpers.Asserts._
 
 @RunWith(classOf[ZTestJUnitRunner])
 class ClouseauSupervisorSpec extends JUnitRunnableSpec {
@@ -43,7 +43,7 @@ class ClouseauSupervisorSpec extends JUnitRunnableSpec {
           supervisor       <- ClouseauSupervisor.start(node, cfg)
           responsiveBefore <- isResponsive(supervisor, "init")
           address          <- getChild(supervisor, "init")
-          _                <- ZIO.debug("The log message about 'init' crashing bellow is expected ----vvvv")
+          _                <- ZIO.debug("The log message about 'init' crashing below is expected ----vvvv")
           _                <- node.terminateNamedWithExit("init", Symbol("normal"))
           _                <- assertNotAlive(address)
           newAddress       <- getChild(supervisor, "init")
@@ -65,7 +65,7 @@ class ClouseauSupervisorSpec extends JUnitRunnableSpec {
           supervisor       <- ClouseauSupervisor.start(node, cfg)
           responsiveBefore <- isResponsive(supervisor, "main")
           address          <- getChild(supervisor, "main")
-          _                <- ZIO.debug("The log message about 'manager' crashing bellow is expected ----vvvv")
+          _                <- ZIO.debug("The log message about 'manager' crashing below is expected ----vvvv")
           _                <- node.terminateNamedWithExit("main", Symbol("normal"))
           _                <- assertNotAlive(address)
           newAddress       <- getChild(supervisor, "main")
@@ -87,7 +87,7 @@ class ClouseauSupervisorSpec extends JUnitRunnableSpec {
           supervisor       <- ClouseauSupervisor.start(node, cfg)
           responsiveBefore <- isResponsive(supervisor, "analyzer")
           address          <- getChild(supervisor, "analyzer")
-          _                <- ZIO.debug("The log message about 'analyzer' crashing bellow is expected ----vvvv")
+          _                <- ZIO.debug("The log message about 'analyzer' crashing below is expected ----vvvv")
           _                <- node.terminateNamedWithExit("analyzer", Symbol("normal"))
           _                <- assertNotAlive(address)
           newAddress       <- getChild(supervisor, "analyzer")
@@ -109,7 +109,7 @@ class ClouseauSupervisorSpec extends JUnitRunnableSpec {
           supervisor       <- ClouseauSupervisor.start(node, cfg)
           responsiveBefore <- isResponsive(supervisor, "cleanup")
           address          <- getChild(supervisor, "cleanup")
-          _                <- ZIO.debug("The log message about 'cleanup' crashing bellow is expected ----vvvv")
+          _                <- ZIO.debug("The log message about 'cleanup' crashing below is expected ----vvvv")
           _                <- node.terminateNamedWithExit("cleanup", Symbol("normal"))
           _                <- assertNotAlive(address)
           newAddress       <- getChild(supervisor, "cleanup")
@@ -124,8 +124,8 @@ class ClouseauSupervisorSpec extends JUnitRunnableSpec {
           ?? "The new instance of actor should be responsive"
       )
     ).provideLayer(
-      Utils.testEnvironment(1, 1, "ServiceSpecClouseauSupervisorSpecSuite")
-    ) @@ TestAspect.withLiveClock @@ TestAspect.timeout(15.seconds)
+      Utils.testEnvironment(1, 1, "ClouseauSupervisorSpecSuite")
+    ) @@ TestAspect.withLiveClock @@ TestAspect.timeout(15.seconds) @@ TestAspect.sequential
   }
 
   def spec: Spec[Any, Throwable] = {

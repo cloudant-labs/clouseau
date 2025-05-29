@@ -13,6 +13,9 @@ Use `cli help <command>` to get more help.
 * `bootstrap` - a step-by-step guide to help set up environment
 * `start`     - start clouseau node
 * `stop`      - stop clouseau node
+* `tdump`     - do a java tread dump
+* `await`     - await the clouseau node
+* `logs`      - get recent logs file for terminated clouseau node
 * `zeunit`    - run `zeunit` tests
 * `fmt`       - reformat scala code
 * `gh`        - GitHub related commands
@@ -65,6 +68,36 @@ cli start "clouseau" "java -jar clouseau.jar"
 
 ```bash
 cli stop "clouseau"
+```
+
+---
+
+### `tdump`: Do a java tread dump
+
+* `cli tdump [name]` - do a java thread dump for clouseau node
+
+```bash
+cli tdump "ziose"
+```
+
+---
+
+### `await`: Await clouseau node to finish start up
+
+* `cli await [name]` - await clouseau node to finish start up
+
+```bash
+cli await "clouseau" "myCookie"
+```
+
+---
+
+### `logs`: Get recent logs filename for terminated clouseau node
+
+* `cli logs [name]` - get recent logs for terminated clouseau node
+
+```bash
+cli logs "clouseau"
 ```
 
 ---

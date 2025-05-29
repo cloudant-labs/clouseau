@@ -13,11 +13,12 @@ import com.cloudant.ziose.core.{
   Result,
   Success
 }
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import com.ericsson.otp.erlang.{OtpErlangPid, OtpErlangRef, OtpMbox, OtpNode}
 import zio.stream.{UStream, ZStream}
 import zio.{&, Duration, IO, Promise, Queue, RIO, RLayer, Schedule, Scope, Trace, UIO, URIO, ZIO, ZLayer, durationInt}
 import com.cloudant.ziose.core.EngineWorker
+import zio.Fiber
 
 abstract class OTPNode extends Node {
   def acquire: UIO[Unit]
@@ -47,9 +48,9 @@ object OTPNode {
       service <- for {
         _           <- ZIO.logDebug(s"Creating OtpNode($name, ****)")
         nodeProcess <- NodeProcess.make(name, cookie, queue, accessKey)
-        _           <- nodeProcess.stream.runDrain.fork
+        fiber       <- nodeProcess.stream.runDrain.fork
         nodeScope   <- ZIO.scope
-        service = unsafeMake(queue, nodeProcess, nodeScope, factory, ctx)
+        service = unsafeMake(fiber, queue, nodeProcess, nodeScope, factory, ctx)
         _ <- service.acquire
         _ <- ZIO.addFinalizer(service.release)
         _ <- ZIO.logDebug("Adding to the environment")
@@ -169,7 +170,7 @@ object OTPNode {
       }
     }
 
-    @checkEnv(System.getProperty("env"))
+    @CheckEnv(System.getProperty("env"))
     def toStringMacro: List[String] = List(
       s"${getClass.getSimpleName}",
       s"node=$node",
@@ -189,11 +190,12 @@ object OTPNode {
         ZIO.attemptBlocking(
           new NodeProcess(new OtpNode(name, cookie), queue, accessKey)
         )
-      )(node => ZIO.attempt(node.close()).orDie.unit) // TODO orDie could be too harsh
+      )(node => ZIO.attemptBlockingIO(node.close()).orDie.unit) // TODO orDie could be too harsh
     }
   }
 
   private def unsafeMake[C <: ProcessContext](
+    fiber: Fiber.Runtime[_, _],
     queue: Queue[Envelope[Command[_], _, _]],
     process: NodeProcess,
     nodeScope: Scope,
@@ -217,10 +219,8 @@ object OTPNode {
       def acquire: UIO[Unit] = ZIO.logDebug(s"Acquired")
       def release: UIO[Unit] = ZIO.logDebug(s"Released")
 
-      override def close: IO[_ <: Node.Error, Unit] = {
-        for {
-          response <- call(CloseNode()).map(v => v.result)
-        } yield response
+      override def shutdown(implicit trace: Trace): UIO[Unit] = {
+        fiber.interrupt.unit
       }
 
       override def ping(nodeName: String, timeout: Option[Duration] = None): IO[_ <: Node.Error, Boolean] = {

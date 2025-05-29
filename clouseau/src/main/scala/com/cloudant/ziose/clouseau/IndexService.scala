@@ -58,6 +58,12 @@ import java.util.HashSet
 import conversions._
 import Utils.ensureElementsType
 import java.lang.Throwable
+import com.cloudant.ziose.core.ProcessContext
+import com.cloudant.ziose.core.Codec
+import zio.ZIO
+import java.time.temporal.ChronoUnit
+import java.time.Instant
+import zio.Duration
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
 case class HighlightParameters(highlighter: Highlighter, highlightFields: List[String], highlightNumber: Int, analyzers: List[Analyzer])
@@ -66,10 +72,12 @@ case class HighlightParameters(highlighter: Highlighter, highlightFields: List[S
 case class TopDocs(updateSeq: Long, totalHits: Long, hits: List[Hit])
 case class Hit(order: List[Any], fields: List[Any])
 
+case object InvalidReader extends Exception
+
 class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
   import IndexService._
 
-  var reader = DirectoryReader.open(ctx.args.writer, true)
+  var lazyReader: Option[DirectoryReader] = None
   var updateSeq = getCommittedSeq
   var pendingSeq = updateSeq
   var purgeSeq = getCommittedPurgeSeq
@@ -77,6 +85,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   var committing = false
   var forceRefresh = false
   var idle = true
+
+  def reader = lazyReader.getOrElse(throw InvalidReader)
+  def setReader(reader: DirectoryReader) =
+    lazyReader = Some(reader)
 
   val searchTimer = metrics.timer("searches")
   val updateTimer = metrics.timer("updates")
@@ -90,32 +102,56 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   val timeAllowed = ctx.args.config.getLong("clouseau.search_allowed_timeout_msecs", 5000)
   val countFieldsEnabled = ctx.args.config.getBoolean("clouseau.count_fields", false)
 
+  val concurrentSearchEnabled = ctx.args.config.getBoolean("clouseau.enable_concurrent_search", false)
+
   // Check if the index is idle and optionally close it if there is no activity between
   //Two consecutive idle status checks.
   val closeIfIdleEnabled = ctx.args.config.getBoolean("clouseau.close_if_idle", false)
   val idleTimeout = ctx.args.config.getInt("clouseau.idle_check_interval_secs", 300)
+  val lruUpdateInterval = ctx.args.config.getInt("clouseau.lru_update_interval_msecs", 1000)
+  // Set initial default to be in the past so we don't miss first LRU update
+  var lastLRUUpdate = Instant.now().minus(Duration.fromMillis(lruUpdateInterval * 2))
 
   override def handleInit(): Unit = {
-    sendEvery(self, 'maybe_commit, commitInterval * 1000)
-    send(self, 'count_fields)
+    logger.debug(s"handleInit(capacity = ${adapter.capacity})")
+    setReader(DirectoryReader.open(ctx.args.writer, true))
+    sendEvery(self.pid, 'maybe_commit, commitInterval * 1000)
+    send(self.pid, 'count_fields)
 
     if (closeIfIdleEnabled) {
-      sendEvery(self, 'close_if_idle, idleTimeout * 1000)
+      sendEvery(self.pid, 'close_if_idle, idleTimeout * 1000)
     }
+
+    logger.info(prefix_name("Opened at update_seq %d".format(updateSeq)))
   }
 
-  logger.debug(prefix_name("Opened at update_seq %d".format(updateSeq)))
+  override def onTermination[PContext <: ProcessContext](reason: Codec.ETerm, ctx: PContext) = {
+    ZIO.logTrace("onTermination") *> ZIO.succeedBlocking(exit(Codec.toScala(reason)))
+  }
 
   override def handleCall(tag: (Pid, Any), msg: Any): Any = {
     idle = false
-    send('main, ('touch_lru, ctx.args.name))
+    val now = Instant.now
+    val timeSinceLRUUpdateInMs = ChronoUnit.MILLIS.between(lastLRUUpdate, now)
+    if (timeSinceLRUUpdateInMs > lruUpdateInterval) {
+      lastLRUUpdate = now
+      send('main, ('touch_lru, ctx.args.name))
+    }
     internalHandleCall(tag, msg)
   }
 
   // TODO the ClouseauTypeFactory should happen elsewhere
   def internalHandleCall(tag: (Pid, Any), msg: Any): Any = msg match {
     case request: SearchRequest =>
-      search(request)
+      if (concurrentSearchEnabled) {
+        node.spawn(_ => {
+          val result = search(request)
+          Service.reply(tag, result)
+        })
+        'noreply
+      } else {
+        search(request)
+      }
     case Group1Msg(query: String, field: String, refresh: Boolean, groupSort: Any, groupOffset: Int,
       groupLimit: Int) =>
       group1(query, field, refresh, groupSort, groupOffset, groupLimit)
@@ -158,7 +194,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   override def handleCast(msg: Any) = msg match {
     case ('merge, maxNumSegments: Int) =>
       logger.debug(prefix_name("Forcibly merging index to no more than %d segments.".format(maxNumSegments)))
-      node.spawn((_: Mailbox) => {
+      node.spawn(_ => {
         ctx.args.writer.forceMerge(maxNumSegments, true)
         ctx.args.writer.commit
         forceRefresh = true
@@ -248,7 +284,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     if (!committing && (newUpdateSeq > updateSeq || newPurgeSeq > purgeSeq)) {
       committing = true
       val index = self
-      node.spawn((_: Mailbox) => {
+      node.spawn(_ => {
         ctx.args.writer.setCommitData((ctx.args.writer.getCommitData.asScala +
           ("update_seq" -> newUpdateSeq.toString) +
           ("purge_seq" -> newPurgeSeq.toString)).asJava)
@@ -626,7 +662,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     val newReader = DirectoryReader.openIfChanged(reader)
     if (newReader != null) {
       reader.close()
-      reader = newReader
+      setReader(newReader)
       forceRefresh = false
     }
   }

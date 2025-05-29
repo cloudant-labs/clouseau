@@ -3,15 +3,24 @@
 -export([call/2]).
 -export([get_value/2, get_value/3]).
 -export([seconds/1, receive_msg/0, receive_msg/1]).
+-export([receive_pong/1, receive_pong/2]).
 -export([
     check_ping/1, check_ping/2,
     check_service/1, check_service/2,
-    wait_value/3
+    wait_value/3,
+    race/2,
+    retry/2, retry/3,
+    concurrent_retry/2, concurrent_retry/4
 ]).
+-export([rand_char/1]).
+
+-define(ALPHABET_SIZE, 26).
 
 -define(TIMEOUT_IN_MS, 3000).
 -define(PING_TIMEOUT_IN_MS, 3000).
--define(SERVICE_TIMEOUT_IN_MS, 3000).
+-define(SERVICE_CHECK_ATTEMPTS, 30).
+-define(SERVICE_CHECK_WAITTIME_IN_MS, 1500).
+-define(RETRY_DELAY, 50).
 
 a2l(V) -> atom_to_list(V).
 l2a(V) -> list_to_atom(V).
@@ -79,26 +88,90 @@ receive_msg(TimeoutInMs) ->
         {error, timeout}
     end.
 
+receive_pong(Ref) ->
+    receive_pong(Ref, ?TIMEOUT_IN_MS).
+
+receive_pong(Ref, TimeoutInMs) ->
+    receive
+        {pong, Ref} -> pong;
+        _ -> false
+    after TimeoutInMs ->
+        {error, timeout}
+    end.
+
 check_ping(Node) -> check_ping(Node, ?PING_TIMEOUT_IN_MS).
 
 check_ping(Node, TimeoutInMs) when is_atom(Node) ->
     wait_value(fun() -> net_adm:ping(Node) end, pong, TimeoutInMs).
 
 check_service(Node) ->
-    check_service(Node, ?SERVICE_TIMEOUT_IN_MS).
+    check_service(Node, ?SERVICE_CHECK_ATTEMPTS).
 
-check_service(Node, TimeoutInMs) when is_atom(Node) ->
-    wait(
-        fun() ->
-            try gen_server:call({init, Node}, version) of
-                timeout -> wait;
-                Version -> Version
-            catch
-                _:_ -> wait
+check_service(Node, RetriesN) when is_atom(Node) ->
+    concurrent_retry(RetriesN, fun() ->
+        try gen_server:call({main, Node}, version, ?SERVICE_CHECK_WAITTIME_IN_MS) of
+            timeout ->
+                wait;
+            {ok, Version} ->
+                Version
+        catch
+            _:_ ->
+                wait
+        end
+    end).
+
+concurrent_retry(RetriesN, Fun) ->
+    concurrent_retry(RetriesN, ?RETRY_DELAY, ?TIMEOUT_IN_MS, Fun).
+
+concurrent_retry(RetriesN, RetryDelay, Timeout, Fun) ->
+    Funs = lists:map(
+        fun(Idx) ->
+            fun() ->
+                timer:sleep(RetryDelay * Idx),
+                Fun()
             end
         end,
-        TimeoutInMs
-    ).
+        lists:seq(1, RetriesN)
+    ),
+    race(Funs, Timeout).
+
+race(Funs, Timeout) ->
+    ResultRef = make_ref(),
+    Self = self(),
+    lists:foreach(
+        fun(F) ->
+            spawn(
+                fun() ->
+                    case F() of
+                        wait ->
+                            wait;
+                        Result ->
+                            Self ! {ResultRef, Result}
+                    end
+                end
+            )
+        end,
+        Funs
+    ),
+    receive
+        {ResultRef, Result} -> Result
+    after Timeout ->
+        timeout
+    end.
+
+retry(Fun, Times) ->
+    retry(Fun, Times, ?RETRY_DELAY).
+
+retry(_Fun, Times, _DelayInMs) when Times =< 0 ->
+    timeout;
+retry(Fun, Times, DelayInMs) ->
+    case Fun() of
+        wait ->
+            ok = timer:sleep(DelayInMs),
+            retry(Fun, Times - 1, DelayInMs);
+        Else ->
+            Else
+    end.
 
 wait_value(Fun, Value, TimeoutInMs) ->
     wait(
@@ -117,7 +190,7 @@ now_us() ->
 
 wait(Fun, TimeoutInMs) ->
     Now = now_us(),
-    wait(Fun, TimeoutInMs * 1000, 50, Now, Now).
+    wait(Fun, TimeoutInMs * 1000, ?RETRY_DELAY, Now, Now).
 
 wait(_Fun, TimeoutInUs, _DelayInMs, Started, Prev) when Prev - Started > TimeoutInUs ->
     timeout;
@@ -129,3 +202,11 @@ wait(Fun, TimeoutInUs, DelayInMs, Started, _Prev) ->
         Else ->
             Else
     end.
+
+rand_char(N) ->
+    rand_char(N, []).
+
+rand_char(0, Acc) ->
+    Acc;
+rand_char(N, Acc) ->
+    rand_char(N - 1, [rand:uniform(?ALPHABET_SIZE) - 1 + $a | Acc]).

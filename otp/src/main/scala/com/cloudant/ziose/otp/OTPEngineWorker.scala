@@ -10,8 +10,9 @@ import com.cloudant.ziose.core.EngineWorkerExchange
 import com.cloudant.ziose.core.MessageEnvelope
 import com.cloudant.ziose.core.AddressableActor
 import com.cloudant.ziose.core.ProcessContext
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio.{&, ConfigProvider, Duration, Queue, UIO, ZIO, ZLayer}
+import com.cloudant.ziose.core.Exponent
 
 final class OTPEngineWorker private (
   val engineId: Engine.EngineId,
@@ -23,11 +24,9 @@ final class OTPEngineWorker private (
   type Context = OTPProcessContext
   val id = workerId
   def acquire: UIO[Unit] = {
-    ZIO.logDebug(s"Acquired ${nodeName}")
+    ZIO.logDebug(s"Acquired ${nodeName.name}")
   }
-  def release: UIO[Unit] = {
-    ZIO.logDebug(s"Released ${nodeName}")
-  }
+  def release: UIO[Unit] = exchange.shutdown
   def spawn[A <: Actor](
     builder: ActorBuilder.Sealed[A]
   ): ZIO[Node & EngineWorker, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
@@ -38,7 +37,7 @@ final class OTPEngineWorker private (
   }
   def kind = ZIO.succeed("OTP")
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"engineId=$engineId",
@@ -50,21 +49,24 @@ final class OTPEngineWorker private (
 }
 
 object OTPEngineWorker {
+  private def createQueue(capacity: Option[Exponent]) = {
+    capacity match {
+      case Some(size) => Queue.bounded[MessageEnvelope](size.toInt)
+      case None       => Queue.unbounded[MessageEnvelope]
+    }
+  }
   def live(
     engineId: Engine.EngineId,
     workerId: Engine.WorkerId,
     name: String,
     cfg: OTPNodeConfig
-  ): ZLayer[Node, Throwable, EngineWorker] = ZLayer {
+  ): ZLayer[Node, Throwable, EngineWorker] = ZLayer.scoped {
     for {
-      _        <- ZIO.logDebug("Constructing")
       node     <- ZIO.service[Node]
-      queue    <- Queue.bounded[MessageEnvelope](16) // TODO retrieve capacity from config
-      exchange <- EngineWorkerExchange.makeWithQueue(queue)
+      exchange <- EngineWorkerExchange.make()
       service = new OTPEngineWorker(engineId, workerId, Symbol(name), node, exchange)
-      _ <- exchange.run.fork
       _ <- service.acquire
-      _ <- ZIO.succeed(ZIO.addFinalizer(service.release))
+      _ <- ZIO.addFinalizer(service.release)
       _ <- ZIO.logDebug("Adding to the environment")
     } yield service
   }

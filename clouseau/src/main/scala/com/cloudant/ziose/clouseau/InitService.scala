@@ -11,21 +11,26 @@ Eshell V13.2.2.6  (abort with ^G)
 (node1@127.0.0.1)2>
  */
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import com.cloudant.ziose.{core, scalang}
 import core.ActorBuilder.State
 import core.{ActorBuilder, ActorConstructor, BuildInfo, Codec, ProcessContext}
 import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
 
+import java.nio.charset.StandardCharsets
 import scala.collection.immutable.HashMap
 
 class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   val logger = LoggerFactory.getLogger("clouseau.InitService")
   logger.debug("Created")
 
-  val spawnedSuccess = metrics.counter("spawned.success")
-  val spawnedFailure = metrics.counter("spawned.failure")
-  val spawnedTimer   = metrics.timer("spawned.timer")
+  private val spawnedSuccess = metrics.counter("spawned.success")
+  private val spawnedFailure = metrics.counter("spawned.failure")
+  private val spawnedTimer   = metrics.timer("spawned.timer")
+
+  override def handleInit(): Unit = {
+    logger.debug(s"handleInit(capacity = ${adapter.capacity})")
+  }
 
   private def spawnEcho(id: Symbol): Either[Any, Codec.EPid] = {
     val ConfigurationArgs(args) = ctx.args
@@ -63,7 +68,7 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
 
   override def handleCall(tag: (Pid, Any), request: Any): Any = {
     request match {
-      case (Symbol("version")) => (Symbol("reply"), Codec.EBinary(BuildInfo.version.getBytes))
+      case (Symbol("version")) => (Symbol("reply"), Codec.EBinary(BuildInfo.version.getBytes(StandardCharsets.UTF_8)))
       case (Symbol("build_info")) =>
         (
           Symbol("reply"),
@@ -79,15 +84,12 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
           case Left(reason) => (Symbol("error"), reason)
         }
         (Symbol("reply"), result)
-      case Symbol("metrics") => {
-        (Symbol("ok"), metrics.dumpAsSymbolValuePairs())
-      }
       case msg =>
         logger.info(s"[WARNING][handleCall] Unexpected message: $msg ...")
     }
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"ctx=$ctx",
@@ -107,9 +109,10 @@ private object InitService extends ActorConstructor[InitService] {
       new InitService(service_context)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
+    val capacityExponent = service_context.args.config.capacity.init_exponent
+
     ActorBuilder()
-      // TODO get capacity from config
-      .withCapacity(16)
+      .withOptionalCapacityExponent(capacityExponent)
       .withName(name)
       .withMaker(maker)
       .build(this)

@@ -17,7 +17,6 @@ import java.io.IOException
 import java.util.HashMap
 import java.util.LinkedHashMap
 import java.util.{ Map => JMap }
-import java.util.Map.Entry
 import scala.collection.mutable.Map
 import _root_.com.cloudant.ziose.scalang
 
@@ -25,22 +24,17 @@ import scalang._
 
 import scala.collection.JavaConverters._
 import java.util.HashSet
+import com.cloudant.ziose.core.ProcessContext
+import com.cloudant.ziose.core.Codec
+import zio.ZIO
 
 class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
 
   class LRU(initialCapacity: Int = 100, loadFactor: Float = 0.75f) {
 
-    class InnerLRU(initialCapacity: Int, loadFactor: Float) extends LinkedHashMap[String, Pid](initialCapacity, loadFactor, true) {
+    class InnerLRU(initialCapacity: Int, loadFactor: Float) extends LinkedHashMap[String, Pid](initialCapacity, loadFactor, true)
 
-      override def removeEldestEntry(eldest: Entry[String, Pid]): Boolean = {
-        val result = size() > ctx.args.config.getInt("clouseau.max_indexes_open", 100)
-        if (result) {
-          eldest.getValue ! ('close, 'lru)
-        }
-        result
-      }
-    }
-
+    val capacity = ctx.args.config.getInt("clouseau.max_indexes_open", 100)
     val lruMisses = metrics.counter("lru.misses")
     val lruEvictions = metrics.counter("lru.evictions")
 
@@ -48,6 +42,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
     val pidToPath: JMap[Pid, String] = new HashMap(initialCapacity, loadFactor)
 
     def get(path: String): Pid = {
+      assert(pathToPid.size == pidToPath.size)
       val pid: Pid = pathToPid.get(path)
       if (!Option(pid).isDefined) {
         lruMisses += 1
@@ -56,12 +51,15 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
     }
 
     def put(path: String, pid: Pid) = {
+      assert(pathToPid.size == pidToPath.size)
+      enforceCapacity
       val prev = pathToPid.put(path, pid)
       pidToPath.remove(prev)
       pidToPath.put(pid, path)
     }
 
     def remove(pid: Pid) = {
+      assert(pathToPid.size == pidToPath.size)
       val path = pidToPath.remove(pid)
       pathToPid.remove(path)
       if (Option(path).isDefined) {
@@ -88,6 +86,19 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
           }
       }
     }
+
+    private def enforceCapacity() {
+      var excess = pathToPid.size - capacity
+      if (excess > 0) {
+        val it = pathToPid.entrySet.iterator
+        while (excess > 0 && it.hasNext) {
+          val eldest = it.next
+          eldest.getValue ! ('close, 'lru)
+          excess -= 1
+        }
+      }
+    }
+
   }
 
   val logger = LoggerFactory.getLogger("clouseau.main")
@@ -108,6 +119,14 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
     lockHeld.size
   }
 
+  override def handleInit(): Unit = {
+    logger.debug(s"handleInit(capacity = ${adapter.capacity})")
+  }
+
+  override def onTermination[PContext <: ProcessContext](reason: Codec.ETerm, ctx: PContext) = {
+    ZIO.logTrace("onTermination")
+  }
+
   override def handleCall(tag: (Pid, Any), msg: Any): Any = msg match {
     case OpenIndexMsg(peer: Pid, path: String, options: AnalyzerOptions) =>
       lru.get(path) match {
@@ -115,7 +134,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
           waiters.get(path) match {
             case None =>
               val manager = self
-              node.spawn((_) => {
+              node.spawn(_ => {
                 openTimer.time {
                   IndexService.start(node, ctx.args.config, path, options) match {
                     case ('ok, pid: Pid) =>

@@ -6,26 +6,9 @@ package com.cloudant.ziose.clouseau
 import com.cloudant.ziose.core.{ActorFactory, AddressableActor, EngineWorker, Node}
 import com.cloudant.ziose.otp.{OTPLayers, OTPNodeConfig}
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
-import zio.config.magnolia.deriveConfig
-import zio.config.typesafe.FromConfigSourceTypesafe
-import zio.{&, Config, ConfigProvider, IO, LogLevel, RIO, Scope, System, Task, UIO, ZIO, ZIOAppArgs, ZIOAppDefault}
-
-import java.io.FileNotFoundException
-import scala.reflect.io.File
+import zio.{&, LogLevel, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 object Main extends ZIOAppDefault {
-  private val defaultCfgFile: String = "app.conf"
-
-  def getCfgFile(args: Option[String]): UIO[String] = {
-    args match {
-      case Some(file) =>
-        if (File(file).exists) ZIO.succeed(file)
-        else ZIO.die(new FileNotFoundException(s"The system cannot find the file specified"))
-      case None =>
-        ZIO.succeed(defaultCfgFile)
-    }
-  }
-
   def getNodeIdx: Task[Int] = {
     for {
       prop <- System.property("node")
@@ -40,28 +23,20 @@ object Main extends ZIOAppDefault {
     } yield index
   }
 
-  final case class AppCfg(config: List[WorkerConfiguration], logger: LogConfiguration)
-
-  def getConfig(pathToCfgFile: String): IO[Config.Error, AppCfg] = {
-    ConfigProvider
-      .fromHoconFilePath(pathToCfgFile)
-      .load(deriveConfig[AppCfg])
-  }
-
   private def startSupervisor(
     node: ClouseauNode,
     config: WorkerConfiguration
   ): RIO[EngineWorker & Node & ActorFactory, AddressableActor[_, _]] = {
     val clouseauCfg: ClouseauConfiguration = config.clouseau.get
     val nodeCfg: OTPNodeConfig             = config.node
-    ClouseauSupervisor.start(node, Configuration(clouseauCfg, nodeCfg))
+    ClouseauSupervisor.start(node, Configuration(clouseauCfg, nodeCfg, capacity(config)))
   }
 
   private def main(
     workerCfg: WorkerConfiguration,
     metricsRegistry: ScalangMeterRegistry,
     loggerCfg: LogConfiguration
-  ): RIO[EngineWorker & Node & ActorFactory, Unit] = {
+  ): RIO[Scope & EngineWorker & Node & ActorFactory, Unit] = {
     for {
       runtime  <- ZIO.runtime[EngineWorker & Node & ActorFactory]
       otp_node <- ZIO.service[Node]
@@ -69,14 +44,19 @@ object Main extends ZIOAppDefault {
       _      <- otp_node.monitorRemoteNode(remote_node)
       worker <- ZIO.service[EngineWorker]
       logLevel = loggerCfg.level.getOrElse(LogLevel.Debug)
-      node <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry, logLevel))
-      _    <- startSupervisor(node, workerCfg)
-      _    <- worker.awaitShutdown
+      node       <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry, logLevel))
+      supervisor <- startSupervisor(node, workerCfg)
+      _          <- ZIO.addFinalizer(worker.shutdown *> supervisor.shutdown *> otp_node.shutdown)
+      _          <- supervisor.awaitShutdown
     } yield ()
   }
 
   private val workerId: Int = 1
   private val engineId: Int = 1
+
+  private def capacity(workerCfg: WorkerConfiguration) = {
+    workerCfg.capacity.getOrElse(CapacityConfiguration())
+  }
 
   private def app(
     workerCfg: WorkerConfiguration,
@@ -93,11 +73,9 @@ object Main extends ZIOAppDefault {
     } yield ()
   }
 
-  override def run: RIO[ZIOAppArgs & Scope, Unit] = {
+  override def run: RIO[ZIOAppArgs & Scope, Unit] = (
     for {
-      args    <- getArgs.map(_.headOption)
-      cfgFile <- getCfgFile(args)
-      appCfg  <- getConfig(cfgFile)
+      appCfg  <- ZIO.service[AppCfg]
       nodeIdx <- getNodeIdx
       workerCfg       = appCfg.config(nodeIdx)
       loggerCfg       = appCfg.logger
@@ -110,5 +88,5 @@ object Main extends ZIOAppDefault {
           metricsLayer
         )
     } yield ()
-  }
+  ).provideSome[ZIOAppArgs](AppCfg.layer)
 }

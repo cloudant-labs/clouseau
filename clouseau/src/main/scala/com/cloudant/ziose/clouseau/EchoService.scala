@@ -1,6 +1,6 @@
 package com.cloudant.ziose.clouseau
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import com.cloudant.ziose.{core, scalang}
 import core.ActorBuilder.State
 import core.{ActorBuilder, ActorConstructor, ProcessContext}
@@ -44,7 +44,7 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
 
   private def now(): BigInt = ChronoUnit.MICROS.between(Instant.EPOCH, Instant.now())
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"adapter=$adapter"

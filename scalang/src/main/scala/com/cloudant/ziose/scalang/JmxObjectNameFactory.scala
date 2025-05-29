@@ -1,12 +1,12 @@
 package com.cloudant.ziose.scalang
 
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import com.codahale.metrics.jmx.ObjectNameFactory
 import javax.management.ObjectName
 import javax.management.MalformedObjectNameException
 
 case class JmxObjectNameComponents(domain: String, packageName: String, service: String, name: String) {
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"domain=$domain",
@@ -75,7 +75,7 @@ class JmxObjectNameFactory(
     }
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"transformer=$transformer"

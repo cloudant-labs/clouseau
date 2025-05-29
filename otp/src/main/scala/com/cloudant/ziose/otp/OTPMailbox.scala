@@ -13,7 +13,6 @@ import com.ericsson.otp.erlang.{
   OtpErlangAtom
 }
 
-import com.cloudant.ziose.core.ActorResult
 import com.cloudant.ziose.core.Codec
 import com.cloudant.ziose.core.Address
 import com.cloudant.ziose.core.MessageEnvelope
@@ -21,7 +20,7 @@ import com.cloudant.ziose.core.PID
 import com.cloudant.ziose.core.Name
 import com.cloudant.ziose.core.NameOnNode
 import com.cloudant.ziose.core.Node
-import com.cloudant.ziose.macros.checkEnv
+import com.cloudant.ziose.macros.CheckEnv
 import zio._
 import zio.stream.ZStream
 import zio.Exit
@@ -60,7 +59,7 @@ import zio.Exit
  * the same as for OTP.
  *
  * The OTPMailbox extends from Mailbox which requires implementation of
- * a EnqueueWithId where Address is used as an Id type.
+ * a ForwardWithId where Address is used as an Id type.
  * As a result OTPMailbox look like a queue to any external actor.
  * The aggregated stream of messages consumed by OTPActor using
  * ```scala
@@ -191,22 +190,14 @@ class OTPMailbox private (
   }
 
   def capacity: Int = compositeMailbox.capacity
-  override def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
+  def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
     compositeMailbox.awaitShutdown <&> internalMailbox.awaitShutdown
   }
-  def isShutdown(implicit trace: Trace): UIO[Boolean] = {
-    compositeMailbox.isShutdown
-  }
   def shutdown(implicit trace: Trace): UIO[Unit] = {
-    if (!isFinalized.getAndSet(true)) {
-      compositeMailbox.shutdown <&> internalMailbox.shutdown
-    } else { ZIO.unit }
+    ZIO.unit
   }
-  def offer(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
+  def forward(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
     internalMailbox.offer(msg)
-  }
-  def offerAll[A1 <: MessageEnvelope](as: Iterable[A1])(implicit trace: zio.Trace): UIO[zio.Chunk[A1]] = {
-    internalMailbox.offerAll(as)
   }
 
   // There is no easy way to account for externalMailbox
@@ -234,7 +225,7 @@ class OTPMailbox private (
 
   def exit(message: MessageEnvelope.Exit): UIO[Unit] = {
     for {
-      _ <- offer(message)
+      _ <- forward(message)
     } yield ()
   }
 
@@ -267,7 +258,7 @@ class OTPMailbox private (
   }
 
   def monitor(monitored: Address): ZIO[Node, _ <: Node.Error, Codec.ERef] = {
-    for {
+    ZIO.blocking(for {
       node <- ZIO.service[Node]
       ref <- attempt(monitored match {
         case PID(pid, _workerId, _workerName) =>
@@ -277,7 +268,7 @@ class OTPMailbox private (
         case NameOnNode(name, node, _workerId, _workerName) =>
           mbox.monitorNamed(name.asString, node.asString)
       })
-    } yield Codec.ERef(ref)
+    } yield Codec.ERef(ref))
   }
 
   def demonitor(ref: Codec.ERef): UIO[Unit] = {
@@ -297,7 +288,7 @@ class OTPMailbox private (
     node <- ZIO.service[Node]
     ref  <- node.makeRef()
     _    <- ZIO.succeed(inProgressCalls += Tuple2(ref, message.from.get))
-    _    <- offer(toSend(message, ref))
+    _    <- forward(toSend(message, ref))
     result <- message.timeout match {
       case Some(duration) =>
         ZIO
@@ -315,7 +306,7 @@ class OTPMailbox private (
   } yield message.toResponse(result)
 
   def cast(message: MessageEnvelope.Cast)(implicit trace: zio.Trace): UIO[Unit] = for {
-    _ <- offer(message)
+    _ <- forward(message)
   } yield ()
 
   def send(message: MessageEnvelope.Send)(implicit trace: zio.Trace): UIO[Unit] = {
@@ -333,34 +324,37 @@ class OTPMailbox private (
     })
   }
 
-  def start(scope: Scope) = for {
+  def start(scope: Scope.Closeable) = for {
     _ <- scope.addFinalizerExit(onExit)
-    _ <- ZStream.fromQueueWithShutdown(internalMailbox).mapZIO(compositeMailbox.offer).runDrain.forkIn(scope)
-    _ <- ZStream.fromQueueWithShutdown(externalMailbox).mapZIO(compositeMailbox.offer).runDrain.forkIn(scope)
+    internalMailboxFiber <- ZStream
+      .fromQueueWithShutdown(internalMailbox)
+      .mapZIO(compositeMailbox.offer)
+      .runDrain
+      // Make sure we terminate the scope on Interruption
+      .onTermination(cause => scope.close(Exit.failCause(cause)))
+      .forkIn(scope)
+    externalMailboxFiber <- ZStream
+      .fromQueueWithShutdown(externalMailbox)
+      .mapZIO(compositeMailbox.offer)
+      .runDrain
+      // Make sure we terminate the scope on Interruption
+      .onTermination(cause => scope.close(Exit.failCause(cause)))
+      .forkIn(scope)
     _ <- ZIO.succeed(mbox.subscribe(this))
-  } yield ()
+  } yield Map(
+    Symbol("internalMailboxConsumerFiber") -> internalMailboxFiber,
+    Symbol("externalMailboxConsumerFiber") -> externalMailboxFiber
+  )
 
   def onExit(exit: Exit[_, _]): UIO[Unit] = {
-    val reason = exitToReason(exit)
-    ZIO.succeedBlocking(mbox.exit(reason.toOtpErlangObject)) *> shutdown
-  }
-
-  def exitToReason(exit: Exit[_, _]): Codec.ETerm = {
-    val joined = exit match {
-      case Exit.Failure(cause) if cause.isFailure     => Some(cause.failureOption.get)
-      case Exit.Failure(cause) if cause.isDie         => Some(cause.dieOption.get)
-      case Exit.Failure(cause) if cause.isInterrupted => Some(cause.interruptOption.get)
-      case Exit.Failure(cause)                        => None
-      case Exit.Success(result)                       => Some(result)
+    if (!isFinalized.getAndSet(true)) {
+      val reason = OTPError.fromExit(exit)
+      if (reason != Codec.EAtom("shutdown")) {
+        ZIO.succeedBlocking(mbox.exit(reason.toOtpErlangObject))
+      } else { ZIO.unit }
+    } else {
+      ZIO.unit
     }
-    // We would get non ActorResult reason only when parent scope of an actor terminates
-    // Which happen when OTPNode die.
-    // In such case we just return `normal`. Since we don't want to pass the arbitrary
-    // objects to jinterface.
-    joined.collect { case result: ActorResult =>
-      // Use "normal" for ActorResult.Stop
-      result.asReasonOption.getOrElse(Codec.EAtom("normal"))
-    }.getOrElse(Codec.EAtom("normal"))
   }
 
   private def readMessage = {
@@ -385,7 +379,7 @@ class OTPMailbox private (
     }
   }
 
-  @checkEnv(System.getProperty("env"))
+  @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"id=$id",

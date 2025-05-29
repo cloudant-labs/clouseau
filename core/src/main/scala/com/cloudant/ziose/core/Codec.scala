@@ -39,9 +39,14 @@ object Codec {
 
     override def toOtpErlangObject: OtpErlangRef = obj
     override def toString: String                = obj.toString
-    val node                                     = obj.node
-    val ids                                      = obj.ids
-    val creation                                 = obj.creation
+
+    // `def` is used instead of `val` because `val` may expose the
+    // internal representation by returning Codec$ERef.ids, which
+    // will cause an EI_EXPOSE_REP warning in the spotbugs check
+    def ids = obj.ids
+
+    val node     = obj.node
+    val creation = obj.creation
   }
   object ERef {
     def apply(node: String, ids: Array[Int], creation: Int) = new ERef(new OtpErlangRef(node, ids, creation))
@@ -354,7 +359,7 @@ object Codec {
   }
 
   object EBinary {
-    def apply(atom: Symbol)         = new EBinary(atom.name.getBytes(), true)
+    def apply(atom: Symbol)         = new EBinary(atom.name.getBytes(StandardCharsets.UTF_8), true)
     def apply(obj: OtpErlangBinary) = new EBinary(obj.binaryValue)
     def apply(str: String)          = new EBinary(str.getBytes(StandardCharsets.UTF_8), true)
     def apply(bytes: Array[Byte])   = new EBinary(bytes)
@@ -532,8 +537,8 @@ object Codec {
     def fromScala: ETerm
   }
 
-  class ExtendedPF[A, B](val pf: PartialFunction[A, B]) {
-    object Extractor {
+  final class ExtendedPF[A, B](val pf: PartialFunction[A, B]) {
+    final object Extractor {
       def unapply(a: A): Option[B] = pf.lift(a)
     }
   }
