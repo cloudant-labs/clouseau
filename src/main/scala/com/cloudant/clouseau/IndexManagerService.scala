@@ -25,6 +25,7 @@ import scalang._
 import com.yammer.metrics.scala._
 import scala.collection.JavaConverters._
 import java.util.HashSet
+import java.util.Properties
 
 class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Service(ctx) with Instrumented {
 
@@ -100,6 +101,9 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
   }
 
   val logger = LoggerFactory.getLogger("clouseau.main")
+  val properties = new Properties()
+  properties.load(getClass.getClassLoader.getResourceAsStream("version.properties"))
+  val version = properties.getProperty("version")
   val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
   val openTimer = metrics.timer("opens")
   val lru = new LRU()
@@ -161,7 +165,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
       lru.closeByPath(path)
       'ok
     case 'version =>
-      ('ok, getClass.getPackage.getImplementationVersion)
+      ('ok, version)
     case ('create_snapshot, indexName: String, snapshotDir: String) =>
       lru.get(indexName) match {
         case null =>
