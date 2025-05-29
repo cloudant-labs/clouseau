@@ -137,7 +137,7 @@ lazy val composedOptions: Seq[String] = {
 lazy val clouseau = (project in file("clouseau"))
   .settings(commonSettings *)
   .settings(
-    resolvers += "cloudant-repo" at "https://cloudant.github.io/maven/repo",
+    resolvers += "cloudant-repo" at "https://maven.cloudant.com/repo/",
     libraryDependencies ++= luceneComponents
   )
   .settings(
