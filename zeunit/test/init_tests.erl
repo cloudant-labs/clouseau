@@ -15,7 +15,9 @@ echo_service_test_() ->
                 fun start_service/1,
                 fun stop_service/2,
                 [
-                    ?TDEF_FEX(t_metrics_format)
+                    ?TDEF_FEX(t_metrics_format),
+                    ?TDEF_FEX(t_ping_event),
+                    ?TDEF_FEX(t_ping_call)
                 ]
             }
         }
@@ -70,6 +72,18 @@ t_metrics_format(_Name, _) ->
     ?assertNonNegFloat(maps:get(fifteenMinutesRate, Timer, {no_such_key, fifteenMinutesRate})),
     ?assertEqual(<<"milliseconds">>, maps:get(durationUnit, Timer, {no_such_key, durationUnit})),
     ?assertEqual(<<"events/second">>, maps:get(rateUnit, Timer, {no_such_key, rateUnit})),
+    ok.
+
+t_ping_event(_Name, _) ->
+    Ref = make_ref(),
+    {?INIT_SERVICE, ?NodeZ} ! {ping, self(), Ref},
+    Reply = util:receive_pong(Ref),
+    ?assertEqual(pong, Reply, ?format("Expected 'pong', got ~p", [Reply])),
+    ok.
+
+t_ping_call(_Name, _) ->
+    Reply = gen_server:call({?INIT_SERVICE, ?NodeZ}, ping),
+    ?assertEqual(pong, Reply, ?format("Expected 'pong', got ~p", [Reply])),
     ok.
 
 %%%%%%%%%%%%%%% Setup Functions %%%%%%%%%%%%%%%
