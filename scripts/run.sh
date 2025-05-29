@@ -34,24 +34,6 @@ run::stop() {
   rm -f "$pid_file"
 }
 
-run::processId() {
-  local hash
-  hash=$(run::get_hash "$1")
-  local pid_file="${TMP_DIR}/${hash}.pid"
-
-  if [ -f "$pid_file" ]; then
-    cat "$pid_file" > "${TMP_DIR}/$2.pid"
-  else
-    if jcmd | grep -F clouseau | cut -d' ' -f1 >temp && [ -s temp ]; then
-      cat temp > "${TMP_DIR}/$2.pid"
-      rm -f temp
-    else
-      rm -f temp
-      console::errorLn "Can't find the running node: $1!" && return 1
-    fi
-  fi
-}
-
 run::health-check() {
   [ -z "$2" ] && escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "$1" ||
   escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "$1" "-setcookie" "$2"
