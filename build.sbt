@@ -125,6 +125,7 @@ lazy val scalang = (project in file("scalang"))
   .enablePlugins(plugins.JUnitXmlReportPlugin)
   .dependsOn(core)
   .dependsOn(macros)
+  .dependsOn(test % "test->test")
 
 lazy val cookie: Option[String] = Option(System.getProperty("cookie"))
 lazy val env: Option[String]    = Option(System.getProperty("env"))
@@ -193,7 +194,7 @@ lazy val macros = (project in file("macros"))
   .settings(commonSettings *)
 
 lazy val root = (project in file("."))
-  .aggregate(core, clouseau, macros, otp, test)
+  .aggregate(core, clouseau, macros, otp, test, scalang)
   .enablePlugins(plugins.JUnitXmlReportPlugin)
   .settings(
     scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports"),
