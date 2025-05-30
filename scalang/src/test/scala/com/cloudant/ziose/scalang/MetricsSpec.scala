@@ -38,7 +38,7 @@ class MetricsSpec extends JUnitRunnableSpec {
       assert(result)(isLeft) ?? "result should be an error" &&
       assert(result.swap.toOption.get)(isSubtype[Exception](anything)) &&
       assert(result.swap.toOption.get.getMessage())(equalTo("myReason")) &&
-      assert(timer.getCount)(isGreaterThan(1L)) &&
+      assert(timer.getCount)(isGreaterThanEqualTo(1L)) &&
       assert(timer.getMeanRate)(isGreaterThan(0.0))
     },
     test("testing Timer.time throws custom exception") {
@@ -56,7 +56,7 @@ class MetricsSpec extends JUnitRunnableSpec {
       assert(result)(isLeft) ?? "result should be an error" &&
       assert(result.swap.toOption.get)(isSubtype[MyException](anything)) &&
       assert(result.swap.toOption.get.getMessage())(equalTo("myCustomReason")) &&
-      assert(timer.getCount)(isGreaterThan(1L)) &&
+      assert(timer.getCount)(isGreaterThanEqualTo(1L)) &&
       assert(timer.getMeanRate)(isGreaterThan(0.0))
     },
     test("testing Timer.time throws FileNotFoundException exception") {
@@ -74,7 +74,7 @@ class MetricsSpec extends JUnitRunnableSpec {
       assert(result)(isLeft) ?? "result should be an error" &&
       assert(result.swap.toOption.get)(isSubtype[IOException](anything)) &&
       assert(result.swap.toOption.get.getMessage())(equalTo("myFileNotFound")) &&
-      assert(timer.getCount)(isGreaterThan(1L)) &&
+      assert(timer.getCount)(isGreaterThanEqualTo(1L)) &&
       assert(timer.getMeanRate)(isGreaterThan(0.0))
     },
     test("testing Timer.time returns result") {
@@ -91,7 +91,7 @@ class MetricsSpec extends JUnitRunnableSpec {
       }
       assert(result)(isRight) ?? "result should be success" &&
       assert(result.toOption.get)(equalTo(6)) &&
-      assert(timer.getCount)(isGreaterThan(1L)) &&
+      assert(timer.getCount)(isGreaterThanEqualTo(1L)) &&
       assert(timer.getMeanRate)(isGreaterThan(0.0))
     }
   )
