@@ -181,7 +181,11 @@ lazy val clouseau = (project in file("clouseau"))
   .dependsOn(macros)
   .dependsOn(otp)
   .dependsOn(scalang)
+  // include test classes into _test.jar
   .dependsOn(test % "test->test")
+  .dependsOn(core % "test->test")
+  .dependsOn(otp % "test->test")
+  .dependsOn(scalang % "test->test")
 
 lazy val test = (project in file("test"))
   .settings(commonSettings *)
