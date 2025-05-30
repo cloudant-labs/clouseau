@@ -12,4 +12,9 @@ object TestRunner {
       )
       .getOrThrowFiberFailure()
   })
+
+  def runSpecs(xs: Map[String, Spec[Any, Throwable]]): Summary = {
+    xs.foldLeft(Summary.empty) { case (acc, (label, spec)) => acc.add(runSpec(label, spec)) }
+  }
+
 }
