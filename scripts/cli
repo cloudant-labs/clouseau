@@ -220,7 +220,8 @@ zeunit)
 tdump)
   ensure_args 1 "help_topic tdump" "$@"
   name=$1
-  run::java_thread_dump "$name"
+  shift
+  run::java_thread_dump "$name" "$@"
   ;;
 await)
   ensure_args 2 "help_topic await" "$@"

@@ -65,7 +65,12 @@ run::java_thread_dump() {
   local pid_file="${TMP_DIR}/${hash}.pid"
 
   [ ! -f "$pid_file" ] && console::errorLn "Not found PID file!" && exit 1
-  jstack "$(cat "${pid_file}")"
+
+  if [ $# -eq 1 ]; then
+    jstack "$(cat "${pid_file}")"
+  else
+    jstack "$(cat "${pid_file}")" > $2
+  fi
 }
 
 run::processId() {

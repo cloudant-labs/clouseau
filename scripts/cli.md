@@ -79,6 +79,7 @@ cli stop "clouseau"
 
 ```bash
 cli tdump "ziose"
+cli tdump "ziose" tmp/thread_dump.log
 ```
 
 ---
