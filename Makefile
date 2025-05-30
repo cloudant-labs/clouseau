@@ -56,11 +56,8 @@ SCALA_MICRO              := $(word 3,$(SCALA_VERSION_PARTS))
 
 SCALA_SHORT_VERSION := $(SCALA_MAJOR).$(SCALA_MINOR)
 
-SCALA_SUBPROJECTS := \
-	clouseau \
-	core \
-	otp \
-	scalang
+SCALA_SUBPROJECTS := clouseau core otp scalang
+ALL_SUBPROJECTS := $(SCALA_SUBPROJECTS) test
 
 BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%TZ")
 ERL_EPMD_ADDRESS?=127.0.0.1
@@ -152,8 +149,7 @@ all-tests: test zeunit couchdb-tests metrics-tests syslog-tests compatibility-te
 # target: test - Run all Scala tests
 test: build $(ARTIFACTS_DIR)
 	@sbt clean test
-	@echo done
-	@$(call to_artifacts,test-reports)
+	@$(call to_artifacts,$(ALL_SUBPROJECTS),test-reports)
 
 $(ARTIFACTS_DIR):
 	@mkdir -p $@
@@ -291,10 +287,12 @@ ci-build: artifacts $(CI_ARTIFACTS_DIR)
 
 ci-unit: test $(CI_ARTIFACTS_DIR)
 	@echo ci-unit
+	@for dir in $(ALL_SUBPROJECTS); do \
+    cp -R $(ARTIFACTS_DIR)/$$dir/ $(CI_ARTIFACTS_DIR)/ || true; \
+  done
 
 ci-zeunit: zeunit $(CI_ARTIFACTS_DIR)
-	@find $(ARTIFACTS_DIR)
-	@cp -R $(ARTIFACTS_DIR)/zeunit $(CI_ARTIFACTS_DIR)
+	@cp -R $(ARTIFACTS_DIR)/zeunit/ $(CI_ARTIFACTS_DIR)/
 
 ci-mango: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar couchdb epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
