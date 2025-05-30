@@ -14,6 +14,7 @@ import zio._
 import zio.test._
 import zio.test.junit._
 import zio.ZIO._
+import com.cloudant.ziose.test.helpers.TestRunner
 
 @RunWith(classOf[ZTestJUnitRunner])
 class ClouseauTypeFactorySpec extends JUnitRunnableSpec {
@@ -41,5 +42,17 @@ class ClouseauTypeFactorySpec extends JUnitRunnableSpec {
         } yield assertTrue(event.isEmpty)
       }
     )
+  }
+}
+
+/**
+ * ```shell
+ * rm artifacts/clouseau_*.jar ; make jartest
+ * java -cp artifacts/clouseau_*_test.jar com.cloudant.ziose.clouseau.ClouseauTypeFactorySpecMain
+ * ```
+ */
+object ClouseauTypeFactorySpecMain {
+  def main(args: Array[String]): Unit = {
+    TestRunner.runSpec("ClouseauTypeFactorySpec", new ClouseauTypeFactorySpec().spec)
   }
 }

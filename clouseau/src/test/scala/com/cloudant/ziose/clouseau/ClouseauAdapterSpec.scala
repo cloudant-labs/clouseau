@@ -14,6 +14,7 @@ import zio.test.junit._
 import zio.ZIO._
 import org.apache.lucene.util.BytesRef
 import zio.test.Gen.alphaNumericString
+import com.cloudant.ziose.test.helpers.TestRunner
 
 @RunWith(classOf[ZTestJUnitRunner])
 class ClouseauAdapterSpec extends JUnitRunnableSpec {
@@ -45,5 +46,17 @@ class ClouseauAdapterSpec extends JUnitRunnableSpec {
         )
       )
     )
+  }
+}
+
+/**
+ * ```shell
+ * rm artifacts/clouseau_*.jar ; make jartest
+ * java -cp artifacts/clouseau_*_test.jar com.cloudant.ziose.clouseau.ClouseauAdapterSpecMain
+ * ```
+ */
+object ClouseauAdapterSpecMain {
+  def main(args: Array[String]): Unit = {
+    TestRunner.runSpec("ClouseauAdapterSpec", new ClouseauAdapterSpec().spec)
   }
 }

@@ -22,6 +22,7 @@ import zio.ZIO.logDebug
 import zio.{Clock, Random, ZLayer}
 
 import java.nio.charset.StandardCharsets
+import helpers.TestRunner
 
 @RunWith(classOf[ZTestJUnitRunner])
 class CodecSpec extends JUnitRunnableSpec {
@@ -476,4 +477,16 @@ class CodecSpec extends JUnitRunnableSpec {
     listSuite,
     tupleSuite
   ).provide(environment)
+}
+
+/**
+ * ```shell
+ * rm artifacts/clouseau_*.jar ; make jartest
+ * java -cp artifacts/clouseau_*_test.jar com.cloudant.ziose.test.CodecSpecMain
+ * ```
+ */
+object CodecSpecMain {
+  def main(args: Array[String]): Unit = {
+    TestRunner.runSpec("CodecSpec", new CodecSpec().spec)
+  }
 }

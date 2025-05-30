@@ -15,6 +15,7 @@ import zio._
 import zio.test._
 import zio.test.Assertion._
 import zio.test.junit._
+import com.cloudant.ziose.test.helpers.TestRunner
 
 class TestActor()(implicit ctx: ProcessContext) extends Actor {
   override def onInit[C <: ProcessContext](ctx: C): Task[_ <: ActorResult] = {
@@ -297,4 +298,16 @@ class ActorSpec extends JUnitRunnableSpec {
   ) @@ TestAspect.withLiveClock
 
   def spec = suite("Actor callbacks")(onMessageSuite, onTerminateSuite).provideLayer(environment)
+}
+
+/**
+ * ```shell
+ * rm artifacts/clouseau_*.jar ; make jartest
+ * java -cp artifacts/clouseau_*_test.jar com.cloudant.ziose.otp.ActorSpecMain
+ * ```
+ */
+object ActorSpecMain {
+  def main(args: Array[String]): Unit = {
+    TestRunner.runSpec("ActorSpec", new ActorSpec().spec)
+  }
 }

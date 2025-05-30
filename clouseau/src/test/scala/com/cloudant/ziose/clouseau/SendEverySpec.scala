@@ -13,6 +13,7 @@ import com.cloudant.ziose.scalang.{Adapter, Pid, Service, ServiceContext, SNode,
 import zio.test._
 import zio.test.TestAspect
 import com.cloudant.ziose.test.helpers.Asserts.containsShapeOption
+import com.cloudant.ziose.test.helpers.TestRunner
 
 class SendEveryService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   var calledArgs: List[Product2[String, Any]] = List()
@@ -262,5 +263,17 @@ class SendEverySpec extends JUnitRunnableSpec {
       handleCallSuite,
       handleInfoSuite
     ) @@ TestAspect.timeout(15.minutes)
+  }
+}
+
+/**
+ * ```shell
+ * rm artifacts/clouseau_*.jar ; make jartest
+ * java -cp artifacts/clouseau_*_test.jar com.cloudant.ziose.clouseau.SendEverySpecMain
+ * ```
+ */
+object SendEverySpecMain {
+  def main(args: Array[String]): Unit = {
+    TestRunner.runSpec("SendEverySpec", new SendEverySpec().spec)
   }
 }

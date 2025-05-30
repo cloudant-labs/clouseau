@@ -15,6 +15,8 @@ import zio.test.TestAspect
 import com.cloudant.ziose.test.helpers.Asserts._
 import com.cloudant.ziose.scalang.Reference
 
+import com.cloudant.ziose.test.helpers.TestRunner
+
 class SupervisorService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   var calledArgs: List[Product2[String, Any]] = List()
 
@@ -182,5 +184,17 @@ class ServiceSpec extends JUnitRunnableSpec {
     suite("ServiceSpec")(
       trapMonitorExitSuite
     ) @@ TestAspect.timeout(15.minutes)
+  }
+}
+
+/**
+ * ```shell
+ * rm artifacts/clouseau_*.jar ; make jartest
+ * java -cp artifacts/clouseau_*_test.jar com.cloudant.ziose.clouseau.ServiceSpecMain
+ * ```
+ */
+object ServiceSpecMain {
+  def main(args: Array[String]): Unit = {
+    TestRunner.runSpec("ServiceSpec", new ServiceSpec().spec)
   }
 }

@@ -10,6 +10,7 @@ import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
 import zio.test._
 import zio.test.Assertion._
 import com.cloudant.ziose.core.Exponent
+import com.cloudant.ziose.test.helpers.TestRunner
 
 @RunWith(classOf[ZTestJUnitRunner])
 class ConfigSpec extends JUnitRunnableSpec {
@@ -188,5 +189,17 @@ class ConfigSpec extends JUnitRunnableSpec {
       suiteForLogLevel(LogLevel.Trace),
       suiteForLogLevel(LogLevel.None)
     )
+  }
+}
+
+/**
+ * ```shell
+ * rm artifacts/clouseau_*.jar ; make jartest
+ * java -cp artifacts/clouseau_*_test.jar com.cloudant.ziose.clouseau.ConfigSpecMain
+ * ```
+ */
+object ConfigSpecMain {
+  def main(args: Array[String]): Unit = {
+    TestRunner.runSpec("ConfigSpec", new ConfigSpec().spec)
   }
 }
