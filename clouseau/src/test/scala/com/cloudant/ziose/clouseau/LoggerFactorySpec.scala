@@ -36,7 +36,7 @@ class LoggerFactorySpec extends JUnitRunnableSpec {
     })
     suite("logger testing")(logLevelTests).provideLayer(
       Utils.testEnvironment(1, 1, "serviceSpawn")
-    ) @@ TestAspect.withLiveClock
+    ) @@ TestAspect.withLiveClock @@ TestAspect.sequential
   }
 
   def spec: Spec[Any, Throwable] = {
