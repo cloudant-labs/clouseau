@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CLOUSEAU_LOG: deps/couchdb.main/dev/logs/clouseau1.log
+      COUCHDB_LOG: deps/couchdb.main/dev/logs/node1.log
     steps:
       - uses: actions/checkout@v4
       - name: Install asdf & tools
@@ -35,6 +36,6 @@ jobs:
       - name: Syslog tests
         run: eval "$(direnv export bash)" && make syslog-tests || cat $CLOUSEAU_LOG
       - name: Metrics tests (mango)
-        run: eval "$(direnv export bash)" && make metrics-tests || cat $CLOUSEAU_LOG
+        run: eval "$(direnv export bash)" && make metrics-tests || cat $COUCHDB_LOG
       - name: Elixir tests
         run: eval "$(direnv export bash)" && make ci-elixir || cat $CLOUSEAU_LOG
