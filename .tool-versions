@@ -5,8 +5,7 @@ direnv 2.33.0
 java openjdk-21.0.2
 scala 2.13.16
 # erlang needs java so it should be after it in the list
-# the only version which supports observer
-erlang 25.3.2.15
+erlang 26.2.5.13
 rebar 3.24.0
 coursier 2.1.8
 editorconfig-checker 3.0.3
