@@ -294,7 +294,7 @@ class ActorSpec extends JUnitRunnableSpec {
     )
   ).provideLayer(
     testEnvironment(1, 1, "ActorSpec")
-  ) @@ TestAspect.withLiveClock
+  ) @@ TestAspect.withLiveClock @@ TestAspect.sequential
 
   def spec = suite("Actor callbacks")(onMessageSuite, onTerminateSuite).provideLayer(environment)
 }
