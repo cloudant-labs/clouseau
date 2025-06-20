@@ -25,7 +25,7 @@ BLOCKING_TIME_IN_MS=$(( ${BLOCKING_TIME_IN_SEC} * 1000 ))
 console::infoLn "==> Restart tests: run $RETRY times"
 rm -f "$TMP_DIR"/t*.pid "$TMP_DIR"/t*.thread_dump
 for i in $(seq 1 "$RETRY"); do
-  console::infoLn "==> Restart tests: $i start"
+  console::infoLn "==> Restart tests: $i/${RETRY} start"
   java -jar "$JAR" &
   ${SELF_DIR}/../zeunit/src/block-actor.escript ${BLOCKING_TIME_IN_MS}
   sleep "$RUNNING_TIME"
@@ -37,11 +37,11 @@ for i in $(seq 1 "$RETRY"); do
     now=$(date +%s)
     duration=$((${now} - ${before_kill_timestamp}))
     if ! pgrep -F "$TMP_DIR/t$i.pid" >/dev/null 2>&1; then
-      console::infoLn "==> Restart tests: [$(($TIMEOUT - $s)) sec left] $i - stopped successfully after ${duration} second\n"
+      console::infoLn "==> Restart tests: [$(($TIMEOUT - $s)) sec left] $i/${RETRY} - stopped successfully after ${duration} second\n"
       rm "$TMP_DIR/t$i.pid"
       break
     else
-      console::infoLn "==> Restart tests: [$(($TIMEOUT - $s)) sec left] $i - process still running"
+      console::infoLn "==> Restart tests: [$(($TIMEOUT - $s)) sec left] $i/${RETRY} - process still running"
     fi
     sleep 1
   done
@@ -49,7 +49,7 @@ for i in $(seq 1 "$RETRY"); do
   if [ -f "$TMP_DIR/t$i.pid" ]; then
     jstack "$(cat "$TMP_DIR/t$i.pid")" >"$TMP_DIR/t$i.thread_dump"
     pkill -9 -F "$TMP_DIR/t$i.pid"
-    console::errorLn "==> Restart tests: $i failed. Please check $TMP_DIR/t$i.thread_dump"
+    console::errorLn "==> Restart tests: $i/${RETRY} failed. Please check $TMP_DIR/t$i.thread_dump"
     exit 1
   fi
 done
