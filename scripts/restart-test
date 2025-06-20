@@ -14,9 +14,6 @@ mkdir -p "$TMP_DIR"
 
 JAR=$1
 : "${RETRY:=30}"
-# Make sure the "InitService" is created and started,
-# otherwise the tests will become unstable.
-: "${RUNNING_TIME:=15}"
 : "${TIMEOUT:=10}"
 # blocking for 5 min to make sure we are able to interrupt
 : "${BLOCKING_TIME_IN_SEC:=300}"
@@ -28,7 +25,6 @@ for i in $(seq 1 "$RETRY"); do
   console::infoLn "==> Restart tests: $i/${RETRY} start"
   java -jar "$JAR" &
   ${SELF_DIR}/../zeunit/src/block-actor.escript ${BLOCKING_TIME_IN_MS}
-  sleep "$RUNNING_TIME"
   jcmd | grep clouseau | cut -d' ' -f1 >"$TMP_DIR/t$i.pid"
   before_kill_timestamp=$(date +%s)
   pkill -F "$TMP_DIR/t$i.pid"
