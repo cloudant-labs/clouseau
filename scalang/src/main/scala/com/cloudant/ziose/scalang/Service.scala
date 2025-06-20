@@ -495,29 +495,23 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           }
         }
       case Some(info: ETerm) => {
-        try {
-          ZIO
-            .succeed(handleInfo(adapter.toScala(info)))
-            .as(ActorResult.Continue())
-        } catch {
-          case err: Throwable => {
+        ZIO
+          .attemptBlockingInterrupt(handleInfo(adapter.toScala(info)))
+          .mapError(err => {
             printThrowable("onMessage[ETerm]", err)
-            ZIO.fail(HandleInfoCBError(err))
-          }
-        }
+            HandleInfoCBError(err)
+          })
+          .as(ActorResult.Continue())
       }
       case Some(info) => {
         ZIO.logError(s"nothing matched but it is not a ETerm $info")
-        try {
-          ZIO
-            .succeed(handleInfo(adapter.toScala(info)))
-            .as(ActorResult.Continue())
-        } catch {
-          case err: Throwable => {
+        ZIO
+          .attemptBlockingInterrupt(handleInfo(adapter.toScala(info)))
+          .mapError(err => {
             printThrowable("onMessage[Any]", err)
-            ZIO.fail(HandleInfoCBError(err))
-          }
-        }
+            HandleInfoCBError(err)
+          })
+          .as(ActorResult.Continue())
       }
       case None => ZIO.fail(UnreachableError())
     }
@@ -557,28 +551,26 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
       case ETuple(from: EPid, ref: ERef) => (Pid.toScala(from), Reference.toScala(ref))
       case _                             => throw new Throwable("unreachable")
     }
-    try {
-      val result = handleCall(callerTag, adapter.toScala(request))
-      for {
-        res <- result match {
-          case (Symbol("reply"), replyTerm) =>
-            Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
-          case Symbol("noreply") =>
-            ZIO.succeed(ActorResult.Continue())
-          case (Symbol("stop"), reason: String, replyTerm) =>
-            Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.StopWithReasonString(reason))
-          case (Symbol("stop"), reason: Any, replyTerm) =>
-            Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.StopWithReasonTerm(adapter.fromScala(reason)))
-          case replyTerm =>
-            Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
-        }
-      } yield res
-    } catch {
-      case err: Throwable => {
-        printThrowable("onMessage[$gen_call]", err)
-        ZIO.fail(HandleCallCBError(err))
+    for {
+      result <- ZIO
+        .attemptBlockingInterrupt(handleCall(callerTag, adapter.toScala(request)))
+        .mapError(err => {
+          printThrowable("onMessage[$gen_call]", err)
+          HandleCallCBError(err)
+        })
+      res <- result match {
+        case (Symbol("reply"), replyTerm) =>
+          Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
+        case Symbol("noreply") =>
+          ZIO.succeed(ActorResult.Continue())
+        case (Symbol("stop"), reason: String, replyTerm) =>
+          Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.StopWithReasonString(reason))
+        case (Symbol("stop"), reason: Any, replyTerm) =>
+          Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.StopWithReasonTerm(adapter.fromScala(reason)))
+        case replyTerm =>
+          Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
       }
-    }
+    } yield res
   }
 
   def ping(to: Pid): Boolean                   = Service.ping(to)

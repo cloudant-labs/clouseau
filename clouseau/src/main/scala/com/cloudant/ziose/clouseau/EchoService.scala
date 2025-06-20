@@ -23,6 +23,10 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
           (Symbol("echo_reply"), from, ts, self.pid, now(), seq)
         )
         send(from, reply)
+      case (Symbol("block_for_ms"), durationInMs: Int) =>
+        logger.warn(s"Blocking the actor loop for ${durationInMs} ms")
+        Thread.sleep(durationInMs)
+        logger.warn(s"Blocking the actor loop is over")
       case msg =>
         logger.info(s"[WARNING][handleInfo] Unexpected message: $msg ...")
     }
