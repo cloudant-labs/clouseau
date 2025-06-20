@@ -19,7 +19,8 @@ JAR=$1
 : "${RUNNING_TIME:=15}"
 : "${TIMEOUT:=10}"
 # blocking for 5 min to make sure we are able to interrupt
-: "${BLOCKING_TIME_IN_MS:=300000}"
+: "${BLOCKING_TIME_IN_SEC:=300}"
+BLOCKING_TIME_IN_MS=$(( ${BLOCKING_TIME_IN_SEC} * 1000 ))
 
 console::infoLn "==> Restart tests: run $RETRY times"
 rm -f "$TMP_DIR"/t*.pid "$TMP_DIR"/t*.thread_dump
@@ -29,15 +30,18 @@ for i in $(seq 1 "$RETRY"); do
   ${SELF_DIR}/../zeunit/src/block-actor.escript ${BLOCKING_TIME_IN_MS}
   sleep "$RUNNING_TIME"
   jcmd | grep clouseau | cut -d' ' -f1 >"$TMP_DIR/t$i.pid"
+  before_kill_timestamp=$(date +%s)
   pkill -F "$TMP_DIR/t$i.pid"
 
-  for _ in $(seq 1 "$TIMEOUT"); do
+  for s in $(seq 1 "$TIMEOUT"); do
+    now=$(date +%s)
+    duration=$((${now} - ${before_kill_timestamp}))
     if ! pgrep -F "$TMP_DIR/t$i.pid" >/dev/null 2>&1; then
-      console::infoLn "==> Restart tests: $i - stopped successfully\n"
+      console::infoLn "==> Restart tests: [$(($TIMEOUT - $s)) sec left] $i - stopped successfully after ${duration} second\n"
       rm "$TMP_DIR/t$i.pid"
       break
     else
-      console::infoLn "==> Restart tests: $i - process still running"
+      console::infoLn "==> Restart tests: [$(($TIMEOUT - $s)) sec left] $i - process still running"
     fi
     sleep 1
   done
