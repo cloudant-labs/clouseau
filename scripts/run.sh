@@ -92,8 +92,14 @@ run::processId() {
 }
 
 run::health-check() {
-  [ -z "$2" ] && escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "$1" ||
-  escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "$1" "-setcookie" "$2"
+  local node=${1}
+  local cookie=${2}
+
+  if [ -z "${cookie}" ]; then
+    escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "${node}"
+  else
+    escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "${node}" "-setcookie" "${cookie}"
+  fi
 }
 
 run::eunit() {
