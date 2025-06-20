@@ -5,6 +5,7 @@ import zio._
 import zio.test._
 import zio.test.Assertion._
 import zio.test.junit._
+import helpers.TestRunner
 
 @RunWith(classOf[ZTestJUnitRunner])
 class RegistrySpec extends JUnitRunnableSpec {
@@ -248,4 +249,16 @@ class RegistrySpec extends JUnitRunnableSpec {
   val entry2                                                          = new TestEntry(2, "entry2")
   val entryNew                                                        = new TestEntry(1, "entryNew")
   def testBuildFn(id: Int): ZIO[Any with Scope, Throwable, TestEntry] = ZIO.succeed(new TestEntry(id, id.toString))
+}
+
+/**
+ * ```shell
+ * rm artifacts/clouseau_*.jar ; make jartest
+ * java -cp artifacts/clouseau_*_test.jar com.cloudant.ziose.core.RegistrySpecMain
+ * ```
+ */
+object RegistrySpecMain {
+  def main(args: Array[String]): Unit = {
+    TestRunner.runSpec("RegistrySpec", new RegistrySpec().spec.provideLayer(Scope.default))
+  }
 }

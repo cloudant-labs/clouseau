@@ -12,6 +12,7 @@ import zio._
 import zio.test._
 import zio.test.Assertion._
 import zio.test.junit._
+import com.cloudant.ziose.test.helpers.TestRunner
 
 @RunWith(classOf[ZTestJUnitRunner])
 class MetricsSpec extends JUnitRunnableSpec {
@@ -97,4 +98,16 @@ class MetricsSpec extends JUnitRunnableSpec {
   )
 
   def spec = suite("metrics")(metricsSuite).provideLayer(environment)
+}
+
+/**
+ * ```shell
+ * rm artifacts/clouseau_*.jar ; make jartest
+ * java -cp artifacts/clouseau_*_test.jar com.cloudant.ziose.scalang.MetricsSpecMain
+ * ```
+ */
+object MetricsSpecMain {
+  def main(args: Array[String]): Unit = {
+    TestRunner.runSpec("MetricsSpec", new MetricsSpec().spec)
+  }
 }

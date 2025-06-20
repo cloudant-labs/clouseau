@@ -9,6 +9,7 @@ import zio.test.Assertion.{anything, fails, isSubtype, succeeds}
 import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
 import zio.test.TestSystem.{Data, DefaultData}
 import zio.test.{Spec, TestSystem, assert, assertTrue}
+import com.cloudant.ziose.test.helpers.TestRunner
 
 @RunWith(classOf[ZTestJUnitRunner])
 class MainSpec extends JUnitRunnableSpec {
@@ -86,4 +87,17 @@ class MainSpec extends JUnitRunnableSpec {
   }
 
   def spec: Spec[Any, Throwable] = suite("MainSpec")(getConfigSuite, nodeIdxSuite)
+}
+
+/**
+ * ```shell
+ * rm artifacts/clouseau_*.jar ; make jartest
+ * java -cp artifacts/clouseau_*_test.jar com.cloudant.ziose.clouseau.MainSpecMain
+ * ```
+ */
+object MainSpecMain {
+  def main(args: Array[String]): Unit = {
+    // We cannot test getConfigSuite because it rely on resource files which we don't have when we run from jar
+    TestRunner.runSpec("MainSpec", zio.test.suite("MainSpec")(new MainSpec().nodeIdxSuite))
+  }
 }

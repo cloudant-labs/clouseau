@@ -13,6 +13,7 @@ import zio.test.Assertion._
 import zio.test.junit._
 
 import Codec._
+import helpers.TestRunner
 
 @RunWith(classOf[ZTestJUnitRunner])
 class MessageEnvelopeSpec extends JUnitRunnableSpec {
@@ -76,6 +77,21 @@ class MessageEnvelopeSpec extends JUnitRunnableSpec {
   def spec: Spec[Any with Scope, Throwable] = {
     suite("MessageEnvelopeSpec")(
       exceptionsSuite
+    )
+  }
+}
+
+/**
+ * ```shell
+ * rm artifacts/clouseau_*.jar ; make jartest
+ * java -cp artifacts/clouseau_*_test.jar com.cloudant.ziose.core.MessageEnvelopeSpecMain
+ * ```
+ */
+object MessageEnvelopeSpecMain {
+  def main(args: Array[String]): Unit = {
+    TestRunner.runSpec(
+      "MessageEnvelopeSpec",
+      new MessageEnvelopeSpec().spec.provideLayer(Scope.default)
     )
   }
 }

@@ -12,6 +12,7 @@ import com.cloudant.ziose.core
 import zio.test._
 import zio.test.TestAspect
 import com.cloudant.ziose.test.helpers.Asserts._
+import com.cloudant.ziose.test.helpers.TestRunner
 
 @RunWith(classOf[ZTestJUnitRunner])
 class ClouseauSupervisorSpec extends JUnitRunnableSpec {
@@ -132,5 +133,17 @@ class ClouseauSupervisorSpec extends JUnitRunnableSpec {
     suite("ServiceSpec")(
       clouseauSupervisorSpecSuite
     ) @@ TestAspect.timeout(15.minutes)
+  }
+}
+
+/**
+ * ```shell
+ * rm artifacts/clouseau_*.jar ; make jartest
+ * java -cp artifacts/clouseau_*_test.jar com.cloudant.ziose.clouseau.ClouseauSupervisorSpecMain
+ * ```
+ */
+object ClouseauSupervisorSpecMain {
+  def main(args: Array[String]): Unit = {
+    TestRunner.runSpec("ClouseauSupervisorSpec", new ClouseauSupervisorSpec().spec)
   }
 }
