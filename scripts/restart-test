@@ -1,4 +1,8 @@
 #!/bin/bash
+## -*- mode: shell -*-
+## vim: set filetype=shell
+## sublimeconf: filetype=shell
+
 SELF_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
 TMP_DIR=${SELF_DIR}/../tmp
 
