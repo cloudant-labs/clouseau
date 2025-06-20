@@ -3,6 +3,9 @@
 ## vim: set filetype=shell
 ## sublimeconf: filetype=shell
 
+# https://vaneyckt.io/posts/safer_bash_scripts_with_set_euxo_pipefail/
+set -Eeuo pipefail
+
 SELF_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
 TMP_DIR=${SELF_DIR}/../tmp
 
@@ -29,13 +32,12 @@ for i in $(seq 1 "$RETRY"); do
   pkill -F "$TMP_DIR/t$i.pid"
 
   for _ in $(seq 1 "$TIMEOUT"); do
-    pgrep -F "$TMP_DIR/t$i.pid" >/dev/null 2>&1
-    STATUS=$?
-    console::infoLn "==> Restart tests: $i, status: $STATUS"
-    if [ $STATUS -eq 1 ]; then
-      console::infoLn "==> Restart tests: $i stopped successfully\n"
+    if ! pgrep -F "$TMP_DIR/t$i.pid" >/dev/null 2>&1; then
+      console::infoLn "==> Restart tests: $i - stopped successfully\n"
       rm "$TMP_DIR/t$i.pid"
       break
+    else
+      console::infoLn "==> Restart tests: $i - process still running"
     fi
     sleep 1
   done
