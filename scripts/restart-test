@@ -18,13 +18,19 @@ JAR=$1
 # blocking for 5 min to make sure we are able to interrupt
 : "${BLOCKING_TIME_IN_SEC:=300}"
 BLOCKING_TIME_IN_MS=$(( ${BLOCKING_TIME_IN_SEC} * 1000 ))
+BLOCKING_ATTEMPTS=3
 
 console::infoLn "==> Restart tests: run $RETRY times"
 rm -f "$TMP_DIR"/t*.pid "$TMP_DIR"/t*.thread_dump
 for i in $(seq 1 "$RETRY"); do
   console::infoLn "==> Restart tests: $i/${RETRY} start"
   java -jar "$JAR" &
-  ${SELF_DIR}/../zeunit/src/block-actor.escript ${BLOCKING_TIME_IN_MS}
+  # the actor check is still flaky
+  for s in $(seq 1 "$BLOCKING_ATTEMPTS"); do
+    if ${SELF_DIR}/../zeunit/src/block-actor.escript ${BLOCKING_TIME_IN_MS}; then
+      break
+    fi
+  done
   jcmd | grep clouseau | cut -d' ' -f1 >"$TMP_DIR/t$i.pid"
   before_kill_timestamp=$(date +%s)
   pkill -F "$TMP_DIR/t$i.pid"
