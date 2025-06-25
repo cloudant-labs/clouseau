@@ -51,7 +51,7 @@ run::stop() {
     printf ">>>>>> Waiting... (%d seconds left)\n" $(expr ${STOP_TIMEOUT_SEC} - $i); \
     sleep 1; \
     pid=$(cat "$pid_file"); \
-    if ! pgrep -F "$pid_file" ; then \
+    if ! pgrep -F "$pid_file" >/dev/null 2>&1; then \
       echo ">>>>>> \"${1}\" stopped"; \
       rm -f "$pid_file"; \
       break; \

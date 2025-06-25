@@ -57,7 +57,6 @@ Execute set of check which would verify the environment and print out hints what
 * `cli start [name] [command]` - start clouseau node
 
 ```bash
-cli start "clouseau1" "sbt run -Dnode=clouseau1"
 cli start "clouseau" "java -jar clouseau.jar"
 ```
 
