@@ -24,7 +24,7 @@ run::start() {
   local log_file="${TMP_DIR}/${id}.${ts}.log"
 
   shift
-  console::infoLn "Starting \"${id}\" using \"${@}\" ...."
+  console::infoLn "Starting \"${id}\" using \"${*}\" ...."
   $@ > ${log_file} 2>&1 &
   echo $! >"$pid_file"
   run::print_log "${id}"
