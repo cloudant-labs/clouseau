@@ -14,7 +14,7 @@ ERLFMT?=erlfmt
 COUCHDB_REPO?=https://github.com/apache/couchdb
 COUCHDB_COMMIT?=main
 COUCHDB_ROOT?=deps/couchdb
-COUCHDB_CONFIGURE_ARGS?=--js-engine=quickjs --disable-docs --disable-fauxton --disable-spidermonkey
+COUCHDB_CONFIGURE_ARGS?=--dev --disable-spidermonkey
 
 TIMEOUT_CLOUSEAU_SEC?=120
 TIMEOUT_MANGO_TEST?=20m
@@ -499,6 +499,14 @@ $(COUCHDB_DIR)/.checked_out:
 
 $(COUCHDB_DIR)/.configured: $(COUCHDB_DIR)/.checked_out
 	@cd $(COUCHDB_DIR) && ./configure $(COUCHDB_CONFIGURE_ARGS)
+	@if [ ! -f $(COUCHDB_DIR)/bin/rebar3 ]; then \
+  	REBAR3_PATH=$$(which rebar3); \
+  	if [ -x "$$REBAR3_PATH" ]; then \
+  	  ln -s $$REBAR3_PATH $(COUCHDB_DIR)/bin/rebar3; \
+		else \
+		  echo "rebar3 not found or not executable. Please install rebar3."; \
+		fi; \
+	fi
 	@touch $(COUCHDB_DIR)/.configured
 
 $(COUCHDB_DIR)/.compiled: $(COUCHDB_DIR)/.configured

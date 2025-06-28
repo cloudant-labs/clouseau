@@ -24,5 +24,5 @@ bat 0.24.0
 spotbugs 4.8.6
 
 # CouchDB tests
-elixir 1.17.3-otp-25
+elixir 1.17.3-otp-26
 python 3.12.7
