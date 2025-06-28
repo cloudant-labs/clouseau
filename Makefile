@@ -548,7 +548,7 @@ test-failed:
 	@cli tdump $(ID)
 	@epmd -stop $(ID) >/dev/null 2>&1 || true
 	@cli stop $(ID)
-	@echo ">>>> The test failed below are the process logs"
+	@echo ">>>> FAILED: The test failed. Below are the process logs:"
 	@cat $(shell cli logs $(ID))
 	@exit 1
 
@@ -582,8 +582,13 @@ metrics-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
 	@java -cp collectd clouseau "service:jmx:rmi:///jndi/rmi://localhost:9090/jmxrmi" monitorRole password > collectd/metrics.out
 	@cli stop $@
 	@echo "Comparing collected metrics with expectations:"
-	@if diff -u collectd/metrics.out collectd/metrics.expected; then \
+	@DIFF=$$(diff -u collectd/metrics.out collectd/metrics.expected); \
+	if [[ -z $$DIFF ]]; then \
 		echo "Everything is in order"; \
+	else \
+	  echo '>>>> FAILED: Metrics is different from "collectd/metrics.expected"!'; \
+	  echo "$$DIFF"; \
+	  exit 1; \
 	fi
 
 FORCE: # https://www.gnu.org/software/make/manual/html_node/Force-Targets.html
