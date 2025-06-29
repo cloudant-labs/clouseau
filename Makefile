@@ -309,7 +309,7 @@ ci-elixir: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar cou
 
 ci-metrics: metrics-tests
 
-ci-verify: check-spotbugs
+ci-verify: check-deps check-spotbugs
 
 ci-syslog: syslog-tests
 
