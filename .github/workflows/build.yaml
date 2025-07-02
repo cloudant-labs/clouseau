@@ -14,7 +14,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     env:
       CLOUSEAU_LOG: deps/couchdb.main/dev/logs/clouseau1.log
     steps:
