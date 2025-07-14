@@ -1,4 +1,11 @@
 #!/bin/bash
+## -*- mode: shell -*-
+## vim: set filetype=shell
+## sublimeconf: filetype=shell
+
+# https://vaneyckt.io/posts/safer_bash_scripts_with_set_euxo_pipefail/
+set -Eeuo pipefail
+
 SELF_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
 TMP_DIR=${SELF_DIR}/../tmp
 
@@ -7,31 +14,36 @@ mkdir -p "$TMP_DIR"
 
 JAR=$1
 : "${RETRY:=30}"
-# Make sure the "InitService" is created and started,
-# otherwise the tests will become unstable.
-: "${RUNNING_TIME:=15}"
 : "${TIMEOUT:=10}"
 # blocking for 5 min to make sure we are able to interrupt
-: "${BLOCKING_TIME_IN_MS:=300000}"
+: "${BLOCKING_TIME_IN_SEC:=300}"
+BLOCKING_TIME_IN_MS=$(( ${BLOCKING_TIME_IN_SEC} * 1000 ))
+BLOCKING_ATTEMPTS=3
 
 console::infoLn "==> Restart tests: run $RETRY times"
 rm -f "$TMP_DIR"/t*.pid "$TMP_DIR"/t*.thread_dump
 for i in $(seq 1 "$RETRY"); do
-  console::infoLn "==> Restart tests: $i start"
+  console::infoLn "==> Restart tests: $i/${RETRY} start"
   java -jar "$JAR" &
-  ${SELF_DIR}/../zeunit/src/block-actor.escript ${BLOCKING_TIME_IN_MS}
-  sleep "$RUNNING_TIME"
+  # the actor check is still flaky
+  for s in $(seq 1 "$BLOCKING_ATTEMPTS"); do
+    if ${SELF_DIR}/../zeunit/src/block-actor.escript ${BLOCKING_TIME_IN_MS}; then
+      break
+    fi
+  done
   jcmd | grep clouseau | cut -d' ' -f1 >"$TMP_DIR/t$i.pid"
+  before_kill_timestamp=$(date +%s)
   pkill -F "$TMP_DIR/t$i.pid"
 
-  for _ in $(seq 1 "$TIMEOUT"); do
-    pgrep -F "$TMP_DIR/t$i.pid" >/dev/null 2>&1
-    STATUS=$?
-    console::infoLn "==> Restart tests: $i, status: $STATUS"
-    if [ $STATUS -eq 1 ]; then
-      console::infoLn "==> Restart tests: $i stopped successfully\n"
+  for s in $(seq 1 "$TIMEOUT"); do
+    now=$(date +%s)
+    duration=$((${now} - ${before_kill_timestamp}))
+    if ! pgrep -F "$TMP_DIR/t$i.pid" >/dev/null 2>&1; then
+      console::infoLn "==> Restart tests: [$(($TIMEOUT - $s)) sec left] $i/${RETRY} - stopped successfully after ${duration} second\n"
       rm "$TMP_DIR/t$i.pid"
       break
+    else
+      console::infoLn "==> Restart tests: [$(($TIMEOUT - $s)) sec left] $i/${RETRY} - process still running"
     fi
     sleep 1
   done
@@ -39,7 +51,7 @@ for i in $(seq 1 "$RETRY"); do
   if [ -f "$TMP_DIR/t$i.pid" ]; then
     jstack "$(cat "$TMP_DIR/t$i.pid")" >"$TMP_DIR/t$i.thread_dump"
     pkill -9 -F "$TMP_DIR/t$i.pid"
-    console::errorLn "==> Restart tests: $i failed. Please check $TMP_DIR/t$i.thread_dump"
+    console::errorLn "==> Restart tests: $i/${RETRY} failed. Please check $TMP_DIR/t$i.thread_dump"
     exit 1
   fi
 done

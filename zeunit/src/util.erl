@@ -20,7 +20,7 @@
 -define(PING_TIMEOUT_IN_MS, 3000).
 -define(SERVICE_CHECK_ATTEMPTS, 30).
 -define(SERVICE_CHECK_WAITTIME_IN_MS, 1500).
--define(RETRY_DELAY, 50).
+-define(RETRY_DELAY, 300).
 
 a2l(V) -> atom_to_list(V).
 l2a(V) -> list_to_atom(V).
