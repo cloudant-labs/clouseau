@@ -25,7 +25,7 @@ run::start() {
 
   shift
   console::infoLn "Starting \"${id}\" using \"${*}\" ...."
-  $@ > ${log_file} 2>&1 &
+  $@ >"${log_file}" 2>&1 &
   echo $! >"$pid_file"
   run::print_log "${id}"
 }
@@ -69,7 +69,7 @@ run::java_thread_dump() {
   if [ $# -eq 1 ]; then
     jstack "$(cat "${pid_file}")"
   else
-    jstack "$(cat "${pid_file}")" > $2
+    jstack "$(cat "${pid_file}")" >"$2"
   fi
 }
 
