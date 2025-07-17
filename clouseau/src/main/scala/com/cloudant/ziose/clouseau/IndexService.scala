@@ -122,7 +122,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       sendEvery(self.pid, 'close_if_idle, idleTimeout * 1000)
     }
 
-    logger.info(prefix_name("Opened at update_seq %d".format(updateSeq)))
+    logger.debug(prefix_name("Opened at update_seq %d".format(updateSeq)))
   }
 
   override def onTermination[PContext <: ProcessContext](reason: Codec.ETerm, ctx: PContext) = {

@@ -28,7 +28,7 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
         Thread.sleep(durationInMs)
         logger.warn(s"Blocking the actor loop is over")
       case msg =>
-        logger.info(s"[WARNING][handleInfo] Unexpected message: $msg ...")
+        logger.warn(s"[handleInfo] Unexpected message: $msg ...")
     }
   }
 
@@ -39,7 +39,7 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
       case (Symbol("stop"), reason: Symbol) =>
         (Symbol("stop"), reason, adapter.fromScala(request))
       case msg =>
-        logger.info(s"[WARNING][handleCall] Unexpected message: $msg ...")
+        logger.warn(s"[handleCall] Unexpected message: $msg ...")
     }
   }
   override def onTermination[PContext <: ProcessContext](reason: core.Codec.ETerm, ctx: PContext) = {
