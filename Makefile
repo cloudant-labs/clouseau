@@ -421,10 +421,11 @@ artifacts: $(ARTIFACTS_DIR) $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 
 .PHONY: release
 # target: release - Push release to github
+release: MAYBE_PRERELEASE := $(shell [[ "$(PROJECT_VERSION)" =~ ^.*-[rR][cC][0-9]*$$ ]] && echo "--prerelease")
 release: $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 	GH_DEBUG=1 GH_HOST=github.ibm.com gh release list --repo github.ibm.com/cloudant/ziose
 	GH_DEBUG=1 GH_HOST=github.ibm.com gh release create "$(PROJECT_VERSION)" \
-		--target "$$(git rev-parse HEAD)" \
+		$(MAYBE_PRERELEASE) --target "$$(git rev-parse HEAD)" \
 		--repo github.ibm.com/cloudant/ziose \
 		--title "Release $(PROJECT_VERSION)" \
 		--generate-notes $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
