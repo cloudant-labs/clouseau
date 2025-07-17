@@ -296,6 +296,7 @@ ci-zeunit: zeunit $(CI_ARTIFACTS_DIR)
 
 ci-mango: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar couchdb epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
+	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
 	@cli stop $@
@@ -354,6 +355,7 @@ restart-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar 
 # target: zeunit - Run integration tests with ~/.erlang.cookie: `make zeunit`; otherwise `make zeunit cookie=<cookie>`
 zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
+	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
 	@$(call to_artifacts,zeunit,test-reports)
@@ -564,6 +566,7 @@ metrics-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
        -Dcom.sun.management.jmxremote.ssl=false \
        -Dcom.sun.management.jmxremote.password.file=jmxremote.password \
        -jar $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar" > /dev/null
+	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@echo "Warming up Clouseau to expose all the metrics"
 	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
@@ -613,6 +616,7 @@ syslog-tests:
 
 concurrent-zeunit-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $< concurrent.app.conf"
+	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
 	@cli stop $@
