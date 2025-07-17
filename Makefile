@@ -62,8 +62,8 @@ ALL_SUBPROJECTS := $(SCALA_SUBPROJECTS) test
 BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%TZ")
 ERL_EPMD_ADDRESS?=127.0.0.1
 
-node_name?=clouseau1
-cookie=$(ERLANG_COOKIE)
+node_name ?= clouseau1
+cookie ?= $(ERLANG_COOKIE)
 # Rebar options
 suites=
 tests=
@@ -354,6 +354,7 @@ restart-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar 
 # target: zeunit - Run integration tests with ~/.erlang.cookie: `make zeunit`; otherwise `make zeunit cookie=<cookie>`
 zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
+	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
 	@$(call to_artifacts,zeunit,test-reports)
 	@cli stop $@
@@ -612,6 +613,7 @@ syslog-tests:
 
 concurrent-zeunit-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $< concurrent.app.conf"
+	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
 	@cli stop $@
 
