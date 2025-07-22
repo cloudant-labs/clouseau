@@ -5,8 +5,6 @@ BUILD_DIR=$(shell pwd)
 ARTIFACTS_DIR=$(BUILD_DIR)/artifacts
 CI_ARTIFACTS_DIR=$(BUILD_DIR)/ci-artifacts
 
-REBAR?=rebar3
-
 COUCHDB_REPO?=https://github.com/apache/couchdb
 COUCHDB_COMMIT?=main
 COUCHDB_ROOT?=deps/couchdb
@@ -15,7 +13,18 @@ COUCHDB_CONFIGURE_ARGS?=--dev --disable-spidermonkey
 TIMEOUT_MANGO_TEST?=20m
 TIMEOUT_ELIXIR_SEARCH?=20m
 
+REBAR?=rebar3
+
 ERLANG_COOKIE?=	#
+ifneq ($(ERLANG_COOKIE),)
+	_JAVA_COOKIE=-Dcookie=$(ERLANG_COOKIE)
+	_DEVRUN_COOKIE=--erlang-cookie=$(ERLANG_COOKIE)
+	_ERLCALL_COOKIE=-c $(ERLANG_COOKIE)
+else
+	_JAVA_COOKIE=
+	_DEVRUN_COOKIE=
+	_ERLCALL_COOKIE=
+endif
 
 ERL_SRCS?=$(shell git ls-files -- "*/rebar.config" "*.[e,h]rl" "*.app.src" "*.escript")
 ifeq ($(PROJECT_VSN),)
@@ -164,16 +173,6 @@ clean-user-cache:
 	@rm -fvr ./project/target
 	@rm -fvr ./project/project/target
 	@rm -fvr  ~/Library/Caches/Coursier/v1/https
-
-ifneq ($(ERLANG_COOKIE),)
-_JAVA_COOKIE=-Dcookie=$(ERLANG_COOKIE)
-_DEVRUN_COOKIE=--erlang-cookie=$(ERLANG_COOKIE)
-_ERLCALL_COOKIE=-c $(ERLANG_COOKIE)
-else
-_JAVA_COOKIE=
-_DEVRUN_COOKIE=
-_ERLCALL_COOKIE=
-endif
 
 .PHONY: clouseau1 clouseau2 clouseau3
 # target: clouseau1 - Start local instance of clouseau1 node
