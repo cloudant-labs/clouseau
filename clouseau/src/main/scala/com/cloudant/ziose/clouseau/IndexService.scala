@@ -14,6 +14,8 @@ package com.cloudant.ziose.clouseau
 
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicInteger
+
 import org.apache.lucene.document._
 import org.apache.lucene.index._
 import org.apache.lucene.store._
@@ -85,6 +87,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   var committing = false
   var forceRefresh = false
   var idle = true
+  var concurrentRequests = new AtomicInteger(0)
 
   def reader = lazyReader.getOrElse(throw InvalidReader)
   def setReader(reader: DirectoryReader) =
@@ -102,7 +105,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   val timeAllowed = ctx.args.config.getLong("clouseau.search_allowed_timeout_msecs", 5000)
   val countFieldsEnabled = ctx.args.config.getBoolean("clouseau.count_fields", false)
 
-  val concurrentSearchEnabled = ctx.args.config.getBoolean("clouseau.enable_concurrent_search", false)
+  val concurrentSearchEnabled = ctx.args.config.getBoolean("clouseau.concurrent_search_enabled", false)
+  val concurrentSearchLimit = ctx.args.config.getInt("clouseau.concurrent_search_limit", 1000)
 
   // Check if the index is idle and optionally close it if there is no activity between
   //Two consecutive idle status checks.
@@ -144,11 +148,21 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   def internalHandleCall(tag: (Pid, Any), msg: Any): Any = msg match {
     case request: SearchRequest =>
       if (concurrentSearchEnabled) {
-        node.spawn(_ => {
-          val result = search(request)
-          Service.reply(tag, result)
-        })
-        'noreply
+        if (concurrentRequests.getAndIncrement() <= concurrentSearchLimit) {
+          node.spawn(_ => {
+                try {
+                  val result = search(request)
+                  Service.reply(tag, result)
+                } finally {
+                  concurrentRequests.decrementAndGet()
+                }
+          })
+          'noreply
+        } else {
+          // compensate for an increment we did in condition checking
+          concurrentRequests.decrementAndGet()
+          search(request)
+        }
       } else {
         search(request)
       }

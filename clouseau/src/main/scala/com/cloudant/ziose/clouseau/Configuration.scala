@@ -70,7 +70,8 @@ final case class ClouseauConfiguration(
   commit_interval_secs: Option[Int] = None,
   lock_class: Option[String] = None,
   dir_class: Option[String] = None,
-  enable_concurrent_search: Option[Boolean] = None
+  concurrent_search_enabled: Option[Boolean] = None,
+  concurrent_search_limit: Option[Int] = None
 ) {
   def getString(key: String, default: String) = key match {
     case "clouseau.dir" =>
@@ -87,6 +88,7 @@ final case class ClouseauConfiguration(
     case "clouseau.lru_update_interval_msecs" => lru_update_interval_msecs.getOrElse(default)
     case "clouseau.max_indexes_open"          => max_indexes_open.getOrElse(default)
     case "commit_interval_secs"               => commit_interval_secs.getOrElse(default)
+    case "clouseau.concurrent_search_limit"   => concurrent_search_limit.getOrElse(default)
     case _                                    => throw new Exception(s"Unexpected Int key '$key'")
   }
   def getLong(key: String, default: Long) = key match {
@@ -94,12 +96,12 @@ final case class ClouseauConfiguration(
     case _                                       => throw new Exception(s"Unexpected Long key '$key'")
   }
   def getBoolean(key: String, default: Boolean) = key match {
-    case "clouseau.count_fields"             => count_fields.getOrElse(default)
-    case "clouseau.count_locks"              => count_locks.getOrElse(default)
-    case "clouseau.close_if_idle"            => close_if_idle.getOrElse(default)
-    case "field_cache_metrics"               => field_cache_metrics.getOrElse(default)
-    case "clouseau.enable_concurrent_search" => enable_concurrent_search.getOrElse(default)
-    case _                                   => throw new Exception(s"Unexpected Boolean key '$key'")
+    case "clouseau.count_fields"              => count_fields.getOrElse(default)
+    case "clouseau.count_locks"               => count_locks.getOrElse(default)
+    case "clouseau.close_if_idle"             => close_if_idle.getOrElse(default)
+    case "field_cache_metrics"                => field_cache_metrics.getOrElse(default)
+    case "clouseau.concurrent_search_enabled" => concurrent_search_enabled.getOrElse(default)
+    case _                                    => throw new Exception(s"Unexpected Boolean key '$key'")
   }
 
   @CheckEnv(System.getProperty("env"))
@@ -114,7 +116,11 @@ final case class ClouseauConfiguration(
     s"lru_update_interval_msecs=$lru_update_interval_msecs",
     s"max_indexes_open=$max_indexes_open",
     s"field_cache_metrics=$field_cache_metrics",
-    s"commit_interval_secs=$commit_interval_secs"
+    s"commit_interval_secs=$commit_interval_secs",
+    s"lock_class=$lock_class",
+    s"dir_class=$dir_class",
+    s"concurrent_search_enabled=$concurrent_search_enabled",
+    s"concurrent_search_limit=$concurrent_search_limit"
   )
 }
 
