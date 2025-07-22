@@ -1,13 +1,10 @@
 # Use bash to enable `read -d ''` option
 SHELL := /bin/bash
-PROJECT_NAME=ziose
-CACHE?=true
+
 BUILD_DIR=$(shell pwd)
 ARTIFACTS_DIR=$(BUILD_DIR)/artifacts
 CI_ARTIFACTS_DIR=$(BUILD_DIR)/ci-artifacts
-GIT_COMMIT?=$(shell git rev-parse HEAD)
-GIT_REPOSITORY?=$(shell git config --get remote.origin.url)
-DIRENV_VERSION := $(shell grep -F 'direnv' .tool-versions | awk '{print $$2}')
+
 REBAR?=rebar3
 ERLFMT?=erlfmt
 
@@ -16,21 +13,10 @@ COUCHDB_COMMIT?=main
 COUCHDB_ROOT?=deps/couchdb
 COUCHDB_CONFIGURE_ARGS?=--dev --disable-spidermonkey
 
-TIMEOUT_CLOUSEAU_SEC?=120
 TIMEOUT_MANGO_TEST?=20m
 TIMEOUT_ELIXIR_SEARCH?=20m
 
 ERLANG_COOKIE?=	#
-
-ifneq ($(JENKINS_URL),)
-# CI invocation
-	REGISTRY?=docker-na.artifactory.swg-devops.com/wcp-cloudant-registry-hub-docker-remote
-	REQUIRE_ARTIFACTORY=true
-else
-# Local invocation
-	REGISTRY?=docker.io
-	REQUIRE_ARTIFACTORY=false
-endif
 
 ERL_SRCS?=$(shell git ls-files -- "*/rebar.config" "*.erl" "*.hrl" "*.app.src" "*.escript")
 ifeq ($(PROJECT_VERSION),)
@@ -59,9 +45,7 @@ SCALA_SHORT_VERSION := $(SCALA_MAJOR).$(SCALA_MINOR)
 SCALA_SUBPROJECTS := clouseau core otp scalang
 ALL_SUBPROJECTS := $(SCALA_SUBPROJECTS) test
 
-BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%TZ")
 ERL_EPMD_ADDRESS?=127.0.0.1
-
 node_name ?= clouseau1
 cookie ?= $(ERLANG_COOKIE)
 # Rebar options
@@ -70,19 +54,6 @@ tests=
 
 # We use `suites` instead of `module` to be compatible with CouchDB
 EUNIT_OPTS := "--setcookie=$(cookie) --module=$(suites) --test=$(tests)"
-
-UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S),Linux)
-	OS=linux
-endif
-ifeq ($(UNAME_S),Darwin)
-	OS=darwin
-endif
-
-ENCODED_GHE_USR=$(shell echo ${GHE_USR} | sed 's/@/%40/g' )
-GHE_AUTH_URL=https://${ENCODED_GHE_USR}:${GHE_PSW}@github.ibm.com
-
-KNOWN_CVEs = \
 
 JAR_FILES := \
 	clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
@@ -105,14 +76,6 @@ skip ?= vendor
 COMMON_PATH := /target/scala-$(SCALA_SHORT_VERSION)/classes
 SPOTBUGS_OPTS = $(foreach app,$(filter-out $(subst $(comma),$(space),$(skip)),$(subst $(comma),$(space),$(apps))),$(app)$(COMMON_PATH))
 
-define extract
-echo "$(1)  $(2) $(3)" && \
-CONTAINER_ID=`docker create --read-only $(1) dummy` \
-&& echo "Copying binary $(2) from container $$CONTAINER_ID" \
-&& docker cp $$CONTAINER_ID:$(2) $(3) 2> /dev/null \
-&& docker rm -f $$CONTAINER_ID 2> /dev/null
-endef
-
 define to_artifacts
 	find $(1) -name '$(2)' -print0 | while IFS= read -r -d '' pathname; \
 	do \
@@ -123,23 +86,10 @@ define to_artifacts
 	done
 endef
 
-ifeq ($(CACHE),true)
-	DOCKER_ARGS=--pull
-else
-	DOCKER_ARGS=--pull --no-cache --rm
-endif
-
 .PHONY: build
 # target: build - Build package, run tests and create distribution
 build: epmd
 	@sbt compile
-
-.PHONY: deps
-# target: deps - Download all dependencies for offline development
-# this target is not working correctly yet
-deps:
-	@echo "==> downloading dependencies..."
-	@sbt update
 
 .PHONY: all-tests
 # target: all-tests - Run all test suites
@@ -168,8 +118,6 @@ check-fmt: $(ARTIFACTS_DIR)
 # target: check-deps - Detect publicly disclosed vulnerabilities
 check-deps: build $(ARTIFACTS_DIR)
 	@sbt dependencyCheck
-	echo "Finished dependency check"
-	@find .
 	@$(call to_artifacts,$(SCALA_SUBPROJECTS),dependency-check-report.*)
 
 .PHONY: check-spotbugs
@@ -261,20 +209,6 @@ help:
 tree:
 	@tree -I 'build' --matchdirs
 
-
-# CI Pipeline
-define docker_func
-	@DOCKER_BUILDKIT=1 BUILDKIT_PROGRESS=plain docker build \
-		--build-arg REGISTRY=${REGISTRY} \
-		--build-arg TERM=${TERM} \
-		--build-arg CMDS="$(1)" \
-		$(DOCKER_ARGS) \
-		-t ${PROJECT_NAME}:${GIT_COMMIT} \
-		.
-	@$(call extract,${PROJECT_NAME}:${GIT_COMMIT},/artifacts,.)
-	@mkdir -p $(CI_ARTIFACTS_DIR)
-endef
-
 ci-lint: check-fmt $(CI_ARTIFACTS_DIR)
 	@cp $(ARTIFACTS_DIR)/*.log $(CI_ARTIFACTS_DIR)
 
@@ -316,29 +250,6 @@ ci-syslog: syslog-tests
 ci-concurrent-zeunit: concurrent-zeunit-tests
 
 ci-restart: restart-test
-
-linter-in-docker: login-image-registry
-	@$(call docker_func,check-fmt)
-	@cp $(ARTIFACTS_DIR)/*.log $(CI_ARTIFACTS_DIR)
-
-build-in-docker: login-image-registry
-	@$(call docker_func,artifacts $(addprefix /artifacts/, $(RELEASE_FILES)))
-	@cp -R $(ARTIFACTS_DIR)/* $(CI_ARTIFACTS_DIR)
-
-bom-in-docker: login-image-registry
-	@$(call docker_func,bom)
-	find $(ARTIFACTS_DIR)
-	find $(ARTIFACTS_DIR)/ -name '*.bom.xml' -exec cp '{}' $(CI_ARTIFACTS_DIR) ';'
-	find $(CI_ARTIFACTS_DIR)
-
-check-deps-in-docker: login-image-registry
-	@$(call docker_func,check-deps)
-	@$(call to_artifacts,$(SCALA_SUBPROJECTS),*dependency-check-report.json)
-	@$(call to_artifacts,$(SCALA_SUBPROJECTS),*dependency-check-report.xml)
-
-check-spotbugs-in-docker: login-image-registry
-	@$(call docker_func,check-spotbugs)
-	@cp $(ARTIFACTS_DIR)/spotbugs.* $(CI_ARTIFACTS_DIR)
 
 # Required by CI's releng-pipeline-library
 .PHONY: version
@@ -456,22 +367,8 @@ $(ARTIFACTS_DIR)/checksums.txt: $(addprefix $(ARTIFACTS_DIR)/, $(CHECKSUM_FILES)
 	@cat $? > $@
 	@cd $(ARTIFACTS_DIR)/ && sha256sum -c checksums.txt
 
-# Authenticate with our image registry before pulling any images
-login-image-registry: check-env-docker
-ifeq ($(REQUIRE_ARTIFACTORY),true)
-	@echo "Docker login Artifactory"
-	@docker login -u "${ARTIFACTORY_USR}" -p "${ARTIFACTORY_PSW}" "${REGISTRY}"
-endif
-
-check-env-docker:
-ifeq ($(REQUIRE_ARTIFACTORY),true)
-	@if [ -z "$${ARTIFACTORY_USR}" ]; then echo "Error: ARTIFACTORY_USR is undefined"; exit 1; fi
-	@if [ -z "$${ARTIFACTORY_PSW}" ]; then echo "Error: ARTIFACTORY_PSW is undefined"; exit 1; fi
-endif
-
 .PHONY: ci-release
 ci-release:
-	@find .
 	@make release
 
 .PHONY: bom
