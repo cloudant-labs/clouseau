@@ -116,7 +116,11 @@ final case class ClouseauConfiguration(
     s"lru_update_interval_msecs=$lru_update_interval_msecs",
     s"max_indexes_open=$max_indexes_open",
     s"field_cache_metrics=$field_cache_metrics",
-    s"commit_interval_secs=$commit_interval_secs"
+    s"commit_interval_secs=$commit_interval_secs",
+    s"lock_class=$lock_class",
+    s"dir_class=$dir_class",
+    s"concurrent_search_enabled=$concurrent_search_enabled",
+    s"concurrent_search_limit=$concurrent_search_limit"
   )
 }
 
