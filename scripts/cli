@@ -211,7 +211,6 @@ zeunit)
   ensure_args 1 "help_topic zeunit" "$@"
   name=$1
   cookie=$(echo "$2" | sed 's/.*=//g')
-  run::health-check "$name" "$cookie" || exit 1
   shift
   [ -z "$cookie" ] && shift
   run::eunit "$@"
@@ -226,8 +225,8 @@ tdump)
 await)
   ensure_args 2 "help_topic await" "$@"
   name=$1
-  cookie=$(echo "$2" | sed 's/.*=//g')
-  run::health-check "$name" "$cookie" || exit 1
+  cookie=$2
+  run::health-check "${name}" "${cookie}" || exit 1
   ;;
 *)
   console::errorLn "Unknown command '${command}'"

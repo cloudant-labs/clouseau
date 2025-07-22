@@ -14,7 +14,7 @@ ERLFMT?=erlfmt
 COUCHDB_REPO?=https://github.com/apache/couchdb
 COUCHDB_COMMIT?=main
 COUCHDB_ROOT?=deps/couchdb
-COUCHDB_CONFIGURE_ARGS?=--js-engine=quickjs --disable-docs --disable-fauxton --disable-spidermonkey
+COUCHDB_CONFIGURE_ARGS?=--dev --disable-spidermonkey
 
 TIMEOUT_CLOUSEAU_SEC?=120
 TIMEOUT_MANGO_TEST?=20m
@@ -62,8 +62,8 @@ ALL_SUBPROJECTS := $(SCALA_SUBPROJECTS) test
 BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%TZ")
 ERL_EPMD_ADDRESS?=127.0.0.1
 
-node_name?=clouseau1
-cookie=$(ERLANG_COOKIE)
+node_name ?= clouseau1
+cookie ?= $(ERLANG_COOKIE)
 # Rebar options
 suites=
 tests=
@@ -296,6 +296,7 @@ ci-zeunit: zeunit $(CI_ARTIFACTS_DIR)
 
 ci-mango: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar couchdb epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
+	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
 	@cli stop $@
@@ -308,7 +309,7 @@ ci-elixir: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar cou
 
 ci-metrics: metrics-tests
 
-ci-verify: check-spotbugs
+ci-verify: check-deps check-spotbugs
 
 ci-syslog: syslog-tests
 
@@ -354,6 +355,8 @@ restart-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar 
 # target: zeunit - Run integration tests with ~/.erlang.cookie: `make zeunit`; otherwise `make zeunit cookie=<cookie>`
 zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
+	@sleep 5
+	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
 	@$(call to_artifacts,zeunit,test-reports)
 	@cli stop $@
@@ -496,6 +499,14 @@ $(COUCHDB_DIR)/.checked_out:
 
 $(COUCHDB_DIR)/.configured: $(COUCHDB_DIR)/.checked_out
 	@cd $(COUCHDB_DIR) && ./configure $(COUCHDB_CONFIGURE_ARGS)
+	@if [ ! -f $(COUCHDB_DIR)/bin/rebar3 ]; then \
+  	REBAR3_PATH=$$(which rebar3); \
+  	if [ -x "$$REBAR3_PATH" ]; then \
+  	  ln -s $$REBAR3_PATH $(COUCHDB_DIR)/bin/rebar3; \
+		else \
+		  echo "rebar3 not found or not executable. Please install rebar3."; \
+		fi; \
+	fi
 	@touch $(COUCHDB_DIR)/.configured
 
 $(COUCHDB_DIR)/.compiled: $(COUCHDB_DIR)/.configured
@@ -537,7 +548,7 @@ test-failed:
 	@cli tdump $(ID)
 	@epmd -stop $(ID) >/dev/null 2>&1 || true
 	@cli stop $(ID)
-	@echo ">>>> The test failed below are the process logs"
+	@echo ">>>> FAILED: The test failed. Below are the process logs:"
 	@cat $(shell cli logs $(ID))
 	@exit 1
 
@@ -563,6 +574,7 @@ metrics-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
        -Dcom.sun.management.jmxremote.ssl=false \
        -Dcom.sun.management.jmxremote.password.file=jmxremote.password \
        -jar $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar" > /dev/null
+	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@echo "Warming up Clouseau to expose all the metrics"
 	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
@@ -570,8 +582,13 @@ metrics-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
 	@java -cp collectd clouseau "service:jmx:rmi:///jndi/rmi://localhost:9090/jmxrmi" monitorRole password > collectd/metrics.out
 	@cli stop $@
 	@echo "Comparing collected metrics with expectations:"
-	@if diff -u collectd/metrics.out collectd/metrics.expected; then \
+	@DIFF=$$(diff -u collectd/metrics.out collectd/metrics.expected); \
+	if [[ -z $$DIFF ]]; then \
 		echo "Everything is in order"; \
+	else \
+	  echo '>>>> FAILED: Metrics is different from "collectd/metrics.expected"!'; \
+	  echo "$$DIFF"; \
+	  exit 1; \
 	fi
 
 FORCE: # https://www.gnu.org/software/make/manual/html_node/Force-Targets.html
@@ -612,6 +629,8 @@ syslog-tests:
 
 concurrent-zeunit-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $< concurrent.app.conf"
+	@sleep 5
+	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
 	@cli stop $@
 

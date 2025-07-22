@@ -24,8 +24,8 @@ run::start() {
   local log_file="${TMP_DIR}/${id}.${ts}.log"
 
   shift
-  console::infoLn "Starting \"${id}\" using \"${@}\" ...."
-  $@ > ${log_file} 2>&1 &
+  console::infoLn "Starting \"${id}\" using \"${*}\" ...."
+  $@ >"${log_file}" 2>&1 &
   echo $! >"$pid_file"
   run::print_log "${id}"
 }
@@ -41,23 +41,23 @@ run::print_log() {
 }
 
 run::stop() {
-  local hash=$(run::get_hash "$1")
+  local id=${1}
+  local hash=$(run::get_hash "${id}")
   local pid_file="${TMP_DIR}/${hash}.pid"
 
-  [ ! -f "$pid_file" ] && console::errorLn "Not found PID file!" && exit 1
+  [ ! -f "${pid_file}" ] && console::errorLn "Not found PID file!" && exit 1
 
-  pkill -F "$pid_file" && console::infoLn "Stopping \"${1}\"...."
-  for i in $(seq 1 ${STOP_TIMEOUT_SEC}); do \
-    printf ">>>>>> Waiting... (%d seconds left)\n" $(expr ${STOP_TIMEOUT_SEC} - $i); \
-    sleep 1; \
-    pid=$(cat "$pid_file"); \
-    if ! pgrep -F "$pid_file" >/dev/null 2>&1; then \
-      echo ">>>>>> \"${1}\" stopped"; \
-      rm -f "$pid_file"; \
-      break; \
-    fi; \
+  pkill -F "${pid_file}" && console::infoLn "Stopping \"${id}\"...."
+  for i in $(seq 1 ${STOP_TIMEOUT_SEC}); do
+    printf ">>>>>> Waiting... (%d seconds left)\n" $((STOP_TIMEOUT_SEC - i))
+    sleep 1
+    if ! pgrep -F "$pid_file" >/dev/null 2>&1; then
+      console::infoLn ">>>>>> \"${id}\" stopped"
+      rm -f "${pid_file}"
+      break
+    fi
   done
-  run::print_log "$1"
+  run::print_log "${id}"
 }
 
 run::java_thread_dump() {
@@ -69,7 +69,7 @@ run::java_thread_dump() {
   if [ $# -eq 1 ]; then
     jstack "$(cat "${pid_file}")"
   else
-    jstack "$(cat "${pid_file}")" > $2
+    jstack "$(cat "${pid_file}")" >"$2"
   fi
 }
 
@@ -92,8 +92,14 @@ run::processId() {
 }
 
 run::health-check() {
-  [ -z "$2" ] && escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "$1" ||
-  escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "$1" "-setcookie" "$2"
+  local node=${1}
+  local cookie=${2}
+
+  if [ -z "${cookie}" ]; then
+    escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "${node}"
+  else
+    escript "${ZEUNIT_DIR}/src/health-check.escript" "-name" "${node}" "-setcookie" "${cookie}"
+  fi
 }
 
 run::eunit() {
