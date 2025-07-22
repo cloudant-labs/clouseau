@@ -102,7 +102,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   val timeAllowed = ctx.args.config.getLong("clouseau.search_allowed_timeout_msecs", 5000)
   val countFieldsEnabled = ctx.args.config.getBoolean("clouseau.count_fields", false)
 
-  val concurrentSearchEnabled = ctx.args.config.getBoolean("clouseau.enable_concurrent_search", false)
+  val concurrentSearchEnabled = ctx.args.config.getBoolean("clouseau.concurrent_search_enabled", false)
 
   // Check if the index is idle and optionally close it if there is no activity between
   //Two consecutive idle status checks.
