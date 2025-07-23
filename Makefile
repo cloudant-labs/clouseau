@@ -123,10 +123,6 @@ check-deps: build $(ARTIFACTS_DIR)
 check-spotbugs: build $(ARTIFACTS_DIR)
 	@spotbugs -textui -quiet -html=$(ARTIFACTS_DIR)/spotbugs.html -xml=$(ARTIFACTS_DIR)/spotbugs.xml $(SPOTBUGS_OPTS)
 
-.PHONY: meta
-meta: build $(ARTIFACTS_DIR)
-	@sbt makeBom
-
 .PHONY: jar
 # target: jar - Generate JAR files for production
 jar: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
@@ -370,11 +366,6 @@ $(ARTIFACTS_DIR)/checksums.txt: $(addprefix $(ARTIFACTS_DIR)/, $(CHECKSUM_FILES)
 .PHONY: ci-release
 ci-release:
 	@make release
-
-.PHONY: bom
-bom:
-	@sbt makeBom
-	@$(call to_artifacts,$(SCALA_SUBPROJECTS),*.bom.xml)
 
 .PHONY: visualVM
 # target: visualVM - Attach to running clouseau instance with VisualVM tool
