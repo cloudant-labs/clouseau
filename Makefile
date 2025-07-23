@@ -17,13 +17,15 @@ REBAR?=rebar3
 
 ERLANG_COOKIE?=	#
 ifneq ($(ERLANG_COOKIE),)
-	_JAVA_COOKIE=-Dcookie=$(ERLANG_COOKIE)
 	_DEVRUN_COOKIE=--erlang-cookie=$(ERLANG_COOKIE)
 	_ERLCALL_COOKIE=-c $(ERLANG_COOKIE)
+	_JAVA_COOKIE=-Dcookie=$(ERLANG_COOKIE)
+	_REBAR_COOKIE=--setcookie=$(ERLANG_COOKIE)
 else
-	_JAVA_COOKIE=
 	_DEVRUN_COOKIE=
 	_ERLCALL_COOKIE=
+	_JAVA_COOKIE=
+	_REBAR_COOKIE=
 endif
 
 ERL_SRCS?=$(shell git ls-files -- "*/rebar.config" "*.[e,h]rl" "*.app.src" "*.escript")
@@ -53,13 +55,11 @@ SCALA_SUBPROJECTS := clouseau core otp scalang
 ALL_SUBPROJECTS := $(SCALA_SUBPROJECTS) test
 
 node_name ?= clouseau1
-cookie ?= $(ERLANG_COOKIE)
 # Rebar options
 suites=
 tests=
-
-# We use `suites` instead of `module` to be compatible with CouchDB
-EUNIT_OPTS := "--setcookie=$(cookie) --module=$(suites) --test=$(tests)"
+# Use `suites` instead of `module` to keep consistency with CouchDB
+EUNIT_OPTS := "$(_REBAR_COOKIE) --module=$(suites) --test=$(tests)"
 
 JAR_FILES := clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar
 
@@ -248,7 +248,7 @@ restart-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar epmd FOR
 	@restart-test $<
 
 .PHONY: zeunit
-# target: zeunit - Run integration tests with ~/.erlang.cookie: `make zeunit`; otherwise `make zeunit cookie=<cookie>`
+# target: zeunit - Run integration tests: `<ERLANG_COOKIE=cookie> make zeunit`
 zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN)_test.jar epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@sleep 5
@@ -258,11 +258,11 @@ zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN)_test.jar epmd FORC
 	@cli stop $@
 
 .PHONY: eshell
-# target: eshell - Start erlang shell
+# target: eshell - Start erlang shell: `<ERLANG_COOKIE=cookie> make eshell`
 eshell:
-	@[ -z $(cookie) ] \
-	&& (cd zeunit && $(REBAR) shell --name eshell@127.0.0.1) \
-	|| (cd zeunit && $(REBAR) shell --name eshell@127.0.0.1 --setcookie $(cookie))
+	@[ $(_REBAR_COOKIE) ] \
+	&& (cd zeunit && $(REBAR) shell --name eshell@127.0.0.1 $(_REBAR_COOKIE)) \
+	|| (cd zeunit && $(REBAR) shell --name eshell@127.0.0.1)
 
 define clouseauPid
 	sh -c "jcmd | grep -F clouseau | cut -d' ' -f1"
