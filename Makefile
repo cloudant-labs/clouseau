@@ -6,7 +6,6 @@ ARTIFACTS_DIR=$(BUILD_DIR)/artifacts
 CI_ARTIFACTS_DIR=$(BUILD_DIR)/ci-artifacts
 
 REBAR?=rebar3
-ERLFMT?=erlfmt
 
 COUCHDB_REPO?=https://github.com/apache/couchdb
 COUCHDB_COMMIT?=main
@@ -18,7 +17,7 @@ TIMEOUT_ELIXIR_SEARCH?=20m
 
 ERLANG_COOKIE?=	#
 
-ERL_SRCS?=$(shell git ls-files -- "*/rebar.config" "*.erl" "*.hrl" "*.app.src" "*.escript")
+ERL_SRCS?=$(shell git ls-files -- "*/rebar.config" "*.[e,h]rl" "*.app.src" "*.escript")
 ifeq ($(PROJECT_VERSION),)
 # technically we could use 'sbt -Dsbt.supershell=false -error "print version"'
 # but it takes 30 seconds to run it. So we go with direct access
@@ -45,7 +44,6 @@ SCALA_SHORT_VERSION := $(SCALA_MAJOR).$(SCALA_MINOR)
 SCALA_SUBPROJECTS := clouseau core otp scalang
 ALL_SUBPROJECTS := $(SCALA_SUBPROJECTS) test
 
-ERL_EPMD_ADDRESS?=127.0.0.1
 node_name ?= clouseau1
 cookie ?= $(ERLANG_COOKIE)
 # Rebar options
@@ -112,7 +110,7 @@ $(CI_ARTIFACTS_DIR):
 check-fmt: $(ARTIFACTS_DIR)
 	@scalafmt --test | tee $(ARTIFACTS_DIR)/scalafmt.log
 	@ec | tee $(ARTIFACTS_DIR)/editor-config.log
-	@$(ERLFMT) --verbose --check -- $(ERL_SRCS) | tee $(ARTIFACTS_DIR)/erlfmt.log
+	@erlfmt --verbose --check -- $(ERL_SRCS) | tee $(ARTIFACTS_DIR)/erlfmt.log
 
 .PHONY: check-deps
 # target: check-deps - Detect publicly disclosed vulnerabilities
@@ -142,6 +140,8 @@ clean:
 	@rm -rf tmp $(ARTIFACTS_DIR)/*
 	@rm -f collectd/*.class collectd/*.out
 	@sbt clean
+
+ERL_EPMD_ADDRESS?=127.0.0.1
 
 .PHONY: epmd
 epmd:
@@ -327,7 +327,7 @@ tdump: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
 .PHONY: erlfmt-format
 # target: erlfmt-format - Format Erlang code automatically
 erlfmt-format:
-	@$(ERLFMT) --write -- $(ERL_SRCS)
+	@erlfmt --write -- $(ERL_SRCS)
 
 .PHONY: artifacts
 # target: artifacts - Generate release artifacts
