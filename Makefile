@@ -177,19 +177,11 @@ _DEVRUN_COOKIE=
 _ERLCALL_COOKIE=
 endif
 
-.PHONY: clouseau1
+.PHONY: clouseau1 clouseau2 clouseau3
 # target: clouseau1 - Start local instance of clouseau1 node
-clouseau1:
-	@sbt run -Dnode=$@ $(_JAVA_COOKIE)
-
-.PHONY: clouseau2
 # target: clouseau2 - Start local instance of clouseau2 node
-clouseau2:
-	@sbt run -Dnode=$@ $(_JAVA_COOKIE)
-
-.PHONY: clouseau3
 # target: clouseau3 - Start local instance of clouseau3 node
-clouseau3:
+clouseau1 clouseau2 clouseau3: epmd
 	@sbt run -Dnode=$@ $(_JAVA_COOKIE)
 
 .PHONY: help
