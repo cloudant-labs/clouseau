@@ -18,28 +18,27 @@ TIMEOUT_ELIXIR_SEARCH?=20m
 ERLANG_COOKIE?=	#
 
 ERL_SRCS?=$(shell git ls-files -- "*/rebar.config" "*.[e,h]rl" "*.app.src" "*.escript")
-ifeq ($(PROJECT_VERSION),)
-# technically we could use 'sbt -Dsbt.supershell=false -error "print version"'
-# but it takes 30 seconds to run it. So we go with direct access
-PROJECT_VERSION := $(shell cat $(BUILD_DIR)/version.sbt | sed -e \
-	'/ThisBuild[[:space:]]*[/][[:space:]]*version[[:space:]]*[:]=[[:space:]]*/!d' \
-	-e "s///g" \
-	-e 's/\"//g' \
-)
+ifeq ($(PROJECT_VSN),)
+	# technically we could use 'sbt -Dsbt.supershell=false -error "print version"'
+	# but it takes 30 seconds to run it. So we go with direct access
+	PROJECT_VSN := $(shell cat $(BUILD_DIR)/version.sbt | sed -e \
+		'/ThisBuild[[:space:]]*[/][[:space:]]*version[[:space:]]*[:]=[[:space:]]*/!d' \
+		-e "s///g" \
+		-e 's/\"//g')
 endif
-SCALA_VERSION := $(shell cat $(BUILD_DIR)/build.sbt | sed -e \
+
+SCALA_VSN := $(shell cat $(BUILD_DIR)/build.sbt | sed -e \
 	'/ThisBuild[[:space:]]*[/][[:space:]]*scalaVersion[[:space:]]*[:]=[[:space:]]*/!d' \
 	-e "s///g" \
-	-e 's/\"//g' \
-)
+	-e 's/\"//g')
 
-SCALA_VERSION_PARTS      := $(subst ., ,$(SCALA_VERSION))
+SCALA_VSN_PARTS := $(subst ., ,$(SCALA_VSN))
 
-SCALA_MAJOR              := $(word 1,$(SCALA_VERSION_PARTS))
-SCALA_MINOR              := $(word 2,$(SCALA_VERSION_PARTS))
-SCALA_MICRO              := $(word 3,$(SCALA_VERSION_PARTS))
+SCALA_MAJOR := $(word 1,$(SCALA_VSN_PARTS))
+SCALA_MINOR := $(word 2,$(SCALA_VSN_PARTS))
+SCALA_MICRO := $(word 3,$(SCALA_VSN_PARTS))
 
-SCALA_SHORT_VERSION := $(SCALA_MAJOR).$(SCALA_MINOR)
+SCALA_SHORT_VSN := $(SCALA_MAJOR).$(SCALA_MINOR)
 
 SCALA_SUBPROJECTS := clouseau core otp scalang
 ALL_SUBPROJECTS := $(SCALA_SUBPROJECTS) test
@@ -53,12 +52,11 @@ tests=
 # We use `suites` instead of `module` to be compatible with CouchDB
 EUNIT_OPTS := "--setcookie=$(cookie) --module=$(suites) --test=$(tests)"
 
-JAR_FILES := \
-	clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
+JAR_FILES := clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar
 
 RELEASE_FILES := \
 	$(JAR_FILES) \
-	clouseau-$(PROJECT_VERSION)-dist.zip
+	clouseau-$(PROJECT_VSN)-dist.zip
 
 JAR_ARTIFACTS := $(addprefix $(ARTIFACTS_DIR)/, $(JAR_FILES))
 RELEASE_ARTIFACTS := $(addprefix $(ARTIFACTS_DIR)/, $(RELEASE_FILES))
@@ -71,7 +69,7 @@ space := $(empty) $(empty)
 
 apps ?= clouseau,core,macros,otp,scalang,vendor
 skip ?= vendor
-COMMON_PATH := /target/scala-$(SCALA_SHORT_VERSION)/classes
+COMMON_PATH := /target/scala-$(SCALA_SHORT_VSN)/classes
 SPOTBUGS_OPTS = $(foreach app,$(filter-out $(subst $(comma),$(space),$(skip)),$(subst $(comma),$(space),$(apps))),$(app)$(COMMON_PATH))
 
 define to_artifacts
@@ -125,11 +123,11 @@ check-spotbugs: build $(ARTIFACTS_DIR)
 
 .PHONY: jar
 # target: jar - Generate JAR files for production
-jar: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
+jar: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar
 
 .PHONY: jartest
 # target: jartest - Generate JAR files containing tests
-jartest: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
+jartest: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN)_test.jar
 
 # target: clean - Clean Java/Scala artifacts
 clean:
@@ -216,14 +214,14 @@ ci-unit: test $(CI_ARTIFACTS_DIR)
 ci-zeunit: zeunit $(CI_ARTIFACTS_DIR)
 	@cp -R $(ARTIFACTS_DIR)/zeunit/ $(CI_ARTIFACTS_DIR)/
 
-ci-mango: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar couchdb epmd FORCE
+ci-mango: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar couchdb epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
 	@cli stop $@
 
-ci-elixir: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar couchdb epmd FORCE
+ci-elixir: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar couchdb epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@timeout $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
@@ -243,16 +241,16 @@ ci-restart: restart-test
 .PHONY: version
 # target: version - Print current version
 version:
-	@echo $(PROJECT_VERSION)
+	@echo $(PROJECT_VSN)
 
 .PHONY: restart-test
 # target: restart-test - Test Clouseau terminates properly by repeatedly starting and stopping it (RETRY=30)
-restart-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar epmd FORCE
+restart-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar epmd FORCE
 	@restart-test $<
 
 .PHONY: zeunit
 # target: zeunit - Run integration tests with ~/.erlang.cookie: `make zeunit`; otherwise `make zeunit cookie=<cookie>`
-zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd FORCE
+zeunit: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN)_test.jar epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
@@ -295,7 +293,7 @@ jstack:
 .PHONY: tdump
 # target: tdump - Capture thread dumps
 tdump: CLOUSEAU_PID := $(shell $(clouseauPid))
-tdump: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar
+tdump: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN)_test.jar
 	@cli start $(node_name) "java -jar $<"
 	@echo "Generate thread dumps..."
 	@rm -f tmp/thread_dump*.log
@@ -323,27 +321,27 @@ artifacts: $(ARTIFACTS_DIR) $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 
 .PHONY: release
 # target: release - Push release to github
-release: MAYBE_PRERELEASE := $(shell [[ "$(PROJECT_VERSION)" =~ ^.*-[rR][cC][0-9]*$$ ]] && echo "--prerelease")
+release: MAYBE_PRERELEASE := $(shell [[ "$(PROJECT_VSN)" =~ ^.*-[rR][cC][0-9]*$$ ]] && echo "--prerelease")
 release: $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 	GH_DEBUG=1 GH_HOST=github.ibm.com gh release list --repo github.ibm.com/cloudant/ziose
-	GH_DEBUG=1 GH_HOST=github.ibm.com gh release create "$(PROJECT_VERSION)" \
+	GH_DEBUG=1 GH_HOST=github.ibm.com gh release create "$(PROJECT_VSN)" \
 		$(MAYBE_PRERELEASE) --target "$$(git rev-parse HEAD)" \
 		--repo github.ibm.com/cloudant/ziose \
-		--title "Release $(PROJECT_VERSION)" \
+		--title "Release $(PROJECT_VSN)" \
 		--generate-notes $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 
-$(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)-dist.zip: $(JAR_ARTIFACTS)
-	@mkdir -p $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
-	@cp $(JAR_ARTIFACTS) $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
-	@zip --junk-paths -r $@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VERSION)
+$(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)-dist.zip: $(JAR_ARTIFACTS)
+	@mkdir -p $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
+	@cp $(JAR_ARTIFACTS) $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
+	@zip --junk-paths -r $@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
 
-$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar: $(ARTIFACTS_DIR)
+$(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar: $(ARTIFACTS_DIR)
 	@sbt assembly
-	@cp clouseau/target/scala-$(SCALA_SHORT_VERSION)/$(@F) $@
+	@cp clouseau/target/scala-$(SCALA_SHORT_VSN)/$(@F) $@
 
-$(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar: $(ARTIFACTS_DIR)
+$(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN)_test.jar: $(ARTIFACTS_DIR)
 	@sbt assembly -Djartest=true
-	@cp clouseau/target/scala-$(SCALA_SHORT_VERSION)/$(@F) $@
+	@cp clouseau/target/scala-$(SCALA_SHORT_VSN)/$(@F) $@
 
 $(ARTIFACTS_DIR)/%.jar.chksum: $(ARTIFACTS_DIR)/%.jar
 	@cd $(ARTIFACTS_DIR) && sha256sum $(<F) > $(@F)
@@ -434,7 +432,7 @@ test-failed:
 
 .PHONY: couchdb-tests
 # target: couchdb-tests - Run test suites from upstream CouchDB that use Clouseau
-couchdb-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar couchdb epmd FORCE
+couchdb-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar couchdb epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
@@ -446,14 +444,14 @@ collectd/clouseau.class: collectd/clouseau.java
 
 .PHONY: metrics-tests
 # target: metrics-tests - Run JMX metrics collection tests
-metrics-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar collectd/clouseau.class epmd FORCE
+metrics-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar collectd/clouseau.class epmd FORCE
 	@chmod 600 jmxremote.password
 	@cli start $@ \
 		"java \
        -Dcom.sun.management.jmxremote.port=9090 \
        -Dcom.sun.management.jmxremote.ssl=false \
        -Dcom.sun.management.jmxremote.password.file=jmxremote.password \
-       -jar $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar" > /dev/null
+       -jar $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar" > /dev/null
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@echo "Warming up Clouseau to expose all the metrics"
@@ -473,7 +471,7 @@ metrics-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar
 
 FORCE: # https://www.gnu.org/software/make/manual/html_node/Force-Targets.html
 
-syslog-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar epmd FORCE
+syslog-test: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar epmd FORCE
 	@sed \
 	  -e "s/%%FORMAT%%/$(FORMAT)/" \
 	  -e "s/%%PROTOCOL%%/$(PROTOCOL)/" \
@@ -507,7 +505,7 @@ syslog-tests:
 	@echo ">>> Receiver started"
 	@$(MAKE) syslog-test FORMAT=JSON PROTOCOL=UDP HOST=127.0.0.1 PORT=2000 FACILITY=LOCAL5 LEVEL=info
 
-concurrent-zeunit-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION)_test.jar epmd FORCE
+concurrent-zeunit-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN)_test.jar epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $< concurrent.app.conf"
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
@@ -525,7 +523,7 @@ echo \"Ref = make_ref(), {sup, 'clouseau1@127.0.0.1'} ! {ping, self(), Ref}, rec
 
 .PHONY: compatibility-tests
 # target: compatibility-tests - Run Clouseau 2.x compatibility tests
-compatibility-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VERSION)_$(PROJECT_VERSION).jar couchdb epmd FORCE
+compatibility-tests: $(ARTIFACTS_DIR)/clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar couchdb epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@$(MAKE) sup-test || $(MAKE) test-failed ID=$@
