@@ -140,7 +140,7 @@ check-deps: build $(ARTIFACTS_DIR)
 # target: check-spotbugs - Inspect bugs in Java bytecode
 check-spotbugs: build $(ARTIFACTS_DIR)
 	@spotbugs -textui -quiet -html=$(ARTIFACTS_DIR)/spotbugs.html \
-	-xml=$(ARTIFACTS_DIR)/spotbugs.xml $(SPOTBUGS_OPTS)
+		-xml=$(ARTIFACTS_DIR)/spotbugs.xml $(SPOTBUGS_OPTS)
 
 .PHONY: jar
 # target: jar - Generate JAR files for production
@@ -448,7 +448,7 @@ visualVM: visualVM := $(shell mdfind -name 'VisualVM' -onlyin /Applications 2>/d
 visualVM: CLOUSEAU_PID := $(shell $(clouseauPid))
 visualVM:
 	@[ "${CLOUSEAU_PID}" ] || ( echo '>>>>> clouseau is not running' ; exit 1 )
-	@[ "$(visualVM)" ] || ( echo '>>>>> 'VisualVM' is not installed' ; exit 1 )
+	@[ "$(visualVM)" ] || ( echo '>>>>> "VisualVM" is not installed' ; exit 1 )
 	@${visualVM}/Contents/MacOS/visualvm --jdkhome $(JAVA_HOME) --openpid $(CLOUSEAU_PID)
 
 
