@@ -531,3 +531,13 @@ $(ARTIFACTS_DIR)/checksums.txt: $(addprefix $(ARTIFACTS_DIR)/, $(CHECKSUM_FILES)
 .PHONY: ci-release
 ci-release:
 	@make release
+
+.PHONY: changes
+# target: changes - List PRs since last release (to paste in the github.com comment)
+changes:
+	@git log --oneline $$(git describe --tags --abbrev=0)..HEAD \
+		| grep Merge \
+		| cut -d' ' -f1 \
+		| xargs git show --format="%s" \
+		| cut -d' ' -f4 \
+		| xargs -I {} echo - {}
