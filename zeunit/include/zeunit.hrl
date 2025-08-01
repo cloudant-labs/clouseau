@@ -24,6 +24,10 @@ end).
     {Name, fun(Name, Args) -> {atom_to_list(Name), ?_test(Name(Name, Args))} end}
 ).
 
+-define(TDEF_FEX(With, Name),
+    {With, fun(With, Args) -> {?format("~s - ~p", [Name, With]), ?_test(Name(With, Args))} end}
+).
+
 -define(format(Fmt, Args),
     lists:flatten(io_lib:format(Fmt, Args))
 ).

@@ -54,15 +54,28 @@ call(ServerRef, Request) ->
     end.
 
 gen_call(Process, Label, Request) ->
-    Mref = erlang:monitor(process, Process),
-    Process ! {Label, {self(), Mref}, Request},
+    Tag = call_monitor(Process),
+    Process ! {Label, {self(), Tag}, Request},
     receive
-        {Mref, Reply} ->
-            erlang:demonitor(Mref, [flush]),
+        {Tag, Reply} ->
+            call_demonitor(Tag),
             {ok, Reply};
-        {'DOWN', Mref, _, _, Reason} ->
+        {'DOWN', Tag, _, _, Reason} ->
             exit(Reason)
     end.
+
+call_monitor(Process) ->
+    case config:get(alias_enabled) of
+        true ->
+            [alias | erlang:monitor(process, Process, [{alias, demonitor}])];
+        false ->
+            erlang:monitor(process, Process)
+    end.
+
+call_demonitor([alias | Mref]) ->
+    erlang:demonitor(Mref, [flush]);
+call_demonitor(Mref) ->
+    erlang:demonitor(Mref, [flush]).
 
 get_value(Key, List) ->
     get_value(Key, List, undefined).
