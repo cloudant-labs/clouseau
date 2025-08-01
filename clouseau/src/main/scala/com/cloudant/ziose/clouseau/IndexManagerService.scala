@@ -233,8 +233,8 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
   private def replyAll(path: String, msg: Any) = {
     waiters.remove(path) match {
       case Some(list) =>
-        for ((pid, ref) <- list) {
-          pid ! (ref, msg)
+        for (tag <- list) {
+          Service.reply(tag, msg)
         }
       case None =>
         'ok
