@@ -694,7 +694,14 @@ object Service {
   }
 
   def reply[P <: Process](caller: (Pid, Any), reply: Any)(implicit process: P): Unit = {
-    val (pid, ref) = caller
-    process.send(pid, (ref, reply))
+    val (from, replyRef) = caller match {
+      case (from: Pid, List(Symbol("alias"), ref: Reference)) =>
+        (from.fromScala, EListImproper(EAtom("alias"), ref.fromScala))
+      case (from: Pid, ref: Reference) =>
+        (from.fromScala, ref.fromScala)
+      case _ =>
+        throw new Throwable("unreachable")
+    }
+    process.send(from, (replyRef, reply))
   }
 }
