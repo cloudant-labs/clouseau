@@ -23,6 +23,28 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] {
   def kind: URIO[EngineWorker, String]
   def shutdown(implicit trace: Trace): UIO[Unit]                         = exchange.shutdown
   def forward(msg: MessageEnvelope)(implicit trace: Trace): UIO[Boolean] = exchange.forward(msg)
+
+  def processInfoTopKZIO[A <: Actor](
+    valueFun: ProcessInfo => Int
+  ): UIO[List[ProcessInfo]] = {
+    var acc = TopK[ProcessInfo](10)
+    exchange.foreachZIO(it => {
+      // we know our exchange holds AddressableActor instances
+      val actor = it.asInstanceOf[AddressableActor[A, _ <: ProcessContext]]
+      for {
+        info <- ProcessInfo.from(actor)
+        _ = acc.add(info, valueFun(info))
+      } yield ()
+    }) *> ZIO.succeed(acc.asList.unzip._1)
+  }
+
+  def processInfoTopK(valueFun: ProcessInfo => Int): List[ProcessInfo] = {
+    Unsafe.unsafe { implicit unsafe =>
+      Runtime.default.unsafe
+        .run(processInfoTopKZIO(valueFun))
+        .getOrThrowFiberFailure()
+    }.asInstanceOf[List[ProcessInfo]]
+  }
 }
 
 object EngineWorker {

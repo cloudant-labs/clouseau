@@ -71,7 +71,7 @@ class OTPProcessContext private (
     mailbox.forward(msg)
   }
 
-  def size(implicit trace: zio.Trace): UIO[Int] = {
+  def messageQueueLength()(implicit trace: Trace): UIO[Int] = {
     mailbox.size
   }
 

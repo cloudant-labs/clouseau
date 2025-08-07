@@ -3,7 +3,7 @@ package com.cloudant.ziose.core
 import zio._
 import com.cloudant.ziose.core.Codec.EPid
 
-trait ProcessContext extends ForwardWithId[Address, MessageEnvelope] {
+trait ProcessContext extends ForwardWithId[Address, MessageEnvelope] with WithProcessInfo[Address] {
   val id: Address // FIXME
   // Only accessed from AddressableActor
   val worker: EngineWorker
