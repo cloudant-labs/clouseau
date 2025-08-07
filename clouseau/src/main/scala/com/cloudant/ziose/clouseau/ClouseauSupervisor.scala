@@ -38,6 +38,7 @@ case class ClouseauSupervisor(
     var cleanup: Option[Pid] = None,
     var analyzer: Option[Pid] = None,
     var init: Option[Pid] = None,
+    var rex: Option[Pid] = None
   )(implicit adapter: Adapter[_, _])
     extends Service(ctx) {
   val TERMINATION_TIMEOUT = Duration.fromSeconds(3)
@@ -48,6 +49,7 @@ case class ClouseauSupervisor(
     _ <- ZIO.succeed(spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args))
     _ <- ZIO.succeed(spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args))
     _ <- ZIO.succeed(spawnAndMonitorService[InitService, ConfigurationArgs](Symbol("init"), ctx.args))
+    _ <- ZIO.succeed(spawnAndMonitorService[RexService, None.type](Symbol("rex"), None))
   } yield ActorResult.Continue()
 
   override def onTermination[PContext <: ProcessContext](reason: Codec.ETerm, ctx: PContext) = {
@@ -57,6 +59,7 @@ case class ClouseauSupervisor(
       _ <- stopChild(Symbol("cleanup"), reasonScala, ctx)
       _ <- stopChild(Symbol("analyzer"), reasonScala, ctx)
       _ <- stopChild(Symbol("init"), reasonScala, ctx)
+      _ <- stopChild(Symbol("rex"), reasonScala, ctx)
     } yield ()
   }
 
@@ -89,6 +92,13 @@ case class ClouseauSupervisor(
         }
         (Symbol("reply"), result)
       }
+      case (Symbol("isAlive"), Symbol("rex")) => {
+        val result = rex match {
+          case Some(pid) => ping(pid)
+          case None => false
+        }
+        (Symbol("reply"), result)
+      }
       case (Symbol("getChild"), name: Symbol) =>
         (Symbol("reply"), getChild(name).getOrElse(Symbol("undefined")))
     }
@@ -116,6 +126,11 @@ case class ClouseauSupervisor(
       init = None
       spawnAndMonitorService[EchoService, ConfigurationArgs](Symbol("init"), ctx.args)
     }
+    if (rex.contains(pid)) {
+      logger.warn(s"rex crashed with reason: ${reason}")
+      init = None
+      spawnAndMonitorService[RexService, None.type](Symbol("rex"), None)
+    }
   }
 
   def getChild(name: Symbol): Option[Pid] = {
@@ -124,6 +139,7 @@ case class ClouseauSupervisor(
       case Symbol("cleanup") => cleanup
       case Symbol("analyzer") => analyzer
       case Symbol("init") => init
+      case Symbol("rex") => rex
       case _ => None
     }
   }
@@ -156,6 +172,7 @@ case class ClouseauSupervisor(
       case (Symbol("analyzer"), ConfigurationArgs(args)) => AnalyzerServiceBuilder.start(adapter.node, args)
       case (Symbol("main"), ConfigurationArgs(args))     => IndexManagerServiceBuilder.start(adapter.node, args)
       case (Symbol("init"), ConfigurationArgs(args))     => InitService.start(adapter.node, "init", args)
+      case (Symbol("rex"), None)                         => RexService.start(adapter.node)
     }
     val timeSpentInMs = ChronoUnit.MILLIS.between(beginTs, Instant.now)
     val pid = result match {
@@ -172,6 +189,7 @@ case class ClouseauSupervisor(
       case Symbol("analyzer") => analyzer = Some(pid)
       case Symbol("main")     => manager = Some(pid)
       case Symbol("init")     => init = Some(pid)
+      case Symbol("rex")      => rex = Some(pid)
     }
   }
 }

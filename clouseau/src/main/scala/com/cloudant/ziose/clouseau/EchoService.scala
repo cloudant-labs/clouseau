@@ -16,6 +16,10 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
 
   val echoTimer: metrics.Timer = metrics.timer("echo.response_time")
 
+  override def handleInit(): Unit = {
+    adapter.setTag(name.get)
+  }
+
   override def handleInfo(request: Any): Any = {
     request match {
       case (Symbol("echo"), from: Pid, ts: Long, seq) =>

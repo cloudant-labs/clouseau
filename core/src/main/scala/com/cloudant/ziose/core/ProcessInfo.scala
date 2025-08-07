@@ -10,7 +10,7 @@ case class ProcessInfo(
   tags: List[String],
   queueLength: Int
 ) {
-  def fromScala = {
+  def asETerm = {
     val nameAtom = name.getOrElse(Symbol("none"))
     ETuple(
       EAtom("process_info"),
