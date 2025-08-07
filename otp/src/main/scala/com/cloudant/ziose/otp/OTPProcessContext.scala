@@ -33,6 +33,10 @@ class OTPProcessContext private (
   private var fibers: Map[Symbol, Fiber.Runtime[_, _]] = Map()
   val self                                             = PID(new Codec.EPid(mbox.self), worker.id, worker.nodeName)
   private val isFinalized: AtomicBoolean               = new AtomicBoolean(false)
+  private var tags: List[String]                       = List()
+
+  def getTags                   = tags
+  def setTag(tag: String): Unit = tags = tag :: tags
 
   def status(): UIO[Map[Symbol, Fiber.Status]] = for {
     ids <- ZIO.foldLeft(fibers)(new ListBuffer[(Symbol, Fiber.Status)]()) { case (state, (id, fiber)) =>

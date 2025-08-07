@@ -11,6 +11,8 @@ trait ProcessContext extends ForwardWithId[Address, MessageEnvelope] {
   def awaitShutdown(implicit trace: Trace): UIO[Unit]
   def capacity: Int
   def status(): UIO[Map[Symbol, Fiber.Status]]
+  def getTags: List[String]
+  def setTag(tag: String): Unit
   def name: Option[String]
   def self: PID
   def lookUpName(name: String): UIO[Option[Address]]
