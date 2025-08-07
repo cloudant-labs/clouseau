@@ -44,6 +44,27 @@ class EngineWorkerExchange private (
     exchange.forward(msg)
   }
 
+  def foreach(fn: ForwardWithId[Address, MessageEnvelope] => Unit)(implicit trace: zio.Trace): UIO[Unit] = {
+    exchange.foreach(fn)
+  }
+  def foreachZIO(fn: ForwardWithId[Address, MessageEnvelope] => UIO[Unit])(implicit trace: zio.Trace): UIO[Unit] = {
+    exchange.foreachZIO(fn)
+  }
+  def map[B](fn: ForwardWithId[Address, MessageEnvelope] => B)(implicit trace: zio.Trace): UIO[Iterable[B]] = {
+    exchange.map(fn)
+  }
+  def mapZIO[B](fn: ForwardWithId[Address, MessageEnvelope] => UIO[B])(implicit trace: zio.Trace): UIO[Iterable[B]] = {
+    exchange.mapZIO(fn)
+  }
+  def fold[B](z: B)(op: (B, ForwardWithId[Address, MessageEnvelope]) => B)(implicit trace: zio.Trace): UIO[B] = {
+    exchange.fold(z)(op)
+  }
+  def foldZIO[B](
+    z: B
+  )(op: (B, ForwardWithId[Address, MessageEnvelope]) => UIO[B])(implicit trace: zio.Trace): UIO[B] = {
+    exchange.foldZIO(z)(op)
+  }
+
   @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
