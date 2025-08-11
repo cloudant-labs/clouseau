@@ -137,7 +137,7 @@ start_service(Name) ->
     Pid ! {block_for_ms, 5000},
     %% Send many messages to actor so they pile up in the mailbox
     spawn(fun() ->
-        [Pid ! {echo, self(), erlang:system_time(microsecond), Seq} || Seq <- lists:seq(1, 10)]
+        [Pid ! {echo, self(), erlang:system_time(microsecond), Seq} || Seq <- lists:seq(1, 1000)]
     end),
     Pid.
 
