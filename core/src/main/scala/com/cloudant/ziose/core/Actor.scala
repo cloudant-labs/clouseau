@@ -53,7 +53,8 @@ import scala.util.Try
  */
 
 class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
-    extends ForwardWithId[Address, MessageEnvelope] {
+    extends ForwardWithId[Address, MessageEnvelope]
+    with WithProcessInfo[Address] {
   type Actor   = A
   type Context = C
   val NUMBER_OF_FIBERS                   = 3
@@ -63,6 +64,8 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   private val isFinalized: AtomicBoolean = new AtomicBoolean(false)
   def ctx                                = context
   def status()                           = context.status()
+  def getTags                            = ctx.getTags
+  def setTag(tag: String): Unit          = ctx.setTag(tag)
   def isRunningZIO = status().map(_.values.collect {
     case status if !status.isDone => true
   }.size == NUMBER_OF_FIBERS)
@@ -116,6 +119,10 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
 
   def forward(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
     ctx.forward(msg)
+  }
+
+  def messageQueueLength()(implicit trace: zio.Trace): UIO[Int] = {
+    ctx.messageQueueLength()
   }
 
   def start(continue: Promise[Nothing, Unit]) = {

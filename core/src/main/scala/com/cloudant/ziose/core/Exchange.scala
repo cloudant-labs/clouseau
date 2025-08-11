@@ -30,8 +30,12 @@ class Exchange[K, M, E <: ForwardWithId[K, M]](registry: Registry[K, M, E], val 
   def isKnown(key: K): UIO[Boolean] = {
     registry.isKnown(key)
   }
-  def foreach(fn: E => Unit): UIO[Unit]    = registry.foreach(fn)
-  def map[B](fn: E => B): UIO[Iterable[B]] = registry.map(fn)
+  def foreach(fn: E => Unit): UIO[Unit]              = registry.foreach(fn)
+  def foreachZIO(fn: E => UIO[Unit]): UIO[Unit]      = registry.foreachZIO(fn)
+  def map[B](fn: E => B): UIO[Iterable[B]]           = registry.map(fn)
+  def mapZIO[B](fn: E => UIO[B]): UIO[Iterable[B]]   = registry.mapZIO(fn)
+  def fold[B](z: B)(op: (B, E) => B): UIO[B]         = registry.fold(z)(op)
+  def foldZIO[B](z: B)(op: (B, E) => UIO[B]): UIO[B] = registry.foldZIO(z)(op)
   /*
     Returns list of keys known to the exchange
    */

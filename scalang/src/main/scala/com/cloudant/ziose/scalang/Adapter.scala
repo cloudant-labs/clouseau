@@ -26,6 +26,8 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
 
   def name: Option[String]                = ctx.name
   def self: PID                           = ctx.self
+  def getTags: List[String]               = ctx.getTags
+  def setTag(tag: String): Unit           = ctx.setTag(tag)
   def call(msg: MessageEnvelope.Call)     = ctx.call(msg)
   def cast(msg: MessageEnvelope.Cast)     = ctx.cast(msg)
   def send(msg: MessageEnvelope.Send)     = ctx.send(msg)

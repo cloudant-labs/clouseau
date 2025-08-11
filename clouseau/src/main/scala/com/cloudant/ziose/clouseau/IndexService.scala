@@ -121,6 +121,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     setReader(DirectoryReader.open(ctx.args.writer, true))
     sendEvery(self.pid, 'maybe_commit, commitInterval * 1000)
     send(self.pid, 'count_fields)
+    adapter.setTag(ctx.args.name)
 
     if (closeIfIdleEnabled) {
       sendEvery(self.pid, 'close_if_idle, idleTimeout * 1000)

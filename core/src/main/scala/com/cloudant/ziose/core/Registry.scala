@@ -2,6 +2,8 @@ package com.cloudant.ziose.core
 
 import com.cloudant.ziose.macros.CheckEnv
 import zio.{Ref, Scope, UIO, ZIO}
+import zio.stream.ZStream
+import zio.Chunk
 
 private[core] case class State[K, E](index: Int = 0, size: Int = 0, entries: Map[K, E])
 
@@ -35,6 +37,14 @@ class Registry[K, M, E <: ForwardWithId[K, M]](private val state: Ref[State[K, E
     } yield s.entries.values.foreach(fn)
   }
 
+  def foreachZIO[U](fn: E => UIO[U]): UIO[Unit] = {
+    for {
+      s <- state.get
+      stream = ZStream.fromIterable(s.entries.values)
+      _ <- stream.foreach(fn)
+    } yield ()
+  }
+
   def get(key: K): UIO[Option[E]] = {
     for {
       s <- state.get
@@ -55,6 +65,28 @@ class Registry[K, M, E <: ForwardWithId[K, M]](private val state: Ref[State[K, E
     for {
       s      <- state.get
       result <- ZIO.succeed(s.entries.values.map(fn).toList)
+    } yield result
+  }
+
+  def mapZIO[B](fn: E => UIO[B]): UIO[Chunk[B]] = {
+    for {
+      s <- state.get
+      stream = ZStream.fromIterable(s.entries.values)
+      result <- stream.mapZIO(fn).runCollect
+    } yield result
+  }
+
+  def fold[B](z: B)(op: (B, E) => B): UIO[B] = {
+    for {
+      s <- state.get
+    } yield s.entries.values.foldLeft(z)(op)
+  }
+
+  def foldZIO[B](z: B)(op: (B, E) => UIO[B]): UIO[B] = {
+    for {
+      s <- state.get
+      stream = ZStream.fromIterable(s.entries.values)
+      result <- stream.runFoldZIO(z)(op)
     } yield result
   }
 

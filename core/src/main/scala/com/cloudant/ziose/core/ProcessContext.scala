@@ -3,7 +3,7 @@ package com.cloudant.ziose.core
 import zio._
 import com.cloudant.ziose.core.Codec.EPid
 
-trait ProcessContext extends ForwardWithId[Address, MessageEnvelope] {
+trait ProcessContext extends ForwardWithId[Address, MessageEnvelope] with WithProcessInfo[Address] {
   val id: Address // FIXME
   // Only accessed from AddressableActor
   val worker: EngineWorker
@@ -11,6 +11,8 @@ trait ProcessContext extends ForwardWithId[Address, MessageEnvelope] {
   def awaitShutdown(implicit trace: Trace): UIO[Unit]
   def capacity: Int
   def status(): UIO[Map[Symbol, Fiber.Status]]
+  def getTags: List[String]
+  def setTag(tag: String): Unit
   def name: Option[String]
   def self: PID
   def lookUpName(name: String): UIO[Option[Address]]

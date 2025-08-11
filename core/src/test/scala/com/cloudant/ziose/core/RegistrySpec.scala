@@ -1,3 +1,8 @@
+/*
+ * sbt 'clouseau/testOnly com.cloudant.ziose.core.RegistrySpec'
+ *
+ */
+
 package com.cloudant.ziose.core
 
 import org.junit.runner.RunWith
@@ -90,6 +95,14 @@ class RegistrySpec extends JUnitRunnableSpec {
         _        <- registry.add(entry1) *> registry.add(entry2)
         _        <- registry.foreach(sum += _.id)
       } yield assertTrue(sum == 3)
+    },
+    test("foreachZIO") {
+      var sum = 0
+      for {
+        registry <- Registry.make[Int, String, TestEntry]
+        _        <- registry.add(entry1) *> registry.add(entry2)
+        _        <- registry.foreachZIO(it => ZIO.succeedBlocking(sum += it.id).unit)
+      } yield assertTrue(sum == 3)
     }
   )
 
@@ -173,6 +186,13 @@ class RegistrySpec extends JUnitRunnableSpec {
       for {
         registry <- Registry.make[Int, String, TestEntry]
         _        <- registry.add(entry1) *> registry.add(entry2)
+        result   <- registry.mapZIO(it => ZIO.succeedBlocking(it.id * 2))
+      } yield assert(result)(hasSameElementsDistinct(Set(2, 4)))
+    },
+    test("mapZIO") {
+      for {
+        registry <- Registry.make[Int, String, TestEntry]
+        _        <- registry.add(entry1) *> registry.add(entry2)
         result   <- registry.map(_.id * 2)
       } yield assert(result)(hasSameElementsDistinct(Set(2, 4)))
     }
@@ -226,6 +246,23 @@ class RegistrySpec extends JUnitRunnableSpec {
     }
   )
 
+  val foldSuite = suite("Fold:")(
+    test("fold") {
+      for {
+        registry <- Registry.make[Int, String, TestEntry]
+        _        <- registry.add(entry1) *> registry.add(entry2)
+        sum      <- registry.fold(0)((acc, it) => acc + it.id)
+      } yield assertTrue(sum == 3)
+    },
+    test("foldZIO") {
+      for {
+        registry <- Registry.make[Int, String, TestEntry]
+        _        <- registry.add(entry1) *> registry.add(entry2)
+        sum      <- registry.foldZIO(0)((acc, it) => ZIO.succeedBlocking(acc + it.id))
+      } yield assertTrue(sum == 3)
+    }
+  )
+
   def spec: Spec[Any with Scope, Throwable] = {
     suite("RegistrySpec")(
       addSuite,
@@ -236,7 +273,8 @@ class RegistrySpec extends JUnitRunnableSpec {
       listSuite,
       mapSuite,
       removeSuite,
-      replaceSuite
+      replaceSuite,
+      foldSuite
     )
   }
 
