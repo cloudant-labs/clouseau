@@ -53,6 +53,11 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs]) extends Servic
 
   private def cleanup(fileOrDir: File, includePattern: Pattern, activeSigs: List[String]): Unit = {
     logger.info(">> cleaning up " + fileOrDir);
+    if (fileOrDir != null) {
+       logger.info("%s abs: %s, exists: %s, isFile: %s, isDir: %s, canRead: %s, canWrite: %s, canExec: %s, listFiles: %s".format(
+       fileOrDir, fileOrDir.getAbsolutePath, fileOrDir.exists, fileOrDir.isFile, fileOrDir.isDirectory, fileOrDir.canRead, fileOrDir.canWrite, fileOrDir.canExecute, fileOrDir.listFiles
+       ))
+    }
     if (!fileOrDir.isDirectory) {
       return
     }
