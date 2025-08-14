@@ -428,7 +428,7 @@ object OTPMailbox {
         for {
           compositeMailbox <- Queue.bounded[MessageEnvelope](capacity)
           internalMailbox  <- Queue.bounded[MessageEnvelope](capacity)
-          externalMailbox  <- Queue.bounded[MessageEnvelope](capacity)
+          externalMailbox  <- Queue.unbounded[MessageEnvelope]
         } yield createMailbox(compositeMailbox, internalMailbox, externalMailbox)
     }
   }
