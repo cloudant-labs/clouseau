@@ -392,7 +392,6 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.KillByException")
           echoPid = echo.self.pid
           echoRef <- MonitorService.monitor(monitorerActor, echoPid).map(_.right.get)
-          _       <- ZIO.debug("The stack trace below is expected =====vvvvvv")
           _       <- echo.crashWithReason("myCrashReason")
           _       <- assertNotAlive(echo.id)
           output  <- ZTestLogger.logOutput
@@ -517,7 +516,6 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorByName.KillByException")
           echoPid = echo.self.pid
           echoRef <- MonitorService.monitor(monitorerActor, core.Codec.EAtom(echoName)).map(_.right.get)
-          _       <- ZIO.debug("The stack trace below is expected =====vvvvvv")
           _       <- echo.crashWithReason("myCrashReason")
           _       <- assertNotAlive(echo.id)
           output  <- ZTestLogger.logOutput

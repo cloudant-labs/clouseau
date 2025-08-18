@@ -75,10 +75,16 @@ class OTPProcessContext private (
     mailbox.size
   }
 
+  /*
+   * Use it for tests only
+   */
   def exit(reason: Codec.ETerm): UIO[Unit] = {
     mailbox.exit(MessageEnvelope.Exit(None, id, reason, mailbox.id))
   }
 
+  /*
+   * Use it for tests only
+   */
   def exit(msg: MessageEnvelope.Exit): UIO[Unit] = {
     if (msg.to.isRemote || msg.to == id) {
       mailbox.exit(msg)
