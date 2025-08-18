@@ -67,7 +67,7 @@ class TestService(ctx: ServiceContext[TestServiceArgs])(implicit adapter: Adapte
   override def handleInfo(request: Any): Any = {
     calledArgs = ("handleInfo", request) :: calledArgs
     request match {
-      case (Symbol("echo"), from: Pid, ts: BigInt, seq: Int) =>
+      case (Symbol("echo"), from: Pid, ts: BigInt, seq: Long) =>
         val reply = echoTimer.time(
           (Symbol("echo_reply"), from, ts, self.pid, now(), seq)
         )
