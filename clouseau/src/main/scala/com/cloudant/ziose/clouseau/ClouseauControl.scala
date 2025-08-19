@@ -3,7 +3,6 @@ package com.cloudant.ziose.clouseau
 import com.cloudant.ziose.{core, scalang}
 import core.{ProcessInfo, EngineWorker}
 import scalang.Adapter
-import core.Codec._
 import com.cloudant.ziose.otp.OTPProcessContext
 
 class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F) {
