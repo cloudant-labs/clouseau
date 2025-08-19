@@ -21,6 +21,9 @@ import java.util.concurrent.TimeUnit
 import com.cloudant.ziose.core.Name
 import com.cloudant.ziose.core.NameOnNode
 import com.cloudant.ziose.core.PID
+import scala.util.Try
+import scala.util.Success
+import scala.util.Failure
 
 trait Error extends Throwable
 
@@ -166,11 +169,11 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
 
   def handleMonitorExit(monitored: Any, ref: Reference, reason: Any): Unit
 
-  def exit(reason: Any) = {
-    Unsafe.unsafe { implicit unsafe =>
-      adapter.runtime.unsafe.run(adapter.exit(adapter.fromScala(reason)))
+  def exit(reason: Any): Unit = {
+    reason match {
+      case str: String => ActorResult.exit(str)
+      case _           => ActorResult.exit(adapter.fromScala(reason))
     }
-    ()
   }
 
   def unlink(to: Pid): Unit = {
@@ -495,23 +498,32 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           }
         }
       case Some(info: ETerm) => {
-        ZIO
-          .attemptBlockingInterrupt(handleInfo(adapter.toScala(info)))
-          .mapError(err => {
-            printThrowable("onMessage[ETerm]", err)
-            HandleInfoCBError(err)
-          })
-          .as(ActorResult.Continue())
+        ZIO.attemptBlockingInterrupt {
+          Try(handleInfo(adapter.toScala(info))) match {
+            case Success(value) =>
+              ActorResult.Continue()
+            case Failure(err) =>
+              ActorResult.onError(err).getOrElse {
+                printThrowable("onMessage[ETerm]", err)
+                ActorResult.onMessageError(HandleInfoCBError(err))
+              }
+          }
+        }
       }
       case Some(info) => {
-        ZIO.logError(s"nothing matched but it is not a ETerm $info")
-        ZIO
-          .attemptBlockingInterrupt(handleInfo(adapter.toScala(info)))
-          .mapError(err => {
-            printThrowable("onMessage[Any]", err)
-            HandleInfoCBError(err)
-          })
-          .as(ActorResult.Continue())
+        ZIO.logError(s"nothing matched but it is not a ETerm $info") *>
+          ZIO.attemptBlockingInterrupt {
+            Try(handleInfo(adapter.toScala(info))) match {
+              case Success(value) =>
+                ActorResult.Continue()
+              case Failure(err) =>
+                ActorResult.onError(err).getOrElse {
+                  printThrowable("onMessage[Any]", err)
+                  ActorResult.onMessageError(HandleCallCBError(err))
+                }
+            }
+          }
+
       }
       case None => ZIO.fail(UnreachableError())
     }
@@ -552,23 +564,25 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
       case _                             => throw new Throwable("unreachable")
     }
     for {
-      result <- ZIO
-        .attemptBlockingInterrupt(handleCall(callerTag, adapter.toScala(request)))
-        .mapError(err => {
-          printThrowable("onMessage[$gen_call]", err)
-          HandleCallCBError(err)
-        })
+      result <- ZIO.attemptBlockingInterrupt {
+        Try(handleCall(callerTag, adapter.toScala(request)))
+      }
       res <- result match {
-        case (Symbol("reply"), replyTerm) =>
+        case Success((Symbol("reply"), replyTerm)) =>
           Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
-        case Symbol("noreply") =>
+        case Success(Symbol("noreply")) =>
           ZIO.succeed(ActorResult.Continue())
-        case (Symbol("stop"), reason: String, replyTerm) =>
+        case Success((Symbol("stop"), reason: String, replyTerm)) =>
           Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.StopWithReasonString(reason))
-        case (Symbol("stop"), reason: Any, replyTerm) =>
+        case Success((Symbol("stop"), reason: Any, replyTerm)) =>
           Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.StopWithReasonTerm(adapter.fromScala(reason)))
-        case replyTerm =>
+        case Success(replyTerm) =>
           Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
+        case Failure(err) =>
+          ZIO.succeed(ActorResult.onError(err).getOrElse {
+            printThrowable("onMessage[$gen_call]", err)
+            ActorResult.onMessageError(HandleCallCBError(err))
+          })
       }
     } yield res
   }

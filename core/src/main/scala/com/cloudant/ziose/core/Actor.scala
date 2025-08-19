@@ -352,6 +352,20 @@ trait ActorResult {
  * Used by the Actor trait only
  */
 object ActorResult {
+  private trait Exit extends Throwable {
+    def toResult: ActorResult
+  }
+
+  private case class ExitWithReasonTerm(reason: Codec.ETerm) extends Exit {
+    def toResult = StopWithReasonTerm(reason)
+  }
+  private case class ExitWithReasonString(reason: String) extends Exit {
+    def toResult = StopWithReasonString(reason)
+  }
+
+  def exit(reason: String): Unit      = throw ExitWithReasonString(reason)
+  def exit(reason: Codec.ETerm): Unit = throw ExitWithReasonTerm(reason)
+
   case class Continue() extends ActorResult {
     val shouldContinue: Boolean             = true
     val asReasonOption: Option[Codec.ETerm] = None
@@ -383,17 +397,32 @@ object ActorResult {
     Cause.fail(failure).mapTrace(trace => StackTrace.fromJava(trace.fiberId, stackTrace))
   }
 
-  def onInitError(failure: Throwable) = {
-    ActorResult.StopWithCause(ActorCallback.OnInit, failureToCause(failure)).asInstanceOf[ActorResult]
-  }
-  def onMessageError(failure: Throwable) = {
-    ActorResult.StopWithCause(ActorCallback.OnMessage, failureToCause(failure)).asInstanceOf[ActorResult]
-  }
-  def onTerminationError(failure: Throwable) = {
-    ActorResult.StopWithCause(ActorCallback.OnTermination, failureToCause(failure)).asInstanceOf[ActorResult]
+  def onError(failure: Throwable): Option[ActorResult] = failure match {
+    case err: ActorResult.Exit =>
+      Some(err.toResult)
+    case _ =>
+      None
   }
 
-  def recoverFromExit(exit: Exit[_, _]): Option[ActorResult] = exit match {
+  def onInitError(failure: Throwable): ActorResult = {
+    onError(failure).getOrElse(
+      ActorResult.StopWithCause(ActorCallback.OnInit, failureToCause(failure))
+    )
+  }
+
+  def onMessageError(failure: Throwable): ActorResult = {
+    onError(failure).getOrElse(
+      ActorResult.StopWithCause(ActorCallback.OnMessage, failureToCause(failure))
+    )
+  }
+
+  def onTerminationError(failure: Throwable) = {
+    onError(failure).getOrElse(
+      ActorResult.StopWithCause(ActorCallback.OnTermination, failureToCause(failure))
+    )
+  }
+
+  def recoverFromExit(exit: zio.Exit[_, _]): Option[ActorResult] = exit match {
     case Exit.Failure(cause)           => recoverFromCause(cause)
     case Exit.Success(cause: Cause[_]) => recoverFromCause(cause)
     case _                             => None

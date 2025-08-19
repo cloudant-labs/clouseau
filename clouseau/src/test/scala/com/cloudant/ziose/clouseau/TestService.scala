@@ -101,6 +101,10 @@ class TestService(ctx: ServiceContext[TestServiceArgs])(implicit adapter: Adapte
       case Symbol("history") =>
         // remove calls to history from the result
         (Symbol("reply"), calledArgs.filterNot(_._2 == Symbol("history")))
+      case (Symbol("exitWithReason"), reason: String) =>
+        exit(reason)
+      case (Symbol("exitWithReason"), reason: Any) =>
+        exit(reason)
       case msg =>
         logger.warn(s"Unexpected message: $msg ...")
     }

@@ -348,6 +348,53 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
 
   val monitorsSuite: Spec[Any, Throwable] = {
     suite("monitor")(
+      test("monitor process by identifier - actor itself calls exit")(
+        for {
+          node   <- Utils.clouseauNode
+          worker <- ZIO.service[core.EngineWorker]
+
+          echo           <- TestService.start(node, "MonitorSuite.Echo.KillByOwnExit")
+          monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.KillByOwnExit")
+          echoPid = echo.self.pid
+          echoRef <- MonitorService.monitor(monitorerActor, echoPid).map(_.right.get)
+          _       <- ZIO.sleep(WAIT_DURATION)
+          ctx     = echo.ctx.asInstanceOf[core.ProcessContext]
+          tag     = core.Codec.EAtom("$gen_call")
+          payload = core.Codec.ETuple(core.Codec.EAtom("exitWithReason"), core.Codec.EAtom("reason"))
+          callMsg = core.MessageEnvelope.makeCall(
+            tag,
+            echo.self.pid,
+            echo.id,
+            payload,
+            Some(TIMEOUT),
+            dummyCaller("MonitorSuite.KillByOwnExit")
+          )
+          result <- ctx.call(callMsg)
+          _      <- assertNotAlive(echo.id)
+          _      <- ZIO.sleep(WAIT_DURATION)
+          output <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
+          monitorHistory <- MonitorService.history(monitorerActor)
+        } yield assert(monitorHistory)(isSome) ?? "history should be available"
+          && assert(monitorHistory)(containsShapeOption { case (pid: Pid, ref, Symbol("reason")) =>
+            pid == Pid.toScala(echoPid) && echoRef == ref
+          }) ?? "has to contain elements of expected shape"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+          )(containsShape { case (_, reason: String, "TestService") =>
+            reason.contains("reason")
+          }) ?? "log should contain messages from 'TestService.onTermination' callback"
+          && assert(
+            (logHistory.withLogLevel(LogLevel.Trace) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnTermination) &&
+              logHistory.withActorAddress(echo.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size
+          )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
+      ),
       test("monitor process by identifier - killed by calling exit")(
         for {
           node   <- Utils.clouseauNode
@@ -392,7 +439,6 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.KillByException")
           echoPid = echo.self.pid
           echoRef <- MonitorService.monitor(monitorerActor, echoPid).map(_.right.get)
-          _       <- ZIO.debug("The stack trace below is expected =====vvvvvv")
           _       <- echo.crashWithReason("myCrashReason")
           _       <- assertNotAlive(echo.id)
           output  <- ZTestLogger.logOutput
@@ -517,7 +563,6 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.MonitorByName.KillByException")
           echoPid = echo.self.pid
           echoRef <- MonitorService.monitor(monitorerActor, core.Codec.EAtom(echoName)).map(_.right.get)
-          _       <- ZIO.debug("The stack trace below is expected =====vvvvvv")
           _       <- echo.crashWithReason("myCrashReason")
           _       <- assertNotAlive(echo.id)
           output  <- ZTestLogger.logOutput

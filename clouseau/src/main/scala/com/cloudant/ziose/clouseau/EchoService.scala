@@ -31,6 +31,10 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
         logger.warn(s"Blocking the actor loop for ${durationInMs} ms")
         Thread.sleep(durationInMs)
         logger.warn(s"Blocking the actor loop is over")
+      case (Symbol("exitWithReason"), reason: String) =>
+        exit(reason)
+      case (Symbol("exitWithReason"), reason: Any) =>
+        exit(reason)
       case msg =>
         logger.warn(s"[handleInfo] Unexpected message: $msg ...")
     }
