@@ -448,7 +448,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
               EAtom("ping")
             )
           ) => {
-        onHandlePingMessage(fromTag)
+        onHandlePingMessage(event)
       }
       case Some(
             ETuple(
@@ -460,7 +460,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
               EAtom("metrics")
             )
           ) => {
-        onHandleMetricsMessage(fromTag)
+        onHandleMetricsMessage(event)
       }
       case Some(
             ETuple(
@@ -472,7 +472,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
               request: ETerm
             )
           ) => {
-        onHandleCallMessage(fromTag, request)
+        onHandleCallMessage(event)
       }
       case Some(ETuple(EAtom("$gen_cast"), request: ETerm)) => {
         try {
@@ -531,34 +531,20 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     case other       => throw new Throwable("unreachable")
   }
 
-  def onHandlePingMessage(fromTag: ETerm) = {
-    val callerTag: (Pid, Any) = fromTag match {
-      case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
-        (Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref)))
-      case ETuple(from: EPid, ref: ERef) => (Pid.toScala(from), Reference.toScala(ref))
-      case _                             => throw new Throwable("unreachable")
-    }
+  def onHandlePingMessage(msg: MessageEnvelope) = {
+    val callerTag: (Pid, Any) = extractCallerTag(msg)
     Service.replyZIO(callerTag, Symbol("pong"))(this).as(ActorResult.Continue())
   }
 
-  def onHandleMetricsMessage(fromTag: ETerm) = {
-    val callerTag: (Pid, Any) = fromTag match {
-      case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
-        (Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref)))
-      case ETuple(from: EPid, ref: ERef) => (Pid.toScala(from), Reference.toScala(ref))
-      case _                             => throw new Throwable("unreachable")
-    }
-    val replyTerm = (Symbol("ok"), metrics.dumpAsSymbolValuePairs())
+  def onHandleMetricsMessage(msg: MessageEnvelope) = {
+    val callerTag: (Pid, Any) = extractCallerTag(msg)
+    val replyTerm             = (Symbol("ok"), metrics.dumpAsSymbolValuePairs())
     Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
   }
 
-  def onHandleCallMessage(fromTag: ETerm, request: ETerm)(implicit trace: Trace) = {
-    val callerTag: (Pid, Any) = fromTag match {
-      case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
-        (Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref)))
-      case ETuple(from: EPid, ref: ERef) => (Pid.toScala(from), Reference.toScala(ref))
-      case _                             => throw new Throwable("unreachable")
-    }
+  def onHandleCallMessage(msg: MessageEnvelope)(implicit trace: Trace) = {
+    val callerTag: (Pid, Any) = extractCallerTag(msg)
+    val request               = extractRequest(msg)
     for {
       result <- ZIO.attemptBlockingInterrupt {
         Try(handleCall(callerTag, adapter.toScala(request)))
@@ -580,6 +566,53 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           })
       }
     } yield res
+  }
+
+  private def extractCallerTag(event: MessageEnvelope): (Pid, Any) = {
+    val fromTag = event.getPayload match {
+      case Some(
+            ETuple(
+              EAtom("$gen_call"),
+              // Match on either
+              // - {pid(), ref()}
+              // - {pid(), [alias | ref()]}
+              fromTag @ ETuple(from: EPid, _ref),
+              _
+            )
+          ) =>
+        Some(fromTag)
+      case _ =>
+        // We already matched on the shape before the call to this
+        None
+    }
+    fromTag match {
+      case Some(ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef))) =>
+        (Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref)))
+      case Some(ETuple(from: EPid, ref: ERef)) =>
+        (Pid.toScala(from), Reference.toScala(ref))
+      case _ =>
+        // We already matched on the shape before the call to this
+        throw new Throwable("unreachable")
+    }
+  }
+
+  private def extractRequest(msg: MessageEnvelope): ETerm = {
+    msg.getPayload match {
+      case Some(
+            ETuple(
+              EAtom("$gen_call"),
+              // Match on either
+              // - {pid(), ref()}
+              // - {pid(), [alias | ref()]}
+              ETuple(_: EPid, _ref),
+              request
+            )
+          ) =>
+        request
+      case _ =>
+        // We already matched on the shape before the call to this
+        throw new Throwable("unreachable")
+    }
   }
 
   def ping(to: Pid): Boolean                   = Service.ping(to)
