@@ -18,14 +18,13 @@ import zio._
  */
 
 trait Mailbox extends ForwardWithId[Address, MessageEnvelope] {
-  def nextEvent: ZIO[Any, Nothing, Option[MessageEnvelope]]
+  def nextEvent: ZIO[Any, Nothing, MessageEnvelope]
   def start(scope: Scope.Closeable): ZIO[Any with Scope, Nothing, Map[Symbol, Fiber.Runtime[_, _]]]
   def exit(msg: MessageEnvelope.Exit): ZIO[Any with Scope, Nothing, Unit]
   def unlink(to: Codec.EPid): UIO[Unit]
   def link(to: Codec.EPid): ZIO[Any, _ <: Node.Error, Unit]
   def monitor(monitored: Address): ZIO[Node, _ <: Node.Error, Codec.ERef]
   def demonitor(ref: Codec.ERef): UIO[Unit]
-  def call(msg: MessageEnvelope.Call)(implicit trace: zio.Trace): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response]
   def cast(msg: MessageEnvelope.Cast)(implicit trace: zio.Trace): UIO[Unit]
   def send(msg: MessageEnvelope.Send)(implicit trace: zio.Trace): UIO[Unit]
 }

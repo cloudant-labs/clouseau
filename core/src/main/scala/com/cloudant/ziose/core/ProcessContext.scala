@@ -23,6 +23,7 @@ trait ProcessContext extends ForwardWithId[Address, MessageEnvelope] with WithPr
   )(implicit trace: Trace): URIO[R, Fiber.Runtime[E, A]]
   def call(msg: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response]
   def cast(msg: MessageEnvelope.Cast): UIO[Unit]
+  def send(msg: MessageEnvelope.Response): UIO[Unit]
   def send(msg: MessageEnvelope.Send): UIO[Unit]
   def nextEvent: ZIO[Any, Nothing, Option[MessageEnvelope]]
   def exit(reason: Codec.ETerm): UIO[Unit]

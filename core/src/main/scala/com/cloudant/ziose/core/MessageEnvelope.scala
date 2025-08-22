@@ -67,44 +67,11 @@ object MessageEnvelope {
     timeout: Option[Duration],
     private val base: Address
   ) extends MessageEnvelope {
-    def getPayload                = Some(ETuple(tag, replyRef, payload))
+    def getPayload                = Some(ETuple(tag, ETuple(from.get, replyRef), payload))
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
-    def toSend(f: ETerm => ETerm): MessageEnvelope = {
-      this.copy(payload = f(payload))
-    }
-    def toResponse(payload: Option[ETerm]): Response = {
-      payload match {
-        case Some(p) =>
-          Response(
-            from = from,
-            to = to,
-            tag = tag,
-            payload = Some(p),
-            reason = None,
-            base = base
-          )
-        case None if timeout.isDefined =>
-          Response(
-            from = from,
-            to = to,
-            tag = tag,
-            payload = None,
-            reason = Some(Node.Error.Timeout(timeout.get)),
-            base = base
-          )
-        case None =>
-          Response(
-            from = from,
-            to = to,
-            tag = tag,
-            payload = None,
-            reason = Some(Node.Error.Nothing()),
-            base = base
-          )
-      }
-    }
   }
+
   case class Cast(
     from: Option[EPid],
     to: Address,
@@ -116,10 +83,13 @@ object MessageEnvelope {
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
   }
+
   case class Response(
     from: Option[EPid],
     to: Address,
     tag: EAtom,
+    ref: ERef,
+    replyRef: ETerm,
     payload: Option[ETerm],
     private val base: Address,
     reason: Option[_ <: Node.Error]
@@ -132,6 +102,28 @@ object MessageEnvelope {
     def getCaller                 = from.get
     // when makeCall is used the Address is a PID
     def getCallee = to.asInstanceOf[PID].pid
+  }
+
+  object Response {
+    def timeout(msg: Call) = {
+      error(msg, Node.Error.Timeout(msg.timeout.get))
+    }
+
+    def error(msg: Call, reason: Node.Error) = {
+      // Call envelopes always have from, so it is safe to call `.get`
+      val base = Address.fromPid(msg.from.get, msg.workerId, msg.workerNodeName)
+      Response(
+        from = msg.from,
+        to = msg.to,
+        tag = msg.tag,
+        ref = msg.ref,
+        replyRef = msg.replyRef,
+        payload = None,
+        reason = Some(reason),
+        base = base
+      )
+    }
+
   }
 
   case class MonitorExit(
@@ -162,10 +154,10 @@ object MessageEnvelope {
     timeout: Option[Duration]
   ) = {
     fromTag match {
-      case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
-        Some(Call(Some(from), recipient, Codec.EAtom("$gen_call"), ref, fromTag, msg, timeout, recipient))
+      case ETuple(from: EPid, replyRef @ EListImproper(EAtom("alias"), ref: ERef)) =>
+        Some(Call(Some(from), recipient, Codec.EAtom("$gen_call"), ref, replyRef, msg, timeout, recipient))
       case ETuple(from: EPid, ref: ERef) =>
-        Some(Call(Some(from), recipient, Codec.EAtom("$gen_call"), ref, fromTag, msg, timeout, recipient))
+        Some(Call(Some(from), recipient, Codec.EAtom("$gen_call"), ref, ref, msg, timeout, recipient))
       case _ =>
         None
     }

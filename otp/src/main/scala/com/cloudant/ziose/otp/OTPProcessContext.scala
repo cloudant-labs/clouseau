@@ -1,6 +1,7 @@
 package com.cloudant.ziose.otp
 
 import java.util.concurrent.atomic.AtomicBoolean
+import collection.mutable.HashMap
 
 import zio._
 
@@ -26,6 +27,10 @@ class OTPProcessContext private (
   val worker: EngineWorker,
   private val mbox: OtpMbox
 ) extends ProcessContext {
+  private val inProgressCalls: HashMap[Codec.ERef, Promise[Nothing, Either[Node.Error, MessageEnvelope.Response]]] = {
+    HashMap()
+  }
+
   val id                                               = mailbox.id
   val engineId: Engine.EngineId                        = worker.engineId
   val workerId: Engine.WorkerId                        = worker.id
@@ -114,7 +119,30 @@ class OTPProcessContext private (
   def monitor(monitored: Address) = mailbox.monitor(monitored)
   def demonitor(ref: Codec.ERef)  = mailbox.demonitor(ref)
 
-  def nextEvent: ZIO[Any, Nothing, Option[MessageEnvelope]] = mailbox.nextEvent
+  def nextEvent: ZIO[Any, Nothing, Option[MessageEnvelope]] = {
+    mailbox.nextEvent.flatMap(e => ZIO.succeed(handleCall(e)))
+  }
+
+  def handleCall(envelope: MessageEnvelope): Option[MessageEnvelope] = {
+    envelope match {
+      case MessageEnvelope.Send(
+            _,
+            to,
+            Codec.ETuple(
+              Codec.EAtom("$gen_call"),
+              // Match on either
+              // - {pid(), ref()}
+              // - {pid(), [alias | ref()]}
+              fromTag @ Codec.ETuple(_: Codec.EPid, _ref),
+              payload
+            ),
+            workerId
+          ) =>
+        // We matched on fromTag structure already, so it is safe to call `.get`
+        Some(MessageEnvelope.makeCall(to, fromTag, payload, None).get)
+      case _ => Some(envelope)
+    }
+  }
 
   def forkScoped[R, E, A](effect: ZIO[R, E, A]): URIO[R, Fiber.Runtime[E, A]] = {
     effect.forkIn(scope)
@@ -128,11 +156,62 @@ class OTPProcessContext private (
     fiber <- effect.forkIn(scope)
   } yield fiber
 
-  def call(msg: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response] = {
-    mailbox.call(msg)
-  }
+  def call(message: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response] = for {
+    node          <- ZIO.service[Node]
+    resultChannel <- Promise.make[Nothing, Either[Node.Error, MessageEnvelope.Response]]
+    _             <- ZIO.succeed(inProgressCalls += Tuple2(message.ref, resultChannel))
+    // Forward message and only if it was sent return the `channel`
+    channel <- forward(message)
+      .flatMap(isSent => {
+        if (isSent) { ZIO.succeed(resultChannel) }
+        else { ZIO.fail(Node.Error.NoSuchActor()) }
+      })
+    // Unify the type of the response for cases with and without timeout
+    result <- (message.timeout match {
+      case Some(duration) =>
+        channel.await.timeout(duration)
+      case None =>
+        channel.await.map(Some(_))
+    })
+  } yield result
+    .map(x => {
+      x match {
+        case Right(value) =>
+          // Return `Response`
+          value
+        case Left(reason) =>
+          // Convert `Node.Error` into `Response`
+          MessageEnvelope.Response.error(message, reason)
+      }
+    })
+    // If the result is None, it means `channel`, got timeout.
+    .getOrElse(MessageEnvelope.Response.timeout(message))
+
   def cast(msg: MessageEnvelope.Cast): UIO[Unit] = {
     mailbox.cast(msg)
+  }
+
+  def send(msg: MessageEnvelope.Response): UIO[Unit] = {
+    (msg.to.isRemote, msg.to == id) match {
+      case (true, _) =>
+        // If message is for remote actor, send it through mailbox
+        mailbox.send(mapResponse(msg))
+      case (false, false) =>
+        // If message is not for me and actor is local
+        worker.forward(msg).unit
+      case (false, true) => {
+        // If message is for me I need to check if it is one of
+        // the inProgressCalls, in such case resolve the promise.
+        if (inProgressCalls.contains(msg.ref)) {
+          inProgressCalls.remove(msg.ref) match {
+            case Some(replyChannel) => replyChannel.succeed(Right(msg)).unit
+            case None               => ZIO.unit
+          }
+        } else {
+          ZIO.unit
+        }
+      }
+    }
   }
   def send(msg: MessageEnvelope.Send): UIO[Unit] = {
     if (msg.to.isRemote || msg.to == id) {
@@ -162,9 +241,20 @@ class OTPProcessContext private (
     fibers.get(fiberName).get.interrupt.unit
   }
 
+  private def terminateInProgressCalls = {
+    val stream = zio.stream.ZStream.fromIterable(inProgressCalls)
+    for {
+      _ <- stream.foreach(entry => {
+        val (ref, resultChannel) = entry
+        resultChannel.succeed(Left(Node.Error.Disconnected())).unit
+      })
+    } yield ()
+  }
+
   def onExit(exit: Exit[_, _]) = {
     if (!isFinalized.getAndSet(true)) {
       for {
+        _ <- terminateInProgressCalls
         // Closing scope with reason to propagate correct reason
         _ <- scope.close(exit)
       } yield ()
@@ -175,11 +265,30 @@ class OTPProcessContext private (
   def onStop(result: ActorResult): UIO[Unit] = {
     if (!isFinalized.getAndSet(true)) {
       for {
+        _ <- terminateInProgressCalls
         // Closing scope with reason to propagate correct reason
         _ <- scope.close(Exit.succeed(result))
       } yield ()
     } else {
       ZIO.unit
+    }
+  }
+
+  private def mapResponse(msg: MessageEnvelope.Response): MessageEnvelope.Send = {
+    (msg.payload, msg.reason) match {
+      case (Some(payload), None) =>
+        MessageEnvelope.Send(msg.from, msg.to, Codec.ETuple(msg.replyRef, payload), msg.to)
+      case (None, Some(reason)) =>
+        // https://github.com/erlang/otp/blob/master/lib/stdlib/src/gen.erl#L340
+        // this is very unlikely to happen we return something just to help with
+        // diagnostics
+        val payload = Codec.ETuple(
+          Codec.EAtom("error"),
+          Codec.ETuple(Codec.EBinary(reason.toString()), msg.from.get)
+        )
+        MessageEnvelope.Send(msg.from, msg.to, Codec.ETuple(msg.replyRef, Codec.EAtom("error")), msg.to)
+      case (_, _) =>
+        throw new Throwable("unreachable")
     }
   }
 

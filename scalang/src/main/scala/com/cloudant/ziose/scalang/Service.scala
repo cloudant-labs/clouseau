@@ -656,29 +656,52 @@ object Service {
   }
 
   def replyZIO[P <: Process](caller: (Pid, Any), reply: Any)(implicit process: P): UIO[Unit] = {
-    val (from, replyRef) = caller match {
+    val (from, replyRef, ref) = caller match {
       case (from: Pid, List(Symbol("alias"), ref: Reference)) =>
-        (from.fromScala, EListImproper(EAtom("alias"), ref.fromScala))
+        (from.fromScala, EListImproper(EAtom("alias"), ref.fromScala), ref)
       case (from: Pid, ref: Reference) =>
-        (from.fromScala, ref.fromScala)
+        (from.fromScala, ref.fromScala, ref)
       case _ =>
         throw new Throwable("unreachable")
     }
-    val adapter  = process.adapter
-    val address  = Address.fromPid(from, adapter.workerId, adapter.workerNodeName)
-    val envelope = MessageEnvelope.makeSend(address, adapter.fromScala((replyRef, reply)), adapter.self)
+    val adapter = process.adapter
+    val address = Address.fromPid(from, adapter.workerId, adapter.workerNodeName)
+    val envelope = MessageEnvelope.Response(
+      from = Some(from),
+      to = address,
+      tag = Codec.EAtom("$gen_call"),
+      ref = ref.fromScala,
+      replyRef = replyRef,
+      payload = Some(adapter.fromScala(reply)),
+      reason = None,
+      base = adapter.self
+    )
     adapter.send(envelope)
   }
 
   def reply[P <: Process](caller: (Pid, Any), reply: Any)(implicit process: P): Unit = {
-    val (from, replyRef) = caller match {
+    val (from, replyRef, ref) = caller match {
       case (from: Pid, List(Symbol("alias"), ref: Reference)) =>
-        (from.fromScala, EListImproper(EAtom("alias"), ref.fromScala))
+        (from.fromScala, EListImproper(EAtom("alias"), ref.fromScala), ref)
       case (from: Pid, ref: Reference) =>
-        (from.fromScala, ref.fromScala)
+        (from.fromScala, ref.fromScala, ref)
       case _ =>
         throw new Throwable("unreachable")
     }
-    process.send(from, (replyRef, reply))
+    val adapter = process.adapter
+    val address = Address.fromPid(from, adapter.workerId, adapter.workerNodeName)
+    val envelope = MessageEnvelope.Response(
+      from = Some(from),
+      to = address,
+      tag = Codec.EAtom("$gen_call"),
+      ref = ref.fromScala,
+      replyRef = replyRef,
+      payload = Some(adapter.fromScala(reply)),
+      reason = None,
+      base = adapter.self
+    )
+    Unsafe.unsafe { implicit unsafe =>
+      Runtime.default.unsafe.run(adapter.send(envelope))
+    }
   }
 }
