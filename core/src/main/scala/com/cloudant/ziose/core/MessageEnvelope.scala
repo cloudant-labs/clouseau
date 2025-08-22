@@ -291,23 +291,4 @@ object MessageEnvelope {
         None
     }
   }
-
-  def extractRequest(msg: MessageEnvelope): Option[ETerm] = {
-    msg.getPayload match {
-      case Some(
-            ETuple(
-              EAtom("$gen_call"),
-              // Match on either
-              // - {pid(), ref()}
-              // - {pid(), [alias | ref()]}
-              ETuple(_: EPid, _ref),
-              request
-            )
-          ) =>
-        Some(request)
-      case _ =>
-        None
-    }
-  }
-
 }

@@ -521,12 +521,9 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
 
   def onHandleCallMessage(msg: MessageEnvelope.Call)(implicit trace: Trace) = {
     val callerTag: (Pid, Any) = extractCallerTag(msg)
-    // We already matched on the shape before the call to this,
-    // so it is safe to use `.get`
-    val request = MessageEnvelope.extractRequest(msg).get
     for {
       result <- ZIO.attemptBlockingInterrupt {
-        Try(handleCall(callerTag, adapter.toScala(request)))
+        Try(handleCall(callerTag, adapter.toScala(msg.payload)))
       }
       res <- result match {
         case Success((Symbol("reply"), replyTerm)) =>
