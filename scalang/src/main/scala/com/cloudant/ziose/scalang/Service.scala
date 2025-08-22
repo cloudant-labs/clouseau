@@ -544,7 +544,9 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
 
   def onHandleCallMessage(msg: MessageEnvelope)(implicit trace: Trace) = {
     val callerTag: (Pid, Any) = extractCallerTag(msg)
-    val request               = extractRequest(msg)
+    // We already matched on the shape before the call to this,
+    // so it is safe to use `.get`
+    val request = MessageEnvelope.extractRequest(msg).get
     for {
       result <- ZIO.attemptBlockingInterrupt {
         Try(handleCall(callerTag, adapter.toScala(request)))
@@ -574,25 +576,6 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
         (Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref)))
       case Some(ETuple(from: EPid, ref: ERef)) =>
         (Pid.toScala(from), Reference.toScala(ref))
-      case _ =>
-        // We already matched on the shape before the call to this
-        throw new Throwable("unreachable")
-    }
-  }
-
-  private def extractRequest(msg: MessageEnvelope): ETerm = {
-    msg.getPayload match {
-      case Some(
-            ETuple(
-              EAtom("$gen_call"),
-              // Match on either
-              // - {pid(), ref()}
-              // - {pid(), [alias | ref()]}
-              ETuple(_: EPid, _ref),
-              request
-            )
-          ) =>
-        request
       case _ =>
         // We already matched on the shape before the call to this
         throw new Throwable("unreachable")
