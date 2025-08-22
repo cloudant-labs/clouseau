@@ -176,6 +176,21 @@ class OTPMailbox private (
       }
     }
     envelope match {
+      case MessageEnvelope.Send(
+            _,
+            to,
+            Codec.ETuple(
+              Codec.EAtom("$gen_call"),
+              // Match on either
+              // - {pid(), ref()}
+              // - {pid(), [alias | ref()]}
+              fromTag @ Codec.ETuple(_: Codec.EPid, _ref),
+              payload
+            ),
+            workerId
+          ) =>
+        // We matched on fromTag structure already, so it is safe to call `.get`
+        Some(MessageEnvelope.makeCall(to, fromTag, payload, None).get)
       case MessageEnvelope.Send(from, to, Codec.ETuple(ref: Codec.ERef, term: Codec.ETerm), workerId) =>
         maybeConstructResult(ref, term)
       case MessageEnvelope.Send(
