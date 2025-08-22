@@ -680,28 +680,8 @@ object Service {
   }
 
   def reply[P <: Process](caller: (Pid, Any), reply: Any)(implicit process: P): Unit = {
-    val (from, replyRef, ref) = caller match {
-      case (from: Pid, List(Symbol("alias"), ref: Reference)) =>
-        (from.fromScala, EListImproper(EAtom("alias"), ref.fromScala), ref)
-      case (from: Pid, ref: Reference) =>
-        (from.fromScala, ref.fromScala, ref)
-      case _ =>
-        throw new Throwable("unreachable")
-    }
-    val adapter = process.adapter
-    val address = Address.fromPid(from, adapter.workerId, adapter.workerNodeName)
-    val envelope = MessageEnvelope.Response(
-      from = Some(from),
-      to = address,
-      tag = Codec.EAtom("$gen_call"),
-      ref = ref.fromScala,
-      replyRef = replyRef,
-      payload = Some(adapter.fromScala(reply)),
-      reason = None,
-      base = adapter.self
-    )
     Unsafe.unsafe { implicit unsafe =>
-      Runtime.default.unsafe.run(adapter.send(envelope))
+      Runtime.default.unsafe.run(replyZIO(caller, reply))
     }
   }
 }
