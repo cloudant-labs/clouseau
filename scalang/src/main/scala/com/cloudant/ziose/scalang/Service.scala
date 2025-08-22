@@ -569,23 +569,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
   }
 
   private def extractCallerTag(event: MessageEnvelope): (Pid, Any) = {
-    val fromTag = event.getPayload match {
-      case Some(
-            ETuple(
-              EAtom("$gen_call"),
-              // Match on either
-              // - {pid(), ref()}
-              // - {pid(), [alias | ref()]}
-              fromTag @ ETuple(from: EPid, _ref),
-              _
-            )
-          ) =>
-        Some(fromTag)
-      case _ =>
-        // We already matched on the shape before the call to this
-        None
-    }
-    fromTag match {
+    MessageEnvelope.extractCallerTag(event) match {
       case Some(ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef))) =>
         (Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref)))
       case Some(ETuple(from: EPid, ref: ERef)) =>

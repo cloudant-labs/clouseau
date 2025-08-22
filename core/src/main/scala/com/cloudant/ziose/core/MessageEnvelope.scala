@@ -266,4 +266,23 @@ object MessageEnvelope {
   private def getMsg(msg: OtpMsg): ETerm = {
     Codec.fromErlang(msg.getMsg())
   }
+
+  def extractCallerTag(msg: MessageEnvelope): Option[ETuple] = {
+    msg.getPayload match {
+      case Some(
+            ETuple(
+              EAtom("$gen_call"),
+              // Match on either
+              // - {pid(), ref()}
+              // - {pid(), [alias | ref()]}
+              fromTag @ ETuple(from: EPid, _ref),
+              _
+            )
+          ) =>
+        Some(fromTag)
+      case _ =>
+        None
+    }
+  }
+
 }
