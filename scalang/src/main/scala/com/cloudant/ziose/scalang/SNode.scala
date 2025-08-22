@@ -94,15 +94,17 @@ class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(i
   def call(from: Pid, to: Pid, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
     // assume the pid is on the same worker
     val address = Address.fromPid(to.fromScala, adapter.workerId, adapter.workerNodeName)
-    val envelope = MessageEnvelope.makeCall(
-      Codec.EAtom("$gen_call"),
-      from.fromScala,
-      address,
-      adapter.fromScala(msg),
-      None,
-      adapter.self
-    )
     for {
+      node <- ZIO.service[core.Node]
+      ref  <- node.makeRef()
+      envelope = MessageEnvelope
+        .makeCall(
+          address,
+          Codec.ETuple(from.fromScala, ref),
+          adapter.fromScala(msg),
+          None
+        )
+        .get
       result <- adapter.call(envelope)
     } yield {
       if (result.isSuccess) {
@@ -116,15 +118,17 @@ class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(i
     // assume the pid is on the same worker
     val address  = Address.fromPid(to.fromScala, adapter.workerId, adapter.workerNodeName)
     val duration = Duration(timeout, TimeUnit.MILLISECONDS)
-    val envelope = MessageEnvelope.makeCall(
-      Codec.EAtom("$gen_call"),
-      from.fromScala,
-      address,
-      adapter.fromScala(msg),
-      Some(duration),
-      adapter.self
-    )
     for {
+      node <- ZIO.service[core.Node]
+      ref  <- node.makeRef()
+      envelope = MessageEnvelope
+        .makeCall(
+          address,
+          Codec.ETuple(from.fromScala, ref),
+          adapter.fromScala(msg),
+          Some(duration)
+        )
+        .get
       result <- adapter.call(envelope)
     } yield {
       if (result.isSuccess) {
@@ -145,15 +149,17 @@ class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(i
   def call(from: Pid, to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
     // assume the pid is on the same worker
     val address = Address.fromName(Codec.EAtom(to), adapter.workerId, adapter.workerNodeName)
-    val envelope = MessageEnvelope.makeCall(
-      Codec.EAtom("$gen_call"),
-      from.fromScala,
-      address,
-      adapter.fromScala(msg),
-      None,
-      adapter.self
-    )
     for {
+      node <- ZIO.service[core.Node]
+      ref  <- node.makeRef()
+      envelope = MessageEnvelope
+        .makeCall(
+          address,
+          Codec.ETuple(from.fromScala, ref),
+          adapter.fromScala(msg),
+          None
+        )
+        .get
       result <- adapter.call(envelope)
     } yield {
       if (result.isSuccess) {
@@ -167,15 +173,17 @@ class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(i
     // assume the pid is on the same worker
     val address  = Address.fromName(Codec.EAtom(to), adapter.workerId, adapter.workerNodeName)
     val duration = Duration(timeout, TimeUnit.MILLISECONDS)
-    val envelope = MessageEnvelope.makeCall(
-      Codec.EAtom("$gen_call"),
-      from.fromScala,
-      address,
-      adapter.fromScala(msg),
-      Some(duration),
-      adapter.self
-    )
     for {
+      node <- ZIO.service[core.Node]
+      ref  <- node.makeRef()
+      envelope = MessageEnvelope
+        .makeCall(
+          address,
+          Codec.ETuple(from.fromScala, ref),
+          adapter.fromScala(msg),
+          Some(duration)
+        )
+        .get
       result <- adapter.call(envelope)
     } yield {
       if (result.isSuccess) {
@@ -196,15 +204,17 @@ class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(i
     val address = {
       Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), adapter.workerId, adapter.workerNodeName)
     }
-    val envelope = MessageEnvelope.makeCall(
-      Codec.EAtom("$gen_call"),
-      adapter.self.pid,
-      address,
-      adapter.fromScala(msg),
-      None,
-      adapter.self
-    )
     for {
+      node <- ZIO.service[core.Node]
+      ref  <- node.makeRef()
+      envelope = MessageEnvelope
+        .makeCall(
+          address,
+          Codec.ETuple(from.fromScala, ref),
+          adapter.fromScala(msg),
+          None
+        )
+        .get
       result <- adapter.call(envelope)
     } yield {
       if (result.isSuccess) {
@@ -220,15 +230,17 @@ class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(i
       Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), adapter.workerId, adapter.workerNodeName)
     }
     val duration = Duration(timeout, TimeUnit.MILLISECONDS)
-    val envelope = MessageEnvelope.makeCall(
-      Codec.EAtom("$gen_call"),
-      adapter.self.pid,
-      address,
-      adapter.fromScala(msg),
-      Some(duration),
-      adapter.self
-    )
     for {
+      node <- ZIO.service[core.Node]
+      ref  <- node.makeRef()
+      envelope = MessageEnvelope
+        .makeCall(
+          address,
+          Codec.ETuple(from.fromScala, ref),
+          adapter.fromScala(msg),
+          Some(duration)
+        )
+        .get
       result <- adapter.call(envelope)
     } yield {
       if (result.isSuccess) {

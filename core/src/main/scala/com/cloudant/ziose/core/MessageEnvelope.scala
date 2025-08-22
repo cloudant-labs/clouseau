@@ -1,7 +1,7 @@
 package com.cloudant.ziose.core
 
 import com.ericsson.otp.erlang.{OtpMsg, OtpErlangPid, OtpErlangException, OtpErlangExit}
-import Codec.{EAtom, EBinary, EPid, ERef, ETerm, ETuple}
+import Codec.{EAtom, EBinary, EListImproper, EPid, ERef, ETerm, ETuple}
 import zio._
 
 sealed trait MessageEnvelope extends WithWorkerId[Engine.WorkerId] {
@@ -61,15 +61,17 @@ object MessageEnvelope {
     from: Option[EPid],
     to: Address,
     tag: EAtom,
+    ref: ERef,
+    replyRef: ETerm,
     payload: ETerm,
     timeout: Option[Duration],
     private val base: Address
   ) extends MessageEnvelope {
-    def getPayload                = Some(payload)
+    def getPayload                = Some(ETuple(tag, replyRef, payload))
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
     def toSend(f: ETerm => ETerm): MessageEnvelope = {
-      Call(from, to, tag, f(payload), timeout, base)
+      this.copy(payload = f(payload))
     }
     def toResponse(payload: Option[ETerm]): Response = {
       payload match {
@@ -154,14 +156,19 @@ object MessageEnvelope {
   }
 
   def makeCall(
-    tag: EAtom,
-    from: EPid,
     recipient: Address,
+    fromTag: ETerm,
     msg: ETerm,
-    timeout: Option[Duration],
-    address: Address
+    timeout: Option[Duration]
   ) = {
-    Call(Some(from), recipient, tag, msg, timeout, address)
+    fromTag match {
+      case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
+        Some(Call(Some(from), recipient, Codec.EAtom("$gen_call"), ref, fromTag, msg, timeout, recipient))
+      case ETuple(from: EPid, ref: ERef) =>
+        Some(Call(Some(from), recipient, Codec.EAtom("$gen_call"), ref, fromTag, msg, timeout, recipient))
+      case _ =>
+        None
+    }
   }
 
   def makeCast(tag: EAtom, from: EPid, recipient: Address, msg: ETerm, address: Address) = {

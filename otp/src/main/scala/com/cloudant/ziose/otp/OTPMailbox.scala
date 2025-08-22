@@ -285,14 +285,12 @@ class OTPMailbox private (
   def call(
     message: MessageEnvelope.Call
   )(implicit trace: zio.Trace): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response] = for {
-    node <- ZIO.service[Node]
-    ref  <- node.makeRef()
-    _    <- ZIO.succeed(inProgressCalls += Tuple2(ref, message.from.get))
-    _    <- forward(toSend(message, ref))
+    _ <- ZIO.succeed(inProgressCalls += Tuple2(message.ref, message.from.get))
+    _ <- forward(message)
     result <- message.timeout match {
       case Some(duration) =>
         ZIO
-          .succeed(callResults.remove(ref))
+          .succeed(callResults.remove(message.ref))
           // wait a bit before next try
           .delay(10.millis)
           .repeatUntil(o => o.nonEmpty)
@@ -300,7 +298,7 @@ class OTPMailbox private (
           .timeout(duration)
       case None =>
         ZIO
-          .succeed(callResults.remove(ref))
+          .succeed(callResults.remove(message.ref))
           .repeatUntil(o => o.nonEmpty)
     }
   } yield message.toResponse(result)
@@ -390,15 +388,6 @@ class OTPMailbox private (
     s"compositeMailbox.capacity=$capacity",
     s"compositeMailbox.size=$size"
   )
-
-  def toSend(message: MessageEnvelope.Call, ref: Codec.ERef) = {
-    val msg = Codec.ETuple(
-      message.tag,
-      Codec.ETuple(message.from.get, Codec.EListImproper(Codec.EAtom("alias"), ref)),
-      message.payload
-    )
-    message.toSend(_ => msg)
-  }
 }
 
 object OTPMailbox {

@@ -181,49 +181,51 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
       // to the internals. Please refrain from DRYing it.
       test("Call into service using actor reference - basic")(
         for {
-          node  <- Utils.clouseauNode
-          actor <- TestService.start(node, "ServiceCommunication.Call")
+          node     <- Utils.clouseauNode
+          actor    <- TestService.start(node, "ServiceCommunication.Call")
+          coreNode <- ZIO.service[core.Node]
+          ref      <- coreNode.makeRef()
           ctx     = actor.ctx.asInstanceOf[core.ProcessContext]
-          tag     = core.Codec.EAtom("$gen_call")
           payload = core.Codec.ETuple(core.Codec.EAtom("echo"), core.Codec.EAtom("something"))
-          callMsg = core.MessageEnvelope.makeCall(
-            tag,
-            actor.self.pid,
-            actor.id,
-            payload,
-            Some(TIMEOUT),
-            dummyCaller("ServiceCommunication.Call")
-          )
+          callMsg = core.MessageEnvelope
+            .makeCall(
+              actor.id,
+              core.Codec.ETuple(actor.self.pid, ref),
+              payload,
+              Some(TIMEOUT)
+            )
+            .get
           result <- ctx.call(callMsg)
         } yield assertTrue(
           result.isSuccess,
           result.from == Some(actor.id.asInstanceOf[core.PID].pid),
-          result.tag == tag,
+          result.tag == callMsg.tag,
           result.payload.get == core.Codec.ETuple(core.Codec.EAtom("echo"), core.Codec.EAtom("something")),
           result.workerId == 1
         )
       ),
       test("Call into service using actor reference - state is updated")(
         for {
-          node  <- Utils.clouseauNode
-          actor <- TestService.start(node, "ServiceCommunication.Call")
+          node     <- Utils.clouseauNode
+          actor    <- TestService.start(node, "ServiceCommunication.Call")
+          coreNode <- ZIO.service[core.Node]
+          ref      <- coreNode.makeRef()
           ctx     = actor.ctx.asInstanceOf[core.ProcessContext]
-          tag     = core.Codec.EAtom("$gen_call")
           payload = core.Codec.ETuple(core.Codec.EAtom("echo"), core.Codec.EAtom("something"))
-          callMsg = core.MessageEnvelope.makeCall(
-            tag,
-            actor.self.pid,
-            actor.id,
-            payload,
-            Some(TIMEOUT),
-            dummyCaller("ServiceCommunication.Call")
-          )
+          callMsg = core.MessageEnvelope
+            .makeCall(
+              actor.id,
+              core.Codec.ETuple(actor.self.pid, ref),
+              payload,
+              Some(TIMEOUT)
+            )
+            .get
           result       <- ctx.call(callMsg)
           actorHistory <- actor.history
         } yield assertTrue(
           result.isSuccess,
           result.from == Some(actor.id.asInstanceOf[core.PID].pid),
-          result.tag == tag,
+          result.tag == callMsg.tag,
           result.payload.get == core.Codec.ETuple(core.Codec.EAtom("echo"), core.Codec.EAtom("something")),
           result.workerId == 1
         ) && assert(actorHistory)(containsShape { case ("handleCall", (Symbol("echo"), Symbol("something"))) =>
@@ -350,25 +352,25 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
     suite("monitor")(
       test("monitor process by identifier - actor itself calls exit")(
         for {
-          node   <- Utils.clouseauNode
-          worker <- ZIO.service[core.EngineWorker]
-
+          node           <- Utils.clouseauNode
+          worker         <- ZIO.service[core.EngineWorker]
+          coreNode       <- ZIO.service[core.Node]
+          ref            <- coreNode.makeRef()
           echo           <- TestService.start(node, "MonitorSuite.Echo.KillByOwnExit")
           monitorerActor <- MonitorService.startZIO(node, "MonitorSuite.Monitorer.KillByOwnExit")
           echoPid = echo.self.pid
           echoRef <- MonitorService.monitor(monitorerActor, echoPid).map(_.right.get)
           _       <- ZIO.sleep(WAIT_DURATION)
           ctx     = echo.ctx.asInstanceOf[core.ProcessContext]
-          tag     = core.Codec.EAtom("$gen_call")
           payload = core.Codec.ETuple(core.Codec.EAtom("exitWithReason"), core.Codec.EAtom("reason"))
-          callMsg = core.MessageEnvelope.makeCall(
-            tag,
-            echo.self.pid,
-            echo.id,
-            payload,
-            Some(TIMEOUT),
-            dummyCaller("MonitorSuite.KillByOwnExit")
-          )
+          callMsg = core.MessageEnvelope
+            .makeCall(
+              echo.id,
+              core.Codec.ETuple(echo.self.pid, ref),
+              payload,
+              Some(TIMEOUT)
+            )
+            .get
           result <- ctx.call(callMsg)
           _      <- assertNotAlive(echo.id)
           _      <- ZIO.sleep(WAIT_DURATION)
