@@ -423,11 +423,6 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     throw HandleInfoUndefined(getClass.toString)
   }
 
-  // OTP uses improper list in `gen.erl`
-  // https://github.com/erlang/otp/blob/master/lib/stdlib/src/gen.erl#L252C11-L252C20
-  //  Tag = [alias | Mref],
-  def makeTag(ref: ERef) = EListImproper(EAtom("alias"), ref)
-
   override def onMessage[PContext <: ProcessContext](
     event: MessageEnvelope,
     ctx: PContext

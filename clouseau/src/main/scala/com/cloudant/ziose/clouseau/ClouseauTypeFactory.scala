@@ -289,10 +289,4 @@ object ClouseauTypeFactory extends TypeFactory {
       case _                  => None
     }
   }
-
-  // OTP uses improper list in `gen.erl`
-  // https://github.com/erlang/otp/blob/master/lib/stdlib/src/gen.erl#L252C11-L252C20
-  //  Tag = [alias | Mref],
-  def makeTag(ref: Codec.ERef) = Codec.EListImproper(Codec.EAtom("alias"), ref)
-
 }
