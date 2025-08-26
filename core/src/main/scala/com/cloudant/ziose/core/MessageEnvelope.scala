@@ -105,6 +105,20 @@ object MessageEnvelope {
   }
 
   object Response {
+    def make(from: PID, to: Codec.EPid, ref: Codec.ERef, replyRef: Codec.ETerm, payload: Codec.ETerm) = {
+      val address = Address.fromPid(to, from.workerId, from.workerNodeName)
+      Response(
+        from = Some(from.pid),
+        to = address,
+        tag = Codec.EAtom("$gen_call"),
+        ref = ref,
+        replyRef = replyRef,
+        payload = Some(payload),
+        reason = None,
+        base = from
+      )
+    }
+
     def timeout(msg: Call) = {
       error(msg, Node.Error.Timeout(msg.timeout.get))
     }

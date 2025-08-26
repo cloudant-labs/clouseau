@@ -665,16 +665,12 @@ object Service {
         throw new Throwable("unreachable")
     }
     val adapter = process.adapter
-    val address = Address.fromPid(from, adapter.workerId, adapter.workerNodeName)
-    val envelope = MessageEnvelope.Response(
-      from = Some(from),
-      to = address,
-      tag = Codec.EAtom("$gen_call"),
-      ref = ref.fromScala,
-      replyRef = replyRef,
-      payload = Some(adapter.fromScala(reply)),
-      reason = None,
-      base = adapter.self
+    val envelope = MessageEnvelope.Response.make(
+      process.self,
+      from,
+      ref.fromScala,
+      replyRef,
+      adapter.fromScala(reply)
     )
     adapter.send(envelope)
   }
