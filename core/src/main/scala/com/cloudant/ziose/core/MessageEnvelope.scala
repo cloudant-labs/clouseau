@@ -105,7 +105,13 @@ object MessageEnvelope {
   }
 
   object Response {
-    def make(from: PID, to: Codec.EPid, ref: Codec.ERef, replyRef: Codec.ETerm, payload: Codec.ETerm) = {
+    def make(from: PID, caller: Codec.ETerm, payload: Codec.ETerm) = {
+      val (to, replyRef, ref) = caller match {
+        case ETuple(to: EPid, replyRef: ETerm, ref: ERef) =>
+          (to, replyRef, ref)
+        case t =>
+          throw new Throwable("Invalid caller")
+      }
       val address = Address.fromPid(to, from.workerId, from.workerNodeName)
       Response(
         from = Some(from.pid),

@@ -649,17 +649,9 @@ object Service {
 
   def replyZIO[P <: Process](caller: (Pid, Any), reply: Any)(implicit process: P): UIO[Unit] = {
     val adapter = process.adapter
-    val (from, replyRef, ref) = adapter.fromScala(caller) match {
-      case t @ ETuple(from: EPid, replyRef: ETerm, ref: ERef) =>
-        (from, replyRef, ref)
-      case t =>
-        throw new Throwable("unreachable")
-    }
     val envelope = MessageEnvelope.Response.make(
       process.self,
-      from,
-      ref,
-      replyRef,
+      adapter.fromScala(caller),
       adapter.fromScala(reply)
     )
     adapter.send(envelope)
