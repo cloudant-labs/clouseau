@@ -32,9 +32,9 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
     logger.debug(s"handleInit(capacity = ${adapter.capacity})")
   }
 
-  private def spawnEcho(id: Symbol): Either[Any, Codec.EPid] = {
+  private def spawnEcho(id: Symbol, peer: Option[Symbol] = None): Either[Any, Codec.EPid] = {
     val ConfigurationArgs(args) = ctx.args
-    spawnedTimer.time(EchoService.start(adapter.node, id.name, args)) match {
+    spawnedTimer.time(EchoService.start(adapter.node, id.name, args, peer)) match {
       case (Symbol("ok"), pidUntyped) => {
         spawnedSuccess += 1
         Right(pidUntyped.asInstanceOf[Pid].fromScala)

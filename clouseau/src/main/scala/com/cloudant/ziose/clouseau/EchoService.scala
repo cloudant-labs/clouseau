@@ -10,10 +10,10 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import zio._
 
-class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
+class EchoService(ctx: ServiceContext[ConfigurationArgs], peer: Option[Symbol])(implicit adapter: Adapter[_, _])
+    extends Service(ctx) {
   val isProduction = true
-
-  val logger = LoggerFactory.getLogger("clouseau.EchoService")
+  val logger       = LoggerFactory.getLogger("clouseau.EchoService")
   logger.debug("Created")
 
   val echoTimer: metrics.Timer = metrics.timer("echo.response_time")
@@ -60,10 +60,11 @@ private object EchoService extends ActorConstructor[EchoService] {
   private def make(
     node: SNode,
     service_context: ServiceContext[ConfigurationArgs],
-    name: String
+    name: String,
+    peer: Option[Symbol]
   ): ActorBuilder.Builder[EchoService, State.Spawnable] = {
     def maker[PContext <: ProcessContext](process_context: PContext): EchoService = {
-      new EchoService(service_context)(Adapter(process_context, node, ClouseauTypeFactory))
+      new EchoService(service_context, peer)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
     ActorBuilder()
@@ -74,13 +75,15 @@ private object EchoService extends ActorConstructor[EchoService] {
       .build(this)
   }
 
-  def start(node: SNode, name: String, config: Configuration)(implicit adapter: Adapter[_, _]): Any = {
+  def start(node: SNode, name: String, config: Configuration, peer: Option[Symbol])(implicit
+    adapter: Adapter[_, _]
+  ): Any = {
     val ctx: ServiceContext[ConfigurationArgs] = {
       new ServiceContext[ConfigurationArgs] {
         val args: ConfigurationArgs = ConfigurationArgs(config)
       }
     }
-    node.spawnService[EchoService, ConfigurationArgs](make(node, ctx, name)) match {
+    node.spawnService[EchoService, ConfigurationArgs](make(node, ctx, name, peer)) match {
       case core.Success(actor) =>
         logger.debug(s"Started $name")
         (Symbol("ok"), Pid.toScala(actor.self.pid))
@@ -91,14 +94,15 @@ private object EchoService extends ActorConstructor[EchoService] {
   def startZIO(
     node: SNode,
     name: String,
-    config: Configuration
+    config: Configuration,
+    peer: Option[Symbol]
   ): ZIO[core.EngineWorker & core.Node & core.ActorFactory, core.Node.Error, core.AddressableActor[_, _]] = {
     val ctx: ServiceContext[ConfigurationArgs] = {
       new ServiceContext[ConfigurationArgs] {
         val args: ConfigurationArgs = ConfigurationArgs(config)
       }
     }
-    node.spawnServiceZIO[EchoService, ConfigurationArgs](make(node, ctx, name))
+    node.spawnServiceZIO[EchoService, ConfigurationArgs](make(node, ctx, name, peer))
   }
 
 }
