@@ -275,6 +275,10 @@ object ClouseauTypeFactory extends TypeFactory {
             None
         }
       }
+      case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
+        Some((Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref))))
+      case ETuple(from: EPid, ref: ERef) =>
+        Some((Pid.toScala(from), Reference.toScala(ref)))
       case _ => None
     }
   }
@@ -284,7 +288,13 @@ object ClouseauTypeFactory extends TypeFactory {
       case pid: Pid           => Some(pid.fromScala)
       case ref: Reference     => Some(ref.fromScala)
       case bytesRef: BytesRef => Some(EBinary(bytesRef.utf8ToString()))
-      case _                  => None
+      case (from: Pid, List(Symbol("alias"), reference: Reference)) =>
+        val ref = reference.fromScala
+        Some(ETuple(from.fromScala, EListImproper(EAtom("alias"), ref), ref))
+      case (from: Pid, reference: Reference) =>
+        val ref = reference.fromScala
+        Some(ETuple(from.fromScala, ref, ref))
+      case _ => None
     }
   }
 }

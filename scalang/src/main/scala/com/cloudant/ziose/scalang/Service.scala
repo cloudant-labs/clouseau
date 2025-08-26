@@ -8,7 +8,6 @@ import core.Codec.EPid
 import core.Codec.ERef
 import core.Codec.ETerm
 import core.Codec.ETuple
-import core.Codec.EListImproper
 import core.Address
 import core.Node
 import core.MessageEnvelope
@@ -540,13 +539,11 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
   }
 
   private def extractCallerTag(event: MessageEnvelope): (Pid, Any) = {
-    MessageEnvelope.extractCallerTag(event) match {
-      case Some(ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef))) =>
-        (Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref)))
-      case Some(ETuple(from: EPid, ref: ERef)) =>
-        (Pid.toScala(from), Reference.toScala(ref))
-      case _ =>
-        // We already matched on the shape before the call to this
+    MessageEnvelope.extractCallerTag(event).map(adapter.toScala(_)) match {
+      case Some(callerTag) =>
+        callerTag.asInstanceOf[(Pid, Any)]
+      case None =>
+        // We already matched on the shape before the call to extractCallerTag
         throw new Throwable("unreachable")
     }
   }
@@ -651,19 +648,17 @@ object Service {
   }
 
   def replyZIO[P <: Process](caller: (Pid, Any), reply: Any)(implicit process: P): UIO[Unit] = {
-    val (from, replyRef, ref) = caller match {
-      case (from: Pid, List(Symbol("alias"), ref: Reference)) =>
-        (from.fromScala, EListImproper(EAtom("alias"), ref.fromScala), ref)
-      case (from: Pid, ref: Reference) =>
-        (from.fromScala, ref.fromScala, ref)
-      case _ =>
+    val adapter = process.adapter
+    val (from, replyRef, ref) = adapter.fromScala(caller) match {
+      case t @ ETuple(from: EPid, replyRef: ETerm, ref: ERef) =>
+        (from, replyRef, ref)
+      case t =>
         throw new Throwable("unreachable")
     }
-    val adapter = process.adapter
     val envelope = MessageEnvelope.Response.make(
       process.self,
       from,
-      ref.fromScala,
+      ref,
       replyRef,
       adapter.fromScala(reply)
     )
