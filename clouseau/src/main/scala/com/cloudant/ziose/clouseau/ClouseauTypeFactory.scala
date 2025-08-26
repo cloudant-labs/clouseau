@@ -1,7 +1,7 @@
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose._
-import core.Codec
+import core.Codec._
 import scalang.{Adapter, Pid, TypeFactory, Reference}
 import org.apache.lucene.document.Field.{Index, Store, TermVector}
 import org.apache.lucene.document.{Document, Field, StringField, DoubleField, DoubleDocValuesField}
@@ -40,29 +40,29 @@ object ClouseauTypeFactory extends TypeFactory {
    * The parse function try to match the events for which we have dedicated ClouseauMessages.
    * If there is no match, it returns None, so we can continue matching elsewhere.
    */
-  def parse(term: Codec.ETerm)(implicit adapter: Adapter[_, _]): Option[ClouseauMessage] = {
+  def parse(term: ETerm)(implicit adapter: Adapter[_, _]): Option[ClouseauMessage] = {
     term match {
-      case Codec.ETuple(Codec.EAtom("cleanup"), dbName: Codec.EBinary, activeSigs: Codec.EList) =>
-        val sigs = activeSigs.collect { case sig: Codec.EBinary => sig.asString }.toList
+      case ETuple(EAtom("cleanup"), dbName: EBinary, activeSigs: EList) =>
+        val sigs = activeSigs.collect { case sig: EBinary => sig.asString }.toList
         Some(CleanupDbMsg(dbName.asString, sigs))
-      case Codec.ETuple(Codec.EAtom("cleanup"), path: Codec.EBinary) =>
+      case ETuple(EAtom("cleanup"), path: EBinary) =>
         Some(CleanupPathMsg(path.asString))
-      case Codec.ETuple(Codec.EAtom("close_lru_by_path"), path: Codec.EBinary) =>
+      case ETuple(EAtom("close_lru_by_path"), path: EBinary) =>
         Some(CloseLRUByPathMsg(path.asString))
-      case Codec.ETuple(Codec.EAtom("commit"), seq: Codec.ENumber) =>
+      case ETuple(EAtom("commit"), seq: ENumber) =>
         seq.toLong.map(CommitMsg)
-      case Codec.ETuple(Codec.EAtom("delete"), id: Codec.EBinary) =>
+      case ETuple(EAtom("delete"), id: EBinary) =>
         Some(DeleteDocMsg(id.asString))
-      case Codec.ETuple(Codec.EAtom("disk_size"), path: Codec.EBinary) =>
+      case ETuple(EAtom("disk_size"), path: EBinary) =>
         Some(DiskSizeMsg(path.asString))
-      case Codec.ETuple(
-            Codec.EAtom("group1"),
-            query: Codec.EBinary,
-            field: Codec.EBinary,
-            Codec.EBoolean(refresh),
+      case ETuple(
+            EAtom("group1"),
+            query: EBinary,
+            field: EBinary,
+            EBoolean(refresh),
             groupSort,
-            groupOffset: Codec.ENumber,
-            groupLimit: Codec.ENumber
+            groupOffset: ENumber,
+            groupLimit: ENumber
           ) => {
         (groupOffset.toInt, groupLimit.toInt) match {
           case (Some(groupOffset), Some(groupLimit)) => {
@@ -73,10 +73,10 @@ object ClouseauTypeFactory extends TypeFactory {
           case _ => None
         }
       }
-      case Codec.ETuple(Codec.EAtom("group2"), options: Codec.EList) => {
+      case ETuple(EAtom("group2"), options: EList) => {
         Some(Group2Msg(options.map(adapter.toScala).asInstanceOf[List[(Symbol, Any)]].toMap))
       }
-      case Codec.ETuple(Codec.EAtom("update"), id: Codec.EBinary, fields: Codec.EList) => { // TODO verify maybe it should be Codec.EBinary(id)
+      case ETuple(EAtom("update"), id: EBinary, fields: EList) => { // TODO verify maybe it should be EBinary(id)
         var doc = new Document()
         doc.add(new StringField("_id", id.asString, Store.YES))
         for (fieldE <- fields) {
@@ -84,8 +84,6 @@ object ClouseauTypeFactory extends TypeFactory {
           fieldS match {
             case (name: String, value: String, options: List[(String, Any) @unchecked]) =>
               val map = options.collect { case t @ (key: String, value: Any) => t }.toMap
-              // case Codec.ETuple(List(Codec.EString(name), Codec.EString(value), Codec.EList(options))) =>
-              // val map = options.collect { case t @ Codec.ETuple(List(Codec.EString(key), value: Codec.ETerm)) => (key, Codec.toScala(value)) }.asInstanceOf[List[(String, Any)]].toMap
               constructField(name, value, toStore(map), toIndex(map), toTermVector(map)) match {
                 case Some(field: Field) =>
                   map.get("boost") match {
@@ -157,17 +155,17 @@ object ClouseauTypeFactory extends TypeFactory {
         val docId = doc.getField("_id").stringValue
         Some(UpdateDocMsg(docId, doc))
       }
-      case Codec.ETuple(Codec.EAtom("open"), peer, path: Codec.EBinary, options) =>
+      case ETuple(EAtom("open"), peer, path: EBinary, options) =>
         AnalyzerOptions
           .from(adapter.toScala(options))
-          .flatMap(options => Some(OpenIndexMsg(peer.asInstanceOf[Codec.EPid], path.asString, options)))
-      case Codec.ETuple(Codec.EAtom("rename"), dbName: Codec.EBinary) =>
+          .flatMap(options => Some(OpenIndexMsg(peer.asInstanceOf[EPid], path.asString, options)))
+      case ETuple(EAtom("rename"), dbName: EBinary) =>
         Some(RenamePathMsg(dbName.asString))
-      case Codec.ETuple(Codec.EAtom("search"), options: Codec.EList) =>
+      case ETuple(EAtom("search"), options: EList) =>
         Some(SearchRequest(options.map(adapter.toScala).asInstanceOf[List[(Symbol, Any)]].toMap))
-      case Codec.ETuple(Codec.EAtom("set_purge_seq"), seq: Codec.ENumber) =>
+      case ETuple(EAtom("set_purge_seq"), seq: ENumber) =>
         seq.toLong.map(SetPurgeSeqMsg)
-      case Codec.ETuple(Codec.EAtom("set_update_seq"), seq: Codec.ENumber) =>
+      case ETuple(EAtom("set_update_seq"), seq: ENumber) =>
         seq.toLong.map(SetUpdateSeqMsg)
       // most of the messages would be matching here so we can handle them elsewhere
       case other => None
@@ -263,13 +261,13 @@ object ClouseauTypeFactory extends TypeFactory {
     }
   }
 
-  def toScala(term: Codec.ETerm): Option[Any] = {
+  def toScala(term: ETerm): Option[Any] = {
     term match {
-      // case tuple: Codec.ETuple => Some(toScala(tuple))
-      case pid: Codec.EPid     => Some(Pid.toScala(pid))
-      case ref: Codec.ERef     => Some(Reference.toScala(ref))
-      case byte: Codec.ENumber => byte.toInt
-      case Codec.ETuple(Codec.EAtom("committed"), newUpdateSeq: Codec.ENumber, newPurgeSeq: Codec.ENumber) => {
+      // case tuple: ETuple => Some(toScala(tuple))
+      case pid: EPid     => Some(Pid.toScala(pid))
+      case ref: ERef     => Some(Reference.toScala(ref))
+      case byte: ENumber => byte.toInt
+      case ETuple(EAtom("committed"), newUpdateSeq: ENumber, newPurgeSeq: ENumber) => {
         (newUpdateSeq.toLong, newPurgeSeq.toLong) match {
           case (Some(newUpdateSeq), Some(newPurgeSeq)) =>
             Some((Symbol("committed"), newUpdateSeq, newPurgeSeq))
@@ -281,11 +279,11 @@ object ClouseauTypeFactory extends TypeFactory {
     }
   }
 
-  def fromScala(term: Any): Option[Codec.ETerm] = {
+  def fromScala(term: Any): Option[ETerm] = {
     term match {
       case pid: Pid           => Some(pid.fromScala)
       case ref: Reference     => Some(ref.fromScala)
-      case bytesRef: BytesRef => Some(Codec.EBinary(bytesRef.utf8ToString()))
+      case bytesRef: BytesRef => Some(EBinary(bytesRef.utf8ToString()))
       case _                  => None
     }
   }
