@@ -65,6 +65,19 @@ lazy val dependencyCheck = Seq(
   dependencyCheckAutoUpdate := sys.props.getOrElse("nvd_update", "false").toBoolean
 )
 
+val jartestSettings = Seq(
+  assembly / assemblyJarName := s"${name.value}_${scalaVersion.value}_${version.value}_test.jar",
+  assembly / fullClasspath ++= (Test / fullClasspath).value
+)
+
+val defaultSettings = Seq(
+  assembly / assemblyJarName := s"${name.value}_${scalaVersion.value}_${version.value}.jar"
+)
+
+val isTestJar = sys.props.getOrElse("jartest", "false").toBoolean
+
+val settingsToUse = if (isTestJar) { jartestSettings } else { defaultSettings }
+
 lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(
     // The single % is for java libraries
@@ -89,9 +102,6 @@ lazy val commonSettings = Seq(
     "junit"          % "junit"                             % "4.13.2"        % Test
   ),
   assembly / assemblyMergeStrategy := commonMergeStrategy,
-  assembly / fullClasspath ++= (
-    if (sys.props.getOrElse("jartest", "false").toBoolean) (Test / fullClasspath).value else Seq()
-  ),
   assemblyPackageScala / assembleArtifact := false,
   testFrameworks                          := Seq(new TestFramework("com.novocode.junit.JUnitFramework")),
   scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports")
@@ -99,9 +109,11 @@ lazy val commonSettings = Seq(
 
 lazy val vendor = (project in file("vendor"))
   .settings(commonSettings *)
+  .settings(settingsToUse: _*)
 
 lazy val core = (project in file("core"))
   .settings(commonSettings *)
+  .settings(settingsToUse: _*)
   .settings(dependencyCheckSkip := false)
   .enablePlugins(BuildInfoPlugin)
   .enablePlugins(plugins.JUnitXmlReportPlugin)
@@ -120,6 +132,7 @@ lazy val core = (project in file("core"))
 
 lazy val otp = (project in file("otp"))
   .settings(commonSettings *)
+  .settings(settingsToUse: _*)
   .settings(
     scalacOptions ++= Seq("-deprecation", "-feature")
   )
@@ -129,6 +142,7 @@ lazy val otp = (project in file("otp"))
   .dependsOn(test % "test->test")
 lazy val scalang = (project in file("scalang"))
   .settings(commonSettings *)
+  .settings(settingsToUse: _*)
   .enablePlugins(plugins.JUnitXmlReportPlugin)
   .dependsOn(core)
   .dependsOn(macros)
@@ -148,18 +162,12 @@ lazy val composedOptions: Seq[String] = {
 
 lazy val clouseau = (project in file("clouseau"))
   .settings(commonSettings *)
+  .settings(settingsToUse: _*)
   .settings(
     resolvers += "cloudant-repo" at "https://cloudant.github.io/maven/repo/",
     libraryDependencies ++= luceneComponents
   )
   .settings(
-    assembly / assemblyJarName := {
-      if (sys.props.getOrElse("jartest", "false").toBoolean) {
-        s"${name.value}_${scalaVersion.value}_${version.value}_test.jar"
-      } else {
-        s"${name.value}_${scalaVersion.value}_${version.value}.jar"
-      }
-    },
     assemblyPackageScala / assembleArtifact := true
   )
   .settings(
@@ -196,6 +204,7 @@ lazy val clouseau = (project in file("clouseau"))
 
 lazy val test = (project in file("test"))
   .settings(commonSettings *)
+  .settings(settingsToUse: _*)
   .settings(
     scalacOptions ++= Seq("-deprecation", "-feature")
   )
@@ -203,6 +212,7 @@ lazy val test = (project in file("test"))
 
 lazy val macros = (project in file("macros"))
   .settings(commonSettings *)
+  .settings(settingsToUse: _*)
 
 lazy val root = (project in file("."))
   .aggregate(core, clouseau, macros, otp, test, scalang)
