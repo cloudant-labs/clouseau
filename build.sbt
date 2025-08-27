@@ -67,7 +67,9 @@ lazy val dependencyCheck = Seq(
 
 val jartestSettings = Seq(
   assembly / assemblyJarName := s"${name.value}_${scalaVersion.value}_${version.value}_test.jar",
-  assembly / fullClasspath ++= (Test / fullClasspath).value
+  assembly / fullClasspath ++= (Test / fullClasspath).value,
+  Compile / mainClass := Some("com.cloudant.ziose.clouseau.TestJarMain"),
+  assembly / mainClass := Some("com.cloudant.ziose.clouseau.TestJarMain"),
 )
 
 val defaultSettings = Seq(
