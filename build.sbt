@@ -51,7 +51,16 @@ val commonMergeStrategy: String => sbtassembly.MergeStrategy = {
   case PathList("META-INF", "LICENSE.txt")             => MergeStrategy.first
   case PathList("NOTICE", _*)                          => MergeStrategy.discard
   case PathList(ps @ _*) if Assembly.isReadme(ps.last) => MergeStrategy.discard
-  case _                                               => MergeStrategy.deduplicate
+  case PathList("com", "cloudant", _, "clouseau", last) if last startsWith "EchoService"  => CustomMergeStrategy("test-override") { conflicts =>
+    if (isTestJar) {
+      val entry = conflicts.find(p => p.source.endsWith("TestEchoService.class")).getOrElse(conflicts.head)
+      Right(Vector(JarEntry(entry.target, entry.stream)))
+    } else {
+      val entry = conflicts.find(p => !p.source.endsWith("TestEchoService.class")).getOrElse(conflicts.head)
+      Right(Vector(JarEntry(entry.target, entry.stream)))
+    }
+  }
+  case ps                                              => MergeStrategy.deduplicate
 }
 
 val dcDataDir = sys.props.getOrElse("nvd_data_dir", "/usr/share/dependency-check/data/")
@@ -104,6 +113,9 @@ lazy val commonSettings = Seq(
     "junit"          % "junit"                             % "4.13.2"        % Test
   ),
   assembly / assemblyMergeStrategy := commonMergeStrategy,
+  ThisBuild / assemblyShadeRules := Seq(
+    ShadeRule.rename("com.cloudant.ziose.clouseau.TestEchoService" -> "com.cloudant.ziose.clouseau.EchoService").inAll
+  ),
   assemblyPackageScala / assembleArtifact := false,
   testFrameworks                          := Seq(new TestFramework("com.novocode.junit.JUnitFramework")),
   scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports")
