@@ -29,14 +29,6 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
           (Symbol("echo_reply"), from, ts, self.pid, now(), seq)
         )
         send(from, reply)
-      case (Symbol("block_for_ms"), durationInMs: Int) =>
-        logger.warn(s"Blocking the actor loop for ${durationInMs} ms")
-        Thread.sleep(durationInMs)
-        logger.warn(s"Blocking the actor loop is over")
-      case (Symbol("exitWithReason"), reason: String) =>
-        exit(reason)
-      case (Symbol("exitWithReason"), reason: Any) =>
-        exit(reason)
       case msg =>
         logger.warn(s"[handleInfo] Unexpected message: $msg ...")
     }
@@ -45,9 +37,6 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
   override def handleCall(tag: (Pid, Any), request: Any): Any = {
     request match {
       case (Symbol("echo"), request) => (Symbol("reply"), (Symbol("echo"), adapter.fromScala(request)))
-      case (Symbol("crashWithReason"), reason: String) => throw new Throwable(reason)
-      case (Symbol("stop"), reason: Symbol) =>
-        (Symbol("stop"), reason, adapter.fromScala(request))
       case msg =>
         logger.warn(s"[handleCall] Unexpected message: $msg ...")
     }
