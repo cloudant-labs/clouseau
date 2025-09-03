@@ -164,10 +164,16 @@ jartest: $(ARTIFACTS_DIR)/$(JAR_TEST)
 $(ARTIFACTS_DIR)/$(JAR_PROD): $(ARTIFACTS_DIR)
 	@sbt assembly
 	@cp clouseau/target/scala-$(SCALA_SHORT_VSN)/$(@F) $@
+	@javap -classpath $@ com.cloudant.ziose.clouseau.EchoService \
+		| grep -q 'public boolean isProduction' \
+		|| ( echo '>>>>> incorrect override EchoService' ; exit 1 )
 
 $(ARTIFACTS_DIR)/$(JAR_TEST): $(ARTIFACTS_DIR)
 	@sbt assembly -Djartest=true
 	@cp clouseau/target/scala-$(SCALA_SHORT_VSN)/$(@F) $@
+	@javap -classpath $@ com.cloudant.ziose.clouseau.EchoService \
+		| grep -q 'public boolean isTest' \
+		|| ( echo '>>>>> incorrect override EchoService' ; exit 1 )
 
 # target: clean - Clean Java/Scala artifacts
 clean:
