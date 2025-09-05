@@ -10,6 +10,14 @@ COUCHDB_COMMIT?=main
 COUCHDB_ROOT?=deps/couchdb
 COUCHDB_CONFIGURE_ARGS?=--dev --disable-spidermonkey
 
+OWASP_NVD_UPDATE?=false
+
+ifneq "$(wildcard /opt/homebrew/var/dependency-check)" ""
+OWASP_NVD_DATA_DIR?=/opt/homebrew/var/dependency-check/data
+else
+OWASP_NVD_DATA_DIR?=/usr/share/dependency-check/data
+endif
+
 TIMEOUT_MANGO_TEST?=20m
 TIMEOUT_ELIXIR_SEARCH?=20m
 
@@ -133,7 +141,10 @@ erlfmt-format:
 .PHONY: check-deps
 # target: check-deps - Detect publicly disclosed vulnerabilities
 check-deps: build $(ARTIFACTS_DIR)
-	@sbt dependencyCheck
+	@sbt dependencyCheck \
+		-Dnvd_update=$(OWASP_NVD_UPDATE) \
+		-Dnvd_data_dir=$(OWASP_NVD_DATA_DIR) \
+		-Dlog4j2.level=info
 	@$(call to_artifacts,$(SCALA_SUBPROJECTS),dependency-check-report.*)
 
 .PHONY: check-spotbugs

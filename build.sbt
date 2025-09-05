@@ -1,5 +1,8 @@
 ThisBuild / scalaVersion := "2.13.16"
 
+import net.nmoncho.sbt.dependencycheck.settings.*
+import org.owasp.dependencycheck.reporting.ReportGenerator.Format
+
 val readVersion = {
   val content      = IO.read(file("version.sbt"))
   val versionRegex = """.*version\s*:=\s*"([^"]+)".*""".r
@@ -51,6 +54,17 @@ val commonMergeStrategy: String => sbtassembly.MergeStrategy = {
   case _                                               => MergeStrategy.deduplicate
 }
 
+val dcDataDir = sys.props.getOrElse("nvd_data_dir", "/usr/share/dependency-check/data/")
+
+lazy val dependencyCheck = Seq(
+  dependencyCheckDataDirectory := Some(new File(dcDataDir)),
+  dependencyCheckFormats       := Seq(Format.XML, Format.HTML),
+  dependencyCheckSuppressions  := SuppressionSettings(
+    files = SuppressionFilesSettings.files()(new File("dependency-check-suppressions.xml"))
+  ),
+  dependencyCheckAutoUpdate := sys.props.getOrElse("nvd_update", "false").toBoolean
+)
+
 lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(
     // The single % is for java libraries
@@ -80,11 +94,8 @@ lazy val commonSettings = Seq(
   ),
   assemblyPackageScala / assembleArtifact := false,
   testFrameworks                          := Seq(new TestFramework("com.novocode.junit.JUnitFramework")),
-  dependencyCheckAssemblyAnalyzerEnabled  := Some(false),
-  dependencyCheckFormats                  := Seq("XML", "JSON"),
-  dependencyCheckSuppressionFiles         := Seq(new File("dependency-check-suppressions.xml")),
   scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports")
-)
+) ++ dependencyCheck
 
 lazy val vendor = (project in file("vendor"))
   .settings(commonSettings *)
@@ -100,10 +111,6 @@ lazy val core = (project in file("core"))
       buildInfoPackage := "com.cloudant.ziose.core",
       buildInfoObject  := "BuildInfo"
     )
-  )
-  .settings(
-    dependencyCheckAssemblyAnalyzerEnabled := Some(false),
-    dependencyCheckFormats                 := Seq("XML", "JSON")
   )
   .settings(
     scalacOptions ++= Seq("-deprecation", "-feature")
@@ -209,9 +216,12 @@ lazy val root = (project in file("."))
   .settings(
     Compile / console / scalacOptions -= "-Ywarn-unused:imports"
   )
+  .settings(dependencyCheck)
   .dependsOn(core)
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 run                           := (clouseau / Compile / run).evaluated
 
 addCommandAlias("repl", "clouseau / console")
+
+Global / excludeLintKeys += dependencyCheckFormats
