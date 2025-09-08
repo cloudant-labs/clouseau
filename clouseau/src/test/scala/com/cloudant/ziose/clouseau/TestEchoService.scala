@@ -10,9 +10,8 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import zio._
 
-class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
-  val isProduction = true
-
+class TestEchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
+  val isTest = true
   val logger = LoggerFactory.getLogger("clouseau.EchoService")
   logger.debug("Created")
 
@@ -29,6 +28,14 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
           (Symbol("echo_reply"), from, ts, self.pid, now(), seq)
         )
         send(from, reply)
+      case (Symbol("block_for_ms"), durationInMs: Int) =>
+        logger.warn(s"Blocking the actor loop for ${durationInMs} ms")
+        Thread.sleep(durationInMs)
+        logger.warn(s"Blocking the actor loop is over")
+      case (Symbol("exitWithReason"), reason: String) =>
+        exit(reason)
+      case (Symbol("exitWithReason"), reason: Any) =>
+        exit(reason)
       case msg =>
         logger.warn(s"[handleInfo] Unexpected message: $msg ...")
     }
@@ -37,6 +44,9 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
   override def handleCall(tag: (Pid, Any), request: Any): Any = {
     request match {
       case (Symbol("echo"), request) => (Symbol("reply"), (Symbol("echo"), adapter.fromScala(request)))
+      case (Symbol("crashWithReason"), reason: String) => throw new Throwable(reason)
+      case (Symbol("stop"), reason: Symbol) =>
+        (Symbol("stop"), reason, adapter.fromScala(request))
       case msg =>
         logger.warn(s"[handleCall] Unexpected message: $msg ...")
     }
@@ -54,21 +64,19 @@ class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
   )
 }
 
-private object EchoService extends ActorConstructor[EchoService] {
+private object EchoService extends ActorConstructor[TestEchoService] {
   val logger = LoggerFactory.getLogger("clouseau.EchoServiceBuilder")
 
   private def make(
     node: SNode,
     service_context: ServiceContext[ConfigurationArgs],
     name: String
-  ): ActorBuilder.Builder[EchoService, State.Spawnable] = {
-    def maker[PContext <: ProcessContext](process_context: PContext): EchoService = {
-      new EchoService(service_context)(Adapter(process_context, node, ClouseauTypeFactory))
+  ): ActorBuilder.Builder[TestEchoService, State.Spawnable] = {
+    def maker[PContext <: ProcessContext](process_context: PContext): TestEchoService = {
+      new TestEchoService(service_context)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
     ActorBuilder()
-      // TODO get capacity from config
-      .withCapacity(16)
       .withName(name)
       .withMaker(maker)
       .build(this)
@@ -80,7 +88,7 @@ private object EchoService extends ActorConstructor[EchoService] {
         val args: ConfigurationArgs = ConfigurationArgs(config)
       }
     }
-    node.spawnService[EchoService, ConfigurationArgs](make(node, ctx, name)) match {
+    node.spawnService[TestEchoService, ConfigurationArgs](make(node, ctx, name)) match {
       case core.Success(actor) =>
         logger.debug(s"Started $name")
         (Symbol("ok"), Pid.toScala(actor.self.pid))
@@ -98,7 +106,7 @@ private object EchoService extends ActorConstructor[EchoService] {
         val args: ConfigurationArgs = ConfigurationArgs(config)
       }
     }
-    node.spawnServiceZIO[EchoService, ConfigurationArgs](make(node, ctx, name))
+    node.spawnServiceZIO[TestEchoService, ConfigurationArgs](make(node, ctx, name))
   }
 
 }

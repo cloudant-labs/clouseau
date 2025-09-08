@@ -1,7 +1,10 @@
+import sbtassembly.Assembly.Dependency
 ThisBuild / scalaVersion := "2.13.16"
 
 import net.nmoncho.sbt.dependencycheck.settings.*
 import org.owasp.dependencycheck.reporting.ReportGenerator.Format
+
+import com.eed3si9n.jarjarabrams.ShadeRule
 
 val readVersion = {
   val content      = IO.read(file("version.sbt"))
@@ -43,6 +46,66 @@ lazy val luceneComponents = Seq(
   "org.apache.lucene" % "lucene-highlighter"        % versions("lucene")
 )
 
+/**
+  * The `testOverrides` map defines a mechanism for selectively overriding class
+  * implementations during testing, while keeping production code untouched.
+  * This allows us to inject test-specific behavior without modifying production logic.
+  *
+  * Key: Name of the class used in production.
+  * Value: Name of the class used in testing.
+  *
+  * During the test build:
+  *   - The test class (value) is renamed to match the production class name (key).
+  *   - This renamed class is compiled into the corresponding .class file,
+  *     effectively replacing the production implementation for testing purposes.
+  *
+  * During the production build:
+  *
+  *   - The original production class is used as-is.
+  *   - No overrides or renaming occur.
+  **/
+val testOverrides = Map(
+  // override "EchoService" with content of "TestEchoService" in `_test.jar``
+  "EchoService" -> "TestEchoService"
+)
+
+def isOverriden(classFileName: String) =
+  getOverride(classFileName).isDefined
+
+def getOverride(classFileName: String) = {
+  // this is inefficient, but we don't have a prefix trie structure
+  testOverrides.find { case (production, _) => {
+    isRelatedClassFile(production, classFileName)
+  }}.map(_._2)
+}
+
+val shadeRules: Seq[ShadeRule] = testOverrides.map { case (production, testing) => {
+  ShadeRule.rename(s"com.cloudant.ziose.clouseau.${testing}" -> s"com.cloudant.ziose.clouseau.${production}").inAll
+}}.toSeq
+
+/*
+Return `true` for all files related to given `base`. Might return false positive if
+specified `baseName` is not unique.
+*/
+def isRelatedClassFile(baseName: String, classFileName: String): Boolean = {
+  classFileName.startsWith(baseName) && classFileName.endsWith(".class")
+}
+
+def handleOverride(classFileName: String) = {
+  val overrideClassFile = s"${getOverride(classFileName).get}.class"
+  def shouldOverride(dependency: Dependency) =
+    dependency.source.endsWith(overrideClassFile)
+  CustomMergeStrategy("test-override") { conflicts =>
+    if (isTestJar) {
+      val entry = conflicts.find(shouldOverride(_)).getOrElse(conflicts.head)
+      Right(Vector(JarEntry(entry.target, entry.stream)))
+    } else {
+      val entry = conflicts.find(!shouldOverride(_)).getOrElse(conflicts.head)
+      Right(Vector(JarEntry(entry.target, entry.stream)))
+    }
+  }
+}
+
 val commonMergeStrategy: String => sbtassembly.MergeStrategy = {
   case PathList(ps @ _*) if ps.last == "module-info.class" => MergeStrategy.discard
   case PathList("META-INF", "services", xs @ _*) if xs.last.contains("org.apache.lucene") =>
@@ -51,7 +114,8 @@ val commonMergeStrategy: String => sbtassembly.MergeStrategy = {
   case PathList("META-INF", "LICENSE.txt")             => MergeStrategy.first
   case PathList("NOTICE", _*)                          => MergeStrategy.discard
   case PathList(ps @ _*) if Assembly.isReadme(ps.last) => MergeStrategy.discard
-  case _                                               => MergeStrategy.deduplicate
+  case PathList("com", "cloudant", _, "clouseau", last) if isOverriden(last) => handleOverride(last)
+  case ps                                              => MergeStrategy.deduplicate
 }
 
 val dcDataDir = sys.props.getOrElse("nvd_data_dir", "/usr/share/dependency-check/data/")
@@ -64,6 +128,21 @@ lazy val dependencyCheck = Seq(
   ),
   dependencyCheckAutoUpdate := sys.props.getOrElse("nvd_update", "false").toBoolean
 )
+
+val jartestSettings = Seq(
+  assembly / assemblyJarName := s"${name.value}_${scalaVersion.value}_${version.value}_test.jar",
+  assembly / fullClasspath ++= (Test / fullClasspath).value,
+  Compile / mainClass := Some("com.cloudant.ziose.clouseau.TestJarMain"),
+  assembly / mainClass := Some("com.cloudant.ziose.clouseau.TestJarMain"),
+)
+
+val defaultSettings = Seq(
+  assembly / assemblyJarName := s"${name.value}_${scalaVersion.value}_${version.value}.jar"
+)
+
+val isTestJar = sys.props.getOrElse("jartest", "false").toBoolean
+
+val settingsToUse = if (isTestJar) { jartestSettings } else { defaultSettings }
 
 lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(
@@ -89,9 +168,7 @@ lazy val commonSettings = Seq(
     "junit"          % "junit"                             % "4.13.2"        % Test
   ),
   assembly / assemblyMergeStrategy := commonMergeStrategy,
-  assembly / fullClasspath ++= (
-    if (sys.props.getOrElse("jartest", "false").toBoolean) (Test / fullClasspath).value else Seq()
-  ),
+  ThisBuild / assemblyShadeRules := shadeRules,
   assemblyPackageScala / assembleArtifact := false,
   testFrameworks                          := Seq(new TestFramework("com.novocode.junit.JUnitFramework")),
   scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports")
@@ -99,9 +176,11 @@ lazy val commonSettings = Seq(
 
 lazy val vendor = (project in file("vendor"))
   .settings(commonSettings *)
+  .settings(settingsToUse: _*)
 
 lazy val core = (project in file("core"))
   .settings(commonSettings *)
+  .settings(settingsToUse: _*)
   .settings(dependencyCheckSkip := false)
   .enablePlugins(BuildInfoPlugin)
   .enablePlugins(plugins.JUnitXmlReportPlugin)
@@ -120,6 +199,7 @@ lazy val core = (project in file("core"))
 
 lazy val otp = (project in file("otp"))
   .settings(commonSettings *)
+  .settings(settingsToUse: _*)
   .settings(
     scalacOptions ++= Seq("-deprecation", "-feature")
   )
@@ -129,6 +209,7 @@ lazy val otp = (project in file("otp"))
   .dependsOn(test % "test->test")
 lazy val scalang = (project in file("scalang"))
   .settings(commonSettings *)
+  .settings(settingsToUse: _*)
   .enablePlugins(plugins.JUnitXmlReportPlugin)
   .dependsOn(core)
   .dependsOn(macros)
@@ -148,18 +229,12 @@ lazy val composedOptions: Seq[String] = {
 
 lazy val clouseau = (project in file("clouseau"))
   .settings(commonSettings *)
+  .settings(settingsToUse: _*)
   .settings(
     resolvers += "cloudant-repo" at "https://cloudant.github.io/maven/repo/",
     libraryDependencies ++= luceneComponents
   )
   .settings(
-    assembly / assemblyJarName := {
-      if (sys.props.getOrElse("jartest", "false").toBoolean) {
-        s"${name.value}_${scalaVersion.value}_${version.value}_test.jar"
-      } else {
-        s"${name.value}_${scalaVersion.value}_${version.value}.jar"
-      }
-    },
     assemblyPackageScala / assembleArtifact := true
   )
   .settings(
@@ -196,6 +271,7 @@ lazy val clouseau = (project in file("clouseau"))
 
 lazy val test = (project in file("test"))
   .settings(commonSettings *)
+  .settings(settingsToUse: _*)
   .settings(
     scalacOptions ++= Seq("-deprecation", "-feature")
   )
@@ -203,6 +279,7 @@ lazy val test = (project in file("test"))
 
 lazy val macros = (project in file("macros"))
   .settings(commonSettings *)
+  .settings(settingsToUse: _*)
 
 lazy val root = (project in file("."))
   .aggregate(core, clouseau, macros, otp, test, scalang)

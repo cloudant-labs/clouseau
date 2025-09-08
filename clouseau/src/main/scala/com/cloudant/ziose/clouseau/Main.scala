@@ -58,7 +58,8 @@ object Main extends ZIOAppDefault {
     workerCfg.capacity.getOrElse(CapacityConfiguration())
   }
 
-  private def app(
+  def app(
+    entryPoint: String,
     workerCfg: WorkerConfiguration,
     metricsRegistry: ScalangMeterRegistry,
     loggerCfg: LogConfiguration
@@ -66,7 +67,7 @@ object Main extends ZIOAppDefault {
     val node = workerCfg.node
     val name = s"${node.name}@${node.domain}"
     for {
-      _ <- ZIO.logInfo("Clouseau running as " + name)
+      _ <- ZIO.logInfo(s"Clouseau running as ${name} from ${entryPoint}")
       _ <- ZIO
         .scoped(main(workerCfg, metricsRegistry, loggerCfg))
         .provide(OTPLayers.nodeLayers(engineId, workerId, node))
@@ -82,7 +83,7 @@ object Main extends ZIOAppDefault {
       metricsRegistry = ClouseauMetrics.makeRegistry
       metricsLayer    = ClouseauMetrics.makeLayer(metricsRegistry)
       _ <- ZIO
-        .scoped(app(workerCfg, metricsRegistry, loggerCfg))
+        .scoped(app("Main", workerCfg, metricsRegistry, loggerCfg))
         .provide(
           LoggerFactory.loggerDefault(loggerCfg),
           metricsLayer
