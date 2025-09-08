@@ -76,7 +76,8 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
 
   private def recursivelyDelete(fileOrDir: File, deleteDir: Boolean): Unit = {
     if (fileOrDir.isDirectory) {
-      for (file <- fileOrDir.listFiles)
+      // Wrap file list in `Option` to handle `null` case
+      for (file <- Option(fileOrDir.listFiles).getOrElse(Array()))
         recursivelyDelete(file, deleteDir)
       if (deleteDir)
         fileOrDir.delete
