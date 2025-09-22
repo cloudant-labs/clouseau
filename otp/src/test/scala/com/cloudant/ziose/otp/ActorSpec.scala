@@ -80,6 +80,7 @@ class ActorSpec extends JUnitRunnableSpec {
         actor      <- TestActor.startZIO("testActor")
         _          <- actor.status()
         _          <- actor.send(ETuple(EAtom("throw"), EString("throw => Die")))
+        _          <- ZIO.debug("The log message about 'onMessage' crashing below is expected ----vvvv")
         _          <- actor.isStoppedZIO.repeatUntil(_ == true).unit
         statusDone <- actor.status()
         output     <- ZTestLogger.logOutput
@@ -107,6 +108,15 @@ class ActorSpec extends JUnitRunnableSpec {
         && assertTrue(
           statusDone(Symbol("externalMailboxConsumerFiber")) == Fiber.Status.Done
         ) ?? "'externalMailboxConsumerFiber' should have Done status"
+        && assert(
+          (logHistory
+            .withLogLevel(LogLevel.Error) && logHistory
+            .withActorCallback("TestActor", ActorCallback.OnMessage))
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+        )(helpers.Asserts.containsShape { case (_, reason: String, "TestActor") =>
+          // This is what our onMessage callback throws
+          reason.contains("throw => Die") && reason.contains("StopWithCause(OnMessage,Fail")
+        }) ?? "log should contain error message pointing to failure in onMessage"
     ),
     test("testing onMessage send error with StopWithReasonTerm")(
       for {
@@ -168,6 +178,12 @@ class ActorSpec extends JUnitRunnableSpec {
             .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
             .size
         )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
+        && assertTrue(
+          logHistory
+            .withLogLevel(LogLevel.Error)
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 0
+        ) ?? "log should not contain errors"
     ),
     test("test onTerminate is called on interruption of internalMailboxConsumerFiber")(
       for {
@@ -209,6 +225,12 @@ class ActorSpec extends JUnitRunnableSpec {
         && assert(statusDone.get(Symbol("externalMailboxConsumerFiber")).get)(
           equalTo(Fiber.Status.Done)
         ) ?? "'externalMailboxConsumerFiber' should have Done status"
+        && assertTrue(
+          logHistory
+            .withLogLevel(LogLevel.Error)
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 0
+        ) ?? "log should not contain errors"
     ),
     test("test onTerminate is called on interruption of externalMailboxConsumerFiber")(
       for {
@@ -251,6 +273,12 @@ class ActorSpec extends JUnitRunnableSpec {
         && assert(statusDone.get(Symbol("externalMailboxConsumerFiber")).get)(
           equalTo(Fiber.Status.Done)
         ) ?? "'externalMailboxConsumerFiber' should have Done status"
+        && assertTrue(
+          logHistory
+            .withLogLevel(LogLevel.Error)
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 0
+        ) ?? "log should not contain errors"
     ),
     test("test onTerminate is called on interruption of actorLoopFiber")(
       for {
@@ -292,6 +320,12 @@ class ActorSpec extends JUnitRunnableSpec {
         && assert(statusDone.get(Symbol("externalMailboxConsumerFiber")).get)(
           equalTo(Fiber.Status.Done)
         ) ?? "'externalMailboxConsumerFiber' should have Done status"
+        && assertTrue(
+          logHistory
+            .withLogLevel(LogLevel.Error)
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 0
+        ) ?? "log should not contain errors"
     )
   ).provideLayer(
     testEnvironment(1, 1, "ActorSpec")

@@ -394,6 +394,12 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
+          && assertTrue(
+            (logHistory
+              .withLogLevel(LogLevel.Error))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 0
+          ) ?? "should not log any errors"
       ),
       test("monitor process by identifier - killed by calling exit")(
         for {
@@ -430,6 +436,12 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
+          && assertTrue(
+            (logHistory
+              .withLogLevel(LogLevel.Error))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 0
+          ) ?? "should not log any errors"
       ),
       test("monitor process by identifier - killed by exception")(
         for {
@@ -476,6 +488,12 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
+          && assertTrue(
+            (logHistory
+              .withLogLevel(LogLevel.Error))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 0
+          ) ?? "should not log any errors"
       ),
       test("monitor process by identifier - killed by stop")(
         for {
@@ -515,6 +533,12 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
+          && assertTrue(
+            (logHistory
+              .withLogLevel(LogLevel.Error))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 0
+          ) ?? "should not log any errors"
       ),
       test("monitor process by name - killed by calling exit")(
         for {
@@ -552,6 +576,12 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
+          && assertTrue(
+            (logHistory
+              .withLogLevel(LogLevel.Error))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 0
+          ) ?? "should not log any errors"
       ),
       test("monitor process by name - killed by exception")(
         for {
@@ -600,6 +630,12 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
+          && assertTrue(
+            (logHistory
+              .withLogLevel(LogLevel.Error))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 0
+          ) ?? "should not log any errors"
       ),
       test("monitor process by name - killed by stop")(
         for {
@@ -641,6 +677,12 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
+          && assertTrue(
+            (logHistory
+              .withLogLevel(LogLevel.Error))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 0
+          ) ?? "should not log any errors"
       ),
       test("monitor remote process by name")(
         for {
@@ -659,10 +701,18 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           _              <- assertNotAlive(echo.id)
           _              <- ZIO.sleep(WAIT_DURATION)
           monitorHistory <- MonitorService.history(monitorerActor)
+          output         <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
         } yield assert(monitorHistory)(isSome) ?? "history should be available"
           && assert(monitorHistory)(containsShapeOption { case (pid: Pid, ref, Symbol("reason")) =>
             pid == Pid.toScala(echoPid) && echoRef == ref
           }) ?? "has to contain elements of expected shape"
+          && assertTrue(
+            (logHistory
+              .withLogLevel(LogLevel.Error))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 0
+          ) ?? "should not log any errors"
       ),
       test("demonitor")(
         for {
@@ -679,10 +729,18 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           _               <- assertNotAlive(echo.id)
           _               <- ZIO.sleep(WAIT_DURATION)
           monitorHistory  <- MonitorService.history(monitorerActor)
+          output          <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
         } yield assertTrue(
           demonitorResult == Symbol("ok")
         ) && assert(monitorHistory)(isSome) ?? "history should be available"
           && assert(monitorHistory.get)(isEmpty) ?? "history should be empty"
+          && assertTrue(
+            (logHistory
+              .withLogLevel(LogLevel.Error))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 0
+          ) ?? "should not log any errors"
       ),
       test("fail to monitor non-existent process by identifier")(
         for {
@@ -699,10 +757,18 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           ref            <- MonitorService.monitor(monitorerActor, echoPid)
           _              <- ZIO.sleep(WAIT_DURATION)
           monitorHistory <- MonitorService.history(monitorerActor)
+          output         <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
         } yield assertTrue(
           ref == Left(Symbol("noproc"))
         ) && assert(monitorHistory)(isSome) ?? "history should be available"
           && assert(monitorHistory.get)(isEmpty) ?? "history should be empty"
+          && assertTrue(
+            (logHistory
+              .withLogLevel(LogLevel.Error))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 0
+          ) ?? "should not log any errors"
       ),
       test("fail to monitor non-existent process by name")(
         for {
@@ -713,12 +779,20 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           ref            <- MonitorService.monitor(monitorerActor, core.Codec.EAtom("non_existent"))
           _              <- ZIO.sleep(WAIT_DURATION)
           monitorHistory <- MonitorService.history(monitorerActor)
+          output         <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
         } yield assertTrue(
           ref == Left(Symbol("noproc"))
         ) && assert(monitorHistory)(isSome) ?? "history should be available"
           && assert(monitorHistory.get)(isEmpty) ?? "history should be empty"
           && assert(ref)(isLeft) ?? "Call to monitor should return error"
           && assert(ref)(isLeft(equalTo(Symbol("noproc")))) ?? "Should get `noproc` error"
+          && assertTrue(
+            (logHistory
+              .withLogLevel(LogLevel.Error))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 0
+          ) ?? "should not log any errors"
       ),
       test("fail to monitor process on non-existent remote node")(
         for {
@@ -730,10 +804,18 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           ref            <- MonitorService.monitor(monitorerActor, target)
           _              <- ZIO.sleep(WAIT_DURATION)
           monitorHistory <- MonitorService.history(monitorerActor)
+          output         <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
         } yield assertTrue(
           ref == Left(Symbol("noconnection"))
         ) && assert(monitorHistory)(isSome) ?? "history should be available"
           && assert(monitorHistory.get)(isEmpty) ?? "history should be empty"
+          && assertTrue(
+            (logHistory
+              .withLogLevel(LogLevel.Error))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 0
+          ) ?? "should not log any errors"
       ),
       test("link")(
         for {
@@ -748,9 +830,16 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           _          <- echo.exit(core.Codec.EAtom("reason"))
           _          <- assertNotAlive(echo.id)
           _          <- assertNotAlive(linked.id)
+          output     <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
         } yield assertTrue(
           linkResult == Symbol("ok")
-        )
+        ) && assertTrue(
+          (logHistory
+            .withLogLevel(LogLevel.Error))
+            .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+            .size == 0
+        ) ?? "should not log any errors"
       ),
       test("unlink")(
         for {
@@ -766,10 +855,17 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           _            <- echo.exit(core.Codec.EAtom("reason"))
           _            <- assertNotAlive(echo.id)
           _            <- assertAlive(linked.id)
+          output       <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
         } yield assertTrue(
           linkResult == Symbol("ok"),
           unlinkResult == Symbol("ok")
-        )
+        ) && assertTrue(
+          (logHistory
+            .withLogLevel(LogLevel.Error))
+            .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+            .size == 0
+        ) ?? "should not log any errors"
       ),
       test("fail to link to non-existent process")(
         for {
@@ -784,9 +880,16 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           _          <- echo.exit(core.Codec.EAtom("normal"))
           _          <- assertNotAlive(echo.id)
           linkResult <- MonitorService.link(linked, echoPid)
+          output     <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
         } yield assertTrue(
           linkResult == Symbol("noproc")
-        )
+        ) && assertTrue(
+          (logHistory
+            .withLogLevel(LogLevel.Error))
+            .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+            .size == 0
+        ) ?? "should not log any errors"
       ),
       test("link two unrelated processes together and actor A dies")(
         for {
@@ -815,6 +918,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           _ <- assertNotAlive(actorA.id)
           _ <- assertNotAlive(actorB.id)
 
+          output <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
           output <- ZTestLogger.logOutput
           logHistory = LogHistory(output)
         } yield assert(
@@ -849,6 +954,12 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           )(containsShape { case (_, reason: String, "TestService") =>
             reason.contains("EBinary -> reason")
           }) ?? "the reason for termination of actor B should be '<<\"reason\">>'"
+          && assertTrue(
+            (logHistory
+              .withLogLevel(LogLevel.Error))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 0
+          ) ?? "should not log any errors"
       ),
       test("link two unrelated processes together and actor B dies")(
         for {
@@ -877,6 +988,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           _ <- assertNotAlive(actorA.id)
           _ <- assertNotAlive(actorB.id)
 
+          output <- ZTestLogger.logOutput
+          logHistory = LogHistory(output)
           output <- ZTestLogger.logOutput
           logHistory = LogHistory(output)
         } yield assert(
@@ -911,6 +1024,12 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           )(containsShape { case (_, reason: String, "TestService") =>
             reason.contains("EBinary -> reason")
           }) ?? "the reason for termination of actor B should be '<<\"reason\">>'"
+          && assertTrue(
+            (logHistory
+              .withLogLevel(LogLevel.Error))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 0
+          ) ?? "should not log any errors"
       )
     ).provideLayer(
       Utils.testEnvironment(1, 1, "MonitorSuite")
