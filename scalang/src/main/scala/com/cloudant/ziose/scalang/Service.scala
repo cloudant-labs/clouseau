@@ -505,7 +505,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
             case Failure(err) =>
               ActorResult.onError(err).getOrElse {
                 printThrowable("onMessage[ETerm]", err)
-                ActorResult.onMessageError(HandleInfoCBError(err))
+                ActorResult.onCallbackError(HandleInfoCBError(err), core.ActorCallback.OnMessage)
               }
           }
         }
@@ -519,7 +519,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
               case Failure(err) =>
                 ActorResult.onError(err).getOrElse {
                   printThrowable("onMessage[Any]", err)
-                  ActorResult.onMessageError(HandleCallCBError(err))
+                  ActorResult.onCallbackError(HandleCallCBError(err), core.ActorCallback.OnMessage)
                 }
             }
           }
@@ -581,7 +581,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
         case Failure(err) =>
           ZIO.succeed(ActorResult.onError(err).getOrElse {
             printThrowable("onMessage[$gen_call]", err)
-            ActorResult.onMessageError(HandleCallCBError(err))
+            ActorResult.onCallbackError(HandleCallCBError(err), core.ActorCallback.OnMessage)
           })
       }
     } yield res
