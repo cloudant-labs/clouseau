@@ -11,7 +11,9 @@ import java.time.temporal.ChronoUnit
 import zio._
 
 class TestEchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
-  val isTest = true
+  val isTest                                    = true
+  var throwFromTerminate: Option[(Pid, String)] = None
+  var exitFromTerminate: Option[(Pid, Any)]     = None
 
   val logger = LoggerFactory.getLogger("clouseau.EchoService")
   logger.debug("Created")
@@ -48,12 +50,36 @@ class TestEchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: 
       case (Symbol("crashWithReason"), reason: String) => throw new Throwable(reason)
       case (Symbol("stop"), reason: Symbol) =>
         (Symbol("stop"), reason, adapter.fromScala(request))
+      case (Symbol("exitWithReason"), reason: String) =>
+        exit(reason)
+      case (Symbol("exitWithReason"), reason: Any) =>
+        exit(reason)
+      case (Symbol("setThrowFromTerminate"), reason: String) =>
+        throwFromTerminate = Some((tag._1, reason))
+        (Symbol("reply"), Symbol("ok"))
+      case (Symbol("setExitFromTerminate"), reason) =>
+        exitFromTerminate = Some((tag._1, reason))
+        (Symbol("reply"), Symbol("ok"))
       case msg =>
         logger.warn(s"[handleCall] Unexpected message: $msg ...")
     }
   }
   override def onTermination[PContext <: ProcessContext](reason: core.Codec.ETerm, ctx: PContext) = {
-    ZIO.logTrace("onTermination")
+    ZIO.logTrace(s"onTermination ${ctx.name}: ${reason.getClass.getSimpleName} -> ${reason}") *>
+      ZIO.succeed(exitFromTerminate.map(term => {
+        val (from: Pid, reason) = term
+        from ! reason
+        // pause to let the message arrive to the caller
+        Thread.sleep(500)
+        core.ActorResult.exit(core.Codec.fromScala(reason))
+      })) *>
+      ZIO.succeed(throwFromTerminate.map(term => {
+        val (from: Pid, reason) = term
+        from ! reason
+        // pause to let the message arrive to the caller
+        Thread.sleep(500)
+        throw new Throwable(reason)
+      }))
   }
 
   private def now(): BigInt = ChronoUnit.MICROS.between(Instant.EPOCH, Instant.now())
