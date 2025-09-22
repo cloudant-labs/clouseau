@@ -27,51 +27,51 @@ import scala.util.Failure
 
 trait Error extends Throwable
 
-case class HandleCallCBError(err: Throwable) extends Error {
+case class HandleCallCBError(prefix: String, err: Throwable) extends Error {
   @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
-    s"Error.${getClass.getSimpleName}",
+    s"Error.${getClass.getSimpleName}.${prefix}",
     s"err=${err.getMessage}"
   )
 }
 
 object HandleCallCBError {
-  def apply(err: Throwable) = {
-    val exception  = new HandleCallCBError(err)
+  def apply(prefix: String, err: Throwable) = {
+    val exception  = new HandleCallCBError(prefix, err)
     val stackTrace = err.getStackTrace()
     exception.setStackTrace(stackTrace)
     exception
   }
 }
 
-case class HandleCastCBError(err: Throwable) extends Error {
+case class HandleCastCBError(prefix: String, err: Throwable) extends Error {
   @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
-    s"Error.${getClass.getSimpleName}",
+    s"Error.${getClass.getSimpleName}.${prefix}",
     s"err=${err.getMessage}"
   )
 }
 
 object HandleCastCBError {
-  def apply(err: Throwable) = {
-    val exception  = new HandleCastCBError(err)
+  def apply(prefix: String, err: Throwable) = {
+    val exception  = new HandleCastCBError(prefix, err)
     val stackTrace = err.getStackTrace()
     exception.setStackTrace(stackTrace)
     exception
   }
 }
 
-case class HandleInfoCBError(err: Throwable) extends Error {
+case class HandleInfoCBError(prefix: String, err: Throwable) extends Error {
   @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
-    s"Error.${getClass.getSimpleName}",
+    s"Error.${getClass.getSimpleName}.${prefix}",
     s"err=${err.getMessage}"
   )
 }
 
 object HandleInfoCBError {
-  def apply(err: Throwable) = {
-    val exception  = new HandleInfoCBError(err)
+  def apply(prefix: String, err: Throwable) = {
+    val exception  = new HandleInfoCBError(prefix, err)
     val stackTrace = err.getStackTrace()
     exception.setStackTrace(stackTrace)
     exception
@@ -481,8 +481,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
             .as(ActorResult.Continue())
         } catch {
           case err: Throwable => {
-            printThrowable("onMessage[$gen_cast]", err)
-            ZIO.fail(HandleCastCBError(err))
+            ZIO.fail(HandleCastCBError("onMessage[$gen_cast]", err))
           }
         }
       }
@@ -493,8 +492,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
             .as(ActorResult.Continue())
         } catch {
           case err: Throwable => {
-            printThrowable("onMessage[DOWN]", err)
-            ZIO.fail(HandleCastCBError(err))
+            ZIO.fail(HandleCastCBError("onMessage[DOWN]", err))
           }
         }
       case Some(info: ETerm) => {
@@ -504,8 +502,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
               ActorResult.Continue()
             case Failure(err) =>
               ActorResult.onError(err).getOrElse {
-                printThrowable("onMessage[ETerm]", err)
-                ActorResult.onCallbackError(HandleInfoCBError(err), core.ActorCallback.OnMessage)
+                ActorResult.onCallbackError(HandleInfoCBError("onMessage[ETerm]", err), core.ActorCallback.OnMessage)
               }
           }
         }
@@ -518,8 +515,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
                 ActorResult.Continue()
               case Failure(err) =>
                 ActorResult.onError(err).getOrElse {
-                  printThrowable("onMessage[Any]", err)
-                  ActorResult.onCallbackError(HandleCallCBError(err), core.ActorCallback.OnMessage)
+                  ActorResult.onCallbackError(HandleCallCBError("onMessage[Any]", err), core.ActorCallback.OnMessage)
                 }
             }
           }
@@ -580,8 +576,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
         case Failure(err) =>
           ZIO.succeed(ActorResult.onError(err).getOrElse {
-            printThrowable("onMessage[$gen_call]", err)
-            ActorResult.onCallbackError(HandleCallCBError(err), core.ActorCallback.OnMessage)
+            ActorResult.onCallbackError(HandleCallCBError("onMessage[$gen_call]", err), core.ActorCallback.OnMessage)
           })
       }
     } yield res
@@ -602,12 +597,6 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
   def cast(to: Pid, msg: Any)                 = Service.cast(to, msg)
   def cast(to: Symbol, msg: Any)              = Service.cast(to, msg)
   def cast(to: (RegName, NodeName), msg: Any) = Service.cast(to, msg)
-
-  def printThrowable(location: String, err: Throwable) = {
-    ZIO.logError(
-      s"$location Throwable ${err.getMessage()}:\n" + err.getStackTrace().map(e => s"  ${e.toString()}").mkString("\n")
-    )
-  }
 
   @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
