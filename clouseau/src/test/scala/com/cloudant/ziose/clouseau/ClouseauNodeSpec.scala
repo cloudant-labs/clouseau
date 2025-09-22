@@ -489,11 +489,20 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               .size
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
           && assertTrue(
+            (
+              logHistory.withLogLevel(LogLevel.Error) &&
+                logHistory.withActorCallback("TestService", core.ActorCallback.OnMessage) &&
+                logHistory.withActorAddress(echo.self)
+            )
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 1
+          ) ?? "should log error from onMessage"
+          && assertTrue(
             (logHistory
               .withLogLevel(LogLevel.Error))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-              .size == 0
-          ) ?? "should not log any errors"
+              .size == 1
+          ) ?? "should not log any errors besides the error from onMessage"
       ),
       test("monitor process by identifier - killed by stop")(
         for {
@@ -632,10 +641,18 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
           && assertTrue(
             (logHistory
+              .withLogLevel(LogLevel.Error) &&
+              logHistory.withActorCallback("TestService", core.ActorCallback.OnMessage) &&
+              logHistory.withActorAddress(echo.self))
+              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
+              .size == 1
+          ) ?? "should log error from onMessage"
+          && assertTrue(
+            (logHistory
               .withLogLevel(LogLevel.Error))
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-              .size == 0
-          ) ?? "should not log any errors"
+              .size == 1
+          ) ?? "should not log any errors besides the one from onMessage"
       ),
       test("monitor process by name - killed by stop")(
         for {
