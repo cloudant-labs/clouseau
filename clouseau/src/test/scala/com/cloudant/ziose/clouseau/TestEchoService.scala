@@ -12,6 +12,7 @@ import zio._
 
 class TestEchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   val isTest = true
+
   val logger = LoggerFactory.getLogger("clouseau.EchoService")
   logger.debug("Created")
 

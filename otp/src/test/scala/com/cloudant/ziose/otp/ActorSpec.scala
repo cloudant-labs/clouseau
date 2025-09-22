@@ -18,6 +18,9 @@ import zio.test.junit._
 import com.cloudant.ziose.test.helpers.TestRunner
 
 class TestActor()(implicit ctx: ProcessContext) extends Actor {
+  var throwFromTerminate: Option[String] = None
+  var exitFromTerminate: Option[String]  = None
+
   override def onInit[C <: ProcessContext](ctx: C): Task[_ <: ActorResult] = {
     ZIO.logTrace(s"onInit ${ctx.name}").as(ActorResult.Continue())
   }
@@ -32,6 +35,18 @@ class TestActor()(implicit ctx: ProcessContext) extends Actor {
         throw new Throwable(reason)
       case Some(ETuple(EAtom("error"), EString(reason))) =>
         ZIO.succeed(ActorResult.StopWithReasonTerm(EString(reason)))
+      case Some(ETuple(EAtom("exit"), reason: ETerm)) =>
+        ActorResult.exit(reason)
+        ZIO.succeed(ActorResult.Continue())
+      case Some(ETuple(EAtom("exit"), EString(reason))) =>
+        ActorResult.exit(reason)
+        ZIO.succeed(ActorResult.Continue())
+      case Some(ETuple(EAtom("setThrowFromTerminate"), EString(reason))) =>
+        throwFromTerminate = Some(reason)
+        ZIO.succeed(ActorResult.Continue())
+      case Some(ETuple(EAtom("setExitFromTerminate"), EString(reason))) =>
+        exitFromTerminate = Some(reason)
+        ZIO.succeed(ActorResult.Continue())
       case _ =>
         ZIO.succeed(ActorResult.Continue())
     }
@@ -39,7 +54,9 @@ class TestActor()(implicit ctx: ProcessContext) extends Actor {
   }
 
   override def onTermination[C <: ProcessContext](reason: ETerm, ctx: C): Task[Unit] = {
-    ZIO.logTrace(s"onTermination ${ctx.name}: ${reason.getClass.getSimpleName} -> ${reason}")
+    ZIO.logTrace(s"onTermination ${ctx.name}: ${reason.getClass.getSimpleName} -> ${reason}") *>
+      ZIO.succeed(exitFromTerminate.map(reason => ActorResult.exit(reason))) *>
+      ZIO.succeed(throwFromTerminate.map(reason => throw new Throwable(reason)))
   }
 }
 
@@ -149,12 +166,179 @@ class ActorSpec extends JUnitRunnableSpec {
         && assertTrue(
           statusDone(Symbol("externalMailboxConsumerFiber")) == Fiber.Status.Done
         ) ?? "'externalMailboxConsumerFiber' should have Done status"
+        && assertTrue(
+          (logHistory.withLogLevel(LogLevel.Error) &&
+            logHistory.withActorCallback("TestActor", ActorCallback.OnMessage))
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 0
+        ) ?? "'TestService.onMessage' callback should not log any errors"
+        && assertTrue(
+          (logHistory.withLogLevel(LogLevel.Error) &&
+            logHistory.withActorCallback("TestActor", ActorCallback.OnTermination))
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 0
+        ) ?? "'TestService.onTermination' callback should not log any errors"
+    ),
+    test("test onMessage terminate properly when exit is called with string reason")(
+      for {
+        actor      <- TestActor.startZIO("testActor")
+        _          <- actor.status()
+        _          <- actor.send(ETuple(EAtom("exit"), EString("exit => Die")))
+        _          <- actor.isStoppedZIO.repeatUntil(_ == true).unit
+        statusDone <- actor.status()
+        output     <- ZTestLogger.logOutput
+        logHistory = LogHistory(output)
+      } yield assert(
+        (logHistory
+          .withLogLevel(LogLevel.Trace) && logHistory
+          .withActorCallback("TestActor", ActorCallback.OnTermination))
+          .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+      )(helpers.Asserts.containsShape { case (_, reason: String, "TestActor") =>
+        reason.contains("exit => Die")
+      }) ?? "log should contain messages from 'TestActor.onTermination' callback"
+        && assertTrue(
+          (logHistory.withLogLevel(LogLevel.Trace) &&
+            logHistory.withActorCallback("TestActor", ActorCallback.OnTermination))
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 1
+        ) ?? "'TestService.onTermination' callback should be only called once"
+        && assertTrue(
+          statusDone(Symbol("actorLoop")) == Fiber.Status.Done
+        ) ?? "'actorLoop' should have Done status"
+        && assertTrue(
+          statusDone(Symbol("internalMailboxConsumerFiber")) == Fiber.Status.Done
+        ) ?? "'internalMailboxConsumerFiber' should have Done status"
+        && assertTrue(
+          statusDone(Symbol("externalMailboxConsumerFiber")) == Fiber.Status.Done
+        ) ?? "'externalMailboxConsumerFiber' should have Done status"
+        && assertTrue(
+          (logHistory.withLogLevel(LogLevel.Error) &&
+            logHistory.withActorCallback("TestActor", ActorCallback.OnMessage))
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 0
+        ) ?? "'TestService.onMessage' callback should not log any errors"
+        && assertTrue(
+          (logHistory.withLogLevel(LogLevel.Error) &&
+            logHistory.withActorCallback("TestActor", ActorCallback.OnTermination))
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 0
+        ) ?? "'TestService.onTermination' callback should not log any errors"
+    ),
+    test("test onMessage terminate properly when exit is called with term reason")(
+      for {
+        actor      <- TestActor.startZIO("testActor")
+        _          <- actor.status()
+        _          <- actor.send(ETuple(EAtom("exit"), EAtom("die")))
+        _          <- actor.isStoppedZIO.repeatUntil(_ == true).unit
+        statusDone <- actor.status()
+        output     <- ZTestLogger.logOutput
+        logHistory = LogHistory(output)
+      } yield assert(
+        (logHistory
+          .withLogLevel(LogLevel.Trace) && logHistory
+          .withActorCallback("TestActor", ActorCallback.OnTermination))
+          .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+      )(helpers.Asserts.containsShape { case (_, reason: String, "TestActor") =>
+        reason.contains("EAtom -> die")
+      }) ?? "log should contain messages from 'TestActor.onTermination' callback"
+        && assertTrue(
+          (logHistory.withLogLevel(LogLevel.Trace) &&
+            logHistory.withActorCallback("TestActor", ActorCallback.OnTermination))
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 1
+        ) ?? "'TestService.onTermination' callback should be only called once"
+        && assertTrue(
+          statusDone(Symbol("actorLoop")) == Fiber.Status.Done
+        ) ?? "'actorLoop' should have Done status"
+        && assertTrue(
+          statusDone(Symbol("internalMailboxConsumerFiber")) == Fiber.Status.Done
+        ) ?? "'internalMailboxConsumerFiber' should have Done status"
+        && assertTrue(
+          statusDone(Symbol("externalMailboxConsumerFiber")) == Fiber.Status.Done
+        ) ?? "'externalMailboxConsumerFiber' should have Done status"
+        && assertTrue(
+          (logHistory.withLogLevel(LogLevel.Error) &&
+            logHistory.withActorCallback("TestActor", ActorCallback.OnMessage))
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 0
+        ) ?? "'TestService.onMessage' callback should not log any errors"
+        && assertTrue(
+          (logHistory.withLogLevel(LogLevel.Error) &&
+            logHistory.withActorCallback("TestActor", ActorCallback.OnTermination))
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 0
+        ) ?? "'TestService.onTermination' callback should not log any errors"
     )
   ).provideLayer(
     testEnvironment(1, 1, "ActorSpec")
   ) @@ TestAspect.withLiveClock
 
   val onTerminateSuite = suite("Actor onTerminate callback")(
+    test("test the throw from onTerminate")(
+      for {
+        actor  <- TestActor.startZIO("testActor")
+        _      <- actor.send(ETuple(EAtom("setThrowFromTerminate"), EString("throw => Die")))
+        _      <- ZIO.debug("The log message about 'onTermination' crashing below is expected ----vvvv")
+        _      <- actor.exit(core.Codec.EAtom("terminate"))
+        _      <- helpers.Asserts.assertNotAlive(actor.id)
+        _      <- actor.isStoppedZIO.repeatUntil(_ == true).unit
+        output <- ZTestLogger.logOutput
+        logHistory = LogHistory(output)
+      } yield assert(
+        (logHistory
+          .withLogLevel(LogLevel.Trace) && logHistory
+          .withActorCallback("TestActor", ActorCallback.OnTermination))
+          .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+      )(helpers.Asserts.containsShape { case (_, reason: String, "TestActor") =>
+        // This is what our onTermination callback receives
+        reason.contains("EAtom -> terminate")
+      }) ?? "log should contain message with original cause"
+        && assertTrue(
+          (logHistory.withLogLevel(LogLevel.Trace) &&
+            logHistory.withActorCallback("TestActor", ActorCallback.OnTermination))
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 1
+        ) ?? "'TestService.onTermination' callback should be only called once"
+        && assert(
+          (logHistory
+            .withLogLevel(LogLevel.Error) && logHistory
+            .withActorCallback("TestActor", ActorCallback.OnTermination))
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+        )(helpers.Asserts.containsShape { case (_, reason: String, "TestActor") =>
+          // This is what our onTermination callback throws
+          reason.contains("throw => Die") && reason.contains("StopWithCause(OnTermination,Die")
+        }) ?? "log should contain error message pointing to failure in onTermination"
+    ),
+    test("test the call of exit from onTerminate")(
+      for {
+        actor  <- TestActor.startZIO("testActor")
+        _      <- actor.send(ETuple(EAtom("setExitFromTerminate"), EString("exit => Die")))
+        _      <- actor.exit(core.Codec.EAtom("normal"))
+        _      <- helpers.Asserts.assertNotAlive(actor.id)
+        _      <- actor.isStoppedZIO.repeatUntil(_ == true).unit
+        output <- ZTestLogger.logOutput
+        logHistory = LogHistory(output)
+      } yield assert(
+        (logHistory
+          .withLogLevel(LogLevel.Trace) && logHistory
+          .withActorCallback("TestActor", ActorCallback.OnTermination))
+          .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+      )(helpers.Asserts.containsShape { case (_, reason: String, "TestActor") =>
+        reason.contains("EAtom -> normal")
+      }) ?? "log should contain messages from 'TestActor.onTermination' callback"
+        && assertTrue(
+          (logHistory.withLogLevel(LogLevel.Trace) &&
+            logHistory.withActorCallback("TestActor", ActorCallback.OnTermination))
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 1
+        ) ?? "'TestService.onTermination' callback should be only called once"
+        && assertTrue(
+          logHistory
+            .withLogLevel(LogLevel.Error)
+            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
+            .size == 0
+        ) ?? "log should not contain errors"
+    ),
     test("test onTerminate is called on exit(normal)")(
       for {
         actor  <- TestActor.startZIO("testActor")
