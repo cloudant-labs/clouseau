@@ -432,96 +432,73 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     event: MessageEnvelope,
     ctx: PContext
   )(implicit trace: Trace): ZIO[Any, Throwable, _ <: ActorResult] = {
-    event.getPayload match {
-      case Some(ETuple(EAtom("ping"), from: EPid, ref: ERef)) => {
-        val fromPid = Pid.toScala(from)
-        sendZIO(fromPid, (Symbol("pong"), ref))
-          .as(ActorResult.Continue())
-      }
-      case Some(
-            ETuple(
-              EAtom("$gen_call"),
-              // Match on either
-              // - {pid(), ref()}
-              // - {pid(), [alias | ref()]}
-              fromTag @ ETuple(from: EPid, _ref),
-              EAtom("ping")
-            )
-          ) => {
-        onHandlePingMessage(event)
-      }
-      case Some(
-            ETuple(
-              EAtom("$gen_call"),
-              // Match on either
-              // - {pid(), ref()}
-              // - {pid(), [alias | ref()]}
-              fromTag @ ETuple(from: EPid, _ref),
-              EAtom("metrics")
-            )
-          ) => {
-        onHandleMetricsMessage(event)
-      }
-      case Some(
-            ETuple(
-              EAtom("$gen_call"),
-              // Match on either
-              // - {pid(), ref()}
-              // - {pid(), [alias | ref()]}
-              fromTag @ ETuple(from: EPid, _ref),
-              request: ETerm
-            )
-          ) => {
-        onHandleCallMessage(event)
-      }
-      case Some(ETuple(EAtom("$gen_cast"), request: ETerm)) => {
+    event match {
+      case msg: MessageEnvelope.Call =>
+        msg.payload match {
+          case EAtom("ping") =>
+            onHandlePingMessage(msg)
+          case EAtom("metrics") =>
+            onHandleMetricsMessage(msg)
+          case _ =>
+            onHandleCallMessage(msg)
+        }
+      case msg: MessageEnvelope.Cast =>
         try {
           ZIO
-            .succeed(handleCast(adapter.toScala(request)))
+            .succeed(handleCast(adapter.toScala(msg.payload)))
             .as(ActorResult.Continue())
         } catch {
           case err: Throwable => {
             ZIO.fail(HandleCastCBError("onMessage[$gen_cast]", err))
           }
         }
-      }
-      case Some(ETuple(EAtom("DOWN"), ref: ERef, EAtom("process"), from, reason: ETerm)) =>
+      case msg: MessageEnvelope.MonitorExit =>
         try {
           ZIO
-            .succeed(handleMonitorExit(monitoredToScala(from), Reference.toScala(ref), reason))
+            .succeed(handleMonitorExit(monitoredToScala(msg.from.get), Reference.toScala(msg.ref), msg.reason))
             .as(ActorResult.Continue())
         } catch {
           case err: Throwable => {
             ZIO.fail(HandleCastCBError("onMessage[DOWN]", err))
           }
         }
-      case Some(info: ETerm) => {
-        ZIO.attemptBlockingInterrupt {
-          Try(handleInfo(adapter.toScala(info))) match {
-            case Success(value) =>
-              ActorResult.Continue()
-            case Failure(err) =>
-              ActorResult.onError(err).getOrElse {
-                ActorResult.onCallbackError(HandleInfoCBError("onMessage[ETerm]", err), core.ActorCallback.OnMessage)
-              }
+      case msg: MessageEnvelope.Send =>
+        event.getPayload match {
+          case Some(ETuple(EAtom("ping"), from: EPid, ref: ERef)) => {
+            val fromPid = Pid.toScala(from)
+            sendZIO(fromPid, (Symbol("pong"), ref))
+              .as(ActorResult.Continue())
           }
-        }
-      }
-      case Some(info) => {
-        ZIO.logError(s"nothing matched but it is not a ETerm $info") *>
-          ZIO.attemptBlockingInterrupt {
-            Try(handleInfo(adapter.toScala(info))) match {
-              case Success(value) =>
-                ActorResult.Continue()
-              case Failure(err) =>
-                ActorResult.onError(err).getOrElse {
-                  ActorResult.onCallbackError(HandleCallCBError("onMessage[Any]", err), core.ActorCallback.OnMessage)
-                }
+          case Some(info: ETerm) => {
+            ZIO.attemptBlockingInterrupt {
+              Try(handleInfo(adapter.toScala(info))) match {
+                case Success(value) =>
+                  ActorResult.Continue()
+                case Failure(err) =>
+                  ActorResult.onError(err).getOrElse {
+                    ActorResult
+                      .onCallbackError(HandleInfoCBError("onMessage[ETerm]", err), core.ActorCallback.OnMessage)
+                  }
+              }
             }
           }
-
-      }
-      case None => ZIO.fail(UnreachableError())
+          case Some(info) => {
+            ZIO.logError(s"nothing matched but it is not a ETerm $info") *>
+              ZIO.attemptBlockingInterrupt {
+                Try(handleInfo(adapter.toScala(info))) match {
+                  case Success(value) =>
+                    ActorResult.Continue()
+                  case Failure(err) =>
+                    ActorResult.onError(err).getOrElse {
+                      ActorResult
+                        .onCallbackError(HandleCallCBError("onMessage[Any]", err), core.ActorCallback.OnMessage)
+                    }
+                }
+              }
+          }
+          case None => ZIO.fail(UnreachableError())
+        }
+      case _ => ZIO.fail(UnreachableError())
     }
   }
 
@@ -531,18 +508,18 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     case other       => throw new Throwable("unreachable")
   }
 
-  def onHandlePingMessage(msg: MessageEnvelope) = {
+  def onHandlePingMessage(msg: MessageEnvelope.Call) = {
     val callerTag: (Pid, Any) = extractCallerTag(msg)
     Service.replyZIO(callerTag, Symbol("pong"))(this).as(ActorResult.Continue())
   }
 
-  def onHandleMetricsMessage(msg: MessageEnvelope) = {
+  def onHandleMetricsMessage(msg: MessageEnvelope.Call) = {
     val callerTag: (Pid, Any) = extractCallerTag(msg)
     val replyTerm             = (Symbol("ok"), metrics.dumpAsSymbolValuePairs())
     Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
   }
 
-  def onHandleCallMessage(msg: MessageEnvelope)(implicit trace: Trace) = {
+  def onHandleCallMessage(msg: MessageEnvelope.Call)(implicit trace: Trace) = {
     val callerTag: (Pid, Any) = extractCallerTag(msg)
     // We already matched on the shape before the call to this,
     // so it is safe to use `.get`
