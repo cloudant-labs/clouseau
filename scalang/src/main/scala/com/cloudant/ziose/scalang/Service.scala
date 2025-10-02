@@ -100,13 +100,26 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
   val adapter: A
   def self: Address
 
+  def toAddress(pid: Pid): Address = {
+    Address.fromPid(pid.fromScala, self.workerId, self.workerNodeName)
+  }
+
+  def toAddress(name: RegName): Address = {
+    Address.fromName(Codec.EAtom(name), self.workerId, self.workerNodeName)
+  }
+
+  def toAddress(dest: (RegName, NodeName)): Address = {
+    val (name, node) = dest
+    Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(node), self.workerId, self.workerNodeName)
+  }
+
   def send(pid: Pid, msg: Any) = {
     Unsafe.unsafe { implicit unsafe =>
       Runtime.default.unsafe.run(sendZIO(pid, msg))
     }
   }
 
-  def send(name: RegName, msg: Any): UIO[Unit] = {
+  def send(name: RegName, msg: Any) = {
     Unsafe.unsafe { implicit unsafe =>
       Runtime.default.unsafe.run(sendZIO(name, msg))
     }
@@ -119,19 +132,15 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
   }
 
   def sendZIO(pid: Pid, msg: Any) = {
-    val address  = Address.fromPid(pid.fromScala, self.workerId, self.workerNodeName)
-    val envelope = MessageEnvelope.makeSend(address, adapter.fromScala(msg), self)
+    val envelope = MessageEnvelope.makeSend(toAddress(pid), adapter.fromScala(msg), self)
     adapter.send(envelope)
   }
   def sendZIO(name: RegName, msg: Any) = {
-    val address  = Address.fromName(Codec.EAtom(name), self.workerId, self.workerNodeName)
-    val envelope = MessageEnvelope.makeSend(address, adapter.fromScala(msg), self)
+    val envelope = MessageEnvelope.makeSend(toAddress(name), adapter.fromScala(msg), self)
     adapter.send(envelope)
   }
   def sendZIO(dest: (RegName, NodeName), from: Pid, msg: Any) = {
-    val (name, node) = dest
-    val address      = Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(node), self.workerId, self.workerNodeName)
-    val envelope     = MessageEnvelope.makeRegSend(from.fromScala, address, adapter.fromScala(msg), self)
+    val envelope = MessageEnvelope.makeRegSend(from.fromScala, toAddress(dest), adapter.fromScala(msg), self)
     adapter.send(envelope)
   }
 
