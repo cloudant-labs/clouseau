@@ -153,10 +153,10 @@ class OTPProcessContext private (
   def demonitor(ref: Codec.ERef)  = mailbox.demonitor(ref)
 
   def nextEvent: ZIO[Any, Nothing, Option[MessageEnvelope]] = {
-    mailbox.nextEvent.flatMap(e => ZIO.succeed(handleCall(e)))
+    mailbox.nextEvent.flatMap(e => ZIO.succeed(handleGenMsg(e)))
   }
 
-  def handleCall(envelope: MessageEnvelope): Option[MessageEnvelope] = {
+  def handleGenMsg(envelope: MessageEnvelope): Option[MessageEnvelope] = {
     envelope match {
       case MessageEnvelope.Send(
             _,
@@ -173,6 +173,16 @@ class OTPProcessContext private (
           ) =>
         // We matched on fromTag structure already, so it is safe to call `.get`
         Some(MessageEnvelope.makeCall(to, fromTag, payload, None).get)
+      case MessageEnvelope.Send(
+            Some(from: Codec.EPid),
+            to,
+            Codec.ETuple(
+              tag @ Codec.EAtom("$gen_cast"),
+              payload
+            ),
+            workerId
+          ) =>
+        Some(MessageEnvelope.makeCast(tag, from, to, payload, self))
       case _ => Some(envelope)
     }
   }
@@ -221,7 +231,11 @@ class OTPProcessContext private (
     .getOrElse(MessageEnvelope.Response.timeout(msg))
 
   def cast(msg: MessageEnvelope.Cast): UIO[Unit] = {
-    mailbox.cast(msg)
+    if (msg.to.isRemote || msg.to == id) {
+      mailbox.cast(msg)
+    } else {
+      forwardToExchange(msg).unit
+    }
   }
 
   def send(msg: MessageEnvelope.Response): UIO[Unit] = {

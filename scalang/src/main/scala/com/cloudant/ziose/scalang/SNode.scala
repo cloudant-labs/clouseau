@@ -3,7 +3,6 @@ package com.cloudant.ziose.scalang
 import com.cloudant.ziose.core
 import core.Address
 import core.MessageEnvelope
-import core.Codec
 import com.cloudant.ziose.macros.CheckEnv
 import zio._
 
@@ -38,50 +37,6 @@ class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(i
   def spawn(fun: Process => Unit): Pid          = ???
   def spawn[T <: Process](regName: String): Pid = ???
   def spawn[T <: Process](regName: Symbol): Pid = ???
-
-  def cast(to: Pid, msg: Any)(implicit adapter: Adapter[_, _]) = {
-    val pid     = to.fromScala
-    val address = Address.fromPid(pid, adapter.workerId, adapter.workerNodeName)
-    val envelope = MessageEnvelope.makeCast(
-      Codec.EAtom("$gen_cast"),
-      adapter.self.pid,
-      address,
-      adapter.fromScala(msg),
-      adapter.self
-    )
-    for {
-      _ <- adapter.cast(envelope)
-    } yield ()
-  }
-  def cast(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]) = {
-    val address = Address.fromName(Codec.EAtom(to), adapter.workerId, adapter.workerNodeName)
-    val envelope = MessageEnvelope.makeCast(
-      Codec.EAtom("$gen_cast"),
-      adapter.self.pid,
-      address,
-      adapter.fromScala(msg),
-      adapter.self
-    )
-    for {
-      _ <- adapter.cast(envelope)
-    } yield ()
-  }
-  def cast(to: (RegName, NodeName), msg: Any)(implicit adapter: Adapter[_, _]) = {
-    val (name, nodeName) = to
-    val address = {
-      Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), adapter.workerId, adapter.workerNodeName)
-    }
-    val envelope = MessageEnvelope.makeCast(
-      Codec.EAtom("$gen_cast"),
-      adapter.self.pid,
-      address,
-      adapter.fromScala(msg),
-      adapter.self
-    )
-    for {
-      _ <- adapter.cast(envelope)
-    } yield ()
-  }
 
   // assume same worker
   def isLocal(pid: Pid)(implicit adapter: Adapter[_, _]) = pid.node == adapter.workerNodeName

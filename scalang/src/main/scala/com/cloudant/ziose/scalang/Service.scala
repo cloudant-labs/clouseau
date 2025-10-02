@@ -667,15 +667,34 @@ object Service {
     } yield result
   }
 
-  def cast(to: core.PID, msg: Any)(implicit adapter: Adapter[_, _])  = adapter.node.cast(to, msg)
-  def cast(to: core.Name, msg: Any)(implicit adapter: Adapter[_, _]) = adapter.node.cast(to.name.atom, msg)
-  def cast(to: core.NameOnNode, msg: Any)(implicit adapter: Adapter[_, _]) = {
-    adapter.node.cast((to.name.atom, to.node.atom), msg)
+  def cast(to: core.Address, msg: Any)(implicit adapter: Adapter[_, _]): Unit = {
+    val result = Unsafe.unsafe { implicit unsafe =>
+      val rt = adapter.runtime.asInstanceOf[Runtime[core.Node]]
+      rt.unsafe.run(castZIO(to, msg))
+    }
   }
-  def cast(to: Pid, msg: Any)(implicit adapter: Adapter[_, _])    = adapter.node.cast(to, msg)
-  def cast(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]) = adapter.node.cast(to, msg)
-  def cast(to: (ProcessLike.RegName, ProcessLike.NodeName), msg: Any)(implicit adapter: Adapter[_, _]) = {
-    adapter.node.cast(to, msg)
+  def cast(to: Pid, msg: Any)(implicit adapter: Adapter[_, _]): Unit    = cast(toAddress(to), msg)
+  def cast(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]): Unit = cast(toAddress(to), msg)
+  def cast(to: (ProcessLike.RegName, ProcessLike.NodeName), msg: Any)(implicit adapter: Adapter[_, _]): Unit = {
+    cast(toAddress(to), msg)
+  }
+
+  def castZIO(to: core.Address, msg: Any)(implicit
+    adapter: Adapter[_, _]
+  ): zio.ZIO[core.Node, core.Node.Error, Unit] = {
+    for {
+      node <- ZIO.service[Node]
+      ref  <- node.makeRef()
+      message = MessageEnvelope
+        .makeCast(
+          Codec.EAtom("$gen_cast"),
+          adapter.self.pid,
+          to,
+          adapter.fromScala(msg),
+          adapter.self
+        )
+      result <- adapter.cast(message)
+    } yield result
   }
 
   def ping(to: core.Address)(implicit adapter: Adapter[_, _]): Any = {
