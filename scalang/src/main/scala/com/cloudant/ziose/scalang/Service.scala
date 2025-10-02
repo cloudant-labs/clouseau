@@ -17,9 +17,6 @@ import com.cloudant.ziose.macros.CheckEnv
 import zio._
 
 import java.util.concurrent.TimeUnit
-import com.cloudant.ziose.core.Name
-import com.cloudant.ziose.core.NameOnNode
-import com.cloudant.ziose.core.PID
 import scala.util.Try
 import scala.util.Success
 import scala.util.Failure
@@ -698,35 +695,20 @@ object Service {
   }
 
   def ping(to: core.Address)(implicit adapter: Adapter[_, _]): Any = {
-    to match {
-      case name: Name       => ping(name)
-      case name: NameOnNode => ping(name)
-      case pid: PID         => ping(pid)
-    }
+    call(to, Symbol("ping"), PING_TIMEOUT_IN_MSEC) == Symbol("pong")
   }
 
-  def ping(to: core.PID)(implicit adapter: Adapter[_, _]): Boolean = {
-    call(Pid.toScala(to.pid), ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
-  }
-  def ping(to: core.Name)(implicit adapter: Adapter[_, _]): Boolean = {
-    call(to.name.atom, ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
-  }
-  def ping(to: core.NameOnNode)(implicit adapter: Adapter[_, _]): Boolean = {
-    call((to.name.atom, to.node.atom), ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(
-      EAtom("pong")
-    )
-  }
   def ping(to: Pid)(implicit adapter: Adapter[_, _]): Boolean = {
-    call(to, ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
+    call(to, Symbol("ping"), PING_TIMEOUT_IN_MSEC) == Symbol("pong")
   }
   def ping(to: Pid, timeout: Long)(implicit adapter: Adapter[_, _]): Boolean = {
-    call(to, ETuple(EAtom("ping")), timeout) == ETuple(EAtom("pong"))
+    call(to, Symbol("ping"), timeout) == Symbol("pong")
   }
   def ping(to: Symbol)(implicit adapter: Adapter[_, _]): Boolean = {
-    call(to, ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
+    call(to, Symbol("ping"), PING_TIMEOUT_IN_MSEC) == Symbol("pong")
   }
   def ping(to: Symbol, timeout: Long)(implicit adapter: Adapter[_, _]): Boolean = {
-    call(to, ETuple(EAtom("ping")), timeout) == ETuple(EAtom("pong"))
+    call(to, Symbol("ping"), timeout) == Symbol("pong")
   }
 
   def replyZIO[P <: Process](caller: (Pid, Any), reply: Any)(implicit process: P): UIO[Unit] = {
