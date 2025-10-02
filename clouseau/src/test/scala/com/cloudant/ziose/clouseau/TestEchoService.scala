@@ -60,6 +60,10 @@ class TestEchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: 
       case (Symbol("setExitFromTerminate"), reason) =>
         exitFromTerminate = Some((tag._1, reason))
         (Symbol("reply"), Symbol("ok"))
+      case (Symbol("call"), address: Pid, req) =>
+        (Symbol("reply"), (Symbol("ok"), call(address, req)))
+      case (Symbol("call"), name: Symbol, req) =>
+        (Symbol("reply"), (Symbol("ok"), call(name, req)))
       case msg =>
         logger.warn(s"[handleCall] Unexpected message: $msg ...")
     }
