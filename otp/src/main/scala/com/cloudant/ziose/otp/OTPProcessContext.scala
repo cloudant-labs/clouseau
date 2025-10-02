@@ -19,6 +19,7 @@ import com.cloudant.ziose.core.Address
 import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.core.ActorResult
 import scala.collection.mutable.ListBuffer
+import com.cloudant.ziose.core.Name
 
 class OTPProcessContext private (
   val name: Option[String],
@@ -56,6 +57,24 @@ class OTPProcessContext private (
     }
   }
 
+  private def forwardToExchange(msg: MessageEnvelope): UIO[Boolean] = {
+    msg.to match {
+      case Name(name, workerId, workerNodeName) =>
+        for {
+          maybePid <- lookUpName(name.asString)
+          msgToPid <- maybePid match {
+            case None => ZIO.succeed(msg)
+            case Some(address) =>
+              ZIO.succeed(
+                msg.redirect(to => Address.fromPid(address.asInstanceOf[PID].pid, to.workerId, to.workerNodeName))
+              )
+          }
+          isSent <- worker.forward(msgToPid)
+        } yield isSent
+      case _ => worker.forward(msg)
+    }
+  }
+
   override def toString: String = name match {
     case Some(n) => s"OTPProcessContext(${n}.${worker.id}.${worker.engineId}@${nodeName})"
     case None    => s"OTPProcessContext(${self.pid}.${worker.id}.${worker.engineId}@${nodeName})"
@@ -72,8 +91,22 @@ class OTPProcessContext private (
     mailbox.awaitShutdown
   }
 
+  def handleRespone(msg: MessageEnvelope.Response) = {
+    if (inProgressCalls.contains(msg.ref)) {
+      inProgressCalls.remove(msg.ref) match {
+        case Some(replyChannel) => replyChannel.succeed(Right(msg))
+        case None               => ZIO.succeed(true)
+      }
+    } else {
+      ZIO.succeed(true)
+    }
+  }
+
   def forward(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
-    mailbox.forward(msg)
+    msg match {
+      case response: MessageEnvelope.Response => handleRespone(response)
+      case _                                  => mailbox.forward(msg)
+    }
   }
 
   def messageQueueLength()(implicit trace: Trace): UIO[Int] = {
@@ -94,7 +127,7 @@ class OTPProcessContext private (
     if (msg.to.isRemote || msg.to == id) {
       mailbox.exit(msg)
     } else {
-      worker.forward(msg).unit
+      forwardToExchange(msg).unit
     }
   }
 
@@ -103,7 +136,7 @@ class OTPProcessContext private (
     if (msg.to.isRemote || msg.to == id) {
       mailbox.unlink(msg.from.get)
     } else {
-      worker.forward(msg.forward).unit
+      forwardToExchange(msg.forward).unit
     }
   }
 
@@ -112,7 +145,7 @@ class OTPProcessContext private (
     if (msg.to.isRemote && msg.from.get == id.pid) {
       mailbox.link(msg.from.get)
     } else {
-      worker.forward(msg.forward).unit
+      forwardToExchange(msg.forward).unit
     }
   }
 
@@ -156,18 +189,18 @@ class OTPProcessContext private (
     fiber <- effect.forkIn(scope)
   } yield fiber
 
-  def call(message: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response] = for {
+  def call(msg: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response] = for {
     node          <- ZIO.service[Node]
     resultChannel <- Promise.make[Nothing, Either[Node.Error, MessageEnvelope.Response]]
-    _             <- ZIO.succeed(inProgressCalls += Tuple2(message.ref, resultChannel))
-    // Forward message and only if it was sent return the `channel`
-    channel <- forward(message)
+    _             <- ZIO.succeed(inProgressCalls += Tuple2(msg.ref, resultChannel))
+    // Return `channel` only if the `msg` was forwarded
+    channel <- forwardToExchange(msg)
       .flatMap(isSent => {
         if (isSent) { ZIO.succeed(resultChannel) }
         else { ZIO.fail(Node.Error.NoSuchActor()) }
       })
     // Unify the type of the response for cases with and without timeout
-    result <- (message.timeout match {
+    result <- (msg.timeout match {
       case Some(duration) =>
         channel.await.timeout(duration)
       case None =>
@@ -181,11 +214,11 @@ class OTPProcessContext private (
           value
         case Left(reason) =>
           // Convert `Node.Error` into `Response`
-          MessageEnvelope.Response.error(message, reason)
+          MessageEnvelope.Response.error(msg, reason)
       }
     })
     // If the result is None, it means `channel`, got timeout.
-    .getOrElse(MessageEnvelope.Response.timeout(message))
+    .getOrElse(MessageEnvelope.Response.timeout(msg))
 
   def cast(msg: MessageEnvelope.Cast): UIO[Unit] = {
     mailbox.cast(msg)
@@ -198,18 +231,11 @@ class OTPProcessContext private (
         mailbox.send(mapResponse(msg))
       case (false, false) =>
         // If message is not for me and actor is local
-        worker.forward(msg).unit
+        forwardToExchange(msg).unit
       case (false, true) => {
         // If message is for me I need to check if it is one of
         // the inProgressCalls, in such case resolve the promise.
-        if (inProgressCalls.contains(msg.ref)) {
-          inProgressCalls.remove(msg.ref) match {
-            case Some(replyChannel) => replyChannel.succeed(Right(msg)).unit
-            case None               => ZIO.unit
-          }
-        } else {
-          ZIO.unit
-        }
+        handleRespone(msg).unit
       }
     }
   }
@@ -217,7 +243,7 @@ class OTPProcessContext private (
     if (msg.to.isRemote || msg.to == id) {
       mailbox.send(msg)
     } else {
-      worker.forward(msg).unit
+      forwardToExchange(msg).unit
     }
   }
   // I want to prevent direct calls to this function

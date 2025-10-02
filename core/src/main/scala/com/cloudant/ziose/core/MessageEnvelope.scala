@@ -10,6 +10,7 @@ sealed trait MessageEnvelope extends WithWorkerId[Engine.WorkerId] {
   val workerId: Engine.WorkerId
   val workerNodeName: Symbol
   def getPayload: Option[ETerm]
+  def redirect(mapFn: Address => Address): MessageEnvelope
 }
 
 trait WithWorkerId[I] {
@@ -26,6 +27,9 @@ object MessageEnvelope {
     val workerId: Engine.WorkerId = to.workerId
     val workerNodeName: Symbol    = to.workerNodeName
     def getPayload                = None
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
 
   case class Link(from: Option[EPid], to: Address, private val base: Address) extends MessageEnvelope {
@@ -36,16 +40,25 @@ object MessageEnvelope {
     // would reach the local actor
     // Assume `PID` here and also that the dest `PID` is on the same worker
     def forward = Link(Some(to.asInstanceOf[PID].pid), Address.fromPid(from.get, workerId, workerNodeName), base)
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
   case class Send(from: Option[EPid], to: Address, payload: ETerm, private val base: Address) extends MessageEnvelope {
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
     def getPayload                = Some(payload)
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
   case class Exit(from: Option[EPid], to: Address, reason: ETerm, private val base: Address) extends MessageEnvelope {
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
     def getPayload                = Some(reason)
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
   case class Unlink(from: Option[EPid], to: Address, id: Long, private val base: Address) extends MessageEnvelope {
     val workerId: Engine.WorkerId = base.workerId
@@ -55,6 +68,9 @@ object MessageEnvelope {
     // would reach the local actor
     // Assume `PID` here and also that the dest `PID` is on the same worker
     def forward = Unlink(Some(to.asInstanceOf[PID].pid), Address.fromPid(from.get, workerId, workerNodeName), id, base)
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
 
   case class Call(
@@ -70,6 +86,9 @@ object MessageEnvelope {
     def getPayload                = Some(ETuple(tag, ETuple(from.get, replyRef), payload))
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
 
   case class Cast(
@@ -82,6 +101,9 @@ object MessageEnvelope {
     def getPayload                = Some(payload)
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
 
   case class Response(
@@ -102,6 +124,9 @@ object MessageEnvelope {
     def getCaller                 = from.get
     // when makeCall is used the Address is a PID
     def getCallee = to.asInstanceOf[PID].pid
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
 
   object Response {
@@ -156,6 +181,9 @@ object MessageEnvelope {
     def getPayload                = Some(ETuple(EAtom("DOWN"), ref, EAtom("process"), from.get, reason))
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
 
   // For debugging and testing only
