@@ -31,7 +31,9 @@ service_test_() ->
                     ?TDEF_FEX(t_internal_call_to_pid),
                     ?TDEF_FEX(t_internal_call_to_name),
                     ?TDEF_FEX(t_internal_cast_to_pid),
-                    ?TDEF_FEX(t_internal_cast_to_name)
+                    ?TDEF_FEX(t_internal_cast_to_name),
+                    ?TDEF_FEX(t_internal_ping_to_pid),
+                    ?TDEF_FEX(t_internal_ping_to_name)
                 ]
             }
         }
@@ -86,6 +88,32 @@ t_internal_cast_to_name(Id, {ServicePid, TargetName, _TargetPid}) ->
     after ?TIMEOUT_IN_MS ->
         ?FAIL("Expected to receive a message")
     end.
+
+t_internal_ping_to_pid(_Id, {ServicePid, _TargetName, TargetPid}) ->
+    Response = gen_server:call(ServicePid, {ping, TargetPid}),
+    ?assertMatch(
+        {ok, _}, Response, ?format("Expected the gen_server:call to succeed, got ~p", [Response])
+    ),
+    {ok, Result} = Response,
+    ?assertMatch(
+        true,
+        Result,
+        ?format("Expected to receive 'true', got ~p", [Result])
+    ),
+    ok.
+
+t_internal_ping_to_name(_Id, {ServicePid, TargetName, _TargetPid}) ->
+    Response = gen_server:call(ServicePid, {ping, TargetName}),
+    ?assertMatch(
+        {ok, _}, Response, ?format("Expected the gen_server:call to succeed, got ~p", [Response])
+    ),
+    {ok, Result} = Response,
+    ?assertMatch(
+        true,
+        Result,
+        ?format("Expected to receive 'true', got ~p", [Result])
+    ),
+    ok.
 
 %%%%%%%%%%%%%%% Setup Functions %%%%%%%%%%%%%%%
 

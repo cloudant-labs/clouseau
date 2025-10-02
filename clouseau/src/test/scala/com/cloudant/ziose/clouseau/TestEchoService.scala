@@ -70,6 +70,10 @@ class TestEchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: 
       case (Symbol("cast"), name: Symbol, req) =>
         cast(name, req)
         (Symbol("reply"), Symbol("ok"))
+      case (Symbol("ping"), address: Pid) =>
+        (Symbol("reply"), (Symbol("ok"), ping(address)))
+      case (Symbol("ping"), name: Symbol) =>
+        (Symbol("reply"), (Symbol("ok"), ping(name)))
       case msg =>
         logger.warn(s"[handleCall] Unexpected message: $msg ...")
     }
