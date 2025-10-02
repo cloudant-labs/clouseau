@@ -64,8 +64,24 @@ class TestEchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: 
         (Symbol("reply"), (Symbol("ok"), call(address, req)))
       case (Symbol("call"), name: Symbol, req) =>
         (Symbol("reply"), (Symbol("ok"), call(name, req)))
+      case (Symbol("cast"), address: Pid, req) =>
+        cast(address, req)
+        (Symbol("reply"), Symbol("ok"))
+      case (Symbol("cast"), name: Symbol, req) =>
+        cast(name, req)
+        (Symbol("reply"), Symbol("ok"))
       case msg =>
         logger.warn(s"[handleCall] Unexpected message: $msg ...")
+    }
+  }
+
+  override def handleCast(request: Any): Any = {
+    request match {
+      case (Symbol("echo"), from: Pid, request) =>
+        from ! (Symbol("echo"), adapter.fromScala(request))
+        ()
+      case msg =>
+        logger.warn(s"[handleCast] Unexpected message: $msg ...")
     }
   }
   override def onTermination[PContext <: ProcessContext](reason: core.Codec.ETerm, ctx: PContext) = {

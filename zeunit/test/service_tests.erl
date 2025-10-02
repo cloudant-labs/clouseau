@@ -4,6 +4,17 @@
 
 -define(INIT_SERVICE, init).
 -define(REX_SERVICE, rex).
+-define(TIMEOUT_IN_MS, 3000).
+
+-define(FAIL(Reason),
+    erlang:error(
+        {fail, [
+            {module, ?MODULE},
+            {line, ?LINE},
+            {reason, Reason}
+        ]}
+    )
+).
 
 service_test_() ->
     {
@@ -18,7 +29,9 @@ service_test_() ->
                 fun stop_services/2,
                 [
                     ?TDEF_FEX(t_internal_call_to_pid),
-                    ?TDEF_FEX(t_internal_call_to_name)
+                    ?TDEF_FEX(t_internal_call_to_name),
+                    ?TDEF_FEX(t_internal_cast_to_pid),
+                    ?TDEF_FEX(t_internal_cast_to_name)
                 ]
             }
         }
@@ -49,6 +62,30 @@ t_internal_call_to_name(Id, {ServicePid, TargetName, _TargetPid}) ->
         ?format("Expected to receive {echo, Id} tuple, got ~p", [Result])
     ),
     ok.
+
+t_internal_cast_to_pid(Id, {ServicePid, _TargetName, TargetPid}) ->
+    Ref = make_ref(),
+    Response = gen_server:call(ServicePid, {cast, TargetPid, {echo, self(), {Ref, Id}}}),
+    ?assertMatch(
+        ok, Response, ?format("Expected the gen_server:call to succeed, got ~p", [Response])
+    ),
+    receive
+        {echo, {Ref, Id}} -> ok
+    after ?TIMEOUT_IN_MS ->
+        ?FAIL("Expected to receive a message")
+    end.
+
+t_internal_cast_to_name(Id, {ServicePid, TargetName, _TargetPid}) ->
+    Ref = make_ref(),
+    Response = gen_server:call(ServicePid, {cast, TargetName, {echo, self(), {Ref, Id}}}),
+    ?assertMatch(
+        ok, Response, ?format("Expected the gen_server:call to succeed, got ~p", [Response])
+    ),
+    receive
+        {echo, {Ref, Id}} -> ok
+    after ?TIMEOUT_IN_MS ->
+        ?FAIL("Expected to receive a message")
+    end.
 
 %%%%%%%%%%%%%%% Setup Functions %%%%%%%%%%%%%%%
 
