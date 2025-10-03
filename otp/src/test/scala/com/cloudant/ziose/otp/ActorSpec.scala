@@ -16,6 +16,7 @@ import zio.test._
 import zio.test.Assertion._
 import zio.test.junit._
 import com.cloudant.ziose.test.helpers.TestRunner
+import helpers.Asserts._
 
 class TestActor()(implicit ctx: ProcessContext) extends Actor {
   var throwFromTerminate: Option[String] = None
@@ -166,18 +167,10 @@ class ActorSpec extends JUnitRunnableSpec {
         && assertTrue(
           statusDone(Symbol("externalMailboxConsumerFiber")) == Fiber.Status.Done
         ) ?? "'externalMailboxConsumerFiber' should have Done status"
-        && assertTrue(
-          (logHistory.withLogLevel(LogLevel.Error) &&
-            logHistory.withActorCallback("TestActor", ActorCallback.OnMessage))
-            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
-            .size == 0
+        && assert(logHistory.withActorCallback("TestActor", ActorCallback.OnMessage))(
+          assertHasNoErrors
         ) ?? "'TestService.onMessage' callback should not log any errors"
-        && assertTrue(
-          (logHistory.withLogLevel(LogLevel.Error) &&
-            logHistory.withActorCallback("TestActor", ActorCallback.OnTermination))
-            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
-            .size == 0
-        ) ?? "'TestService.onTermination' callback should not log any errors"
+        && assert(logHistory)(assertHasNoErrors) ?? "should not log any errors"
     ),
     test("test onMessage terminate properly when exit is called with string reason")(
       for {
@@ -211,18 +204,13 @@ class ActorSpec extends JUnitRunnableSpec {
         && assertTrue(
           statusDone(Symbol("externalMailboxConsumerFiber")) == Fiber.Status.Done
         ) ?? "'externalMailboxConsumerFiber' should have Done status"
-        && assertTrue(
-          (logHistory.withLogLevel(LogLevel.Error) &&
-            logHistory.withActorCallback("TestActor", ActorCallback.OnMessage))
-            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
-            .size == 0
+        && assert(logHistory.withActorCallback("TestActor", ActorCallback.OnMessage))(
+          assertHasNoErrors
         ) ?? "'TestService.onMessage' callback should not log any errors"
-        && assertTrue(
-          (logHistory.withLogLevel(LogLevel.Error) &&
-            logHistory.withActorCallback("TestActor", ActorCallback.OnTermination))
-            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
-            .size == 0
+        && assert(logHistory.withActorCallback("TestActor", ActorCallback.OnTermination))(
+          assertHasNoErrors
         ) ?? "'TestService.onTermination' callback should not log any errors"
+        && assert(logHistory)(assertHasNoErrors) ?? "should not log any errors"
     ),
     test("test onMessage terminate properly when exit is called with term reason")(
       for {
@@ -256,18 +244,13 @@ class ActorSpec extends JUnitRunnableSpec {
         && assertTrue(
           statusDone(Symbol("externalMailboxConsumerFiber")) == Fiber.Status.Done
         ) ?? "'externalMailboxConsumerFiber' should have Done status"
-        && assertTrue(
-          (logHistory.withLogLevel(LogLevel.Error) &&
-            logHistory.withActorCallback("TestActor", ActorCallback.OnMessage))
-            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
-            .size == 0
+        && assert(logHistory.withActorCallback("TestActor", ActorCallback.OnMessage))(
+          assertHasNoErrors
         ) ?? "'TestService.onMessage' callback should not log any errors"
-        && assertTrue(
-          (logHistory.withLogLevel(LogLevel.Error) &&
-            logHistory.withActorCallback("TestActor", ActorCallback.OnTermination))
-            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
-            .size == 0
-        ) ?? "'TestService.onTermination' callback should not log any errors"
+        && assert(logHistory.withActorCallback("TestActor", ActorCallback.OnTermination))(
+          assertHasNoErrors
+        ) ?? "'TestService.onTerminaion' callback should not log any errors"
+        && assert(logHistory)(assertHasNoErrors) ?? "should not log any errors"
     )
   ).provideLayer(
     testEnvironment(1, 1, "ActorSpec")
@@ -308,6 +291,9 @@ class ActorSpec extends JUnitRunnableSpec {
           // This is what our onTermination callback throws
           reason.contains("throw => Die") && reason.contains("StopWithCause(OnTermination,Die")
         }) ?? "log should contain error message pointing to failure in onTermination"
+        && assert(logHistory.withActorCallback("TestActor", ActorCallback.OnMessage))(
+          assertHasNoErrors
+        ) ?? "'TestService.onMessage' callback should not log any errors"
     ),
     test("test the call of exit from onTerminate")(
       for {
@@ -332,12 +318,7 @@ class ActorSpec extends JUnitRunnableSpec {
             .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
             .size == 1
         ) ?? "'TestService.onTermination' callback should be only called once"
-        && assertTrue(
-          logHistory
-            .withLogLevel(LogLevel.Error)
-            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
-            .size == 0
-        ) ?? "log should not contain errors"
+        && assert(logHistory)(assertHasNoErrors) ?? "should not log any errors"
     ),
     test("test onTerminate is called on exit(normal)")(
       for {
@@ -362,12 +343,7 @@ class ActorSpec extends JUnitRunnableSpec {
             .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
             .size
         )(equalTo(1)) ?? "'TestService.onTermination' callback should be only called once"
-        && assertTrue(
-          logHistory
-            .withLogLevel(LogLevel.Error)
-            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
-            .size == 0
-        ) ?? "log should not contain errors"
+        && assert(logHistory)(assertHasNoErrors) ?? "should not log any errors"
     ),
     test("test onTerminate is called on interruption of internalMailboxConsumerFiber")(
       for {
@@ -409,12 +385,7 @@ class ActorSpec extends JUnitRunnableSpec {
         && assert(statusDone.get(Symbol("externalMailboxConsumerFiber")).get)(
           equalTo(Fiber.Status.Done)
         ) ?? "'externalMailboxConsumerFiber' should have Done status"
-        && assertTrue(
-          logHistory
-            .withLogLevel(LogLevel.Error)
-            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
-            .size == 0
-        ) ?? "log should not contain errors"
+        && assert(logHistory)(assertHasNoErrors) ?? "should not log any errors"
     ),
     test("test onTerminate is called on interruption of externalMailboxConsumerFiber")(
       for {
@@ -457,12 +428,7 @@ class ActorSpec extends JUnitRunnableSpec {
         && assert(statusDone.get(Symbol("externalMailboxConsumerFiber")).get)(
           equalTo(Fiber.Status.Done)
         ) ?? "'externalMailboxConsumerFiber' should have Done status"
-        && assertTrue(
-          logHistory
-            .withLogLevel(LogLevel.Error)
-            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
-            .size == 0
-        ) ?? "log should not contain errors"
+        && assert(logHistory)(assertHasNoErrors) ?? "should not log any errors"
     ),
     test("test onTerminate is called on interruption of actorLoopFiber")(
       for {
@@ -504,12 +470,7 @@ class ActorSpec extends JUnitRunnableSpec {
         && assert(statusDone.get(Symbol("externalMailboxConsumerFiber")).get)(
           equalTo(Fiber.Status.Done)
         ) ?? "'externalMailboxConsumerFiber' should have Done status"
-        && assertTrue(
-          logHistory
-            .withLogLevel(LogLevel.Error)
-            .asIndexedMessageAnnotationTuples(AddressableActor.actorTypeLogAnnotation)
-            .size == 0
-        ) ?? "log should not contain errors"
+        && assert(logHistory)(assertHasNoErrors) ?? "should not log any errors"
     )
   ).provideLayer(
     testEnvironment(1, 1, "ActorSpec")
