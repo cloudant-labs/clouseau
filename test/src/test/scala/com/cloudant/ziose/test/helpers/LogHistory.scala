@@ -229,4 +229,6 @@ object LogHistory {
   )
 
   def hasNoErrors(x: => LogHistory) = x.withLogLevel(LogLevel.Error).entries.isEmpty
+
+  def hasNErrors(x: => LogHistory, n: Int) = x.withLogLevel(LogLevel.Error).entries.size == n
 }

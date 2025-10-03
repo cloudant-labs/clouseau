@@ -146,4 +146,27 @@ object Asserts {
     Assertion.assertion("hasNoErrors")(LogHistory.hasNoErrors)
   }
 
+  /**
+   * Assertion which fails if number of Error messages in the log differ from given N
+   *
+   * Example of checking where whole log is in scope:
+   *
+   * {{{
+   * && assert(logHistory)(
+   *   helpers.Asserts.assertHasNErrors(1)
+   * ) ?? "should not log any errors besides one from 'TestService.onMessage'"
+   * }}}
+   *
+   * Example of checking for specific callback of specific actor:
+   *
+   * {{{
+   * && assert(logHistory.withActorCallback("TestActor", ActorCallback.OnMessage))(
+   *   helpers.Asserts.assertHasNErrors(1)
+   * ) ?? "'TestService.onTermination' callback should not log any errors besides ..."
+   * }}}
+   */
+  def assertHasNErrors(n: Int) = {
+    Assertion.assertion("hasNErrors")(LogHistory.hasNErrors(_, n))
+  }
+
 }
