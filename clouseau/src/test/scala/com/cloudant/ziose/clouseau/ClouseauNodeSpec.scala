@@ -487,12 +487,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size == 1
           ) ?? "should log error from onMessage"
-          && assertTrue(
-            (logHistory
-              .withLogLevel(LogLevel.Error))
-              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-              .size == 1
-          ) ?? "should not log any errors besides the error from onMessage"
+          && assert(logHistory)(assertHasNErrors(1)) ?? "should not log any errors besides one from 'onMessage'"
       ),
       test("monitor process by identifier - killed by stop")(
         for {
@@ -627,12 +622,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
               .size == 1
           ) ?? "should log error from onMessage"
-          && assertTrue(
-            (logHistory
-              .withLogLevel(LogLevel.Error))
-              .asIndexedMessageAnnotationTuples(core.AddressableActor.actorTypeLogAnnotation)
-              .size == 1
-          ) ?? "should not log any errors besides the one from onMessage"
+          && assert(logHistory)(assertHasNErrors(1)) ?? "should not log any errors besides one from 'onMessage'"
       ),
       test("monitor process by name - killed by stop")(
         for {
