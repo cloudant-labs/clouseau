@@ -24,7 +24,8 @@ echo_service_test_() ->
                     ?TDEF_FEX(t_call_build_info),
                     ?TDEF_FEX(t_concurrent_call_echo),
                     ?TDEF_FEX(t_ioq_call_echo),
-                    ?TDEF_FEX(t_concurrent_ioq_call_echo)
+                    ?TDEF_FEX(t_concurrent_ioq_call_echo),
+                    ?TDEF_FEX(t_scheduler_is_not_blocking)
                 ]
             }
         }
@@ -129,6 +130,15 @@ t_concurrent_ioq_call_echo(Name, _) ->
     ?assertEqual(Concurrency, length([Idx || Idx <- Results, is_integer(Idx)])),
     ok.
 
+%% make sure other actors are still reposnding when one of the actors is blocked
+t_scheduler_is_not_blocking(Name, _) ->
+    Pid = start_service(name_with_suffix(Name, another)),
+    %% Block the actor in handleInfo so it cannot handle other messages
+    {Name, ?NodeZ} ! {block_for_ms, 5000},
+    ?assertEqual({echo, {}}, gen_server:call(Pid, {echo, {}})),
+    ?assertEqual(ok, util:stop_service(Pid), "Expected to be able to kill the service"),
+    ok.
+
 %%%%%%%%%%%%%%% Setup Functions %%%%%%%%%%%%%%%
 
 setup() ->
@@ -147,6 +157,9 @@ stop_service(_, Pid) ->
     exit(Pid, normal).
 
 %%%%%%%%%%%%%%% Utility Functions %%%%%%%%%%%%%%%
+
+name_with_suffix(Name, Suffix) when is_atom(Name) andalso is_atom(Suffix) ->
+    list_to_atom(atom_to_list(Name) ++ "_" ++ atom_to_list(Suffix)).
 
 ensure_semantic(BinaryVersion) when is_binary(BinaryVersion) ->
     Version = hd(binary:split(BinaryVersion, <<"-">>)),

@@ -13,6 +13,7 @@
     concurrent_retry/2, concurrent_retry/4
 ]).
 -export([rand_char/1]).
+-export([stop_service/1, stop_service/2, stop_service/3]).
 
 -define(ALPHABET_SIZE, 26).
 
@@ -196,6 +197,23 @@ wait_value(Fun, Value, TimeoutInMs) ->
         end,
         TimeoutInMs
     ).
+
+stop_service(Process) ->
+    stop_service(Process, normal, ?TIMEOUT_IN_MS).
+
+stop_service(Process, TimeoutInMs) ->
+    stop_service(Process, normal, TimeoutInMs).
+
+stop_service(Pid, Reason, TimeoutInMs) ->
+    Tag = erlang:monitor(process, Pid),
+    exit(Pid, Reason),
+    receive
+        {'DOWN', Tag, process, Pid, R} ->
+            io:format(user, "REASON = ~p~n", [R]),
+            ok
+    after TimeoutInMs ->
+        timeout
+    end.
 
 now_us() ->
     {MegaSecs, Secs, MicroSecs} = os:timestamp(),

@@ -7,7 +7,6 @@ import zio.Promise
 import zio.logging.LogAnnotation
 import zio.Exit
 import zio.StackTrace
-import scala.util.Try
 
 /*
  * This is the trait which implements actors. An Actor is a low level construct
@@ -73,11 +72,13 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     case status if status.isDone => true
   }.size == NUMBER_OF_FIBERS)
 
-  def onInit(): UIO[ActorResult] = for {
-    _ <- ctx.worker.register(this)
-    res <- tryCatch(Try(actor.onInit(ctx)), ActorResult.onInitError) @@
-      AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnInit)
-  } yield res
+  def onInit(): UIO[ActorResult] = {
+    def onFunc = actor.onInit(ctx)
+    for {
+      _   <- ctx.worker.register(this)
+      res <- callHandler(onFunc, ActorCallback.OnInit)
+    } yield res
+  }
 
   val formatAddress = name match {
     case Some(name) => s"${name}@${id.asInstanceOf[PID].pid}"
@@ -87,14 +88,10 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   def onTermination(result: ActorResult): UIO[ActorResult] = {
     if (!isFinalized.getAndSet(true)) {
       val reason = resultToReason(result)
+      def onFunc = actor.onTermination(reason, ctx).as(ActorResult.Stop())
       for {
-        _ <- ctx.worker.unregister(self)
-        res <- tryCatch(
-          Try(actor.onTermination(reason, ctx).as(ActorResult.Stop())),
-          ActorResult.onTerminationError
-        ) @@
-          AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnTermination) @@
-          AddressableActor.actorTypeLogAnnotation(actor.getClass.getSimpleName)
+        _   <- ctx.worker.unregister(self)
+        res <- callHandler(onFunc, ActorCallback.OnTermination)
       } yield res
     } else {
       ZIO.succeed(ActorResult.Stop())
@@ -102,8 +99,8 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   }
 
   def onMessage(message: MessageEnvelope)(implicit trace: Trace): UIO[ActorResult] = {
-    tryCatch(Try(actor.onMessage(message, ctx)), ActorResult.onMessageError) @@
-      AddressableActor.actorCallbackLogAnnotation(ActorCallback.OnMessage)
+    def onFunc = actor.onMessage(message, ctx)
+    callHandler(onFunc, ActorCallback.OnMessage)
   }
 
   def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
@@ -216,11 +213,31 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     }
   }
 
-  private def tryCatch(
-    onFunc: Try[ZIO[Any, Throwable, ActorResult]],
-    onFailure: Throwable => ActorResult
+  private def callHandler(
+    onFunc: => ZIO[Any, _ <: Throwable, ActorResult],
+    callback: ActorCallback
   ): UIO[ActorResult] = {
-    ZIO.fromTry(onFunc).flatten.catchAll(e => ZIO.succeed(onFailure(e)))
+    for {
+      res <- (try {
+        onFunc.sandbox
+          .foldZIO(
+            failure => ZIO.succeed(ActorResult.onCallbackError(failure, callback)),
+            success => ZIO.succeed(success)
+          )
+      } catch {
+        case failure: Throwable =>
+          // recover the trace stack
+          val cause = ActorResult.failureToCause(failure)
+          ZIO.succeed(ActorResult.onCallbackError(cause, callback))
+      }) @@ AddressableActor.actorCallbackLogAnnotation(callback)
+      _ <- res match {
+        case result: ActorResult.StopWithCause =>
+          ZIO.logError(s"${callback.name} ${ctx.name}: ${result}") @@
+            AddressableActor.actorCallbackLogAnnotation(callback) @@
+            AddressableActor.actorTypeLogAnnotation(actor.getClass.getSimpleName)
+        case _ => ZIO.unit
+      }
+    } yield res
   }
 
   /*
@@ -334,12 +351,20 @@ trait ActorConstructor[A] {
   type AType <: A
 }
 
-trait ActorCallback
+trait ActorCallback {
+  val name: String
+}
 
 object ActorCallback {
-  case object OnInit        extends ActorCallback
-  case object OnMessage     extends ActorCallback
-  case object OnTermination extends ActorCallback
+  case object OnInit extends ActorCallback {
+    val name = "OnInit"
+  }
+  case object OnMessage extends ActorCallback {
+    val name = "OnMessage"
+  }
+  case object OnTermination extends ActorCallback {
+    val name = "OnTermination"
+  }
 }
 
 trait ActorResult {
@@ -357,10 +382,16 @@ object ActorResult {
   }
 
   private case class ExitWithReasonTerm(reason: Codec.ETerm) extends Exit {
-    def toResult = StopWithReasonTerm(reason)
+    def toResult = reason match {
+      case Codec.EAtom("normal") => Stop()
+      case _                     => StopWithReasonTerm(reason)
+    }
   }
   private case class ExitWithReasonString(reason: String) extends Exit {
-    def toResult = StopWithReasonString(reason)
+    def toResult = reason match {
+      case "normal" => Stop()
+      case _        => StopWithReasonString(reason)
+    }
   }
 
   def exit(reason: String): Unit      = throw ExitWithReasonString(reason)
@@ -404,21 +435,16 @@ object ActorResult {
       None
   }
 
-  def onInitError(failure: Throwable): ActorResult = {
-    onError(failure).getOrElse(
-      ActorResult.StopWithCause(ActorCallback.OnInit, failureToCause(failure))
-    )
+  def onCallbackError(failure: Cause[Throwable], callback: ActorCallback) = {
+    recoverFromCause(failure) match {
+      case Some(exit: ActorResult.Exit) => exit.toResult
+      case Some(result)                 => result
+      case None                         => ActorResult.StopWithCause(callback, failure)
+    }
   }
-
-  def onMessageError(failure: Throwable): ActorResult = {
+  def onCallbackError(failure: Throwable, callback: ActorCallback): ActorResult = {
     onError(failure).getOrElse(
-      ActorResult.StopWithCause(ActorCallback.OnMessage, failureToCause(failure))
-    )
-  }
-
-  def onTerminationError(failure: Throwable) = {
-    onError(failure).getOrElse(
-      ActorResult.StopWithCause(ActorCallback.OnTermination, failureToCause(failure))
+      ActorResult.StopWithCause(callback, failureToCause(failure))
     )
   }
 
@@ -430,10 +456,12 @@ object ActorResult {
 
   def recoverFromCause(cause: Cause[_]): Option[ActorResult] = {
     cause match {
-      case Cause.Fail(result: ActorResult, _trace) => Some(result)
-      case Cause.Die(result: ActorResult, _trace)  => Some(result)
-      case _: Cause.Interrupt                      => Some(ActorResult.Shutdown())
-      case _                                       => None
+      case Cause.Fail(result: ActorResult, _trace)      => Some(result)
+      case Cause.Fail(result: ActorResult.Exit, _trace) => Some(result.toResult)
+      case Cause.Die(result: ActorResult, _trace)       => Some(result)
+      case Cause.Die(result: ActorResult.Exit, _trace)  => Some(result.toResult)
+      case _: Cause.Interrupt                           => Some(ActorResult.Shutdown())
+      case _                                            => None
     }
   }
 }
