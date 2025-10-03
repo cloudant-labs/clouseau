@@ -227,4 +227,6 @@ object LogHistory {
       }
       ._2
   )
+
+  def hasNoErrors(x: => LogHistory) = x.withLogLevel(LogLevel.Error).entries.isEmpty
 }

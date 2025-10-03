@@ -122,4 +122,28 @@ object Asserts {
       }
     } yield ()
   }
+
+  /**
+   * Assertion which fails if log contains Errors
+   *
+   * Example of checking that log doesn't contain errors:
+   *
+   * {{{
+   * && assert(logHistory)(
+   *   helpers.Asserts.assertHasNoErrors
+   * ) ?? "should not log any errors"
+   * }}}
+   *
+   * Example of checking that there were no errors on specific callback of specific actor:
+   *
+   * {{{
+   * && assert(logHistory.withActorCallback("TestActor", ActorCallback.OnMessage))(
+   *   helpers.Asserts.assertHasNoErrors
+   * ) ?? "'TestService.onTermination' callback should not log any errors"
+   * }}}
+   */
+  def assertHasNoErrors = {
+    Assertion.assertion("hasNoErrors")(LogHistory.hasNoErrors)
+  }
+
 }
