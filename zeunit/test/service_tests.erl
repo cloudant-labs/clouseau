@@ -139,7 +139,7 @@ start_service(Name) ->
     Pid.
 
 stop_service(_, Pid) ->
-    catch exit(Pid, normal).
+    util:stop_service(Pid).
 
 %%%%%%%%%%%%%%% Utility Functions %%%%%%%%%%%%%%%
 
