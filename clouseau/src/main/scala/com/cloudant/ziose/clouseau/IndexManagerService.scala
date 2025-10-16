@@ -154,7 +154,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
       }
     case ('get_root_dir) =>
       ('ok, rootDir.getAbsolutePath())
-    case ('delete, path: String) =>
+    case DeleteDocMsg(path: String) =>
       lru.get(path) match {
         case null =>
           ('error, 'not_found)
