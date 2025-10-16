@@ -8,12 +8,20 @@ import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.io.{File, UncheckedIOException}
+import java.nio.file.{Files, Path}
+import java.nio.file.{FileSystemException, NotDirectoryException}
+import java.util.regex.Pattern
+import java.util.stream.Collectors
+import scala.collection.JavaConverters._
 import zio._
 
 class TestEchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   val isTest                                    = true
   var throwFromTerminate: Option[(Pid, String)] = None
   var exitFromTerminate: Option[(Pid, Any)]     = None
+
+  val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
 
   val logger = LoggerFactory.getLogger("clouseau.EchoService")
   logger.debug("Created")
@@ -74,6 +82,21 @@ class TestEchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: 
         (Symbol("reply"), (Symbol("ok"), ping(address)))
       case (Symbol("ping"), name: Symbol) =>
         (Symbol("reply"), (Symbol("ok"), ping(name)))
+      case (Symbol("listFiles"), dbName: String) =>
+        val srcDir = new File(rootDir, dbName)
+        listFiles(srcDir) match {
+          case error: Left[_, _] =>
+            (Symbol("reply"), (Symbol("error"), encodeIOError(error.value)))
+          case result: Right[_, _] =>
+            (Symbol("reply"), (Symbol("ok"), result.value))
+        }
+      case (Symbol("listRenamed"), dbName: String) =>
+        listRenamed(dbName, 10) match {
+          case error: Left[_, _] =>
+            (Symbol("reply"), (Symbol("error"), encodeIOError(error.value)))
+          case result: Right[_, _] =>
+            (Symbol("reply"), (Symbol("ok"), result.value))
+        }
       case msg =>
         logger.warn(s"[handleCall] Unexpected message: $msg ...")
     }
@@ -107,6 +130,69 @@ class TestEchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: 
   }
 
   private def now(): BigInt = ChronoUnit.MICROS.between(Instant.EPOCH, Instant.now())
+
+  private def listRenamed(shardDbName: String, maxResults: Int): Either[FileSystemException, List[String]] = {
+    val epochSize = 10 // number of characters needed to store epoch seconds
+
+    // drop shards/[0-9a-f]+-[0-9a-f]+/ prefix
+    val dbName = new File(rootDir, shardDbName).getName()
+
+    // extract timestamp information in dbName from the end of the path
+    val dbNamePrefix = dbName.dropRight(epochSize + 1) // drop the dot as well
+    val dbNameTs     = dbName.takeRight(epochSize)
+
+    val pattern = Pattern.compile(
+      "/shards/[0-9a-f]+-[0-9a-f]+/"
+        + dbNamePrefix
+        + "\\.[0-9]+\\.[0-9]+\\.deleted\\.[0-9]+" // Ex. 20251014.195233.deleted.1730151232
+    )
+
+    def matcher(path: Path) = {
+      val relativePath = path.toString().stripPrefix(rootDir.toString())
+      pattern.matcher(relativePath).find
+    }
+
+    try {
+      Right(
+        Files
+          .find(rootDir.toPath(), maxResults, (filePath, fileAttr) => matcher(filePath))
+          .map(_.toString().stripPrefix(rootDir.toString()))
+          .collect(Collectors.toList())
+          .asScala
+          .toList
+      )
+    } catch {
+      case e: UncheckedIOException if e.getCause().isInstanceOf[FileSystemException] =>
+        Left(e.getCause().asInstanceOf[FileSystemException])
+    }
+  }
+
+  private def listFiles(srcDir: File): Either[FileSystemException, List[String]] = {
+    val maxResults = 5
+    if (!srcDir.isDirectory) {
+      Left(new NotDirectoryException(srcDir.getPath()))
+    } else {
+      try {
+        Right(
+          Files
+            .find(srcDir.toPath(), maxResults, (filePath, fileAttr) => fileAttr.isRegularFile())
+            .map(_.toString().stripPrefix(rootDir.toString()))
+            .collect(Collectors.toList())
+            .asScala
+            .toList
+        )
+      } catch {
+        case e: UncheckedIOException if e.getCause().isInstanceOf[FileSystemException] =>
+          Left(e.getCause().asInstanceOf[FileSystemException])
+      }
+    }
+  }
+
+  private def encodeIOError(e: FileSystemException) = {
+    val name = e.getClass().getSimpleName()
+    val id   = Symbol(name.head.toLower + name.tail)
+    (id, e.getFile().stripPrefix(rootDir.toString()), e.getMessage)
+  }
 
   @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(

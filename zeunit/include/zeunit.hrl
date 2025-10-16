@@ -28,6 +28,12 @@ end).
     {With, fun(With, Args) -> {?format("~s - ~p", [Name, With]), ?_test(Name(With, Args))} end}
 ).
 
+-define(TDEF_FEXN(With, Name),
+    {{With, Name}, fun({With, _}, Args) ->
+        {?format("~s - ~p", [Name, With]), ?_test(Name(With, Args))}
+    end}
+).
+
 -define(format(Fmt, Args),
     lists:flatten(io_lib:format(Fmt, Args))
 ).

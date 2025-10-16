@@ -7,6 +7,7 @@
 -export([
     check_ping/1, check_ping/2,
     check_service/1, check_service/2,
+    wait/2,
     wait_value/3,
     race/2,
     retry/2, retry/3,
