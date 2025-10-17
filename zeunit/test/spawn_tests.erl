@@ -7,9 +7,6 @@
 -include("zeunit.hrl").
 
 -define(INIT_SERVICE, init).
--define(TIMEOUT_IN_MS, 1000).
-% We expect at least 3x speed up when doing things in parallel
--define(ACCEPTABLE_CONCURENCY_TIME_RATIO, 3).
 
 spawn_test_() ->
     {
