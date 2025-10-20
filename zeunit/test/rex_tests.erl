@@ -141,8 +141,8 @@ start_service(Name) ->
     end),
     Pid.
 
-stop_service(_, _Pid) ->
-    ok.
+stop_service(_, Pid) ->
+    util:stop_service(Pid).
 
 %%%%%%%%%%%%%%% Utility Functions %%%%%%%%%%%%%%%
 

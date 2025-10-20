@@ -1,6 +1,7 @@
 package com.cloudant.ziose.otp
 
 import java.util.concurrent.atomic.AtomicBoolean
+import collection.mutable.HashMap
 
 import zio._
 
@@ -18,6 +19,7 @@ import com.cloudant.ziose.core.Address
 import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.core.ActorResult
 import scala.collection.mutable.ListBuffer
+import com.cloudant.ziose.core.Name
 
 class OTPProcessContext private (
   val name: Option[String],
@@ -26,6 +28,10 @@ class OTPProcessContext private (
   val worker: EngineWorker,
   private val mbox: OtpMbox
 ) extends ProcessContext {
+  private val inProgressCalls: HashMap[Codec.ERef, Promise[Nothing, Either[Node.Error, MessageEnvelope.Response]]] = {
+    HashMap()
+  }
+
   val id                                               = mailbox.id
   val engineId: Engine.EngineId                        = worker.engineId
   val workerId: Engine.WorkerId                        = worker.id
@@ -51,6 +57,24 @@ class OTPProcessContext private (
     }
   }
 
+  private def forwardToExchange(msg: MessageEnvelope): UIO[Boolean] = {
+    msg.to match {
+      case Name(name, workerId, workerNodeName) =>
+        for {
+          maybePid <- lookUpName(name.asString)
+          msgToPid <- maybePid match {
+            case None => ZIO.succeed(msg)
+            case Some(address) =>
+              ZIO.succeed(
+                msg.redirect(to => Address.fromPid(address.asInstanceOf[PID].pid, to.workerId, to.workerNodeName))
+              )
+          }
+          isSent <- worker.forward(msgToPid)
+        } yield isSent
+      case _ => worker.forward(msg)
+    }
+  }
+
   override def toString: String = name match {
     case Some(n) => s"OTPProcessContext(${n}.${worker.id}.${worker.engineId}@${nodeName})"
     case None    => s"OTPProcessContext(${self.pid}.${worker.id}.${worker.engineId}@${nodeName})"
@@ -67,8 +91,22 @@ class OTPProcessContext private (
     mailbox.awaitShutdown
   }
 
+  def handleRespone(msg: MessageEnvelope.Response) = {
+    if (inProgressCalls.contains(msg.ref)) {
+      inProgressCalls.remove(msg.ref) match {
+        case Some(replyChannel) => replyChannel.succeed(Right(msg))
+        case None               => ZIO.succeed(true)
+      }
+    } else {
+      ZIO.succeed(true)
+    }
+  }
+
   def forward(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
-    mailbox.forward(msg)
+    msg match {
+      case response: MessageEnvelope.Response => handleRespone(response)
+      case _                                  => mailbox.forward(msg)
+    }
   }
 
   def messageQueueLength()(implicit trace: Trace): UIO[Int] = {
@@ -89,7 +127,7 @@ class OTPProcessContext private (
     if (msg.to.isRemote || msg.to == id) {
       mailbox.exit(msg)
     } else {
-      worker.forward(msg).unit
+      forwardToExchange(msg).unit
     }
   }
 
@@ -98,7 +136,7 @@ class OTPProcessContext private (
     if (msg.to.isRemote || msg.to == id) {
       mailbox.unlink(msg.from.get)
     } else {
-      worker.forward(msg.forward).unit
+      forwardToExchange(msg.forward).unit
     }
   }
 
@@ -107,14 +145,47 @@ class OTPProcessContext private (
     if (msg.to.isRemote && msg.from.get == id.pid) {
       mailbox.link(msg.from.get)
     } else {
-      worker.forward(msg.forward).unit
+      forwardToExchange(msg.forward).unit
     }
   }
 
   def monitor(monitored: Address) = mailbox.monitor(monitored)
   def demonitor(ref: Codec.ERef)  = mailbox.demonitor(ref)
 
-  def nextEvent: ZIO[Any, Nothing, Option[MessageEnvelope]] = mailbox.nextEvent
+  def nextEvent: ZIO[Any, Nothing, Option[MessageEnvelope]] = {
+    mailbox.nextEvent.flatMap(e => ZIO.succeed(handleGenMsg(e)))
+  }
+
+  def handleGenMsg(envelope: MessageEnvelope): Option[MessageEnvelope] = {
+    envelope match {
+      case MessageEnvelope.Send(
+            _,
+            to,
+            Codec.ETuple(
+              Codec.EAtom("$gen_call"),
+              // Match on either
+              // - {pid(), ref()}
+              // - {pid(), [alias | ref()]}
+              fromTag @ Codec.ETuple(_: Codec.EPid, _ref),
+              payload
+            ),
+            workerId
+          ) =>
+        // We matched on fromTag structure already, so it is safe to call `.get`
+        Some(MessageEnvelope.makeCall(to, fromTag, payload, None).get)
+      case MessageEnvelope.Send(
+            Some(from: Codec.EPid),
+            to,
+            Codec.ETuple(
+              tag @ Codec.EAtom("$gen_cast"),
+              payload
+            ),
+            workerId
+          ) =>
+        Some(MessageEnvelope.makeCast(tag, from, to, payload, self))
+      case _ => Some(envelope)
+    }
+  }
 
   def forkScoped[R, E, A](effect: ZIO[R, E, A]): URIO[R, Fiber.Runtime[E, A]] = {
     effect.forkIn(scope)
@@ -128,17 +199,65 @@ class OTPProcessContext private (
     fiber <- effect.forkIn(scope)
   } yield fiber
 
-  def call(msg: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response] = {
-    mailbox.call(msg)
-  }
+  def call(msg: MessageEnvelope.Call): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response] = for {
+    node          <- ZIO.service[Node]
+    resultChannel <- Promise.make[Nothing, Either[Node.Error, MessageEnvelope.Response]]
+    _             <- ZIO.succeed(inProgressCalls += Tuple2(msg.ref, resultChannel))
+    // Return `channel` only if the `msg` was forwarded
+    channel <- forwardToExchange(msg)
+      .flatMap(isSent => {
+        if (isSent) { ZIO.succeed(resultChannel) }
+        else { ZIO.fail(Node.Error.NoSuchActor()) }
+      })
+    // Unify the type of the response for cases with and without timeout
+    result <- (msg.timeout match {
+      case Some(duration) =>
+        channel.await.timeout(duration)
+      case None =>
+        channel.await.map(Some(_))
+    })
+  } yield result
+    .map(x => {
+      x match {
+        case Right(value) =>
+          // Return `Response`
+          value
+        case Left(reason) =>
+          // Convert `Node.Error` into `Response`
+          MessageEnvelope.Response.error(msg, reason)
+      }
+    })
+    // If the result is None, it means `channel`, got timeout.
+    .getOrElse(MessageEnvelope.Response.timeout(msg))
+
   def cast(msg: MessageEnvelope.Cast): UIO[Unit] = {
-    mailbox.cast(msg)
+    if (msg.to.isRemote || msg.to == id) {
+      mailbox.cast(msg)
+    } else {
+      forwardToExchange(msg).unit
+    }
+  }
+
+  def send(msg: MessageEnvelope.Response): UIO[Unit] = {
+    (msg.to.isRemote, msg.to == id) match {
+      case (true, _) =>
+        // If message is for remote actor, send it through mailbox
+        mailbox.send(mapResponse(msg))
+      case (false, false) =>
+        // If message is not for me and actor is local
+        forwardToExchange(msg).unit
+      case (false, true) => {
+        // If message is for me I need to check if it is one of
+        // the inProgressCalls, in such case resolve the promise.
+        handleRespone(msg).unit
+      }
+    }
   }
   def send(msg: MessageEnvelope.Send): UIO[Unit] = {
     if (msg.to.isRemote || msg.to == id) {
       mailbox.send(msg)
     } else {
-      worker.forward(msg).unit
+      forwardToExchange(msg).unit
     }
   }
   // I want to prevent direct calls to this function
@@ -162,9 +281,20 @@ class OTPProcessContext private (
     fibers.get(fiberName).get.interrupt.unit
   }
 
+  private def terminateInProgressCalls = {
+    val stream = zio.stream.ZStream.fromIterable(inProgressCalls)
+    for {
+      _ <- stream.foreach(entry => {
+        val (ref, resultChannel) = entry
+        resultChannel.succeed(Left(Node.Error.Disconnected())).unit
+      })
+    } yield ()
+  }
+
   def onExit(exit: Exit[_, _]) = {
     if (!isFinalized.getAndSet(true)) {
       for {
+        _ <- terminateInProgressCalls
         // Closing scope with reason to propagate correct reason
         _ <- scope.close(exit)
       } yield ()
@@ -175,11 +305,30 @@ class OTPProcessContext private (
   def onStop(result: ActorResult): UIO[Unit] = {
     if (!isFinalized.getAndSet(true)) {
       for {
+        _ <- terminateInProgressCalls
         // Closing scope with reason to propagate correct reason
         _ <- scope.close(Exit.succeed(result))
       } yield ()
     } else {
       ZIO.unit
+    }
+  }
+
+  private def mapResponse(msg: MessageEnvelope.Response): MessageEnvelope.Send = {
+    (msg.payload, msg.reason) match {
+      case (Some(payload), None) =>
+        MessageEnvelope.Send(msg.from, msg.to, Codec.ETuple(msg.replyRef, payload), msg.to)
+      case (None, Some(reason)) =>
+        // https://github.com/erlang/otp/blob/master/lib/stdlib/src/gen.erl#L340
+        // this is very unlikely to happen we return something just to help with
+        // diagnostics
+        val payload = Codec.ETuple(
+          Codec.EAtom("error"),
+          Codec.ETuple(Codec.EBinary(reason.toString()), msg.from.get)
+        )
+        MessageEnvelope.Send(msg.from, msg.to, Codec.ETuple(msg.replyRef, Codec.EAtom("error")), msg.to)
+      case (_, _) =>
+        throw new Throwable("unreachable")
     }
   }
 

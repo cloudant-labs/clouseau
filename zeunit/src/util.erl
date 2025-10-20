@@ -7,6 +7,7 @@
 -export([
     check_ping/1, check_ping/2,
     check_service/1, check_service/2,
+    wait/2,
     wait_value/3,
     race/2,
     retry/2, retry/3,
@@ -198,13 +199,13 @@ wait_value(Fun, Value, TimeoutInMs) ->
         TimeoutInMs
     ).
 
-stop_service(Process) ->
-    stop_service(Process, normal, ?TIMEOUT_IN_MS).
+stop_service(Pid) when is_pid(Pid) ->
+    stop_service(Pid, normal, ?TIMEOUT_IN_MS).
 
-stop_service(Process, TimeoutInMs) ->
-    stop_service(Process, normal, TimeoutInMs).
+stop_service(Pid, TimeoutInMs) when is_pid(Pid) ->
+    stop_service(Pid, normal, TimeoutInMs).
 
-stop_service(Pid, Reason, TimeoutInMs) ->
+stop_service(Pid, Reason, TimeoutInMs) when is_pid(Pid) ->
     Tag = erlang:monitor(process, Pid),
     exit(Pid, Reason),
     receive

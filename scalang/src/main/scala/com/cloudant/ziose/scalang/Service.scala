@@ -8,7 +8,6 @@ import core.Codec.EPid
 import core.Codec.ERef
 import core.Codec.ETerm
 import core.Codec.ETuple
-import core.Codec.EListImproper
 import core.Address
 import core.Node
 import core.MessageEnvelope
@@ -18,9 +17,6 @@ import com.cloudant.ziose.macros.CheckEnv
 import zio._
 
 import java.util.concurrent.TimeUnit
-import com.cloudant.ziose.core.Name
-import com.cloudant.ziose.core.NameOnNode
-import com.cloudant.ziose.core.PID
 import scala.util.Try
 import scala.util.Success
 import scala.util.Failure
@@ -101,13 +97,26 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
   val adapter: A
   def self: Address
 
+  def toAddress(pid: Pid): Address = {
+    Address.fromPid(pid.fromScala, self.workerId, self.workerNodeName)
+  }
+
+  def toAddress(name: RegName): Address = {
+    Address.fromName(Codec.EAtom(name), self.workerId, self.workerNodeName)
+  }
+
+  def toAddress(dest: (RegName, NodeName)): Address = {
+    val (name, node) = dest
+    Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(node), self.workerId, self.workerNodeName)
+  }
+
   def send(pid: Pid, msg: Any) = {
     Unsafe.unsafe { implicit unsafe =>
       Runtime.default.unsafe.run(sendZIO(pid, msg))
     }
   }
 
-  def send(name: RegName, msg: Any): UIO[Unit] = {
+  def send(name: RegName, msg: Any) = {
     Unsafe.unsafe { implicit unsafe =>
       Runtime.default.unsafe.run(sendZIO(name, msg))
     }
@@ -120,19 +129,15 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor {
   }
 
   def sendZIO(pid: Pid, msg: Any) = {
-    val address  = Address.fromPid(pid.fromScala, self.workerId, self.workerNodeName)
-    val envelope = MessageEnvelope.makeSend(address, adapter.fromScala(msg), self)
+    val envelope = MessageEnvelope.makeSend(toAddress(pid), adapter.fromScala(msg), self)
     adapter.send(envelope)
   }
   def sendZIO(name: RegName, msg: Any) = {
-    val address  = Address.fromName(Codec.EAtom(name), self.workerId, self.workerNodeName)
-    val envelope = MessageEnvelope.makeSend(address, adapter.fromScala(msg), self)
+    val envelope = MessageEnvelope.makeSend(toAddress(name), adapter.fromScala(msg), self)
     adapter.send(envelope)
   }
   def sendZIO(dest: (RegName, NodeName), from: Pid, msg: Any) = {
-    val (name, node) = dest
-    val address      = Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(node), self.workerId, self.workerNodeName)
-    val envelope     = MessageEnvelope.makeRegSend(from.fromScala, address, adapter.fromScala(msg), self)
+    val envelope = MessageEnvelope.makeRegSend(from.fromScala, toAddress(dest), adapter.fromScala(msg), self)
     adapter.send(envelope)
   }
 
@@ -423,105 +428,77 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     throw HandleInfoUndefined(getClass.toString)
   }
 
-  // OTP uses improper list in `gen.erl`
-  // https://github.com/erlang/otp/blob/master/lib/stdlib/src/gen.erl#L252C11-L252C20
-  //  Tag = [alias | Mref],
-  def makeTag(ref: ERef) = EListImproper(EAtom("alias"), ref)
-
   override def onMessage[PContext <: ProcessContext](
     event: MessageEnvelope,
     ctx: PContext
   )(implicit trace: Trace): ZIO[Any, Throwable, _ <: ActorResult] = {
-    event.getPayload match {
-      case Some(ETuple(EAtom("ping"), from: EPid, ref: ERef)) => {
-        val fromPid = Pid.toScala(from)
-        sendZIO(fromPid, (Symbol("pong"), ref))
-          .as(ActorResult.Continue())
-      }
-      case Some(
-            ETuple(
-              EAtom("$gen_call"),
-              // Match on either
-              // - {pid(), ref()}
-              // - {pid(), [alias | ref()]}
-              fromTag @ ETuple(from: EPid, _ref),
-              EAtom("ping")
-            )
-          ) => {
-        onHandlePingMessage(fromTag)
-      }
-      case Some(
-            ETuple(
-              EAtom("$gen_call"),
-              // Match on either
-              // - {pid(), ref()}
-              // - {pid(), [alias | ref()]}
-              fromTag @ ETuple(from: EPid, _ref),
-              EAtom("metrics")
-            )
-          ) => {
-        onHandleMetricsMessage(fromTag)
-      }
-      case Some(
-            ETuple(
-              EAtom("$gen_call"),
-              // Match on either
-              // - {pid(), ref()}
-              // - {pid(), [alias | ref()]}
-              fromTag @ ETuple(from: EPid, _ref),
-              request: ETerm
-            )
-          ) => {
-        onHandleCallMessage(fromTag, request)
-      }
-      case Some(ETuple(EAtom("$gen_cast"), request: ETerm)) => {
+    event match {
+      case msg: MessageEnvelope.Call =>
+        msg.payload match {
+          case EAtom("ping") =>
+            onHandlePingMessage(msg)
+          case EAtom("metrics") =>
+            onHandleMetricsMessage(msg)
+          case _ =>
+            onHandleCallMessage(msg)
+        }
+      case msg: MessageEnvelope.Cast =>
         try {
           ZIO
-            .succeed(handleCast(adapter.toScala(request)))
+            .succeed(handleCast(adapter.toScala(msg.payload)))
             .as(ActorResult.Continue())
         } catch {
           case err: Throwable => {
             ZIO.fail(HandleCastCBError("onMessage[$gen_cast]", err))
           }
         }
-      }
-      case Some(ETuple(EAtom("DOWN"), ref: ERef, EAtom("process"), from, reason: ETerm)) =>
+      case msg: MessageEnvelope.MonitorExit =>
         try {
           ZIO
-            .succeed(handleMonitorExit(monitoredToScala(from), Reference.toScala(ref), reason))
+            .succeed(handleMonitorExit(monitoredToScala(msg.from.get), Reference.toScala(msg.ref), msg.reason))
             .as(ActorResult.Continue())
         } catch {
           case err: Throwable => {
             ZIO.fail(HandleCastCBError("onMessage[DOWN]", err))
           }
         }
-      case Some(info: ETerm) => {
-        ZIO.attemptBlockingInterrupt {
-          Try(handleInfo(adapter.toScala(info))) match {
-            case Success(value) =>
-              ActorResult.Continue()
-            case Failure(err) =>
-              ActorResult.onError(err).getOrElse {
-                ActorResult.onCallbackError(HandleInfoCBError("onMessage[ETerm]", err), core.ActorCallback.OnMessage)
-              }
+      case msg: MessageEnvelope.Send =>
+        event.getPayload match {
+          case Some(ETuple(EAtom("ping"), from: EPid, ref: ERef)) => {
+            val fromPid = Pid.toScala(from)
+            sendZIO(fromPid, (Symbol("pong"), ref))
+              .as(ActorResult.Continue())
           }
-        }
-      }
-      case Some(info) => {
-        ZIO.logError(s"nothing matched but it is not a ETerm $info") *>
-          ZIO.attemptBlockingInterrupt {
-            Try(handleInfo(adapter.toScala(info))) match {
-              case Success(value) =>
-                ActorResult.Continue()
-              case Failure(err) =>
-                ActorResult.onError(err).getOrElse {
-                  ActorResult.onCallbackError(HandleCallCBError("onMessage[Any]", err), core.ActorCallback.OnMessage)
-                }
+          case Some(info: ETerm) => {
+            ZIO.attemptBlockingInterrupt {
+              Try(handleInfo(adapter.toScala(info))) match {
+                case Success(value) =>
+                  ActorResult.Continue()
+                case Failure(err) =>
+                  ActorResult.onError(err).getOrElse {
+                    ActorResult
+                      .onCallbackError(HandleInfoCBError("onMessage[ETerm]", err), core.ActorCallback.OnMessage)
+                  }
+              }
             }
           }
-
-      }
-      case None => ZIO.fail(UnreachableError())
+          case Some(info) => {
+            ZIO.logError(s"nothing matched but it is not a ETerm $info") *>
+              ZIO.attemptBlockingInterrupt {
+                Try(handleInfo(adapter.toScala(info))) match {
+                  case Success(value) =>
+                    ActorResult.Continue()
+                  case Failure(err) =>
+                    ActorResult.onError(err).getOrElse {
+                      ActorResult
+                        .onCallbackError(HandleCallCBError("onMessage[Any]", err), core.ActorCallback.OnMessage)
+                    }
+                }
+              }
+          }
+          case None => ZIO.fail(UnreachableError())
+        }
+      case _ => ZIO.fail(UnreachableError())
     }
   }
 
@@ -531,37 +508,22 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     case other       => throw new Throwable("unreachable")
   }
 
-  def onHandlePingMessage(fromTag: ETerm) = {
-    val callerTag: (Pid, Any) = fromTag match {
-      case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
-        (Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref)))
-      case ETuple(from: EPid, ref: ERef) => (Pid.toScala(from), Reference.toScala(ref))
-      case _                             => throw new Throwable("unreachable")
-    }
+  def onHandlePingMessage(msg: MessageEnvelope.Call) = {
+    val callerTag: (Pid, Any) = extractCallerTag(msg)
     Service.replyZIO(callerTag, Symbol("pong"))(this).as(ActorResult.Continue())
   }
 
-  def onHandleMetricsMessage(fromTag: ETerm) = {
-    val callerTag: (Pid, Any) = fromTag match {
-      case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
-        (Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref)))
-      case ETuple(from: EPid, ref: ERef) => (Pid.toScala(from), Reference.toScala(ref))
-      case _                             => throw new Throwable("unreachable")
-    }
-    val replyTerm = (Symbol("ok"), metrics.dumpAsSymbolValuePairs())
+  def onHandleMetricsMessage(msg: MessageEnvelope.Call) = {
+    val callerTag: (Pid, Any) = extractCallerTag(msg)
+    val replyTerm             = (Symbol("ok"), metrics.dumpAsSymbolValuePairs())
     Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
   }
 
-  def onHandleCallMessage(fromTag: ETerm, request: ETerm)(implicit trace: Trace) = {
-    val callerTag: (Pid, Any) = fromTag match {
-      case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
-        (Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref)))
-      case ETuple(from: EPid, ref: ERef) => (Pid.toScala(from), Reference.toScala(ref))
-      case _                             => throw new Throwable("unreachable")
-    }
+  def onHandleCallMessage(msg: MessageEnvelope.Call)(implicit trace: Trace) = {
+    val callerTag: (Pid, Any) = extractCallerTag(msg)
     for {
       result <- ZIO.attemptBlockingInterrupt {
-        Try(handleCall(callerTag, adapter.toScala(request)))
+        Try(handleCall(callerTag, adapter.toScala(msg.payload)))
       }
       res <- result match {
         case Success((Symbol("reply"), replyTerm)) =>
@@ -580,6 +542,16 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           })
       }
     } yield res
+  }
+
+  private def extractCallerTag(event: MessageEnvelope): (Pid, Any) = {
+    MessageEnvelope.extractCallerTag(event).map(adapter.toScala(_)) match {
+      case Some(callerTag) =>
+        callerTag.asInstanceOf[(Pid, Any)]
+      case None =>
+        // We already matched on the shape before the call to extractCallerTag
+        throw new Throwable("unreachable")
+    }
   }
 
   def ping(to: Pid): Boolean                   = Service.ping(to)
@@ -611,100 +583,147 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
 object Service {
   val PING_TIMEOUT_IN_MSEC = 3000
 
-  def call(to: core.Address, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
-    to match {
-      case Name(name, _workerId, _workerNodeName)             => adapter.node.call(name.atom, msg)
-      case NameOnNode(name, node, _workerId, _workerNodeName) => adapter.node.call((name.atom, node.atom), msg)
-      case PID(pid, _workerId, _workerNodeName)               => adapter.node.call(pid, msg)
+  type RegName  = Symbol
+  type NodeName = Symbol
+
+  private def toAddress(pid: Pid)(implicit adapter: Adapter[_, _]): core.Address = {
+    Address.fromPid(pid.fromScala, adapter.workerId, adapter.workerNodeName)
+  }
+
+  private def toAddress(name: RegName)(implicit adapter: Adapter[_, _]): core.Address = {
+    Address.fromName(Codec.EAtom(name), adapter.workerId, adapter.workerNodeName)
+  }
+
+  private def toAddress(dest: (RegName, NodeName))(implicit adapter: Adapter[_, _]): core.Address = {
+    val (name, node) = dest
+    Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(node), adapter.workerId, adapter.workerNodeName)
+  }
+
+  private def replyFromCall(result: Exit[Node.Error, MessageEnvelope.Response])(implicit adapter: Adapter[_, _]) = {
+    result match {
+      case Exit.Success(res) =>
+        (res.reason, res.payload) match {
+          case (None, Some(payload)) => {
+            adapter.toScala(payload)
+          }
+          case (None, None)     => ()
+          case (Some(error), _) => ActorResult.exit(adapter.fromScala(error))
+        }
+      case Exit.Failure(Cause.Fail(error, _)) => ActorResult.exit(adapter.fromScala(error))
+      case Exit.Failure(Cause.Die(error, _))  => ActorResult.exit(adapter.fromScala(error.toString()))
+      case Exit.Failure(Cause.Interrupt(fiberId, _)) =>
+        ActorResult.exit(adapter.fromScala(Node.Error.Interrupt(fiberId)))
+      case Exit.Failure(_) => ActorResult.exit(adapter.fromScala(Node.Error.Nothing))
     }
   }
-  def call(to: core.PID, msg: Any)(implicit adapter: Adapter[_, _]): Any  = adapter.node.call(to, msg)
-  def call(to: core.Name, msg: Any)(implicit adapter: Adapter[_, _]): Any = adapter.node.call(to.name.atom, msg)
-  def call(to: core.NameOnNode, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
-    adapter.node.call((to.name.atom, to.node.atom), msg)
+
+  def call(to: core.Address, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
+    val result = Unsafe.unsafe { implicit unsafe =>
+      val rt = adapter.runtime.asInstanceOf[Runtime[core.Node]]
+      rt.unsafe.run(callZIO(to, msg))
+    }
+    replyFromCall(result)
   }
-  def call(to: Pid, msg: Any)(implicit adapter: Adapter[_, _]): Any                = adapter.node.call(to, msg)
-  def call(to: Pid, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = adapter.node.call(to, msg, timeout)
-  def call(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]): Any             = adapter.node.call(to, msg)
+  def call(to: core.Address, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
+    val result = Unsafe.unsafe { implicit unsafe =>
+      val rt = adapter.runtime.asInstanceOf[Runtime[core.Node]]
+      rt.unsafe.run(callZIO(to, msg, Some(Duration.fromMillis(timeout))))
+    }
+    replyFromCall(result)
+  }
+  def call(to: Pid, msg: Any)(implicit adapter: Adapter[_, _]): Any                = call(toAddress(to), msg)
+  def call(to: Pid, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = call(toAddress(to), msg, timeout)
+  def call(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]): Any             = call(toAddress(to), msg)
   def call(to: Symbol, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
-    adapter.node.call(to, msg, timeout)
+    call(toAddress(to), msg, timeout)
   }
   def call(to: (ProcessLike.RegName, ProcessLike.NodeName), msg: Any)(implicit adapter: Adapter[_, _]): Any = {
-    adapter.node.call(to, msg)
+    call(toAddress(to), msg)
   }
   def call(to: (ProcessLike.RegName, ProcessLike.NodeName), msg: Any, timeout: Long)(implicit
     adapter: Adapter[_, _]
   ): Any = {
-    adapter.node.call(to, msg, timeout)
+    call(toAddress(to), msg, timeout)
   }
 
-  def cast(to: core.PID, msg: Any)(implicit adapter: Adapter[_, _])  = adapter.node.cast(to, msg)
-  def cast(to: core.Name, msg: Any)(implicit adapter: Adapter[_, _]) = adapter.node.cast(to.name.atom, msg)
-  def cast(to: core.NameOnNode, msg: Any)(implicit adapter: Adapter[_, _]) = {
-    adapter.node.cast((to.name.atom, to.node.atom), msg)
+  def callZIO(to: core.Address, msg: Any, timeout: Option[Duration] = None)(implicit
+    adapter: Adapter[_, _]
+  ): zio.ZIO[core.Node, core.Node.Error, core.MessageEnvelope.Response] = {
+    for {
+      node <- ZIO.service[Node]
+      ref  <- node.makeRef()
+      message = MessageEnvelope
+        .makeCall(
+          to,
+          Codec.ETuple(adapter.self.pid, ref),
+          adapter.fromScala(msg),
+          timeout
+        )
+        .get
+      result <- adapter.call(message)
+    } yield result
   }
-  def cast(to: Pid, msg: Any)(implicit adapter: Adapter[_, _])    = adapter.node.cast(to, msg)
-  def cast(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]) = adapter.node.cast(to, msg)
-  def cast(to: (ProcessLike.RegName, ProcessLike.NodeName), msg: Any)(implicit adapter: Adapter[_, _]) = {
-    adapter.node.cast(to, msg)
+
+  def cast(to: core.Address, msg: Any)(implicit adapter: Adapter[_, _]): Unit = {
+    val result = Unsafe.unsafe { implicit unsafe =>
+      val rt = adapter.runtime.asInstanceOf[Runtime[core.Node]]
+      rt.unsafe.run(castZIO(to, msg))
+    }
+  }
+  def cast(to: Pid, msg: Any)(implicit adapter: Adapter[_, _]): Unit    = cast(toAddress(to), msg)
+  def cast(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]): Unit = cast(toAddress(to), msg)
+  def cast(to: (ProcessLike.RegName, ProcessLike.NodeName), msg: Any)(implicit adapter: Adapter[_, _]): Unit = {
+    cast(toAddress(to), msg)
+  }
+
+  def castZIO(to: core.Address, msg: Any)(implicit
+    adapter: Adapter[_, _]
+  ): zio.ZIO[core.Node, core.Node.Error, Unit] = {
+    for {
+      node <- ZIO.service[Node]
+      ref  <- node.makeRef()
+      message = MessageEnvelope
+        .makeCast(
+          Codec.EAtom("$gen_cast"),
+          adapter.self.pid,
+          to,
+          adapter.fromScala(msg),
+          adapter.self
+        )
+      result <- adapter.cast(message)
+    } yield result
   }
 
   def ping(to: core.Address)(implicit adapter: Adapter[_, _]): Any = {
-    to match {
-      case name: Name       => ping(name)
-      case name: NameOnNode => ping(name)
-      case pid: PID         => ping(pid)
-    }
+    call(to, Symbol("ping"), PING_TIMEOUT_IN_MSEC) == Symbol("pong")
   }
 
-  def ping(to: core.PID)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(Pid.toScala(to.pid), ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
-  }
-  def ping(to: core.Name)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(to.name.atom, ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
-  }
-  def ping(to: core.NameOnNode)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call((to.name.atom, to.node.atom), ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(
-      EAtom("pong")
-    )
-  }
   def ping(to: Pid)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(to, ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
+    call(to, Symbol("ping"), PING_TIMEOUT_IN_MSEC) == Symbol("pong")
   }
   def ping(to: Pid, timeout: Long)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(to, ETuple(EAtom("ping")), timeout) == ETuple(EAtom("pong"))
+    call(to, Symbol("ping"), timeout) == Symbol("pong")
   }
   def ping(to: Symbol)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(to, ETuple(EAtom("ping")), PING_TIMEOUT_IN_MSEC) == ETuple(EAtom("pong"))
+    call(to, Symbol("ping"), PING_TIMEOUT_IN_MSEC) == Symbol("pong")
   }
   def ping(to: Symbol, timeout: Long)(implicit adapter: Adapter[_, _]): Boolean = {
-    adapter.node.call(to, ETuple(EAtom("ping")), timeout) == ETuple(EAtom("pong"))
+    call(to, Symbol("ping"), timeout) == Symbol("pong")
   }
 
   def replyZIO[P <: Process](caller: (Pid, Any), reply: Any)(implicit process: P): UIO[Unit] = {
-    val (from, replyRef) = caller match {
-      case (from: Pid, List(Symbol("alias"), ref: Reference)) =>
-        (from.fromScala, EListImproper(EAtom("alias"), ref.fromScala))
-      case (from: Pid, ref: Reference) =>
-        (from.fromScala, ref.fromScala)
-      case _ =>
-        throw new Throwable("unreachable")
-    }
-    val adapter  = process.adapter
-    val address  = Address.fromPid(from, adapter.workerId, adapter.workerNodeName)
-    val envelope = MessageEnvelope.makeSend(address, adapter.fromScala((replyRef, reply)), adapter.self)
+    val adapter = process.adapter
+    val envelope = MessageEnvelope.Response.make(
+      process.self,
+      adapter.fromScala(caller),
+      adapter.fromScala(reply)
+    )
     adapter.send(envelope)
   }
 
   def reply[P <: Process](caller: (Pid, Any), reply: Any)(implicit process: P): Unit = {
-    val (from, replyRef) = caller match {
-      case (from: Pid, List(Symbol("alias"), ref: Reference)) =>
-        (from.fromScala, EListImproper(EAtom("alias"), ref.fromScala))
-      case (from: Pid, ref: Reference) =>
-        (from.fromScala, ref.fromScala)
-      case _ =>
-        throw new Throwable("unreachable")
+    Unsafe.unsafe { implicit unsafe =>
+      Runtime.default.unsafe.run(replyZIO(caller, reply))
     }
-    process.send(from, (replyRef, reply))
   }
 }

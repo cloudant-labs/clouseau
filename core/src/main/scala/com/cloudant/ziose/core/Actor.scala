@@ -243,34 +243,36 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   /*
    * Use it for tests only
    */
-  def doTestCall(payload: Codec.ETerm) = {
-    val message = MessageEnvelope.makeCall(
-      Codec.EAtom("$gen_call"),
-      self.pid,
-      id,
-      payload,
-      None,
-      id
-    )
-    ctx.call(message)
-  }
+  def doTestCall(payload: Codec.ETerm) = for {
+    node <- ZIO.service[Node]
+    ref  <- node.makeRef()
+    message = MessageEnvelope
+      .makeCall(
+        id,
+        Codec.ETuple(self.pid, ref),
+        payload,
+        None
+      )
+      .get
+    result <- ctx.call(message)
+  } yield result
 
   /*
    * Use it for tests only
    */
-  def sendTestCall(payload: Codec.ETerm) = {
-    val ref = Codec.ERef(self.pid.node.name, Array(0), self.pid.creation) // dummy
-    val message = MessageEnvelope.makeSend(
-      id,
-      Codec.ETuple(
-        Codec.EAtom("$gen_call"),
-        Codec.ETuple(self.pid, Codec.EListImproper(Codec.EAtom("alias"), ref)),
-        payload
-      ),
-      id
-    )
-    ctx.forward(message)
-  }
+  def sendTestCall(payload: Codec.ETerm) = for {
+    node <- ZIO.service[Node]
+    ref  <- node.makeRef()
+    message = MessageEnvelope
+      .makeCall(
+        id,
+        Codec.ETuple(self.pid, ref),
+        payload,
+        None
+      )
+      .get
+    result <- ctx.forward(message)
+  } yield result
 
   /*
    * Use it for tests only
@@ -283,17 +285,19 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   /*
    * Use it for tests only
    */
-  def doTestCallTimeout(payload: Codec.ETerm, timeout: Duration) = {
-    val message = MessageEnvelope.makeCall(
-      Codec.EAtom("$gen_call"),
-      self.pid,
-      id,
-      payload,
-      Some(timeout),
-      id
-    )
-    ctx.call(message)
-  }
+  def doTestCallTimeout(payload: Codec.ETerm, timeout: Duration) = for {
+    node <- ZIO.service[Node]
+    ref  <- node.makeRef()
+    message = MessageEnvelope
+      .makeCall(
+        id,
+        Codec.ETuple(self.pid, ref),
+        payload,
+        Some(timeout)
+      )
+      .get
+    result <- ctx.call(message)
+  } yield result
 
   /*
    * Use it for tests only

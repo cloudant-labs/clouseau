@@ -1,7 +1,6 @@
 package com.cloudant.ziose.otp
 
 import java.util.concurrent.atomic.AtomicBoolean
-import collection.mutable.HashMap
 import com.cloudant.ziose.core.Mailbox
 
 import com.ericsson.otp.erlang.{
@@ -159,35 +158,8 @@ class OTPMailbox private (
   private val externalMailbox: Queue[MessageEnvelope]
 ) extends Mailbox
     with OtpMboxListener {
-
-  private val inProgressCalls: HashMap[Codec.ERef, Codec.EPid] = HashMap()
-  private val callResults: HashMap[Codec.ERef, Codec.ETerm]    = HashMap()
-  private var isFinalized: AtomicBoolean                       = new AtomicBoolean(false)
-
-  def nextEvent = compositeMailbox.take.flatMap(e => ZIO.succeed(handleCall(e)))
-
-  def handleCall(envelope: MessageEnvelope): Option[MessageEnvelope] = {
-    def maybeConstructResult(ref: Codec.ERef, term: Codec.ETerm) = {
-      if (inProgressCalls.contains(ref)) {
-        inProgressCalls.remove(ref).map(pid => callResults.put(ref, term))
-        None
-      } else {
-        Some(envelope)
-      }
-    }
-    envelope match {
-      case MessageEnvelope.Send(from, to, Codec.ETuple(ref: Codec.ERef, term: Codec.ETerm), workerId) =>
-        maybeConstructResult(ref, term)
-      case MessageEnvelope.Send(
-            from,
-            to,
-            Codec.ETuple(Codec.EListImproper(Codec.EAtom("alias"), ref: Codec.ERef), term: Codec.ETerm),
-            workerId
-          ) =>
-        maybeConstructResult(ref, term)
-      case _ => Some(envelope)
-    }
-  }
+  private var isFinalized: AtomicBoolean = new AtomicBoolean(false)
+  def nextEvent                          = compositeMailbox.take
 
   def capacity: Int = compositeMailbox.capacity
   def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
@@ -275,36 +247,6 @@ class OTPMailbox private (
     ZIO.succeed(mbox.demonitor(ref.toOtpErlangObject))
   }
 
-  /**
-   * @param msg
-   * @param trace
-   * @return
-   *   a result of the call in the form of a Eterm
-   */
-
-  def call(
-    message: MessageEnvelope.Call
-  )(implicit trace: zio.Trace): ZIO[Node, _ <: Node.Error, MessageEnvelope.Response] = for {
-    node <- ZIO.service[Node]
-    ref  <- node.makeRef()
-    _    <- ZIO.succeed(inProgressCalls += Tuple2(ref, message.from.get))
-    _    <- forward(toSend(message, ref))
-    result <- message.timeout match {
-      case Some(duration) =>
-        ZIO
-          .succeed(callResults.remove(ref))
-          // wait a bit before next try
-          .delay(10.millis)
-          .repeatUntil(o => o.nonEmpty)
-          .map(o => o.get)
-          .timeout(duration)
-      case None =>
-        ZIO
-          .succeed(callResults.remove(ref))
-          .repeatUntil(o => o.nonEmpty)
-    }
-  } yield message.toResponse(result)
-
   def cast(message: MessageEnvelope.Cast)(implicit trace: zio.Trace): UIO[Unit] = for {
     _ <- forward(message)
   } yield ()
@@ -390,15 +332,6 @@ class OTPMailbox private (
     s"compositeMailbox.capacity=$capacity",
     s"compositeMailbox.size=$size"
   )
-
-  def toSend(message: MessageEnvelope.Call, ref: Codec.ERef) = {
-    val msg = Codec.ETuple(
-      message.tag,
-      Codec.ETuple(message.from.get, Codec.EListImproper(Codec.EAtom("alias"), ref)),
-      message.payload
-    )
-    message.toSend(_ => msg)
-  }
 }
 
 object OTPMailbox {

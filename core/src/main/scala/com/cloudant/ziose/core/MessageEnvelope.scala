@@ -1,14 +1,16 @@
 package com.cloudant.ziose.core
 
 import com.ericsson.otp.erlang.{OtpMsg, OtpErlangPid, OtpErlangException, OtpErlangExit}
+import Codec.{EAtom, EBinary, EListImproper, EPid, ERef, ETerm, ETuple}
 import zio._
 
 sealed trait MessageEnvelope extends WithWorkerId[Engine.WorkerId] {
-  val from: Option[Codec.EPid]
+  val from: Option[EPid]
   val to: Address
   val workerId: Engine.WorkerId
   val workerNodeName: Symbol
-  def getPayload: Option[Codec.ETerm]
+  def getPayload: Option[ETerm]
+  def redirect(mapFn: Address => Address): MessageEnvelope
 }
 
 trait WithWorkerId[I] {
@@ -25,9 +27,12 @@ object MessageEnvelope {
     val workerId: Engine.WorkerId = to.workerId
     val workerNodeName: Symbol    = to.workerNodeName
     def getPayload                = None
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
 
-  case class Link(from: Option[Codec.EPid], to: Address, private val base: Address) extends MessageEnvelope {
+  case class Link(from: Option[EPid], to: Address, private val base: Address) extends MessageEnvelope {
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
     def getPayload                = None
@@ -35,21 +40,27 @@ object MessageEnvelope {
     // would reach the local actor
     // Assume `PID` here and also that the dest `PID` is on the same worker
     def forward = Link(Some(to.asInstanceOf[PID].pid), Address.fromPid(from.get, workerId, workerNodeName), base)
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
-  case class Send(from: Option[Codec.EPid], to: Address, payload: Codec.ETerm, private val base: Address)
-      extends MessageEnvelope {
+  case class Send(from: Option[EPid], to: Address, payload: ETerm, private val base: Address) extends MessageEnvelope {
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
     def getPayload                = Some(payload)
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
-  case class Exit(from: Option[Codec.EPid], to: Address, reason: Codec.ETerm, private val base: Address)
-      extends MessageEnvelope {
+  case class Exit(from: Option[EPid], to: Address, reason: ETerm, private val base: Address) extends MessageEnvelope {
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
     def getPayload                = Some(reason)
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
-  case class Unlink(from: Option[Codec.EPid], to: Address, id: Long, private val base: Address)
-      extends MessageEnvelope {
+  case class Unlink(from: Option[EPid], to: Address, id: Long, private val base: Address) extends MessageEnvelope {
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
     def getPayload                = None
@@ -57,70 +68,51 @@ object MessageEnvelope {
     // would reach the local actor
     // Assume `PID` here and also that the dest `PID` is on the same worker
     def forward = Unlink(Some(to.asInstanceOf[PID].pid), Address.fromPid(from.get, workerId, workerNodeName), id, base)
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
 
   case class Call(
-    from: Option[Codec.EPid],
+    from: Option[EPid],
     to: Address,
-    tag: Codec.EAtom,
-    payload: Codec.ETerm,
+    tag: EAtom,
+    ref: ERef,
+    replyRef: ETerm,
+    payload: ETerm,
     timeout: Option[Duration],
     private val base: Address
   ) extends MessageEnvelope {
-    def getPayload                = Some(payload)
+    def getPayload                = Some(ETuple(tag, ETuple(from.get, replyRef), payload))
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
-    def toSend(f: Codec.ETerm => Codec.ETerm): MessageEnvelope = {
-      Call(from, to, tag, f(payload), timeout, base)
-    }
-    def toResponse(payload: Option[Codec.ETerm]): Response = {
-      payload match {
-        case Some(p) =>
-          Response(
-            from = from,
-            to = to,
-            tag = tag,
-            payload = Some(p),
-            reason = None,
-            base = base
-          )
-        case None if timeout.isDefined =>
-          Response(
-            from = from,
-            to = to,
-            tag = tag,
-            payload = None,
-            reason = Some(Node.Error.Timeout(timeout.get)),
-            base = base
-          )
-        case None =>
-          Response(
-            from = from,
-            to = to,
-            tag = tag,
-            payload = None,
-            reason = Some(Node.Error.Nothing()),
-            base = base
-          )
-      }
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
     }
   }
+
   case class Cast(
-    from: Option[Codec.EPid],
+    from: Option[EPid],
     to: Address,
-    tag: Codec.EAtom,
-    payload: Codec.ETerm,
+    tag: EAtom,
+    payload: ETerm,
     private val base: Address
   ) extends MessageEnvelope {
     def getPayload                = Some(payload)
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
+
   case class Response(
-    from: Option[Codec.EPid],
+    from: Option[EPid],
     to: Address,
-    tag: Codec.EAtom,
-    payload: Option[Codec.ETerm],
+    tag: EAtom,
+    ref: ERef,
+    replyRef: ETerm,
+    payload: Option[ETerm],
     private val base: Address,
     reason: Option[_ <: Node.Error]
   ) extends MessageEnvelope {
@@ -132,41 +124,94 @@ object MessageEnvelope {
     def getCaller                 = from.get
     // when makeCall is used the Address is a PID
     def getCallee = to.asInstanceOf[PID].pid
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
+  }
+
+  object Response {
+    def make(from: PID, caller: Codec.ETerm, payload: Codec.ETerm) = {
+      val (to, replyRef, ref) = caller match {
+        case ETuple(to: EPid, replyRef: ETerm, ref: ERef) =>
+          (to, replyRef, ref)
+        case t =>
+          throw new Throwable("Invalid caller")
+      }
+      val address = Address.fromPid(to, from.workerId, from.workerNodeName)
+      Response(
+        from = Some(from.pid),
+        to = address,
+        tag = Codec.EAtom("$gen_call"),
+        ref = ref,
+        replyRef = replyRef,
+        payload = Some(payload),
+        reason = None,
+        base = from
+      )
+    }
+
+    def timeout(msg: Call) = {
+      error(msg, Node.Error.Timeout(msg.timeout.get))
+    }
+
+    def error(msg: Call, reason: Node.Error) = {
+      // Call envelopes always have from, so it is safe to call `.get`
+      val base = Address.fromPid(msg.from.get, msg.workerId, msg.workerNodeName)
+      Response(
+        from = msg.from,
+        to = msg.to,
+        tag = msg.tag,
+        ref = msg.ref,
+        replyRef = msg.replyRef,
+        payload = None,
+        reason = Some(reason),
+        base = base
+      )
+    }
+
   }
 
   case class MonitorExit(
-    from: Option[Codec.EPid],
+    from: Option[EPid],
     to: Address,
-    ref: Codec.ERef,
-    reason: Codec.ETerm,
+    ref: ERef,
+    reason: ETerm,
     private val base: Address
   ) extends MessageEnvelope {
-    def getPayload = Some(Codec.ETuple(Codec.EAtom("DOWN"), ref, Codec.EAtom("process"), from.get, reason))
+    def getPayload                = Some(ETuple(EAtom("DOWN"), ref, EAtom("process"), from.get, reason))
     val workerId: Engine.WorkerId = base.workerId
     val workerNodeName: Symbol    = base.workerNodeName
+    def redirect(mapFn: Address => Address): MessageEnvelope = {
+      copy(to = mapFn(to))
+    }
   }
 
   // For debugging and testing only
-  def makeSend(recipient: Address, msg: Codec.ETerm, address: Address) = {
+  def makeSend(recipient: Address, msg: ETerm, address: Address) = {
     Send(None, recipient, msg, address)
   }
 
-  def makeRegSend(from: Codec.EPid, recipient: Address, msg: Codec.ETerm, address: Address) = {
+  def makeRegSend(from: EPid, recipient: Address, msg: ETerm, address: Address) = {
     Send(Some(from), recipient, msg, address)
   }
 
   def makeCall(
-    tag: Codec.EAtom,
-    from: Codec.EPid,
     recipient: Address,
-    msg: Codec.ETerm,
-    timeout: Option[Duration],
-    address: Address
+    fromTag: ETerm,
+    msg: ETerm,
+    timeout: Option[Duration]
   ) = {
-    Call(Some(from), recipient, tag, msg, timeout, address)
+    fromTag match {
+      case ETuple(from: EPid, replyRef @ EListImproper(EAtom("alias"), ref: ERef)) =>
+        Some(Call(Some(from), recipient, Codec.EAtom("$gen_call"), ref, replyRef, msg, timeout, recipient))
+      case ETuple(from: EPid, ref: ERef) =>
+        Some(Call(Some(from), recipient, Codec.EAtom("$gen_call"), ref, ref, msg, timeout, recipient))
+      case _ =>
+        None
+    }
   }
 
-  def makeCast(tag: Codec.EAtom, from: Codec.EPid, recipient: Address, msg: Codec.ETerm, address: Address) = {
+  def makeCast(tag: EAtom, from: EPid, recipient: Address, msg: ETerm, address: Address) = {
     Cast(Some(from), recipient, tag, msg, address)
   }
 
@@ -185,8 +230,8 @@ object MessageEnvelope {
         Exit(Some(getSenderPid(msg)), getRecipient(msg, address), getMsg(msg), address)
       case OtpMsg.monitorExitTag => {
         val reason = getMsg(msg) match {
-          case m @ Codec.EBinary(str) if str.startsWith("Exception") => m.asPrintable
-          case m                                                     => m
+          case m @ EBinary(str) if str.startsWith("Exception") => m.asPrintable
+          case m                                               => m
         }
         MonitorExit(Some(getSenderPid(msg)), getRecipient(msg, address), getRef(msg), reason, address)
       }
@@ -208,11 +253,11 @@ object MessageEnvelope {
    */
   def fromOtpException(
     exception: OtpErlangException,
-    pid: Codec.EPid,
+    pid: EPid,
     address: Address
   ): MessageEnvelope = {
     def encodeStackTrace(stackTrace: Array[java.lang.StackTraceElement]) = {
-      Codec.EBinary(stackTrace.map(_.toString).mkString("\n"))
+      EBinary(stackTrace.map(_.toString).mkString("\n"))
     }
     def camelToUnderscores(name: String) = "[A-Z\\d]".r
       .replaceAllIn(
@@ -223,13 +268,13 @@ object MessageEnvelope {
 
     val (from, reason) = exception match {
       case exit: OtpErlangExit =>
-        (Some(Codec.fromErlang(exit.pid).asInstanceOf[Codec.EPid]), Codec.fromErlang(exit.reason))
+        (Some(Codec.fromErlang(exit.pid).asInstanceOf[EPid]), Codec.fromErlang(exit.reason))
       case e: OtpErlangException =>
         (
           None,
-          Codec.ETuple(
-            Codec.EAtom(camelToUnderscores(e.getClass().getSimpleName)),
-            Codec.EBinary(e.getMessage),
+          ETuple(
+            EAtom(camelToUnderscores(e.getClass().getSimpleName)),
+            EBinary(e.getMessage),
             encodeStackTrace(e.getStackTrace)
           )
         )
@@ -237,25 +282,25 @@ object MessageEnvelope {
     MessageEnvelope.Exit(from, Address.fromPid(pid, address.workerId, address.workerNodeName), reason, address)
   }
 
-  private def getSenderPid(msg: OtpMsg): Codec.EPid = {
-    Codec.fromErlang(msg.getSenderPid()).asInstanceOf[Codec.EPid]
+  private def getSenderPid(msg: OtpMsg): EPid = {
+    Codec.fromErlang(msg.getSenderPid()).asInstanceOf[EPid]
   }
 
-  private def getRecipientPid(msg: OtpMsg): Codec.EPid = {
-    Codec.fromErlang(msg.getRecipientPid()).asInstanceOf[Codec.EPid]
+  private def getRecipientPid(msg: OtpMsg): EPid = {
+    Codec.fromErlang(msg.getRecipientPid()).asInstanceOf[EPid]
   }
 
-  private def getRef(msg: OtpMsg): Codec.ERef = {
-    Codec.fromErlang(msg.getRef()).asInstanceOf[Codec.ERef]
+  private def getRef(msg: OtpMsg): ERef = {
+    Codec.fromErlang(msg.getRef()).asInstanceOf[ERef]
   }
 
   private def makePidAddress(pid: OtpErlangPid, address: Address): Address = {
-    val term = Codec.fromErlang(pid).asInstanceOf[Codec.EPid]
+    val term = Codec.fromErlang(pid).asInstanceOf[EPid]
     PID(term, address.workerId, address.workerNodeName).asInstanceOf[Address]
   }
 
   private def makeNameAddress(name: Symbol, address: Address): Address = {
-    Name(Codec.EAtom(name), address.workerId, address.workerNodeName).asInstanceOf[Address]
+    Name(EAtom(name), address.workerId, address.workerNodeName).asInstanceOf[Address]
   }
 
   private def getRecipient(msg: OtpMsg, address: Address): Address = {
@@ -265,7 +310,25 @@ object MessageEnvelope {
     }
   }
 
-  private def getMsg(msg: OtpMsg): Codec.ETerm = {
+  private def getMsg(msg: OtpMsg): ETerm = {
     Codec.fromErlang(msg.getMsg())
+  }
+
+  def extractCallerTag(msg: MessageEnvelope): Option[ETuple] = {
+    msg.getPayload match {
+      case Some(
+            ETuple(
+              EAtom("$gen_call"),
+              // Match on either
+              // - {pid(), ref()}
+              // - {pid(), [alias | ref()]}
+              fromTag @ ETuple(from: EPid, _ref),
+              _
+            )
+          ) =>
+        Some(fromTag)
+      case _ =>
+        None
+    }
   }
 }

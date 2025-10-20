@@ -7,9 +7,6 @@
 -include("zeunit.hrl").
 
 -define(INIT_SERVICE, init).
--define(TIMEOUT_IN_MS, 1000).
-% We expect at least 3x speed up when doing things in parallel
--define(ACCEPTABLE_CONCURENCY_TIME_RATIO, 3).
 
 spawn_test_() ->
     {
@@ -97,24 +94,37 @@ setup() ->
     Concurrency = 300,
     {Prefix, Concurrency}.
 
-teardown({Prefix, Concurrency}) ->
-    lists:foreach(
-        fun(Idx) ->
-            stop_service(process_name(Prefix, Idx))
-        end,
-        lists:seq(1, Concurrency)
-    ),
+teardown({_Prefix, _Concurrency}) ->
+    [stop_service(Pid) || {_, Pid} <- registered_services()],
     ok.
 
 start_service(Name) ->
     {ok, Pid} = gen_server:call({?INIT_SERVICE, ?NodeZ}, {spawn, echo, Name}),
     ?assert(is_pid(Pid)),
+    register_service(Name, Pid),
     Pid.
 
 stop_service(Name) ->
-    catch exit({Name, ?NodeZ}, normal).
+    util:stop_service({Name, ?NodeZ}).
 
 %%%%%%%%%%%%%%% Helper Functions %%%%%%%%%%%%%%%
+
+register_service(Name, Pid) ->
+    case ets:info(?MODULE, id) of
+        undefined ->
+            ets:new(?MODULE, [set, public, named_table]),
+            ets:insert(?MODULE, {Name, Pid});
+        Tid ->
+            ets:insert(Tid, {Name, Pid})
+    end.
+
+registered_services() ->
+    case ets:info(?MODULE, id) of
+        undefined ->
+            [];
+        Tid ->
+            ets:tab2list(Tid)
+    end.
 
 process_name(Prefix, Idx) ->
     IdxBin = integer_to_binary(Idx),
