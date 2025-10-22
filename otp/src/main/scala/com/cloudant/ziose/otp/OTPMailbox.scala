@@ -19,6 +19,7 @@ import com.cloudant.ziose.core.PID
 import com.cloudant.ziose.core.Name
 import com.cloudant.ziose.core.NameOnNode
 import com.cloudant.ziose.core.Node
+import com.cloudant.ziose.core.Metrics
 import com.cloudant.ziose.macros.CheckEnv
 import zio._
 import zio.stream.ZStream
@@ -153,6 +154,7 @@ import zio.Exit
 class OTPMailbox private (
   val id: PID,
   val mbox: OtpMbox,
+  private val meterRegistry: Metrics.Registry[_],
   private val compositeMailbox: Queue[MessageEnvelope],
   private val internalMailbox: Queue[MessageEnvelope],
   private val externalMailbox: Queue[MessageEnvelope]
@@ -337,18 +339,19 @@ class OTPMailbox private (
 object OTPMailbox {
   def make(ctx_builder: OTPProcessContext.Ready): UIO[OTPMailbox] = {
     // It is safe to use .get because we require Ready state
-    val mbox     = ctx_builder.getMbox()
-    val workerId = ctx_builder.getWorkerId()
-    val capacity = ctx_builder.getCapacity()
-    val nodeName = ctx_builder.getNodeName()
-    val pid      = Codec.fromErlang(mbox.self).asInstanceOf[Codec.EPid]
-    val address  = Address.fromPid(pid, workerId, nodeName)
+    val mbox          = ctx_builder.getMbox()
+    val workerId      = ctx_builder.getWorkerId()
+    val capacity      = ctx_builder.getCapacity()
+    val nodeName      = ctx_builder.getNodeName()
+    val meterRegistry = ctx_builder.getMeterRegistry()
+    val pid           = Codec.fromErlang(mbox.self).asInstanceOf[Codec.EPid]
+    val address       = Address.fromPid(pid, workerId, nodeName)
     def createMailbox(
       compositeMailbox: Queue[MessageEnvelope],
       internalMailbox: Queue[MessageEnvelope],
       externalMailbox: Queue[MessageEnvelope]
     ): OTPMailbox = {
-      new OTPMailbox(address, mbox, compositeMailbox, internalMailbox, externalMailbox)
+      new OTPMailbox(address, mbox, meterRegistry, compositeMailbox, internalMailbox, externalMailbox)
     }
     capacity match {
       case None =>
