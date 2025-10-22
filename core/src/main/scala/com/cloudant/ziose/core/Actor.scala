@@ -65,6 +65,8 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   def status()                           = context.status()
   def getTags                            = ctx.getTags
   def setTag(tag: String): Unit          = ctx.setTag(tag)
+  def getMeters()                        = ctx.getMeters()
+  def findMeter(name: String)            = ctx.findMeter(name)
   def isRunningZIO = status().map(_.values.collect {
     case status if !status.isDone => true
   }.size == NUMBER_OF_FIBERS)

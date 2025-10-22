@@ -52,6 +52,9 @@ class OTPProcessContext private (
     }
   } yield ids.toMap
 
+  def getMeters()             = meterRegistry.getMeters()
+  def findMeter(name: String) = meterRegistry.findMeter(name)
+
   def lookUpName(name: String): UIO[Option[Address]] = ZIO.succeedBlocking {
     mbox.whereis(name) match {
       case null => None
