@@ -19,6 +19,7 @@ import zio.stream.{UStream, ZStream}
 import zio.{&, Duration, IO, Promise, Queue, RIO, RLayer, Schedule, Scope, Trace, UIO, URIO, ZIO, ZLayer, durationInt}
 import com.cloudant.ziose.core.EngineWorker
 import zio.Fiber
+import com.cloudant.ziose.core.Metrics
 
 abstract class OTPNode extends Node {
   def acquire: UIO[Unit]
@@ -293,6 +294,7 @@ object OTPNode {
       def spawn[A <: Actor](
         builder: ActorBuilder.Sealed[A]
       ): ZIO[Scope & Node & EngineWorker, _ <: Node.Error, AddressableActor[A, _ <: ProcessContext]] = {
+        val meterRegistry = Metrics.simpleRegistry
         for {
           mbox       <- createMbox(builder.name)
           worker     <- ZIO.service[EngineWorker]
@@ -302,6 +304,7 @@ object OTPNode {
             .withWorker(worker.asInstanceOf[OTPEngineWorker])
             .withBuilder(builder)
             .withScope(actorScope)
+            .withMeterRegistry(meterRegistry)
             .build()
           // TODO: Consider removing builder argument, since it is available from the context and builder can use it
           addressable <- f

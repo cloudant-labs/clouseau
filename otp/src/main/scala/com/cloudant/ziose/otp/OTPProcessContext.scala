@@ -15,6 +15,7 @@ import com.cloudant.ziose.core.EngineWorker
 import com.cloudant.ziose.core.PID
 import com.cloudant.ziose.core.MessageEnvelope
 import com.cloudant.ziose.core.Address
+import com.cloudant.ziose.core.Metrics
 
 import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.core.ActorResult
@@ -24,6 +25,7 @@ import com.cloudant.ziose.core.Name
 class OTPProcessContext private (
   val name: Option[String],
   val mailbox: OTPMailbox,
+  val meterRegistry: Metrics.Registry[_],
   val scope: Scope.Closeable,
   val worker: EngineWorker,
   private val mbox: OtpMbox
@@ -340,16 +342,17 @@ object OTPProcessContext {
   type Seeded   = Builder.Seeded
   sealed trait State
   object State {
-    sealed trait Initial     extends State
-    sealed trait MessageBox  extends Initial
-    sealed trait ProcessName extends State
-    sealed trait Capacity    extends State
-    sealed trait Worker      extends State
-    sealed trait Builder     extends State
-    sealed trait NodeName    extends State
-    sealed trait Scope       extends State
+    sealed trait Initial       extends State
+    sealed trait MessageBox    extends Initial
+    sealed trait ProcessName   extends State
+    sealed trait Capacity      extends State
+    sealed trait Worker        extends State
+    sealed trait Builder       extends State
+    sealed trait NodeName      extends State
+    sealed trait MeterRegistry extends State
+    sealed trait Scope         extends State
     type Seeded   = Initial with NodeName
-    type Ready    = Seeded with Worker with MessageBox with Scope
+    type Ready    = Seeded with Worker with MessageBox with Scope with MeterRegistry
     type Complete = Seeded with Ready with Builder
   }
 
@@ -359,6 +362,7 @@ object OTPProcessContext {
     capacity: Option[Int] = None,
     worker: Option[OTPEngineWorker] = None,
     nodeName: Option[Symbol] = None,
+    meterRegistry: Option[Metrics.Registry[_]] = None,
     scope: Option[Scope.Closeable] = None
   ) {
     def withOtpMbox(mbox: OtpMbox): Builder[S with State.MessageBox] = {
@@ -383,6 +387,9 @@ object OTPProcessContext {
     def withScope(scope: Scope.Closeable): Builder[S with State.Scope] = {
       this copy (scope = Some(scope))
     }
+    def withMeterRegistry(registry: Metrics.Registry[_]): Builder[S with State.MeterRegistry] = {
+      this copy (meterRegistry = Some(registry))
+    }
     def getMbox()(implicit ev: S =:= State.Ready): OtpMbox = {
       // it is safe to use .get since we require State.Ready
       this.otpMbox.get
@@ -390,6 +397,10 @@ object OTPProcessContext {
     def getWorkerId()(implicit ev: S =:= State.Seeded with State.Ready): Engine.WorkerId = {
       // it is safe to use .get since we require State.Seeded
       this.worker.get.id
+    }
+    def getMeterRegistry()(implicit ev: S =:= State.Ready): Metrics.Registry[_] = {
+      // it is safe to use .get since we require State.Ready
+      this.meterRegistry.get
     }
 
     def getNodeName()(implicit ev: S =:= State.Ready): Symbol = {
@@ -399,16 +410,19 @@ object OTPProcessContext {
 
     def getCapacity(): Option[Int] = capacity
 
-    def build()(implicit ev: S =:= State.Complete with State.Ready): UIO[OTPProcessContext] = for {
-      mailbox <- OTPMailbox.make(this.asInstanceOf[OTPProcessContext.Ready])
-    } yield new OTPProcessContext(
-      name,
-      mailbox,
-      // it is safe to use .get since we require State.Complete
-      scope.get,
-      worker.get,
-      otpMbox.get
-    )
+    def build()(implicit ev: S =:= State.Complete with State.Ready): UIO[OTPProcessContext] = {
+      for {
+        mailbox <- OTPMailbox.make(this.asInstanceOf[OTPProcessContext.Ready])
+      } yield new OTPProcessContext(
+        name,
+        mailbox,
+        meterRegistry.get,
+        // it is safe to use .get since we require State.Complete
+        scope.get,
+        worker.get,
+        otpMbox.get
+      )
+    }
   }
 
   object Builder {
