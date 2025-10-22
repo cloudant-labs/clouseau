@@ -161,7 +161,12 @@ class OTPMailbox private (
 ) extends Mailbox
     with OtpMboxListener {
   private var isFinalized: AtomicBoolean = new AtomicBoolean(false)
-  def nextEvent                          = compositeMailbox.take
+
+  private var internalMailboxMeter  = meterRegistry.plainCounter("mailbox", "internal")
+  private var externalMailboxMeter  = meterRegistry.plainCounter("mailbox", "external")
+  private var compositeMailboxMeter = meterRegistry.plainCounter("mailbox", "composite")
+
+  def nextEvent = compositeMailbox.take <* ZIO.succeed(compositeMailboxMeter -= 1)
 
   def capacity: Int = compositeMailbox.capacity
   def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
@@ -171,7 +176,7 @@ class OTPMailbox private (
     ZIO.unit
   }
   def forward(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
-    internalMailbox.offer(msg)
+    internalMailbox.offer(msg) <* ZIO.succeed(internalMailboxMeter += 1)
   }
 
   // There is no easy way to account for externalMailbox
@@ -272,14 +277,22 @@ class OTPMailbox private (
     _ <- scope.addFinalizerExit(onExit)
     internalMailboxFiber <- ZStream
       .fromQueueWithShutdown(internalMailbox)
-      .mapZIO(compositeMailbox.offer)
+      .mapZIO(
+        ZIO.succeed(internalMailboxMeter -= 1)
+          *> compositeMailbox.offer(_)
+          <* ZIO.succeed(compositeMailboxMeter += 1)
+      )
       .runDrain
       // Make sure we terminate the scope on Interruption
       .onTermination(cause => scope.close(Exit.failCause(cause)))
       .forkIn(scope)
     externalMailboxFiber <- ZStream
       .fromQueueWithShutdown(externalMailbox)
-      .mapZIO(compositeMailbox.offer)
+      .mapZIO(
+        ZIO.succeed(externalMailboxMeter -= 1)
+          *> compositeMailbox.offer(_)
+          <* ZIO.succeed(compositeMailboxMeter += 1)
+      )
       .runDrain
       // Make sure we terminate the scope on Interruption
       .onTermination(cause => scope.close(Exit.failCause(cause)))
@@ -319,6 +332,7 @@ class OTPMailbox private (
       Runtime.default.unsafe.run(for {
         message <- ZIO.succeed(readMessage)
         _       <- externalMailbox.offer(message)
+        _       <- ZIO.succeed(externalMailboxMeter += 1)
       } yield ())
     }
   }
