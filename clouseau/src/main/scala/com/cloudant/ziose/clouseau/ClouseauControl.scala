@@ -1,7 +1,7 @@
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.{core, scalang}
-import core.{Codec, ProcessInfo, EngineWorker}
+import core.{Codec, ProcessInfo, EngineWorker, ActorMeterInfo}
 import scalang.Adapter
 import com.cloudant.ziose.otp.OTPProcessContext
 
