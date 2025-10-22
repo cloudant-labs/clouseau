@@ -27,7 +27,7 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] {
   def processInfoTopKZIO[A <: Actor](
     valueFun: ProcessInfo => Int
   ): UIO[List[ProcessInfo]] = {
-    var acc = TopK[ProcessInfo](10)
+    var acc = TopK[ProcessInfo, Long](10)
     exchange.foreachZIO(it => {
       // we know our exchange holds AddressableActor instances
       val actor = it.asInstanceOf[AddressableActor[A, _ <: ProcessContext]]
