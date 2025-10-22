@@ -67,6 +67,12 @@ class RexService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]
           case Right(term) => reply(Right(fromScala(term.map(_.asETerm))))
           case Left(error) => reply(Left(error.asETerm))
         }
+      // gen_server:call({rex, 'clouseau1@127.0.0.1'}, {topMeters, mailbox, internal})
+      case (command @ Symbol("topMeters"), klass: Symbol, meterName: Symbol) =>
+        ctrl.get.handleTopMeters(List((klass, meterName))) match {
+          case Right(term) => reply(Right(fromScala(term.map(_.asETerm))))
+          case Left(error) => reply(Left(error.asETerm))
+        }
     }
   }
 
@@ -81,6 +87,14 @@ class RexService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]
       // Example: `erl_call -c ${COOKIE} -n 'clouseau1@127.0.0.1' -a 'clouseau top [queue_length]'`
       case (from: Pid, (Symbol("call"), Symbol("clouseau"), Symbol("top"), args: List[_], Symbol("user"))) =>
         ctrl.get.handleTop(args) match {
+          case Right(term) =>
+            reply(from, Right(fromScala(term.map(_.asPrettyPrintedETerm))))
+          case Left(error) => reply(from, Left(error.asETerm))
+        }
+
+      // Example: `erl_call -c ${COOKIE} -n 'clouseau1@127.0.0.1' -a 'clouseau topMeters [{mailbox, internal}]'`
+      case (from: Pid, (Symbol("call"), Symbol("clouseau"), Symbol("topMeters"), args: List[_], Symbol("user"))) =>
+        ctrl.get.handleTopMeters(args) match {
           case Right(term) =>
             reply(from, Right(fromScala(term.map(_.asPrettyPrintedETerm))))
           case Left(error) => reply(from, Left(error.asETerm))
