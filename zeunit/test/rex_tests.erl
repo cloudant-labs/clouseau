@@ -1,3 +1,8 @@
+% To run only this suite use
+% ```
+% make zeunit suites=rex_tests
+% ```
+
 -module(rex_tests).
 
 -include("zeunit.hrl").
@@ -168,7 +173,7 @@ erl_call(M, F, A) ->
         {Rc, Term}
     catch
         _:Error ->
-            {error, Error}
+            {error, Error, Body}
     end.
 
 do_read(Port, Acc) ->

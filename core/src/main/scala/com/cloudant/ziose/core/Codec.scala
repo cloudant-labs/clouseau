@@ -286,7 +286,8 @@ object Codec {
   }
 
   object EMap {
-    def apply(obj: OtpErlangMap): EMap = new EMap(obj)
+    def apply(obj: OtpErlangMap): EMap      = new EMap(obj)
+    def apply(map: Map[ETerm, ETerm]): EMap = new EMap(mutable.LinkedHashMap.from(map))
   }
 
   // TODO switch to Array for internal container

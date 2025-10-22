@@ -1,7 +1,7 @@
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.{core, scalang}
-import core.{ProcessInfo, EngineWorker}
+import core.{Codec, ProcessInfo, EngineWorker}
 import scalang.Adapter
 import com.cloudant.ziose.otp.OTPProcessContext
 
@@ -29,11 +29,35 @@ class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F
 }
 
 object ClouseauControl {
-  trait Error extends Throwable
+  trait Error extends Throwable {
+    def asETerm: Codec.ETerm
+  }
 
   object Error {
-    case class InvalidKey(key: Symbol)                          extends Error
-    case class InvalidNumerOfArguments(expected: Int, got: Int) extends Error
-    case class InvalidArgumentType(expected: String, got: Any)  extends Error
+    case class InvalidKey(key: Symbol) extends Error {
+      def asETerm: Codec.ETerm = Codec.fromScala(this)
+    }
+    case class InvalidNumerOfArguments(expected: Int, got: Int) extends Error {
+      def asETerm: Codec.ETerm = Codec.ETuple(
+        Codec.EAtom("invalid_number_of_arguments"),
+        Codec.EMap(
+          Map(
+            Codec.EAtom("expected") -> Codec.ENumber(expected),
+            Codec.EAtom("got")      -> Codec.ENumber(got)
+          ).asInstanceOf[Map[Codec.ETerm, Codec.ETerm]]
+        )
+      )
+    }
+    case class InvalidArgumentType(expected: String, got: Any) extends Error {
+      def asETerm: Codec.ETerm = Codec.ETuple(
+        Codec.EAtom("invalid_argument_type"),
+        Codec.EMap(
+          Map(
+            Codec.EAtom("expected") -> Codec.EString(expected),
+            Codec.EAtom("got")      -> Codec.EString(got.toString())
+          ).asInstanceOf[Map[Codec.ETerm, Codec.ETerm]]
+        )
+      )
+    }
   }
 }

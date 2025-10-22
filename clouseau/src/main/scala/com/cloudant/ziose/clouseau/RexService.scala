@@ -65,7 +65,7 @@ class RexService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]
       case (command @ Symbol("top"), key: Symbol) =>
         ctrl.get.handleTop(List(key)) match {
           case Right(term) => reply(Right(fromScala(term.map(_.asETerm))))
-          case Left(error) => reply(Left(fromScala(error)))
+          case Left(error) => reply(Left(error.asETerm))
         }
     }
   }
@@ -83,7 +83,7 @@ class RexService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]
         ctrl.get.handleTop(args) match {
           case Right(term) =>
             reply(from, Right(fromScala(term.map(_.asPrettyPrintedETerm))))
-          case Left(error) => reply(from, Left(fromScala(error)))
+          case Left(error) => reply(from, Left(error.asETerm))
         }
 
       case (from: Pid, other) =>
