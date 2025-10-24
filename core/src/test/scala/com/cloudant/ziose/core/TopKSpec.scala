@@ -31,7 +31,7 @@ class TopKSpec extends JUnitRunnableSpec {
     test("lesser than K are in order") {
       check(listOfTuples(8)) { values =>
         val expected = sorted(values).take(8)
-        var top      = TopK[String](10)
+        var top      = TopK[String, Long](10)
         for ((k, v) <- values) {
           top.add(k, v)
         }
@@ -43,7 +43,7 @@ class TopKSpec extends JUnitRunnableSpec {
     test("smaller than K are in order") {
       check(listOfTuples(18)) { values =>
         val expected = sorted(values).take(10)
-        var top      = TopK[String](10)
+        var top      = TopK[String, Long](10)
         for ((k, v) <- values) {
           top.add(k, v)
         }

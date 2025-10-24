@@ -27,7 +27,7 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] {
   def processInfoTopKZIO[A <: Actor](
     valueFun: ProcessInfo => Int
   ): UIO[List[ProcessInfo]] = {
-    var acc = TopK[ProcessInfo](10)
+    var acc = TopK[ProcessInfo, Long](10)
     exchange.foreachZIO(it => {
       // we know our exchange holds AddressableActor instances
       val actor = it.asInstanceOf[AddressableActor[A, _ <: ProcessContext]]
@@ -45,6 +45,31 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] {
         .getOrThrowFiberFailure()
     }.asInstanceOf[List[ProcessInfo]]
   }
+
+  def actorMeterInfoTopKZIO[A <: Actor](
+    query: ActorMeterInfo.Query[Double]
+  ): UIO[List[ActorMeterInfo]] = {
+    var acc = TopK[ActorMeterInfo, Double](10)
+    exchange.foreachZIO(it => {
+      // we know our exchange holds AddressableActor instances
+      val actor  = it.asInstanceOf[AddressableActor[A, _ <: ProcessContext]]
+      val search = query.select(actor)
+      val value  = query.run(search)
+      for {
+        info <- ActorMeterInfo.from(actor, query, value)
+        _ = acc.add(info, value)
+      } yield ()
+    }) *> ZIO.succeed(acc.asList.unzip._1)
+  }
+
+  def actorMeterInfoTopK(query: ActorMeterInfo.Query[Double]): List[ActorMeterInfo] = {
+    Unsafe.unsafe { implicit unsafe =>
+      Runtime.default.unsafe
+        .run(actorMeterInfoTopKZIO(query))
+        .getOrThrowFiberFailure()
+    }.asInstanceOf[List[ActorMeterInfo]]
+  }
+
 }
 
 object EngineWorker {

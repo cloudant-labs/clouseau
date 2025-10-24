@@ -1,3 +1,8 @@
+% To run only this suite use
+% ```
+% make zeunit suites=rex_tests
+% ```
+
 -module(rex_tests).
 
 -include("zeunit.hrl").
@@ -18,7 +23,9 @@ rex_service_test_() ->
                 fun stop_service/2,
                 [
                     ?TDEF_FEX(t_gen_server_top),
-                    ?TDEF_FEX(t_erl_call_top)
+                    ?TDEF_FEX(t_gen_server_top_meter),
+                    ?TDEF_FEX(t_erl_call_top),
+                    ?TDEF_FEX(t_erl_call_top_meter)
                 ]
             }
         }
@@ -57,6 +64,49 @@ t_gen_server_top(_Name, _) ->
     ),
     ?assertMatch(
         {process_info, #{tags := [<<"t_gen_server_top">>]}},
+        EchoInfo,
+        ?format("Expected to see correct tags, got ~p", [EchoInfo])
+    ),
+
+    ok.
+
+t_gen_server_top_meter(Name, _) ->
+    {ok, Infos} = gen_server:call({?REX_SERVICE, ?NodeZ}, {topMeters, mailbox, composite}),
+    Sorted = sort_by_name(Infos),
+    ?assertMatch(
+        [
+            {meter_info, #{
+                meter_name := composite, name := analyzer, pid := _, tags := _, value := _
+            }},
+            {meter_info, #{
+                meter_name := composite, name := cleanup, pid := _, tags := _, value := _
+            }},
+            {meter_info, #{meter_name := composite, name := init, pid := _, tags := _, value := _}},
+            {meter_info, #{meter_name := composite, name := main, pid := _, tags := _, value := _}},
+            {meter_info, #{meter_name := composite, name := rex, pid := _, tags := _, value := _}},
+            {meter_info, #{meter_name := composite, name := sup, pid := _, tags := _, value := _}}
+            | _
+        ],
+        Sorted,
+        ?format("Expected to get info from each actor, got: ~p", [Sorted])
+    ),
+
+    EchoInfo = find_by_name(Name, Infos),
+    ?assertMatch(
+        {meter_info, #{}}, EchoInfo, ?format("Expected meter_info, got: ~p", [EchoInfo])
+    ),
+    ?assertMatch(
+        {meter_info, #{pid := P}} when is_pid(P),
+        EchoInfo,
+        ?format("Expected to see valid Pid, got ~p", [EchoInfo])
+    ),
+    ?assertMatch(
+        {meter_info, #{value := Q}} when Q > 0.1,
+        EchoInfo,
+        "Expected to see piled up messages"
+    ),
+    ?assertMatch(
+        {meter_info, #{tags := [<<"mailbox">>, <<"t_gen_server_top_meter">>]}},
         EchoInfo,
         ?format("Expected to see correct tags, got ~p", [EchoInfo])
     ),
@@ -121,6 +171,82 @@ t_erl_call_top(_Name, _) ->
     ),
     ok.
 
+t_erl_call_top_meter(Name, _) ->
+    {0, Reply} = erl_call(clouseau, topMeters, [{mailbox, composite}]),
+    ?assertMatch({ok, _Result}, Reply, ?format("Expected an {ok, Reply} tuple, got: ~p", [Reply])),
+    {ok, Infos} = Reply,
+    Sorted = sort_by_name(Infos),
+    ?assertMatch(
+        [
+            {meter_info, #{
+                meter_name := composite,
+                name := analyzer,
+                pid := "<clouseau1@127.0.0.1" ++ _,
+                tags := _,
+                value := _
+            }},
+            {meter_info, #{
+                meter_name := composite,
+                name := cleanup,
+                pid := "<clouseau1@127.0.0.1" ++ _,
+                tags := _,
+                value := _
+            }},
+            {meter_info, #{
+                meter_name := composite,
+                name := init,
+                pid := "<clouseau1@127.0.0.1" ++ _,
+                tags := _,
+                value := _
+            }},
+            {meter_info, #{
+                meter_name := composite,
+                name := main,
+                pid := "<clouseau1@127.0.0.1" ++ _,
+                tags := _,
+                value := _
+            }},
+            {meter_info, #{
+                meter_name := composite,
+                name := rex,
+                pid := "<clouseau1@127.0.0.1" ++ _,
+                tags := _,
+                value := _
+            }},
+            {meter_info, #{
+                meter_name := composite,
+                name := sup,
+                pid := "<clouseau1@127.0.0.1" ++ _,
+                tags := _,
+                value := _
+            }}
+            | _
+        ],
+        Sorted,
+        ?format("Expected to get info from each actor, got: ~p", [Sorted])
+    ),
+
+    EchoInfo = find_by_name(Name, Infos),
+    ?assertMatch(
+        {meter_info, #{}}, EchoInfo, ?format("Expected meter_info, got: ~p", [EchoInfo])
+    ),
+    ?assertMatch(
+        {meter_info, #{pid := "<clouseau1@127.0.0.1" ++ _}},
+        EchoInfo,
+        ?format("Expected to see valid Pid, got ~p", [EchoInfo])
+    ),
+    ?assertMatch(
+        {meter_info, #{value := Q}} when Q > 0.1,
+        EchoInfo,
+        "Expected to see piled up messages"
+    ),
+    ?assertMatch(
+        {meter_info, #{tags := ["mailbox", "t_erl_call_top_meter"]}},
+        EchoInfo,
+        ?format("Expected to see correct tags, got ~p", [EchoInfo])
+    ),
+    ok.
+
 %%%%%%%%%%%%%%% Setup Functions %%%%%%%%%%%%%%%
 
 setup() ->
@@ -149,12 +275,12 @@ stop_service(_, Pid) ->
 % the sort by name function uses lexical orderting except it puts the processes with names
 % equal to `none` at the end of the list
 sort_by_name(Infos) ->
-    {Named, Rest} = lists:partition(fun({process_info, #{name := A}}) -> A /= none end, Infos),
+    {Named, Rest} = lists:partition(fun({_, #{name := A}}) -> A /= none end, Infos),
     Sorted = lists:sort(fun({_, #{name := A}}, {_, #{name := B}}) -> A < B end, Named),
     Sorted ++ Rest.
 
 find_by_name(Name, Infos) ->
-    {value, Info} = lists:search(fun({process_info, #{name := A}}) -> A == Name end, Infos),
+    {value, Info} = lists:search(fun({_, #{name := A}}) -> A == Name end, Infos),
     Info.
 
 erl_call(M, F, A) ->
@@ -168,7 +294,7 @@ erl_call(M, F, A) ->
         {Rc, Term}
     catch
         _:Error ->
-            {error, Error}
+            {error, Error, Body}
     end.
 
 do_read(Port, Acc) ->

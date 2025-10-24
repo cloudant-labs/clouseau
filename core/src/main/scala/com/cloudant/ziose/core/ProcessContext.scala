@@ -2,6 +2,7 @@ package com.cloudant.ziose.core
 
 import zio._
 import com.cloudant.ziose.core.Codec.EPid
+import scala.collection.mutable.Buffer
 
 trait ProcessContext extends ForwardWithId[Address, MessageEnvelope] with WithProcessInfo[Address] {
   val id: Address // FIXME
@@ -11,6 +12,8 @@ trait ProcessContext extends ForwardWithId[Address, MessageEnvelope] with WithPr
   def awaitShutdown(implicit trace: Trace): UIO[Unit]
   def capacity: Int
   def status(): UIO[Map[Symbol, Fiber.Status]]
+  def getMeters(): Buffer[Metrics.Meter]
+  def findMeter(name: String): Metrics.Search
   def getTags: List[String]
   def setTag(tag: String): Unit
   def name: Option[String]
