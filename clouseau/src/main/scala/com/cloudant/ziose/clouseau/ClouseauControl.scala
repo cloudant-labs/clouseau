@@ -4,9 +4,17 @@ import com.cloudant.ziose.{core, scalang}
 import core.{Codec, ProcessInfo, EngineWorker, ActorMeterInfo}
 import scalang.Adapter
 import com.cloudant.ziose.otp.OTPProcessContext
+import com.cloudant.ziose.scalang.Service
 
 class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F) {
   import ClouseauControl.Error
+
+  def listServices()(implicit adapter: Adapter[_, _]): Either[Error, Map[Symbol, Any]] = {
+    Service.call(Symbol("sup"), Symbol("listChildren")) match {
+      case result: Map[_, _] => Right(result.asInstanceOf[Map[Symbol, Any]])
+      case error             => Left(Error.InternalError(error))
+    }
+  }
 
   def handleTop(args: List[_])(implicit adapter: Adapter[_, _]): Either[Error, List[ProcessInfo]] = args match {
     case List(key: Symbol) =>
@@ -85,6 +93,10 @@ object ClouseauControl {
     }
     case class InvalidMeterSelector(error: core.ActorMeterInfo.Error) extends Error {
       def asETerm: Codec.ETerm = error.asETerm
+    }
+
+    case class InternalError(error: Any) extends Error {
+      def asETerm: Codec.ETerm = Codec.fromScala(error)
     }
   }
 }

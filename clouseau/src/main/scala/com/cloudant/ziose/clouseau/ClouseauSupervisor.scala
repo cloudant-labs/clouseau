@@ -101,6 +101,19 @@ case class ClouseauSupervisor(
       }
       case (Symbol("getChild"), name: Symbol) =>
         (Symbol("reply"), getChild(name).getOrElse(Symbol("undefined")))
+      case Symbol("listChildren") =>
+              (Symbol("reply"), Map(
+                Symbol("main") ->
+                  getChild(Symbol("main")).getOrElse(Symbol("undefined")),
+                Symbol("cleanup") ->
+                  getChild(Symbol("cleanup")).getOrElse(Symbol("undefined")),
+                Symbol("analyzer") ->
+                  getChild(Symbol("analyzer")).getOrElse(Symbol("undefined")),
+                Symbol("init") ->
+                  getChild(Symbol("init")).getOrElse(Symbol("undefined")),
+                Symbol("rex") ->
+                  getChild(Symbol("rex")).getOrElse(Symbol("undefined")),
+              ))
     }
   }
 

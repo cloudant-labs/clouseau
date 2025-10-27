@@ -61,6 +61,12 @@ class RexService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]
     }
 
     msg match {
+      // gen_server:call({rex, 'clouseau1@127.0.0.1'}, {service, list})
+      case (Symbol("service"), Symbol("list")) =>
+        ctrl.get.listServices() match {
+          case Right(term) => reply(Right(fromScala(term)))
+          case Left(error) => reply(Left(error.asETerm))
+        }
       // gen_server:call({rex, 'clouseau1@127.0.0.1'}, {top, message_queue_len})
       case (Symbol("top"), key: Symbol) =>
         ctrl.get.handleTop(List(key)) match {
@@ -84,6 +90,23 @@ class RexService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]
         send(from, (Symbol("rex"), (Symbol("error"), error)))
     }
     request match {
+      // Example: `erl_call -c ${COOKIE} -n 'clouseau1@127.0.0.1' -a 'clouseau service list'`
+      case (from: Pid, (Symbol("call"), Symbol("clouseau"), Symbol("service"), Symbol("list"), Symbol("user"))) =>
+        ctrl.get.listServices() match {
+          case Right(term) =>
+            reply(
+              from,
+              Right(fromScala(term.map {
+                case (k, Symbol("undefined")) =>
+                  (k, EAtom("undefined"))
+                case (k, pid: Pid) =>
+                  (k, EString(pid.toErlangString))
+              }))
+            )
+          case Left(error) =>
+            reply(from, Left(error.asETerm))
+        }
+
       // Example: `erl_call -c ${COOKIE} -n 'clouseau1@127.0.0.1' -a 'clouseau top [queue_length]'`
       case (from: Pid, (Symbol("call"), Symbol("clouseau"), Symbol("top"), args: List[_], Symbol("user"))) =>
         ctrl.get.handleTop(args) match {
