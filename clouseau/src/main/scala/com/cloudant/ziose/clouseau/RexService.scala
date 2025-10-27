@@ -62,13 +62,13 @@ class RexService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]
 
     msg match {
       // gen_server:call({rex, 'clouseau1@127.0.0.1'}, {top, message_queue_len})
-      case (command @ Symbol("top"), key: Symbol) =>
+      case (Symbol("top"), key: Symbol) =>
         ctrl.get.handleTop(List(key)) match {
           case Right(term) => reply(Right(fromScala(term.map(_.asETerm))))
           case Left(error) => reply(Left(error.asETerm))
         }
       // gen_server:call({rex, 'clouseau1@127.0.0.1'}, {topMeters, mailbox, internal})
-      case (command @ Symbol("topMeters"), klass: Symbol, meterName: Symbol) =>
+      case (Symbol("topMeters"), klass: Symbol, meterName: Symbol) =>
         ctrl.get.handleTopMeters(List((klass, meterName))) match {
           case Right(term) => reply(Right(fromScala(term.map(_.asETerm))))
           case Left(error) => reply(Left(error.asETerm))
