@@ -33,7 +33,7 @@ case class ActorMeterInfo(
    *   - pid
    *   - binaries
    */
-  def asPrettyPrintedETerm = {
+  def asPrettyPrintedETerm: ETerm = {
     val nameAtom = name.getOrElse(Symbol("none"))
     ETuple(
       EAtom("meter_info"),
@@ -41,12 +41,25 @@ case class ActorMeterInfo(
         Map(
           Symbol("pid")        -> EString(pid.pid.toString()),
           Symbol("name")       -> EAtom(nameAtom),
-          Symbol("tags")       -> EList(tags.map(EString(_))),
+          Symbol("tags")       -> asPrettyPrintedETerm(tags),
           Symbol("meter_name") -> EAtom(meterName),
           Symbol("value")      -> EDouble(value)
         )
       )
     )
+  }
+
+  def asPrettyPrintedETerm(term: Any): ETerm = {
+    term match {
+      case xs: List[_] => EList(xs.map(asPrettyPrintedETerm(_)))
+      case xs: Map[_, _] =>
+        EMap(xs.map { case (k, v) =>
+          asPrettyPrintedETerm(k) -> asPrettyPrintedETerm(v)
+        })
+      case Symbol(string) => EAtom(string)
+      case string: String => EString(string)
+      case other          => Codec.fromScala(other)
+    }
   }
 
 }

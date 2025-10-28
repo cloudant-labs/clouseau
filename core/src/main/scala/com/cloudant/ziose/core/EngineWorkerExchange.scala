@@ -6,6 +6,19 @@ import zio.{Scope, Trace, UIO, ZIO}
 class EngineWorkerExchange private (
   exchange: Exchange[Address, MessageEnvelope, ForwardWithId[Address, MessageEnvelope]]
 ) extends Exchange.WithConstructor[Address, MessageEnvelope, ForwardWithId[Address, MessageEnvelope]] {
+  def info(key: Address): UIO[Option[ProcessInfo]] = {
+    for {
+      maybeActor <- getActor(key)
+      i <- maybeActor match {
+        case Some(actor) => ProcessInfo.from(actor).map(Some(_))
+        case None        => ZIO.succeed(None)
+      }
+    } yield i
+  }
+
+  private def getActor(key: Address) = {
+    exchange.get(key).asInstanceOf[UIO[Option[AddressableActor[_ <: Actor, _ <: ProcessContext]]]]
+  }
 
   def buildWith(builderFn: Int => ZIO[Any with Scope, Throwable, ForwardWithId[Address, MessageEnvelope]]) = {
     exchange.buildWith(builderFn)

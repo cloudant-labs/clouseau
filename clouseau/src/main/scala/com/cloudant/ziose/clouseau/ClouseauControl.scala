@@ -1,18 +1,44 @@
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.{core, scalang}
-import core.{Codec, ProcessInfo, EngineWorker, ActorMeterInfo}
-import scalang.Adapter
+import core.{Address, Codec, ProcessInfo, EngineWorker, ActorMeterInfo}
+import scalang.{Adapter, Pid}
 import com.cloudant.ziose.otp.OTPProcessContext
 import com.cloudant.ziose.scalang.Service
 
 class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F) {
   import ClouseauControl.Error
 
+  def getServiceInfo(pid: Pid)(implicit adapter: Adapter[_, _]): Either[Error, Option[ProcessInfo]] = {
+    val worker                   = adapter.ctx.asInstanceOf[OTPProcessContext].worker
+    val address                  = Address.fromPid(pid.fromScala, adapter.workerId, adapter.workerNodeName)
+    val res: Option[ProcessInfo] = worker.processInfo(address)
+    Right(res)
+  }
+
+  def getServiceInfo(name: Symbol)(implicit adapter: Adapter[_, _]): Either[Error, Option[ProcessInfo]] = {
+    getService(name) match {
+      case Right(Some(pid)) => getServiceInfo(pid)
+      case Right(None)      => Right(None)
+      case Left(error)      => Left(error)
+    }
+
+  }
+
   def listServices()(implicit adapter: Adapter[_, _]): Either[Error, Map[Symbol, Any]] = {
     Service.call(Symbol("sup"), Symbol("listChildren")) match {
       case result: Map[_, _] => Right(result.asInstanceOf[Map[Symbol, Any]])
       case error             => Left(Error.InternalError(error))
+    }
+  }
+
+  def handleServiceInfoCommand(
+    id: Any
+  )(implicit adapter: Adapter[_, _]): Either[Error, Option[ProcessInfo]] = {
+    id match {
+      case id: Pid             => getServiceInfo(id)
+      case serviceName: Symbol => getServiceInfo(serviceName)
+      case other               => Left(Error.InvalidArgumentType("atom() | pid()", other))
     }
   }
 
@@ -58,6 +84,15 @@ class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F
         Left(Error.InvalidMeterSelector(error))
     }
   }
+
+  private def getService(name: Symbol)(implicit adapter: Adapter[_, _]): Either[Error, Option[Pid]] = {
+    Service.call(Symbol("sup"), (Symbol("getChild"), name)) match {
+      case pid: Pid           => Right(Some(pid))
+      case Symbol("undefine") => Right(None)
+      case error              => Left(Error.InternalError(error))
+    }
+  }
+
 }
 
 object ClouseauControl {
