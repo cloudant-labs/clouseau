@@ -11,6 +11,14 @@ object OTPCookie {
       return cookieProp
     }
 
+    val cookieFileProp: String = System.getProperty("cookie.file")
+    if (cookieFileProp != null) {
+      val file = new File(cookieFileProp)
+      if (file.isFile && file.canRead) {
+        return readFile(file)
+      }
+    }
+
     val homeDir = System.getProperty("user.home")
     if (homeDir == null) {
       throw new Exception("No erlang cookie set and cannot read ~/.erlang.cookie.")
