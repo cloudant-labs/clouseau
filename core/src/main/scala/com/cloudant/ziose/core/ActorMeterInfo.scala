@@ -19,7 +19,7 @@ case class ActorMeterInfo(
         Map(
           Symbol("pid")        -> pid.pid,
           Symbol("name")       -> EAtom(nameAtom),
-          Symbol("tags")       -> Codec.fromScala(tags),
+          Symbol("tags")       -> asPrettyPrintedETerm(tags),
           Symbol("meter_name") -> EAtom(meterName),
           Symbol("value")      -> EDouble(value)
         )
@@ -124,6 +124,20 @@ object ActorMeterInfo {
         Symbol(query.meterName),
         value
       )
+    )
+  }
+
+  def fromMeter[M <: Metrics.Meter[_]](
+    actor: AddressableActor[_ <: Actor, _ <: ProcessContext],
+    meter: M
+  ): ActorMeterInfo = {
+    val klass = meter.getTags().get("class").getOrElse("undefined")
+    ActorMeterInfo(
+      actor.self,
+      actor.name.map(Symbol(_)),
+      klass +: actor.getTags,
+      meter.getName(),
+      meter.getCount().get
     )
   }
 

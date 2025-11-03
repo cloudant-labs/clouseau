@@ -84,6 +84,22 @@ class RexService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]
           case Left(error)       => reply(Left(error.asETerm))
         }
 
+      // gen_server:call({rex, 'clouseau1@127.0.0.1'}, {service, meters, Pid})
+      case (Symbol("service"), Symbol("meters"), pid: Pid) =>
+        ctrl.get.getActorMeters(pid) match {
+          case Right(Some(info)) => reply(Right(EList(info.map(_.asETerm))))
+          case Right(None)       => reply(Right(EAtom("undefined")))
+          case Left(error)       => reply(Left(error.asETerm))
+        }
+
+      // gen_server:call({rex, 'clouseau1@127.0.0.1'}, {service, meters, Id})
+      case (Symbol("service"), Symbol("meters"), id: Symbol) =>
+        ctrl.get.getActorMeters(id) match {
+          case Right(Some(info)) => reply(Right(EList(info.map(_.asETerm))))
+          case Right(None)       => reply(Right(EAtom("undefined")))
+          case Left(error)       => reply(Left(error.asETerm))
+        }
+
       // gen_server:call({rex, 'clouseau1@127.0.0.1'}, {top, message_queue_len})
       case (Symbol("top"), key: Symbol) =>
         ctrl.get.handleTop(List(key)) match {
@@ -128,6 +144,14 @@ class RexService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]
       case (from: Pid, (Symbol("call"), Symbol("clouseau"), Symbol("service_info"), id: Any, Symbol("user"))) =>
         ctrl.get.handleServiceInfoCommand(id) match {
           case Right(Some(info)) => reply(from, Right(info.asPrettyPrintedETerm))
+          case Right(None)       => reply(from, Right(EAtom("undefined")))
+          case Left(error)       => reply(from, Left(error.asETerm))
+        }
+
+      // Example: `erl_call -c ${COOKIE} -n 'clouseau1@127.0.0.1' -a 'clouseau service_meters Id'`
+      case (from: Pid, (Symbol("call"), Symbol("clouseau"), Symbol("service_meters"), id: Any, Symbol("user"))) =>
+        ctrl.get.handleServiceMetersCommand(id) match {
+          case Right(Some(info)) => reply(from, Right(EList(info.map(_.asPrettyPrintedETerm))))
           case Right(None)       => reply(from, Right(EAtom("undefined")))
           case Left(error)       => reply(from, Left(error.asETerm))
         }

@@ -22,7 +22,21 @@ class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F
       case Right(None)      => Right(None)
       case Left(error)      => Left(error)
     }
+  }
 
+  def getActorMeters(pid: Pid)(implicit adapter: Adapter[_, _]): Either[Error, Option[List[ActorMeterInfo]]] = {
+    val worker  = adapter.ctx.asInstanceOf[OTPProcessContext].worker
+    val address = Address.fromPid(pid.fromScala, adapter.workerId, adapter.workerNodeName)
+    val res     = worker.actorMeters(address)
+    Right(res)
+  }
+
+  def getActorMeters(name: Symbol)(implicit adapter: Adapter[_, _]): Either[Error, Option[List[ActorMeterInfo]]] = {
+    getService(name) match {
+      case Right(Some(pid)) => getActorMeters(pid)
+      case Right(None)      => Right(None)
+      case Left(error)      => Left(error)
+    }
   }
 
   def listServices()(implicit adapter: Adapter[_, _]): Either[Error, Map[Symbol, Any]] = {
@@ -38,6 +52,16 @@ class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F
     id match {
       case id: Pid             => getServiceInfo(id)
       case serviceName: Symbol => getServiceInfo(serviceName)
+      case other               => Left(Error.InvalidArgumentType("atom() | pid()", other))
+    }
+  }
+
+  def handleServiceMetersCommand(
+    id: Any
+  )(implicit adapter: Adapter[_, _]): Either[Error, Option[List[ActorMeterInfo]]] = {
+    id match {
+      case id: Pid             => getActorMeters(id)
+      case serviceName: Symbol => getActorMeters(serviceName)
       case other               => Left(Error.InvalidArgumentType("atom() | pid()", other))
     }
   }

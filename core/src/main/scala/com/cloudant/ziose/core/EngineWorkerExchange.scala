@@ -16,6 +16,19 @@ class EngineWorkerExchange private (
     } yield i
   }
 
+  def actorMeters[A <: Actor](key: Address): UIO[Option[List[ActorMeterInfo]]] = {
+    for {
+      maybeActor <- getActor(key)
+      i <- maybeActor match {
+        case Some(actor) => {
+          val info = actor.getMeters().map(meter => ActorMeterInfo.fromMeter(actor, meter))
+          ZIO.succeed(Some(info))
+        }
+        case None => ZIO.succeed(None)
+      }
+    } yield i
+  }
+
   private def getActor(key: Address) = {
     exchange.get(key).asInstanceOf[UIO[Option[AddressableActor[_ <: Actor, _ <: ProcessContext]]]]
   }

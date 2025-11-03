@@ -12,7 +12,7 @@ trait ProcessContext extends ForwardWithId[Address, MessageEnvelope] with WithPr
   def awaitShutdown(implicit trace: Trace): UIO[Unit]
   def capacity: Int
   def status(): UIO[Map[Symbol, Fiber.Status]]
-  def getMeters(): Buffer[Metrics.Meter]
+  def getMeters(): List[Metrics.Meter[_]]
   def findMeter(name: String): Metrics.Search
   def getTags: List[String]
   def setTag(tag: String): Unit

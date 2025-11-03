@@ -36,6 +36,18 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] {
     }.asInstanceOf[Option[ProcessInfo]]
   }
 
+  def actorMetersZIO[A <: Actor](addr: Address): UIO[Option[List[ActorMeterInfo]]] = {
+    exchange.actorMeters(addr)
+  }
+
+  def actorMeters[A <: Actor](addr: Address): Option[List[ActorMeterInfo]] = {
+    Unsafe.unsafe { implicit unsafe =>
+      Runtime.default.unsafe
+        .run(actorMetersZIO(addr))
+        .getOrThrowFiberFailure()
+    }.asInstanceOf[Option[List[ActorMeterInfo]]]
+  }
+
   def processInfoTopKZIO[A <: Actor](
     valueFun: ProcessInfo => Int
   ): UIO[List[ProcessInfo]] = {
