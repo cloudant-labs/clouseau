@@ -34,6 +34,11 @@ class ClouseauSupervisorSpec extends JUnitRunnableSpec {
     result   <- ZIO.succeed(response.payload)
   } yield result.isDefined
 
+  def listChildren(supervisor: core.AddressableActor[_, _]) = for {
+    response <- supervisor.doTestCallTimeout(core.Codec.fromScala(Symbol("listChildren")), 3.seconds)
+    result   <- ZIO.succeed(response.payload)
+  } yield result
+
   val clouseauSupervisorSpecSuite: Spec[Any, Throwable] = {
     suite("ClouseauSupervisorSpec suite")(
       test("ClouseauSupervisorSpec init is restarted on child exit signal")(
@@ -123,6 +128,41 @@ class ClouseauSupervisorSpec extends JUnitRunnableSpec {
           ?? "The actor should be responsive before we kill it" &&
           assertTrue(responsiveAfter)
           ?? "The new instance of actor should be responsive"
+      ),
+      test("ClouseauSupervisorSpec list children")(
+        for {
+          node       <- Utils.clouseauNode
+          worker     <- ZIO.service[core.EngineWorker]
+          cfg        <- Utils.defaultConfig
+          supervisor <- ClouseauSupervisor.start(node, cfg)
+          res        <- listChildren(supervisor)
+        } yield assert(res)(isSome) ?? "result should be available"
+          && assertTrue(
+            core.Codec.toScala(res.get).isInstanceOf[Map[_, _]]
+          ) ?? "result should be a map"
+          && assertTrue(
+            core.Codec
+              .toScala(res.get)
+              .asInstanceOf[Map[Symbol, Any]]
+              .keySet
+              .diff(
+                Set(
+                  Symbol("analyzer"),
+                  Symbol("cleanup"),
+                  Symbol("init"),
+                  Symbol("main"),
+                  Symbol("rex")
+                )
+              )
+              .isEmpty
+          ) ?? "expected all services in a set"
+          && assertTrue(
+            core.Codec
+              .toScala(res.get)
+              .asInstanceOf[Map[Symbol, Any]]
+              .values
+              .forall(_.isInstanceOf[core.Codec.EPid])
+          ) ?? "expected values to be pids"
       )
     ).provideLayer(
       Utils.testEnvironment(1, 1, "ClouseauSupervisorSpecSuite")

@@ -61,14 +61,53 @@ class RexService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]
     }
 
     msg match {
+      // gen_server:call({rex, 'clouseau1@127.0.0.1'}, {service, list})
+      case (Symbol("service"), Symbol("list")) =>
+        ctrl.get.listServices() match {
+          case Right(term) => reply(Right(fromScala(term)))
+          case Left(error) => reply(Left(error.asETerm))
+        }
+
+      // gen_server:call({rex, 'clouseau1@127.0.0.1'}, {service, info, Pid})
+      case (Symbol("service"), Symbol("info"), pid: Pid) =>
+        ctrl.get.getServiceInfo(pid) match {
+          case Right(Some(info)) => reply(Right(info.asETerm))
+          case Right(None)       => reply(Right(EAtom("undefined")))
+          case Left(error)       => reply(Left(error.asETerm))
+        }
+
+      // gen_server:call({rex, 'clouseau1@127.0.0.1'}, {service, info, Id})
+      case (Symbol("service"), Symbol("info"), id: Symbol) =>
+        ctrl.get.getServiceInfo(id) match {
+          case Right(Some(info)) => reply(Right(info.asETerm))
+          case Right(None)       => reply(Right(EAtom("undefined")))
+          case Left(error)       => reply(Left(error.asETerm))
+        }
+
+      // gen_server:call({rex, 'clouseau1@127.0.0.1'}, {service, meters, Pid})
+      case (Symbol("service"), Symbol("meters"), pid: Pid) =>
+        ctrl.get.getActorMeters(pid) match {
+          case Right(Some(info)) => reply(Right(EList(info.map(_.asETerm))))
+          case Right(None)       => reply(Right(EAtom("undefined")))
+          case Left(error)       => reply(Left(error.asETerm))
+        }
+
+      // gen_server:call({rex, 'clouseau1@127.0.0.1'}, {service, meters, Id})
+      case (Symbol("service"), Symbol("meters"), id: Symbol) =>
+        ctrl.get.getActorMeters(id) match {
+          case Right(Some(info)) => reply(Right(EList(info.map(_.asETerm))))
+          case Right(None)       => reply(Right(EAtom("undefined")))
+          case Left(error)       => reply(Left(error.asETerm))
+        }
+
       // gen_server:call({rex, 'clouseau1@127.0.0.1'}, {top, message_queue_len})
-      case (command @ Symbol("top"), key: Symbol) =>
+      case (Symbol("top"), key: Symbol) =>
         ctrl.get.handleTop(List(key)) match {
           case Right(term) => reply(Right(fromScala(term.map(_.asETerm))))
           case Left(error) => reply(Left(error.asETerm))
         }
       // gen_server:call({rex, 'clouseau1@127.0.0.1'}, {topMeters, mailbox, internal})
-      case (command @ Symbol("topMeters"), klass: Symbol, meterName: Symbol) =>
+      case (Symbol("topMeters"), klass: Symbol, meterName: Symbol) =>
         ctrl.get.handleTopMeters(List((klass, meterName))) match {
           case Right(term) => reply(Right(fromScala(term.map(_.asETerm))))
           case Left(error) => reply(Left(error.asETerm))
@@ -84,6 +123,39 @@ class RexService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]
         send(from, (Symbol("rex"), (Symbol("error"), error)))
     }
     request match {
+      // Example: `erl_call -c ${COOKIE} -n 'clouseau1@127.0.0.1' -a 'clouseau service list'`
+      case (from: Pid, (Symbol("call"), Symbol("clouseau"), Symbol("service"), Symbol("list"), Symbol("user"))) =>
+        ctrl.get.listServices() match {
+          case Right(term) =>
+            reply(
+              from,
+              Right(fromScala(term.map {
+                case (k, Symbol("undefined")) =>
+                  (k, EAtom("undefined"))
+                case (k, pid: Pid) =>
+                  (k, EString(pid.toErlangString))
+              }))
+            )
+          case Left(error) =>
+            reply(from, Left(error.asETerm))
+        }
+
+      // Example: `erl_call -c ${COOKIE} -n 'clouseau1@127.0.0.1' -a 'clouseau service_info Id'`
+      case (from: Pid, (Symbol("call"), Symbol("clouseau"), Symbol("service_info"), id: Any, Symbol("user"))) =>
+        ctrl.get.handleServiceInfoCommand(id) match {
+          case Right(Some(info)) => reply(from, Right(info.asPrettyPrintedETerm))
+          case Right(None)       => reply(from, Right(EAtom("undefined")))
+          case Left(error)       => reply(from, Left(error.asETerm))
+        }
+
+      // Example: `erl_call -c ${COOKIE} -n 'clouseau1@127.0.0.1' -a 'clouseau service_meters Id'`
+      case (from: Pid, (Symbol("call"), Symbol("clouseau"), Symbol("service_meters"), id: Any, Symbol("user"))) =>
+        ctrl.get.handleServiceMetersCommand(id) match {
+          case Right(Some(info)) => reply(from, Right(EList(info.map(_.asPrettyPrintedETerm))))
+          case Right(None)       => reply(from, Right(EAtom("undefined")))
+          case Left(error)       => reply(from, Left(error.asETerm))
+        }
+
       // Example: `erl_call -c ${COOKIE} -n 'clouseau1@127.0.0.1' -a 'clouseau top [queue_length]'`
       case (from: Pid, (Symbol("call"), Symbol("clouseau"), Symbol("top"), args: List[_], Symbol("user"))) =>
         ctrl.get.handleTop(args) match {

@@ -56,17 +56,17 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     with WithProcessInfo[Address] {
   type Actor   = A
   type Context = C
-  val NUMBER_OF_FIBERS                   = 3
-  val id                                 = ctx.id // FIXME
-  val name                               = ctx.name
-  val self                               = ctx.self
-  private val isFinalized: AtomicBoolean = new AtomicBoolean(false)
-  def ctx                                = context
-  def status()                           = context.status()
-  def getTags                            = ctx.getTags
-  def setTag(tag: String): Unit          = ctx.setTag(tag)
-  def getMeters()                        = ctx.getMeters()
-  def findMeter(name: String)            = ctx.findMeter(name)
+  val NUMBER_OF_FIBERS                    = 3
+  val id                                  = ctx.id // FIXME
+  val name                                = ctx.name
+  val self                                = ctx.self
+  private val isFinalized: AtomicBoolean  = new AtomicBoolean(false)
+  def ctx                                 = context
+  def status()                            = context.status()
+  def getTags                             = ctx.getTags
+  def setTag(tag: String): Unit           = ctx.setTag(tag)
+  def getMeters(): List[Metrics.Meter[_]] = ctx.getMeters()
+  def findMeter(name: String)             = ctx.findMeter(name)
   def isRunningZIO = status().map(_.values.collect {
     case status if !status.isDone => true
   }.size == NUMBER_OF_FIBERS)

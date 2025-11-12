@@ -24,6 +24,30 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] {
   def shutdown(implicit trace: Trace): UIO[Unit]                         = exchange.shutdown
   def forward(msg: MessageEnvelope)(implicit trace: Trace): UIO[Boolean] = exchange.forward(msg)
 
+  def processInfoZIO[A <: Actor](addr: Address): UIO[Option[ProcessInfo]] = {
+    exchange.info(addr)
+  }
+
+  def processInfo[A <: Actor](addr: Address): Option[ProcessInfo] = {
+    Unsafe.unsafe { implicit unsafe =>
+      Runtime.default.unsafe
+        .run(processInfoZIO(addr))
+        .getOrThrowFiberFailure()
+    }.asInstanceOf[Option[ProcessInfo]]
+  }
+
+  def actorMetersZIO[A <: Actor](addr: Address): UIO[Option[List[ActorMeterInfo]]] = {
+    exchange.actorMeters(addr)
+  }
+
+  def actorMeters[A <: Actor](addr: Address): Option[List[ActorMeterInfo]] = {
+    Unsafe.unsafe { implicit unsafe =>
+      Runtime.default.unsafe
+        .run(actorMetersZIO(addr))
+        .getOrThrowFiberFailure()
+    }.asInstanceOf[Option[List[ActorMeterInfo]]]
+  }
+
   def processInfoTopKZIO[A <: Actor](
     valueFun: ProcessInfo => Int
   ): UIO[List[ProcessInfo]] = {

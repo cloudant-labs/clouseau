@@ -161,6 +161,14 @@ jar: $(ARTIFACTS_DIR)/$(JAR_PROD)
 # target: jartest - Generate JAR files containing tests
 jartest: $(ARTIFACTS_DIR)/$(JAR_TEST)
 
+
+.PHONY: bin/clouseau_ctrl
+bin/clouseau_ctrl: clouseau-ctrl/_build/default/bin/clouseau_ctrl
+	@cp $? $@
+
+clouseau-ctrl/_build/default/bin/clouseau_ctrl: clouseau-ctrl/src
+	@cd clouseau-ctrl/ && $(REBAR) escriptize
+
 $(ARTIFACTS_DIR)/$(JAR_PROD): $(ARTIFACTS_DIR)
 	@sbt assembly
 	@cp clouseau/target/scala-$(SCALA_SHORT_VSN)/$(@F) $@
@@ -179,6 +187,7 @@ $(ARTIFACTS_DIR)/$(JAR_TEST): $(ARTIFACTS_DIR)
 clean:
 	@rm -rf tmp $(ARTIFACTS_DIR)/*
 	@rm -f collectd/*.class collectd/*.out
+	@rm -rf bin/clouseau_ctrl ; cd clouseau-ctrl && $(REBAR) clean
 	@sbt clean
 
 # target: clean-all - Clean up the project to start afresh
@@ -517,7 +526,7 @@ ci-verify: check-deps check-spotbugs
 
 .PHONY: artifacts
 # target: artifacts - Generate release artifacts
-artifacts: $(ARTIFACTS_DIR) $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
+artifacts: $(ARTIFACTS_DIR) $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt $(ARTIFACTS_DIR)/clouseau_ctrl
 
 .PHONY: release
 # target: release - Push release to github
@@ -530,9 +539,10 @@ release: $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 		--title "Release $(PROJECT_VSN)" \
 		--generate-notes $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 
-$(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)-dist.zip: $(JAR_ARTIFACTS)
-	@mkdir -p $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
+$(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)-dist.zip: $(JAR_ARTIFACTS) $(ARTIFACTS_DIR)/clouseau_ctrl
+	@mkdir -p $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)/bin
 	@cp $(JAR_ARTIFACTS) $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
+	@cp $(ARTIFACTS_DIR)/clouseau_ctrl $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)/bin
 	@zip --junk-paths -r $@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
 
 $(ARTIFACTS_DIR)/%.jar.chksum: $(ARTIFACTS_DIR)/%.jar
@@ -544,6 +554,9 @@ $(ARTIFACTS_DIR)/%.zip.chksum: $(ARTIFACTS_DIR)/%.zip
 $(ARTIFACTS_DIR)/checksums.txt: $(addprefix $(ARTIFACTS_DIR)/, $(CHECKSUM_FILES))
 	@cat $? > $@
 	@cd $(ARTIFACTS_DIR)/ && sha256sum -c checksums.txt
+
+$(ARTIFACTS_DIR)/clouseau_ctrl: bin/clouseau_ctrl
+	@cp $? $@
 
 .PHONY: ci-release
 ci-release:

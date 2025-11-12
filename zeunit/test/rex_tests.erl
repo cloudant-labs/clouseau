@@ -106,7 +106,7 @@ t_gen_server_top_meter(Name, _) ->
         "Expected to see piled up messages"
     ),
     ?assertMatch(
-        {meter_info, #{tags := [<<"mailbox">>, <<"t_gen_server_top_meter">>]}},
+        {meter_info, #{tags := ["mailbox", "t_gen_server_top_meter"]}},
         EchoInfo,
         ?format("Expected to see correct tags, got ~p", [EchoInfo])
     ),
