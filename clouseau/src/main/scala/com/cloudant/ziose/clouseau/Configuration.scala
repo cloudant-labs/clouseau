@@ -67,6 +67,7 @@ final case class ClouseauConfiguration(
   lru_update_interval_msecs: Option[Int] = None,
   max_indexes_open: Option[Int] = None,
   field_cache_metrics: Option[Boolean] = None,
+  field_count_warn_threshold: Option[Int] = None,
   commit_interval_secs: Option[Int] = None,
   lock_class: Option[String] = None,
   dir_class: Option[String] = None,
@@ -84,12 +85,13 @@ final case class ClouseauConfiguration(
     case _                     => throw new Exception(s"Unexpected String key '$key'")
   }
   def getInt(key: String, default: Int) = key match {
-    case "clouseau.idle_check_interval_secs"  => idle_check_interval_secs.getOrElse(default)
-    case "clouseau.lru_update_interval_msecs" => lru_update_interval_msecs.getOrElse(default)
-    case "clouseau.max_indexes_open"          => max_indexes_open.getOrElse(default)
-    case "commit_interval_secs"               => commit_interval_secs.getOrElse(default)
-    case "clouseau.concurrent_search_limit"   => concurrent_search_limit.getOrElse(default)
-    case _                                    => throw new Exception(s"Unexpected Int key '$key'")
+    case "clouseau.idle_check_interval_secs"   => idle_check_interval_secs.getOrElse(default)
+    case "clouseau.lru_update_interval_msecs"  => lru_update_interval_msecs.getOrElse(default)
+    case "clouseau.max_indexes_open"           => max_indexes_open.getOrElse(default)
+    case "commit_interval_secs"                => commit_interval_secs.getOrElse(default)
+    case "clouseau.concurrent_search_limit"    => concurrent_search_limit.getOrElse(default)
+    case "clouseau.field_count_warn_threshold" => field_count_warn_threshold.getOrElse(default)
+    case _                                     => throw new Exception(s"Unexpected Int key '$key'")
   }
   def getLong(key: String, default: Long) = key match {
     case "clouseau.search_allowed_timeout_msecs" => search_allowed_timeout_msecs.getOrElse(default)
