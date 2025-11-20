@@ -2,7 +2,6 @@ package com.cloudant.ziose.core
 
 import zio._
 import com.cloudant.ziose.core.Codec.EPid
-import scala.collection.mutable.Buffer
 
 trait ProcessContext extends ForwardWithId[Address, MessageEnvelope] with WithProcessInfo[Address] {
   val id: Address // FIXME
