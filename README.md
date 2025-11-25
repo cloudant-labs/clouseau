@@ -2,14 +2,24 @@
 
 Expose Lucene features to CouchDB via Erlang RPC.
 
-## Clouseau 3.x
-
-Originally dubbed `ziose`, version `3.x` replaces the foundation of [`clouseau`](https://github.com/cloudant-labs/clouseau/tree/master) with
-a [`ZIO`](https://github.com/zio/zio) as an asynchronous scheduler. Additionally, this version depends on the Java interface provided by Erlang/OTP.
-
 ## Build status
 
 [![Build 3.x](https://github.com/cloudant-labs/clouseau/actions/workflows/build.yaml/badge.svg)](https://github.com/cloudant-labs/clouseau/actions/workflows/build.yaml)
+
+## Clouseau 3.x
+
+Version `3.x` replaces the foundation of [`clouseau`](https://github.com/cloudant-labs/clouseau/tree/master) with
+a [`ZIO`](https://github.com/zio/zio) as an asynchronous scheduler. This improves the stability and performance,
+enables Clouseau to run on modern JVMs and brings all non-Lucene dependencies up-to-date.
+
+## Upgrading from 2.x
+
+Clouseau 3.x is intended to be a drop-in replacement for 2.x in that it remains compatible with existing Clouseau 2.x indexes. 
+However, there are some notable changes to the deployment:
+
+ * Java 21 is required.
+ * `clouseau.ini` is replaced by [app.conf](./app.conf).
+ * CouchDB 3.??? required.
 
 ## Dependency management
 
