@@ -17,23 +17,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: git config advice.detachedHead false
-      - name: Install asdf & tools
-        uses: asdf-vm/actions/install@v4
-      - name: Add shims to PATH
-        run: echo "${ASDF_DATA_DIR:-$HOME/.asdf}/shims" >> $GITHUB_PATH
-      - run: direnv allow
+      - name: Comment out tools not available in mise
+        run: sed -i 's/^spotbugs /#spotbugs /' .tool-versions
+      - name: Install mise & tools
+        uses: jdx/mise-action@v2
+        with:
+          install: true
 
       - name: Unit tests
-        run: make test
+        run: mise exec -- make test
       - name: Restart test
-        run: eval "$(direnv export bash)" && make restart-test
+        run: mise exec -- make restart-test
       - name: RPC tests (zeunit)
-        run: eval "$(direnv export bash)" && make zeunit
+        run: mise exec -- make zeunit
       - name: Concurrent RPC tests (zeunit)
-        run: eval "$(direnv export bash)" && make concurrent-zeunit-tests
+        run: mise exec -- make concurrent-zeunit-tests
       - name: Syslog tests
-        run: eval "$(direnv export bash)" && make syslog-tests || cat $CLOUSEAU_LOG
+        run: mise exec -- make syslog-tests || cat $CLOUSEAU_LOG
       - name: Elixir tests
-        run: eval "$(direnv export bash)" && make ci-elixir || cat $CLOUSEAU_LOG
+        run: mise exec -- make ci-elixir || cat $CLOUSEAU_LOG
       - name: Metrics tests (mango)
-        run: eval "$(direnv export bash)" && make metrics-tests || cat $CLOUSEAU_LOG
+        run: mise exec -- make metrics-tests || cat $CLOUSEAU_LOG
