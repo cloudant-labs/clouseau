@@ -1,0 +1,11 @@
+# mise configuration
+# See: https://mise.jdx.dev/configuration.html
+
+[settings]
+# Ignore these tools from .tool-versions (for asdf compatibility)
+legacy_version_file_disable_tools = ["direnv"]
+
+[env]
+_.path = ["./scripts", "./bin"]
+ERL_EPMD_ADDRESS = "127.0.0.1"
+GH_HOST = "github.com"
