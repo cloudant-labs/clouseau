@@ -19,7 +19,7 @@ However, there are some notable changes to the deployment:
 
  * Java 21 is required.
  * `clouseau.ini` is replaced by [app.conf](./app.conf).
- * CouchDB 3.??? required.
+ * CouchDB 3.5.0 required.
 
 ## Dependency management
 
