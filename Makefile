@@ -155,6 +155,13 @@ check-spotbugs: build $(ARTIFACTS_DIR)
 		-xml=$(ARTIFACTS_DIR)/spotbugs.xml $(SPOTBUGS_OPTS)
 
 .PHONY: jar
+# target: docs - Generate documentation
+docs: $(ARTIFACTS_DIR)/book.pdf
+
+$(ARTIFACTS_DIR)/book.pdf: docs/book $(ARTIFACTS_DIR)
+	@cd docs/book/ && typst compile book.typ $@
+
+.PHONY: jar
 # target: jar - Generate JAR files for production
 jar: $(ARTIFACTS_DIR)/$(JAR_PROD)
 
