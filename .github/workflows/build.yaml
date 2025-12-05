@@ -24,6 +24,6 @@ jobs:
       - run: direnv allow
 
       - name: Elixir tests
-        run: eval "$(direnv export bash)" && env JAVA_OPTS='-XX:ActiveProcessorCount=1' make ci-elixir || cat $CLOUSEAU_LOG
+        run: eval "$(direnv export bash)" && make ci-elixir COUCHDB_COMMIT=clouseau-in-ci-containers || cat $CLOUSEAU_LOG
       - name: Metrics tests (mango)
-        run: eval "$(direnv export bash)" && env JAVA_OPTS='-XX:ActiveProcessorCount=1' make metrics-tests || cat $CLOUSEAU_LOG
+        run: eval "$(direnv export bash)" && make metrics-tests COUCHDB_COMMIT=clouseau-in-ci-containers || cat $CLOUSEAU_LOG
