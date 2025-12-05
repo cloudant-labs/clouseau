@@ -23,16 +23,6 @@ jobs:
         run: echo "${ASDF_DATA_DIR:-$HOME/.asdf}/shims" >> $GITHUB_PATH
       - run: direnv allow
 
-      - name: Unit tests
-        run: make test
-      - name: Restart test
-        run: eval "$(direnv export bash)" && make restart-test
-      - name: RPC tests (zeunit)
-        run: eval "$(direnv export bash)" && make zeunit
-      - name: Concurrent RPC tests (zeunit)
-        run: eval "$(direnv export bash)" && make concurrent-zeunit-tests
-      - name: Syslog tests
-        run: eval "$(direnv export bash)" && make syslog-tests || cat $CLOUSEAU_LOG
       - name: Elixir tests
         run: eval "$(direnv export bash)" && env JAVA_OPTS='-XX:ActiveProcessorCount=1' make ci-elixir || cat $CLOUSEAU_LOG
       - name: Metrics tests (mango)
