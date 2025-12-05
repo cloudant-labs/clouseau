@@ -14,7 +14,6 @@ jobs:
     timeout-minutes: 30
     env:
       CLOUSEAU_LOG: deps/couchdb.main/dev/logs/clouseau1.log
-      JAVA_OPTS: '-XX:ActiveProcessorCount=1'
     steps:
       - uses: actions/checkout@v4
       - run: git config advice.detachedHead false
@@ -35,6 +34,6 @@ jobs:
       - name: Syslog tests
         run: eval "$(direnv export bash)" && make syslog-tests || cat $CLOUSEAU_LOG
       - name: Elixir tests
-        run: eval "$(direnv export bash)" && make ci-elixir || cat $CLOUSEAU_LOG
+        run: eval "$(direnv export bash)" && env JAVA_OPTS='-XX:ActiveProcessorCount=1' make ci-elixir || cat $CLOUSEAU_LOG
       - name: Metrics tests (mango)
-        run: eval "$(direnv export bash)" && make metrics-tests || cat $CLOUSEAU_LOG
+        run: eval "$(direnv export bash)" && env JAVA_OPTS='-XX:ActiveProcessorCount=1' make metrics-tests || cat $CLOUSEAU_LOG
