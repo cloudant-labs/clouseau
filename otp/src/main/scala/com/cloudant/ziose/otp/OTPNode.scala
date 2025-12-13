@@ -116,8 +116,8 @@ object OTPNode {
     private val queue: Queue[Envelope[Command[_], _, _]],
     accessKey: AccessKey
   ) {
-    val DEFAULT_PING_TIMEOUT: Duration                 = 61.seconds
-    val DEFAULT_REMOTE_NODE_MONITOR_INTERVAL: Duration = 61.seconds
+    val DEFAULT_PING_TIMEOUT: Duration                 = 1.seconds
+    val DEFAULT_REMOTE_NODE_MONITOR_INTERVAL: Duration = 1.seconds
     def release(): Unit                                = close()
     def createMbox(name: String): OtpMbox              = node.createMbox(name)
     def close(): Unit                                  = node.close()
