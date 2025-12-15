@@ -370,6 +370,7 @@ collectd/clouseau.class: collectd/clouseau.java
 .PHONY: metrics-tests
 # target: metrics-tests - Run JMX metrics collection tests
 metrics-tests: $(JAR_ARTIFACTS) collectd/clouseau.class epmd FORCE
+	@cli stop $@ || true
 	@chmod 600 jmxremote.password
 	@cli start $@ \
 		"java \
@@ -508,6 +509,7 @@ ci-zeunit: zeunit $(CI_ARTIFACTS_DIR)
 ci-concurrent-zeunit: concurrent-zeunit-tests
 
 ci-mango: $(JAR_ARTIFACTS) couchdb epmd FORCE
+	@cli stop $@ || true
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
@@ -515,6 +517,7 @@ ci-mango: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli stop $@
 
 ci-elixir: $(JAR_ARTIFACTS) couchdb epmd FORCE
+	@cli stop $@ || true
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@$(TIMEOUT) $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
