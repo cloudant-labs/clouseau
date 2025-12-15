@@ -125,6 +125,25 @@ class SupportedAnalyzersSpec extends JUnitRunnableSpec {
           containsString("foo -> org.apache.lucene.analysis.en.EnglishAnalyzer")
         )
       },
+      test("perfield, field in object form") {
+        val options = {
+          AnalyzerOptions.from(Map("name" -> "perfield", "default" -> "standard",
+            "fields" -> List("foo" -> List(("name", "english")))))
+        }
+        assert(options)(isSome) &&
+        assert(createAnalyzer(options.get).toString)(
+          containsString("foo -> org.apache.lucene.analysis.en.EnglishAnalyzer")
+        )
+      },
+      test("perfield, default in object form") {
+        val options = {
+          AnalyzerOptions.from(Map("name" -> "perfield", "default" -> List(("name", "english"))))
+        }
+        assert(options)(isSome) &&
+        assert(createAnalyzer(options.get).toString)(
+          containsString("default=org.apache.lucene.analysis.en.EnglishAnalyzer")
+        )
+      },
       test("arabic") {
         val options = AnalyzerOptions.from("arabic")
         assert(options)(isSome) &&
