@@ -6,7 +6,7 @@ ARTIFACTS_DIR=$(BUILD_DIR)/artifacts
 CI_ARTIFACTS_DIR=$(BUILD_DIR)/ci-artifacts
 
 COUCHDB_REPO?=https://github.com/apache/couchdb
-COUCHDB_COMMIT?=main
+COUCHDB_COMMIT?=3.5.1
 COUCHDB_ROOT?=deps/couchdb
 COUCHDB_CONFIGURE_ARGS?=--dev --disable-spidermonkey
 
