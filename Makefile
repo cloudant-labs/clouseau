@@ -18,6 +18,7 @@ else
 OWASP_NVD_DATA_DIR?=/usr/share/dependency-check/data
 endif
 
+TIMEOUT?=timeout --foreground
 TIMEOUT_MANGO_TEST?=20m
 TIMEOUT_ELIXIR_SEARCH?=20m
 
@@ -359,8 +360,8 @@ test-failed:
 couchdb-tests: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
-	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
-	@timeout $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
+	@$(TIMEOUT) $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
+	@$(TIMEOUT) $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
 	@cli stop $@
 
 collectd/clouseau.class: collectd/clouseau.java
@@ -379,7 +380,7 @@ metrics-tests: $(JAR_ARTIFACTS) collectd/clouseau.class epmd FORCE
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@echo "Warming up Clouseau to expose all the metrics"
-	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
+	@$(TIMEOUT) $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
 	@echo "Collecting metrics"
 	@java -cp collectd clouseau "service:jmx:rmi:///jndi/rmi://localhost:9090/jmxrmi" monitorRole password > collectd/metrics.out
 	@cli stop $@
@@ -510,13 +511,13 @@ ci-mango: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
-	@timeout $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
+	@$(TIMEOUT) $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
 	@cli stop $@
 
 ci-elixir: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
-	@timeout $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
+	@$(TIMEOUT) $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
 	@cli stop $@
 
 ci-metrics: metrics-tests
