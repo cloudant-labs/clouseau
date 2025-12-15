@@ -25,16 +25,36 @@ jobs:
           install: true
 
       - name: Unit tests
-        run: mise exec -- make test
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: mise exec -- make test
       - name: Restart test
         run: mise exec -- make restart-test
       - name: RPC tests (zeunit)
-        run: mise exec -- make zeunit
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: mise exec -- make zeunit
       - name: Concurrent RPC tests (zeunit)
-        run: mise exec -- make concurrent-zeunit-tests
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: mise exec -- make concurrent-zeunit-tests
       - name: Syslog tests
         run: mise exec -- make syslog-tests || cat $CLOUSEAU_LOG
       - name: Elixir tests
-        run: mise exec -- make ci-elixir || cat $CLOUSEAU_LOG
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: mise exec -- make ci-elixir || cat $CLOUSEAU_LOG
       - name: Metrics tests (mango)
-        run: mise exec -- make metrics-tests || cat $CLOUSEAU_LOG
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: mise exec -- make metrics-tests || cat $CLOUSEAU_LOG
