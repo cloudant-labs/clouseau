@@ -12,8 +12,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      CLOUSEAU_LOG: deps/couchdb.main/dev/logs/clouseau1.log
     steps:
       - uses: actions/checkout@v4
       - run: git config advice.detachedHead false
@@ -45,16 +43,16 @@ jobs:
           max_attempts: 3
           command: mise exec -- make concurrent-zeunit-tests
       - name: Syslog tests
-        run: mise exec -- make syslog-tests || cat $CLOUSEAU_LOG
+        run: mise exec -- make syslog-tests
       - name: Elixir tests
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 5
           max_attempts: 3
-          command: mise exec -- make ci-elixir || cat $CLOUSEAU_LOG
+          command: mise exec -- make ci-elixir
       - name: Metrics tests (mango)
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 5
           max_attempts: 3
-          command: mise exec -- make metrics-tests || cat $CLOUSEAU_LOG
+          command: mise exec -- make metrics-tests
