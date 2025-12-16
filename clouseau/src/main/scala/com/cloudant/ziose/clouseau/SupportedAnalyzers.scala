@@ -362,11 +362,10 @@ object SupportedAnalyzers {
       }
 
       def parseFields(fields: List[_]): List[(String, Option[Map[String, Any]])] =
-        // anaylyzerName can be a String or a single String element wrapped in a List
-        // the latter is a corner case which we should deprecate
         fields.collect {
           case (field: String, analyzerName: String) => (field, Some(Map("name" -> analyzerName)))
           case (field: String, List(analyzerName: String)) => (field, Some(Map("name" -> analyzerName)))
+          case (field: String, options: List[Tuple2[String, Any]]) => (field, Some(options.toMap))
           case (field: String, _) => (field, None)
         }
 
