@@ -128,7 +128,7 @@ object LoggerFactory {
     "SLF4J-LOGGER"      -> level
   )
 
-  private val timeStampFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:MM:ss.SSS'Z'").withZone(ZoneOffset.UTC)
+  private val timeStampFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC)
 
   @inline
   private def bracket(content: zio.logging.LogFormat) = text("[") + content + text("]")
