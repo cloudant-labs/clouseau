@@ -156,8 +156,8 @@ organized into distinct layers:
 
 - Clouseau Layer.
   The main application logic resides in this layer, primarily made up
-  of unmodified service classes like ClouseauSupervisor,
-  IndexManagerService, IndexManager, AnalyzerService.
+  of unmodified service classes like `ClouseauSupervisor`,
+  `IndexManagerService`, `IndexManager`, and `AnalyzerService`.
   These classes are responsible for implementing the core business
   functionality.
 
@@ -216,7 +216,7 @@ well-defined scopes.
 This guarantees that resources like file handles, Lucene directories,
 and network sockets are properly acquired and released, even in the
 presence of failures.
-By using ZIO's ZManaged and finalizer constructs, we eliminate the
+By using ZIO's `ZManaged` and finalizer constructs, we eliminate the
 risk of resource leaks and simplify error handling.
 
 The decision to adopt ZIO aligns with our goal of creating a modern,
@@ -237,35 +237,35 @@ and its supporting layers.
 At the top is the Clouseau package, which contains the primary
 business logic services responsible for managing the lifecycle of
 search operations.
-The ClouseauSupervisorService acts as the top-level supervisor,
+The `ClouseauSupervisorService` acts as the top-level supervisor,
 responsible for restart of other services if they would terminate.
-The IndexManagerService is responsible for managing index lifecycles
-and delegates actual index operations to IndexService, which interacts
-directly with Lucene through the Scala glue layer.
-AnalyzerService provides text analysis capabilities, while
-CleanupService handles index deletion.
+The `IndexManagerService` is responsible for managing index lifecycles
+and delegates actual index operations to `IndexService`, which
+interacts directly with Lucene through the Scala glue layer.
+`AnalyzerService` provides text analysis capabilities, while
+`CleanupService` handles index deletion.
 
-- The Facade layer, represented by the Scalang package, bridges
-  Clouseau's business logic with the underlying actor system.
-  This layers adapts API provided by the ActorFramework to the needs
-  of Clouseau layer.
-  It includes abstractions such as Service, Process, and ProcessLike,
-  which are re-implementation of the abstractions provided by the
-  Scalang (the framework we are replacing).
-  Additional components like Adapter and SNode facilitate integration
-  with the distributed runtime.
-  This layer also includes utility components such as ClouseauNode,
-  ClouseauTypeFactory, Configuration, ClouseauMetrics, and
-  LoggerFactory, which provide node management, configuration
+- The `Facade` layer, represented by the Scalang package, bridges
+  Clouseau's business logic with the underlying actor system.  This
+  layers adapts API provided by the `ActorFramework` to the needs of
+  Clouseau layer.
+  It includes abstractions such as `Service`, `Process`, and
+  `ProcessLike`, which are re-implementation of the abstractions
+  provided by the Scalang (the framework we are replacing).
+  Additional components like `Adapter` and `SNode` facilitate
+  integration with the distributed runtime.
+  This layer also includes utility components such as `ClouseauNode`,
+  `ClouseauTypeFactory`, `Configuration`, `ClouseauMetrics`, and
+  `LoggerFactory`, which provide node management, configuration
   handling, metrics collection, and logging.
 
-- The ActorFramework, which provides concurrency and distribution
+- The `ActorFramework`, which provides concurrency and distribution
   primitives.
-  Components like AddressableActor, EngineWorker, Exchange, and
-  TypeFactory implement the actor model, enabling message-driven
+  Components like `AddressableActor`, `EngineWorker`, `Exchange`, and
+  `TypeFactory` implement the actor model, enabling message-driven
   communication and fault-tolerant execution across nodes.
 
-- Finally, the Foundation layer provides essential runtime.
+- Finally, the `Foundation` layer provides essential runtime.
   The ZIO package offers structured concurrency, logging, metrics, and
   configuration management.
   The OTP package provides connectivity over erlang distribuition
@@ -274,10 +274,10 @@ CleanupService handles index deletion.
   interoperability with Erlang nodes.
 
 Overall, this layered design separates concerns clearly: the Clouseau
-package focuses on search-specific logic, the ActorFramework provides
-concurrency and messaging, the Facade layer integrates these with the
-actor runtime, and the Foundation layer delivers robust primitives for
-process management and communication.
+package focuses on search-specific logic, the `ActorFramework`
+provides concurrency and messaging, the `Facade` layer integrates
+these with the actor runtime, and the `Foundation` layer delivers
+robust primitives for process management and communication.
 
 #box(components-diagram)
 
@@ -297,9 +297,9 @@ abstraction for all business logic components.
 It encapsulates common service-level responsibilities such as
 initialization, message handling, and graceful shutdown, and most
 importantly adaptiation between async and sync parts of the system.
-Every major component in Clouseau—such as ClouseauSupervisor,
-IndexManagerService, IndexService, AnalyzerService, InitService, and
-RexService—inherits from Service.
+Every major component in Clouseau—such as `ClouseauSupervisor`,
+`IndexManagerService`, `IndexService`, `AnalyzerService`,
+`InitService`, and `RexService`—inherits from Service.
 Through this chain, each service class becomes an `AddressableActor`
 indirectly, because `Process` and `ProcessLike` integrate with the
 actor model provided by the underlying runtime.
@@ -308,9 +308,9 @@ addressed, monitored, and linked across nodes.
 The inheritance hierarchy was chosen to refelct the same structure
 provided by Scalang (actor framework used by Clouseau 2.x.
 By rooting all business logic in Service and connecting it to the
-actor system via Process and ProcessLike, Clouseau achieves a clean
-separation of concerns: the actor framework handles concurrency and
-distribution, while service classes implement domain-specific
+actor system via `Process` and `ProcessLike`, Clouseau achieves a
+clean separation of concerns: the actor framework handles concurrency
+and distribution, while service classes implement domain-specific
 functionality.
 Keep in mind that as we rewrite services in async maner the
 inheritance hierarchy would change and eventually the `Service` would
@@ -329,27 +329,28 @@ This index lifecycle management diagram illustrates the interaction
 between Dreyfus and Clouseau during index lifecycle management,
 focusing on how ETS tables and LRU cache coordinate with monitors and
 links.
-On the Dreyfus side, dreyfus_index_manager maintains two ETS tables:
-BY_INDEX, which maps {Db, Index} to process IDs, and BY_PID, which
-tracks active processes for cleanup and routing.
-When an index is requested, dreyfus_index_manager either retrieves the
-PID from ETS or calls clouseau_rpc:open_index/3 to forward the request
-to Clouseau.
-On the Clouseau side, IndexManagerService checks the OpenIndexLRU
+On the Dreyfus side, `dreyfus_index_manager` maintains two ETS tables:
+`BY_INDEX`, which maps `{Db, Index}` to process IDs, and `BY_PID`,
+which tracks active processes for cleanup and routing.
+When an index is requested, `dreyfus_index_manager` either retrieves
+the PID from ETS or calls `clouseau_rpc:open_index/3` to forward the
+request to Clouseau.
+On the Clouseau side, `IndexManagerService` checks the `OpenIndexLRU`
 cache for an existing index actor; if absent, it spawns a new
-IndexService actor and adds it to the LRU.
-Each opened index is represented by two actors—dreyfus_index in Erlang
-and IndexService in Scala—linked together so that termination of one
-propagates to the other.
-Monitors are established on both sides: dreyfus_index_manager monitors
-dreyfus_index, and IndexManagerService monitors IndexService.
-This design ensures consistency: if dreyfus_index dies, the manager
-receives a DOWN signal and removes the entry from ETS, while the link
-triggers an EXIT signal to terminate IndexService, which in turn is
-removed from the LRU.
-Conversely, if IndexService dies, IndexManagerService cleans up the
-LRU entry, and the link causes dreyfus_index to exit, prompting ETS
-cleanup.
+`IndexService` actor and adds it to the LRU.
+Each opened index is represented by two actors—`dreyfus_index` in
+Erlang and `IndexService` in Scala—linked together so that termination
+of one propagates to the other.
+Monitors are established on both sides: `dreyfus_index_manager`
+monitors `dreyfus_index`, and `IndexManagerService` monitors
+`IndexService`.
+This design ensures consistency: if `dreyfus_index` dies, the manager
+receives a `DOWN` signal and removes the entry from ETS, while the
+link triggers an `EXIT` signal to terminate `IndexService`, which in
+turn is removed from the LRU.
+Conversely, if `IndexService` dies, `IndexManagerService` cleans up
+the LRU entry, and the link causes `dreyfus_index` to exit, prompting
+ETS cleanup.
 This bidirectional monitoring and linking strategy guarantees that
 stale references are eliminated promptly, maintaining system integrity
 across distributed components.
@@ -386,21 +387,20 @@ Before diving into the flow, let's outline the key components:
 - *IndexService*: Handles Lucene operations like opening directories,
   initializing writers/searchers.
 
-- *Opener*: A temporary process responsible for spawning IndexService
-  and reporting results.
+- *Opener*: A temporary process responsible for spawning
+  `IndexService` and reporting results.
 
 - *Lucene*: The underlying library providing full-text indexing and
   search capabilities.
 
 CouchDB opens an index through the following flow.
-Dreyfus sends a request to Clouseau using
-clouseau_rpc:open_index/3.
-This is a gen_server call, which on the Erlang side looks like
+Dreyfus sends a request to Clouseau using `clouseau_rpc:open_index/3`.
+This is a `gen_server` call, which on the Erlang side looks like
 `gen_server:call({main, 'clouseau@127.0.0.1'}, {open, self(), Path,
 Options})`.
 The call asks Clouseau to open or retrieve an index process for a
 given index path.
-Clouseau's IndexManagerService receives the request and first checks
+Clouseau's `IndexManagerService` receives the request and first checks
 its LRU cache.
 If the index is already open, it immediately returns `{ok, Pid}` to
 Dreyfus — no additional work is required.
@@ -410,7 +410,7 @@ The `Opener` is short-lived and its sole responsibility is to start
 the actual index worker.
 It invokes `IndexService.start/4` with the index path and
 configuration options, which creates the `IndexService` actor.
-Inside `IndexService`, `Lucene` resources are initialized: the
+Inside `IndexService`, Lucene resources are initialized: the
 `FSDirectory` is opened, the `IndexWriter` and `IndexSearcher` are set
 up, and the appropriate analyzer is applied based on index settings.
 This stage involves disk I/O and lock acquisition, which are critical
@@ -422,11 +422,11 @@ The `Opener` then sends `{open_ok, Path, Peer, Pid}` back to
 At this point, the manager updates its LRU cache, establishes
 monitoring for the new process, and links the peer and index process
 to ensure fault tolerance.
-Finally, it responds to `Dreyfus` with `{ok, Pid}`.
+Finally, it responds to Dreyfus with `{ok, Pid}`.
 If an error occurs during initialization, the `Opener` sends
 `{open_error, Path, Error}` to the manager, which forwards `{error,
-Error}` back to `Dreyfus`.
-Cleanup logic in `IndexService.exit()` ensures `Lucene` resources are
+Error}` back to Dreyfus.
+Cleanup logic in `IndexService.exit()` ensures Lucene resources are
 released properly, which is essential when directories are moved or
 deleted or when Lucene write locks fail.
 
@@ -446,8 +446,8 @@ improvements for the facade layer:
   between the asynchronous world provided by ZIO and the synchronous
   business logic.
   To address this issue, we plan to refactor Clouseau classes from
-  their existing design where they are inherit of Service, towards
-  utilizing the AddressableActor class instead.
+  their existing design where they are inherit of `Service`, towards
+  utilizing the `AddressableActor` class instead.
 
   This architectural improvement will enable better integration with
   ZIO's reactive programming model and create a more efficient
