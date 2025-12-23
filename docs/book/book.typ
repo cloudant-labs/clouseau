@@ -72,44 +72,44 @@ complexity, and lack of confidence in compatibility.
 To avoid repeating these mistakes, this project focuses on incremental
 modernization with strict constraints.
 
-- Preserve API Compatibility.
+- _Preserve API Compatibility._
   Ensure that all external APIs remain unchanged.
   This guarantees that clients and upstream systems can continue
   operating without modifications, reducing deployment risk and
   avoiding costly integration work.
 
-- Maintain Existing Lucene Integration.
+- _Maintain Existing Lucene Integration._
   Avoid changes to the Scala glue code that communicates with Lucene.
   This minimizes complexity and ensures that proven indexing and
   search logic remains intact.
 
-- Preserve On-Disk Data Format.
+- _Preserve On-Disk Data Format._
   Do not alter existing index files.
   This prevents re-indexing, which would otherwise introduce downtime
   and operational risk.
 
-- Deliver a Drop-In Replacement.
+- _Deliver a Drop-In Replacement._
   The new version of Clouseau must be deployable as a drop-in
   replacement for the current system.
   This simplifies rollout and rollback strategies, making deployment
   safer and faster.
 
-- Use a Modern Foundation.
+- _Use a Modern Foundation._
   Replace the unsupported components with a modern, well-supported
   technology stack.
   This improves maintainability, security, and long-term viability.
 
-- Retain Business Logic.
+- _Retain Business Logic._
   Keep the existing business logic intact to reduce functional risk
   and ensure predictable behavior during migration.
 
-- Avoid Building Custom Infrastructure.
+- _Avoid Building Custom Infrastructure._
   Do not implement a custom asynchronous scheduler or other low-level
   components.
   Instead, leverage mature libraries and frameworks to reduce
   complexity and improve reliability.
 
-- Enable Future Enhancements.
+- _Enable Future Enhancements._
   While the initial phase focuses on stability and compatibility, the
   new foundation should allow future improvements such as Lucene
   upgrades, API enhancements, and performance optimizations without
@@ -192,20 +192,20 @@ behavior and safe cancellation of tasks.
 ZIO also includes a rich ecosystem of libraries that extend its
 capabilities:
 
-- *ZIO Streams* for processing large or infinite data streams with
-   backpressure and composable operators.
+- _ZIO Streams_ for processing large or infinite data streams with
+  backpressure and composable operators.
 
-- *ZIO Config* for type-safe configuration management from multiple
-   sources.
+- _ZIO Config_ for type-safe configuration management from multiple
+  sources.
 
-- *ZIO Logging* for structured, context-aware logging across
-   asynchronous boundaries.
+- _ZIO Logging_ for structured, context-aware logging across
+  asynchronous boundaries.
 
-- *ZIO STM* for software transactional memory, enabling safe and
-   composable concurrent state updates without locks.
+- _ZIO STM_ for software transactional memory, enabling safe and
+  composable concurrent state updates without locks.
 
-- *ZIO Test* for deterministic testing of concurrent code and
-   property-based testing.
+- _ZIO Test_ for deterministic testing of concurrent code and
+  property-based testing.
 
 In our modernization project, ZIO forms the core of the Foundation
 Layer, providing structured concurrency, resource management, and
