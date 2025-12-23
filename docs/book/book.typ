@@ -141,20 +141,20 @@ modernization with strict constraints.
 The project follows a layered architecture where all components are
 organized into distinct layers:
 
-- Foundation Layer.
+- _Foundation Layer._
   This layer includes core dependencies, such as ZIO and OTP
   abstractions, which form the foundation of our application.
   The motivation behind splitting the foundation into core and otp was
   to enable potential future replacements of communication protocol
   while retaining the existing functionality.
 
-- Facade Layer.
+- _Facade Layer._
   This layer consists of `scalang` emulation and interfaces
   converters, which act as a facade for the application, allowing us
   to run unmodified buisness logic from previous version of the
   project.
 
-- Clouseau Layer.
+- _Application Layer._
   The main application logic resides in this layer, primarily made up
   of unmodified service classes like `ClouseauSupervisor`,
   `IndexManagerService`, `IndexManager`, and `AnalyzerService`.
@@ -162,7 +162,7 @@ organized into distinct layers:
   functionality.
 
 To achieve the goal of potentially replacing the existing
-`jInterface`, the project includes a split of the foundation layer
+jInterface, the project includes a split of the foundation layer
 into two parts: `core` and `otp`.
 This allows us to separate the core functionality of the application
 from the specific implementation details related to the communication
@@ -245,10 +245,10 @@ interacts directly with Lucene through the Scala glue layer.
 `AnalyzerService` provides text analysis capabilities, while
 `CleanupService` handles index deletion.
 
-- The `Facade` layer, represented by the Scalang package, bridges
+- The Facade layer, represented by the Scalang package, bridges
   Clouseau's business logic with the underlying actor system.  This
-  layers adapts API provided by the `ActorFramework` to the needs of
-  Clouseau layer.
+  layer adapts the API provided by the ActorFramework to the needs of
+  the Application layer.
   It includes abstractions such as `Service`, `Process`, and
   `ProcessLike`, which are re-implementation of the abstractions
   provided by the Scalang (the framework we are replacing).
@@ -259,25 +259,25 @@ interacts directly with Lucene through the Scala glue layer.
   `LoggerFactory`, which provide node management, configuration
   handling, metrics collection, and logging.
 
-- The `ActorFramework`, which provides concurrency and distribution
+- The ActorFramework, which provides concurrency and distribution
   primitives.
   Components like `AddressableActor`, `EngineWorker`, `Exchange`, and
   `TypeFactory` implement the actor model, enabling message-driven
   communication and fault-tolerant execution across nodes.
 
-- Finally, the `Foundation` layer provides essential runtime.
+- Finally, the Foundation layer provides essential runtime.
   The ZIO package offers structured concurrency, logging, metrics, and
   configuration management.
   The OTP package provides connectivity over Erlang Distribuition
   Protocol.
-  The OTP package uses `jInterface` package which provides low-level
+  The OTP package uses the jInterface package which provides low-level
   interoperability with Erlang nodes.
 
 Overall, this layered design separates concerns clearly: the Clouseau
-package focuses on search-specific logic, the `ActorFramework`
-provides concurrency and messaging, the `Facade` layer integrates
-these with the actor runtime, and the `Foundation` layer delivers
-robust primitives for process management and communication.
+package focuses on search-specific logic, the ActorFramework provides
+concurrency and messaging, the Facade layer integrates these with the
+actor runtime, and the Foundation layer delivers robust primitives for
+process management and communication.
 
 #box(components-diagram)
 
@@ -374,24 +374,30 @@ for the modernization project.
 
 Before diving into the flow, let's outline the key components:
 
-- *Dreyfus*: An Erlang application acting as the bridge between
-  CouchDB and Clouseau.
+- _Dreyfus._
+  An Erlang application acting as the bridge between CouchDB and
+  Clouseau.
   It manages RPC calls and index lifecycle.
 
-- *Clouseau*: A Scala-based service that wraps Lucene functionality
-  and exposes it to Dreyfus.
+- _Clouseau._
+  A Scala-based service that wraps Lucene functionality and exposes it
+  to Dreyfus.
 
-- *IndexManagerService*: Maintains an LRU cache of open indexes and
-  coordinates opening/closing.
+- _Index Manager Service._
+  Maintains an LRU cache of open indexes and coordinates
+  opening/closing.
 
-- *IndexService*: Handles Lucene operations like opening directories,
-  initializing writers/searchers.
+- _Index Service._
+  Handles Lucene operations like opening directories, initializing
+  writers/searchers.
 
-- *Opener*: A temporary process responsible for spawning
-  `IndexService` and reporting results.
+- _Opener._
+  A temporary process responsible for spawning `IndexService` and
+  reporting results.
 
-- *Lucene*: The underlying library providing full-text indexing and
-  search capabilities.
+- _Lucene._
+  The underlying library providing full-text indexing and search
+  capabilities.
 
 CouchDB opens an index through the following flow.
 Dreyfus sends a request to Clouseau using `clouseau_rpc:open_index/3`.
