@@ -224,9 +224,9 @@ future-proof foundation without rewriting business logic.
 ZIO integrates seamlessly with Scala, allowing us to retain existing
 service classes while replacing the underlying concurrency and
 resource management layer.
-This approach provides immediate benefits—such as improved stability
-and observability—while laying the groundwork for future enhancements
-like reactive streaming, advanced scheduling.
+This approach provides immediate benefits -- such as improved
+stability and observability -- while laying the groundwork for future
+enhancements like reactive streaming, advanced scheduling.
 
 #pagebreak()
 
@@ -297,9 +297,9 @@ abstraction for all business logic components.
 It encapsulates common service-level responsibilities such as
 initialization, message handling, and graceful shutdown, and most
 importantly adaptiation between async and sync parts of the system.
-Every major component in Clouseau—such as `ClouseauSupervisor`,
+Every major component in Clouseau -- such as `ClouseauSupervisor`,
 `IndexManagerService`, `IndexService`, `AnalyzerService`,
-`InitService`, and `RexService`—inherits from Service.
+`InitService`, and `RexService` -- inherits from Service.
 Through this chain, each service class becomes an `AddressableActor`
 indirectly, because `Process` and `ProcessLike` integrate with the
 actor model provided by the underlying runtime.
@@ -338,9 +338,9 @@ request to Clouseau.
 On the Clouseau side, `IndexManagerService` checks the `OpenIndexLRU`
 cache for an existing index actor; if absent, it spawns a new
 `IndexService` actor and adds it to the LRU.
-Each opened index is represented by two actors—`dreyfus_index` in
-Erlang and `IndexService` in Scala—linked together so that termination
-of one propagates to the other.
+Each opened index is represented by two actors -- `dreyfus_index` in
+Erlang and `IndexService` in Scala -- linked together so that
+termination of one propagates to the other.
 Monitors are established on both sides: `dreyfus_index_manager`
 monitors `dreyfus_index`, and `IndexManagerService` monitors
 `IndexService`.
@@ -403,7 +403,7 @@ given index path.
 Clouseau's `IndexManagerService` receives the request and first checks
 its LRU cache.
 If the index is already open, it immediately returns `{ok, Pid}` to
-Dreyfus — no additional work is required.
+Dreyfus -- no additional work is required.
 If the index is not cached, the manager spawns a lightweight process
 called the `Opener`.
 The `Opener` is short-lived and its sole responsibility is to start
