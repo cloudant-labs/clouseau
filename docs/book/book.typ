@@ -268,8 +268,8 @@ interacts directly with Lucene through the Scala glue layer.
 - Finally, the `Foundation` layer provides essential runtime.
   The ZIO package offers structured concurrency, logging, metrics, and
   configuration management.
-  The OTP package provides connectivity over erlang distribuition
-  protocol.
+  The OTP package provides connectivity over Erlang Distribuition
+  Protocol.
   The OTP package uses `jInterface` package which provides low-level
   interoperability with Erlang nodes.
 
@@ -305,14 +305,14 @@ indirectly, because `Process` and `ProcessLike` integrate with the
 actor model provided by the underlying runtime.
 This is crucial for Clouseau's distributed nature: actors can be
 addressed, monitored, and linked across nodes.
-The inheritance hierarchy was chosen to refelct the same structure
-provided by Scalang (actor framework used by Clouseau 2.x.
+The inheritance hierarchy was chosen to reflect the same structure
+provided by Scalang (actor framework used by Clouseau 2.x).
 By rooting all business logic in Service and connecting it to the
 actor system via `Process` and `ProcessLike`, Clouseau achieves a
 clean separation of concerns: the actor framework handles concurrency
 and distribution, while service classes implement domain-specific
 functionality.
-Keep in mind that as we rewrite services in async maner the
+Keep in mind that as we rewrite services in async manner the
 inheritance hierarchy would change and eventually the `Service` would
 be removed, which would simplify the system a lot.
 A diagram representing the relationships and hierarchies between
@@ -468,4 +468,4 @@ improvements for the facade layer:
 - Re-architect the interaction between Dreyfus and Clouseau to avoid
   distributed state and improve reliability.
   Currently both dreyfus and Clouseau maintain mapping of file path to
-  pid.
+  PID.
