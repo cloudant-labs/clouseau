@@ -283,7 +283,7 @@ process management and communication.
 
 #pagebreak()
 
-= Inheritance diagram
+= Inheritance Diagram
 
 In Clouseau's architecture, all business logic classes share a common
 inheritance pattern that begins with the `Service` class and
@@ -323,7 +323,7 @@ diagram only covers Clouseau layer and facade layer.
 
 #pagebreak()
 
-= Index lifecycle management
+= Index Lifecycle Management
 
 This index lifecycle management diagram illustrates the interaction
 between Dreyfus and Clouseau during index lifecycle management,
@@ -370,7 +370,7 @@ for the modernization project.
 
 = Event Flows
 
-== Open index flow
+== Open Index Flow
 
 Before diving into the flow, let's outline the key components:
 
@@ -439,7 +439,7 @@ deleted or when Lucene write locks fail.
 #box(open-flow-diagram)
 
 
-= Roadmap and future improvements
+= Roadmap and Future Improvements
 
 To enhance Clouseau's efficiency and better align it with the
 asynchronous nature of the ZIO framework, there are proposed
