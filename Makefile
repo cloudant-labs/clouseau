@@ -154,7 +154,7 @@ check-spotbugs: build $(ARTIFACTS_DIR)
 	@spotbugs -textui -quiet -html=$(ARTIFACTS_DIR)/spotbugs.html \
 		-xml=$(ARTIFACTS_DIR)/spotbugs.xml $(SPOTBUGS_OPTS)
 
-.PHONY: jar
+.PHONY: docs
 # target: docs - Generate documentation
 docs: $(ARTIFACTS_DIR)/book.pdf
 
