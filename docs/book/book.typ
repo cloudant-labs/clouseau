@@ -8,7 +8,7 @@
 #import "./open-flow.typ": open-flow-diagram
 
 #show: report.with(
-  title: "Clouseau 3x",
+  title: "Clouseau 3.x",
   publishdate: "November 2025",
   // Uncomment if/when you find a good logo image to display
   // I did comment the line out to avoid legal problems
@@ -60,7 +60,7 @@ This approach ensures that the new version can be deployed as a
 drop-in replacement, minimizing operational risk and avoiding costly
 re-indexing or client-side changes.
 
-= Goals of the Clouseau 3.xx Release
+= Goals of the Clouseau 3.x Release
 
 The primary goal of this modernization effort is to stabilize and
 future-proof the search service without disrupting existing
@@ -306,7 +306,7 @@ actor model provided by the underlying runtime.
 This is crucial for Clouseau's distributed nature: actors can be
 addressed, monitored, and linked across nodes.
 The inheritance hierarchy was chosen to refelct the same structure
-provided by Scalang (actor framework used by Clouseau 2x.
+provided by Scalang (actor framework used by Clouseau 2.x.
 By rooting all business logic in Service and connecting it to the
 actor system via Process and ProcessLike, Clouseau achieves a clean
 separation of concerns: the actor framework handles concurrency and
