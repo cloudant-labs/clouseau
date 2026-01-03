@@ -304,6 +304,22 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   /*
    * Use it for tests only
    */
+  def doTestCast(payload: Codec.ETerm) = for {
+    node <- ZIO.service[Node]
+    message = MessageEnvelope
+      .makeCast(
+        Codec.EAtom("$gen_cast"),
+        self.pid,
+        id,
+        payload,
+        self
+      )
+    result <- ctx.cast(message)
+  } yield result
+
+  /*
+   * Use it for tests only
+   */
   def exit(reason: Codec.ETerm): UIO[Unit] = ctx.exit(reason)
 
   /*

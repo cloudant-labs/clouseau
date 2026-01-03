@@ -5,6 +5,7 @@ package com.cloudant.ziose.clouseau
  */
 
 import ClouseauTypeFactory._
+import org.apache.lucene.document.Field._
 import com.cloudant.ziose.core.Codec._
 import com.cloudant.ziose.scalang.Adapter
 import com.cloudant.ziose.test.helpers.Utils
@@ -12,17 +13,18 @@ import helpers.Generators._
 import org.junit.runner.RunWith
 import zio._
 import zio.test._
+import zio.test.Assertion._
 import zio.test.junit._
 import zio.ZIO._
 import com.cloudant.ziose.test.helpers.TestRunner
 
 @RunWith(classOf[ZTestJUnitRunner])
 class ClouseauTypeFactorySpec extends JUnitRunnableSpec {
-  val logger      = Utils.logger
-  val environment = ZLayer.succeed(Clock.ClockLive) ++ ZLayer.succeed(Random.RandomLive) ++ logger
-  val adapter     = Adapter.mockAdapterWithFactory(ClouseauTypeFactory)
+  val TIMEOUT_SUITE = 5.minutes
+  val environment   = ZLayer.succeed(Clock.ClockLive) ++ ZLayer.succeed(Random.RandomLive) ++ Utils.logger
+  val adapter       = Adapter.mockAdapterWithFactory(ClouseauTypeFactory)
 
-  def spec = {
+  val termEncodingSuite: Spec[Any, Throwable] = {
     suite("TypeFactory term encoding")(
       test("Correctly create clouseau type from ETerm")(
         check(anyMessagePairGen(4)) { case (term, msg) =>
@@ -42,6 +44,62 @@ class ClouseauTypeFactorySpec extends JUnitRunnableSpec {
         } yield assertTrue(event.isEmpty)
       }
     )
+  }
+
+  val legacySuite: Spec[Any, Throwable] = {
+    suite("Legacy scenarios")(
+      test("support true for store")(
+        assert(toStore(Map("store" -> true)))(equalTo(Store.YES))
+      ),
+      test("support false for store")(
+        assert(toStore(Map("store" -> false)))(equalTo(Store.NO))
+      ),
+      test("support all enumeration values for store") {
+        val converted = Store.values.map(store => toStore(Map("store" -> store.name)))
+        val names     = Store.values.map(store => Store.valueOf(store.name))
+        assert(converted)(equalTo(names))
+      },
+      test("support all enumeration values for store (case insensitively)") {
+        val converted = Store.values.map(store => toStore(Map("store" -> store.name.toLowerCase)))
+        val names     = Store.values.map(store => Store.valueOf(store.name))
+        assert(converted)(equalTo(names))
+      },
+      test("use the default if store string is not recognized")(
+        assert(toStore(Map("store" -> "hello")))(equalTo(Store.NO))
+      ),
+      test("use the default if store value is not recognized")(
+        assert(toStore(Map("store" -> 12)))(equalTo(Store.NO))
+      ),
+      test("support true for index")(
+        assert(toIndex(Map("index" -> true)))(equalTo(Index.ANALYZED))
+      ),
+      test("support false for index")(
+        assert(toIndex(Map("index" -> false)))(equalTo(Index.NO))
+      ),
+      test("support all enumeration values for index") {
+        val converted = Index.values.map(index => toIndex(Map("index" -> index.name)))
+        val names     = Index.values.map(index => Index.valueOf(index.name))
+        assert(converted)(equalTo(names))
+      },
+      test("support all enumeration values for index (case insensitively)") {
+        val converted = Index.values.map(index => toIndex(Map("index" -> index.name.toLowerCase)))
+        val names     = Index.values.map(index => Index.valueOf(index.name))
+        assert(converted)(equalTo(names))
+      },
+      test("use the default if index string is not recognized")(
+        assert(toIndex(Map("index" -> "hello")))(equalTo(Index.ANALYZED))
+      ),
+      test("use the default if index value is not recognized")(
+        assert(toIndex(Map("index" -> 12)))(equalTo(Index.ANALYZED))
+      )
+    )
+  }
+
+  def spec: Spec[Any, Throwable] = {
+    suite("ClouseauTypeFactorySpec")(
+      termEncodingSuite,
+      legacySuite
+    ) @@ TestAspect.timeout(TIMEOUT_SUITE)
   }
 }
 
