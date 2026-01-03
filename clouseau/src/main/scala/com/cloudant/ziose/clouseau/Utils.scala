@@ -16,6 +16,7 @@ import org.apache.lucene.index.Term
 import org.apache.lucene.util.BytesRef
 import org.apache.lucene.util.NumericUtils
 import zio.{&, LogLevel, ZIO}
+import zio._
 import com.cloudant.ziose.core.EngineWorker
 import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.core.ActorFactory
@@ -95,11 +96,14 @@ object Utils {
     node <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry, LogLevel.Debug))
   } yield node
 
-  def defaultConfig: ZIO[OTPNodeConfig, Throwable, Configuration] = for {
+  def mkConfig(config: ClouseauConfiguration): ZIO[OTPNodeConfig, Throwable, Configuration] = for {
     nodeCfg <- ZIO.service[OTPNodeConfig]
-  } yield Configuration(ClouseauConfiguration(), nodeCfg, CapacityConfiguration())
+  } yield Configuration(config, nodeCfg, CapacityConfiguration())
+
+  def defaultConfig: ZIO[OTPNodeConfig, Throwable, Configuration] = mkConfig(ClouseauConfiguration())
 
   def testEnvironment(engineId: Engine.EngineId, workerId: Engine.WorkerId, nodeName: String = "test") =
     otp.Utils.testEnvironment(engineId, workerId, nodeName)
 
+  val logger = Runtime.removeDefaultLoggers
 }
