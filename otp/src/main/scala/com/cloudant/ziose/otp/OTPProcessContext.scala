@@ -96,7 +96,7 @@ class OTPProcessContext private (
     mailbox.awaitShutdown
   }
 
-  def handleRespone(msg: MessageEnvelope.Response) = {
+  def handleResponse(msg: MessageEnvelope.Response) = {
     if (inProgressCalls.contains(msg.ref)) {
       inProgressCalls.remove(msg.ref) match {
         case Some(replyChannel) => replyChannel.succeed(Right(msg))
@@ -109,7 +109,7 @@ class OTPProcessContext private (
 
   def forward(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
     msg match {
-      case response: MessageEnvelope.Response => handleRespone(response)
+      case response: MessageEnvelope.Response => handleResponse(response)
       case _                                  => mailbox.forward(msg)
     }
   }
@@ -254,7 +254,7 @@ class OTPProcessContext private (
       case (false, true) => {
         // If message is for me I need to check if it is one of
         // the inProgressCalls, in such case resolve the promise.
-        handleRespone(msg).unit
+        handleResponse(msg).unit
       }
     }
   }
