@@ -31,7 +31,7 @@ classDiagram
     Spawn test services
   }
   class  RexService {
-    Maintainance API
+    Maintenance API
   }
 
 
