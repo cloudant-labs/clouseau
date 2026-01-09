@@ -163,6 +163,10 @@ create_ctx(#{
     script_name := ScriptName,
     format := Format
 }) ->
+    case Name of
+        undefined -> fail("No node name has been specified!", []);
+        _ -> ok
+    end,
     % elp:ignore atoms_exhaustion - Atom exhastion is not an issue for CLIs (invoked once)
     RemoteNode = list_to_atom(Name ++ "@" ++ Host),
     % elp:ignore atoms_exhaustion - Atom exhastion is not an issue for CLIs (invoked once)
