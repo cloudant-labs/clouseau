@@ -16,15 +16,10 @@ import org.apache.lucene.analysis._
 import org.apache.lucene.analysis.Analyzer._
 
 class PerFieldAnalyzer(defaultAnalyzer: Analyzer,
-                       map: Map[String, Analyzer]) extends AnalyzerWrapper {
+                       map: Map[String, Analyzer]) extends DelegatingAnalyzerWrapper(PER_FIELD_REUSE_STRATEGY) {
 
   def getWrappedAnalyzer(fieldName: String): Analyzer = {
     map.getOrElse(fieldName, defaultAnalyzer)
-  }
-
-  override def wrapComponents(fieldName: String,
-                              components: TokenStreamComponents): TokenStreamComponents = {
-    components
   }
 
   override def toString = {

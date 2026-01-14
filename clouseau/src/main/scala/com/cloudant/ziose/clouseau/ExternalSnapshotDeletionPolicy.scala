@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
 
 class ExternalSnapshotDeletionPolicy(dir: FSDirectory) extends IndexDeletionPolicy {
 
-  val originDir: File = dir.getDirectory
+  val originDir: File = dir.getDirectory.toFile
   var lastCommit: Option[IndexCommit] = None
 
   def snapshot(snapshotDir: File): Unit = {

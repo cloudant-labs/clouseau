@@ -16,18 +16,18 @@ import java.io.File
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
-import org.apache.lucene.document._
+import org.apache.lucene.document.Document
 import org.apache.lucene.index._
 import org.apache.lucene.store._
 import org.apache.lucene.search._
 import grouping.SearchGroup
-import grouping.term.{ TermSecondPassGroupingCollector, TermFirstPassGroupingCollector }
+import grouping.{ TermGroupSelector, TopGroupsCollector, FirstPassGroupingCollector }
 import org.apache.lucene.util.BytesRef
-import org.apache.lucene.util.Version
 import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.search.BooleanClause.Occur
-import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.queryparser.classic.ParseException
+import org.apache.lucene.facet.FacetsConfig
+import org.apache.lucene.facet.range.DoubleRange
 import org.apache.lucene.search.highlight.{
   Highlighter,
   QueryScorer,
@@ -41,21 +41,9 @@ import collection.JavaConverters._
 
 import Utils._
 
-import org.apache.lucene.facet.sortedset.{
-  SortedSetDocValuesReaderState,
-  SortedSetDocValuesAccumulator
-}
-import org.apache.lucene.facet.range.{
-  DoubleRange,
-  RangeAccumulator,
-  RangeFacetRequest
-}
-import org.apache.lucene.facet.search._
-import org.apache.lucene.facet.taxonomy.CategoryPath
-import org.apache.lucene.facet.params.{ FacetIndexingParams, FacetSearchParams }
 import scala.Some
-import _root_.com.spatial4j.core.context.SpatialContext
-import _root_.com.spatial4j.core.distance.DistanceUtils
+import org.locationtech.spatial4j.context.SpatialContext
+import org.locationtech.spatial4j.distance.DistanceUtils
 import java.util.HashSet
 import conversions._
 import Utils.ensureElementsType
@@ -66,8 +54,16 @@ import zio.ZIO
 import java.time.temporal.ChronoUnit
 import java.time.Instant
 import zio.Duration
+import org.apache.lucene.facet.FacetsCollectorManager
+import org.apache.lucene.facet.FacetsCollector
+import org.apache.lucene.facet.DrillDownQuery
+import org.apache.lucene.facet.range.DoubleRangeFacetCounts
+import org.apache.lucene.facet.Facets
+import scala.collection.mutable.ListBuffer
+import org.apache.lucene.facet.sortedset.DefaultSortedSetDocValuesReaderState
+import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetCounts
 
-case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
+case class IndexServiceArgs(config: Configuration, name: String, queryParser: ClouseauQueryParser, writer: IndexWriter)
 case class HighlightParameters(highlighter: Highlighter, highlightFields: List[String], highlightNumber: Int, analyzers: List[Analyzer])
 
 // These must match the records in dreyfus.
@@ -102,7 +98,15 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
 
   // Start committer heartbeat
   val commitInterval = ctx.args.config.getInt("commit_interval_secs", 30)
-  val timeAllowed = ctx.args.config.getLong("clouseau.search_allowed_timeout_msecs", 5000)
+  val timeAllowed = new QueryTimeoutImpl(ctx.args.config.getLong("clouseau.search_allowed_timeout_msecs", 5000)) {
+    override def shouldExit(): Boolean = {
+      val result = super.shouldExit()
+      if (result) {
+        parSearchTimeOutCount += 1
+      }
+      result
+    }
+  }
   val countFieldsEnabled = ctx.args.config.getBoolean("clouseau.count_fields", false)
 
   val concurrentSearchEnabled = ctx.args.config.getBoolean("clouseau.concurrent_search_enabled", false)
@@ -118,7 +122,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
 
   override def handleInit(): Unit = {
     logger.debug(s"handleInit(capacity = ${adapter.capacity})")
-    setReader(DirectoryReader.open(ctx.args.writer, true))
+    setReader(DirectoryReader.open(ctx.args.writer))
     sendEvery(self.pid, 'maybe_commit, commitInterval * 1000)
     send(self.pid, 'count_fields)
     adapter.setTag(ctx.args.name)
@@ -285,10 +289,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       case e: AlreadyClosedException => 'ignored
       case e: IOException =>
         logger.warn(prefix_name("Error while closing writer"), e)
-        val dir = ctx.args.writer.getDirectory
-        if (IndexWriter.isLocked(dir)) {
-          IndexWriter.unlock(dir);
-        }
     } finally {
       super.exit(msg)
     }
@@ -300,9 +300,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       committing = true
       val index = self
       node.spawn(_ => {
-        ctx.args.writer.setCommitData((ctx.args.writer.getCommitData.asScala +
-          ("update_seq" -> newUpdateSeq.toString) +
-          ("purge_seq" -> newPurgeSeq.toString)).asJava)
+        var commitData = Map.apply(
+          "update_seq" -> newUpdateSeq.toString,
+          "purge_seq" -> newPurgeSeq.toString)
+        ctx.args.writer.setLiveCommitData(commitData.asJava.entrySet)
         try {
           commitTimer.time {
             ctx.args.writer.commit()
@@ -341,20 +342,18 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
           val query = getDrilldown(request.options) match {
             case Some(categories: List[_]) => {
               val drilldownQuery = new DrillDownQuery(
-                FacetIndexingParams.DEFAULT, baseQuery)
+                ClouseauTypeFactory.facetsConfig, baseQuery)
               for (category <- categories) {
                 val category1 = category.toArray
                 val len = category1.length
                 try {
                   if (len < 3) {
-                    drilldownQuery.add(new CategoryPath(category1: _*))
-                  } else { //if there are multiple values OR'd them, delete this else part after updating to Apache Lucene > 4.6
+                    drilldownQuery.add(category1(0), category1.drop(1): _*)
+                  } else { // if there are multiple values OR them.
                     val dim = category1(0)
-                    val categoryPaths: Array[CategoryPath] = new Array[CategoryPath](len - 1)
-                    for (i <- 1 until len) {
-                      categoryPaths(i - 1) = new CategoryPath(Array(dim, category1(i)): _*)
+                    for (label <- category1.drop(1)) {
+                      drilldownQuery.add(dim, label)
                     }
-                    drilldownQuery.add(categoryPaths: _*)
                   }
                 } catch {
                   case e: IllegalArgumentException =>
@@ -371,96 +370,65 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
             case None => baseQuery
           }
           val searcher = getSearcher(refresh)
-          val weight = searcher.createNormalizedWeight(query)
-          val docsScoredInOrder = !weight.scoresDocsOutOfOrder
 
           val sort = parseSort(request.options.getOrElse('sort, 'relevance)).rewrite(searcher)
           val after = toScoreDoc(sort, getOption(request.options, 'after))
 
-          val hitsCollector = (limit, after, sort) match {
+          val hitsCollectorManager = (limit, after, sort) match {
             case (0, _, _) =>
-              new TotalHitCountCollector
+              // TODO optimize to searcher.count(query) sometime
+              new TotalHitCountCollectorManager(searcher.getSlices())
             case (_, None, Sort.RELEVANCE) =>
-              TopScoreDocCollector.create(limit, docsScoredInOrder)
+              new TopScoreDocCollectorManager(limit, Int.MaxValue)
             case (_, Some(scoreDoc), Sort.RELEVANCE) =>
-              TopScoreDocCollector.create(limit, scoreDoc, docsScoredInOrder)
+              // TODO consider reducing accuracy of hit count for performance
+              // by removing Int.MaxValue here and below.
+              new TopScoreDocCollectorManager(limit, scoreDoc, Int.MaxValue)
             case (_, None, sort1: Sort) =>
-              TopFieldCollector.create(sort1, limit, true, false, false,
-                docsScoredInOrder)
+              new TopFieldCollectorManager(sort1, limit, Int.MaxValue)
             case (_, Some(fieldDoc: FieldDoc), sort1: Sort) =>
-              TopFieldCollector.create(sort1, limit, fieldDoc, true, false,
-                false, docsScoredInOrder)
+              new TopFieldCollectorManager(sort1, limit, fieldDoc, Int.MaxValue)
             case (_, Some(_), _) =>
               throw new ParseException("invalid 'after' query")
           }
 
-          val countsCollector = createCountsCollector(counts)
-
-          val rangesCollector = ranges match {
-            case None =>
-              null
-            case Some(rangeList: List[_]) =>
-              val rangeFacetRequests: List[FacetRequest] = for ((name: RangesName, ranges: List[_]) <- rangeList) yield {
-                new RangeFacetRequest(name, ranges.map({
-                  case (label: RangesLabel, rangeQuery: RangesQuery) =>
-                    ctx.args.queryParser.parse(rangeQuery) match {
-                      case q: NumericRangeQuery[_] =>
-                        new DoubleRange(
-                          label,
-                          ClouseauTypeFactory.toDouble(q.getMin).get,
-                          q.includesMin,
-                          ClouseauTypeFactory.toDouble(q.getMax).get,
-                          q.includesMax)
-                      case _ =>
-                        throw new ParseException(rangeQuery +
-                          " was not a well-formed range specification")
-                    }
-                  case _ =>
-                    throw new ParseException("invalid ranges query")
-                }).asJava)
-              }
-              val acc = new RangeAccumulator(rangeFacetRequests.asJava)
-              FacetsCollector.create(acc)
-            case Some(other) =>
-              throw new ParseException(other + " is not a valid ranges query")
+          val collectorManager = if (counts.isDefined || ranges.isDefined) {
+            new MultiCollectorManager(hitsCollectorManager, new FacetsCollectorManager())
+          } else {
+            new MultiCollectorManager(hitsCollectorManager)
           }
 
-          val collector = MultiCollector.wrap(
-            hitsCollector, countsCollector, rangesCollector)
-
-          searchTimer.time {
-            partition match {
-              case None =>
-                searcher.search(query, collector)
-              case Some(p) =>
-                val tlcollector = new TimeLimitingCollector(collector,
-                  TimeLimitingCollector.getGlobalCounter, timeAllowed)
-                try {
-                  searcher.search(query, tlcollector)
-                } catch {
-                  case x: TimeLimitingCollector.TimeExceededException => {
-                    parSearchTimeOutCount += 1
-                    throw new ParseException("Query exceeded allowed time: " + timeAllowed + "ms.")
-                  }
-                }
-            }
+          if (partition.isDefined) {
+            searcher.setTimeout(timeAllowed)
           }
-          logger.debug(prefix_name(
-            "search for '%s' limit=%d, refresh=%s had %d hits"
-              .format(query, limit, refresh, getTotalHits(hitsCollector))))
+
+          val reduces = searchTimer.time {
+              searcher.search(query, collectorManager)
+          }
+
+          if (logger.isDebugEnabled()) {
+            // getTotalHits is expensive.
+            logger.debug(prefix_name(
+              "search for '%s' limit=%d, refresh=%s had %d hits"
+                .format(query, limit, refresh, getTotalHits(reduces(0)))))
+          }
           val HPs = getHighlightParameters(request.options, query)
 
-          val hits = getHits(hitsCollector, searcher, includeFields, HPs)
+          val hits = getHits(reduces(0), searcher, includeFields, HPs)
+          val facets: List[_] = if (reduces.length == 2) {
+            convertFacets(searcher, counts, ranges, reduces(1).asInstanceOf[FacetsCollector])
+          } else {
+            Nil
+          }
 
           if (legacy) {
-            ('ok, TopDocs(updateSeq, getTotalHits(hitsCollector), hits))
+            ('ok, TopDocs(updateSeq, getTotalHits(reduces(0)), hits))
           } else {
             ('ok, List(
               ('update_seq, updateSeq),
-              ('total_hits, getTotalHits(hitsCollector)),
+              ('total_hits, getTotalHits(reduces(0))),
               ('hits, hits)
-            ) ++ convertFacets('counts, countsCollector)
-              ++ convertFacets('ranges, rangesCollector))
+            ) ++ facets)
           }
         }
       case error =>
@@ -468,51 +436,22 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     }
   }
 
-  private def getTotalHits(collector: Collector) = collector match {
-    case c: TopDocsCollector[_] =>
-      c.getTotalHits
-    case c: TotalHitCountCollector =>
-      c.getTotalHits
+  private def getTotalHits(reduce: Any) = reduce match {
+    case totalHits: Int =>
+      totalHits
+    case topDocs: org.apache.lucene.search.TopDocs =>
+      topDocs.totalHits.value
   }
 
-  private def getHits(collector: Collector, searcher: IndexSearcher,
+  private def getHits(reduce: Any, searcher: IndexSearcher,
                       includeFields: Option[Set[String]], HPs: Option[HighlightParameters] = None) =
-    collector match {
-      case c: TopDocsCollector[_] =>
-        c.topDocs.scoreDocs.map({ docToHit(searcher, _, includeFields, HPs) }).toList
-      case c: TotalHitCountCollector =>
+    reduce match {
+      case topDocs: org.apache.lucene.search.TopDocs =>
+        val storedFields = searcher.storedFields
+        topDocs.scoreDocs.map({ docToHit(storedFields, _, includeFields, HPs) }).toList
+      case _: Int =>
         Nil
     }
-
-  private def createCountsCollector(counts: Option[List[String]]): FacetsCollector = {
-    counts match {
-      case None =>
-        null
-      case Some(counts: List[_]) =>
-        val state = try {
-          new SortedSetDocValuesReaderState(reader)
-        } catch {
-          case e: IllegalArgumentException =>
-            if (e.getMessage contains "was not indexed with SortedSetDocValues")
-              return null
-            else
-              throw e
-        }
-        val countFacetRequests: List[FacetRequest] = for (count <- counts) yield {
-          new CountFacetRequest(new CategoryPath(count), Int.MaxValue)
-        }
-        val facetSearchParams = new FacetSearchParams(countFacetRequests.asJava)
-        val acc = try {
-          new SortedSetDocValuesAccumulator(state, facetSearchParams)
-        } catch {
-          case e: IllegalArgumentException =>
-            throw new ParseException(e.getMessage)
-        }
-        FacetsCollector.create(acc)
-      case Some(other) =>
-        throw new ParseException(other + " is not a valid counts query")
-    }
-  }
 
   private def group1(queryString: String, field: String, refresh: Boolean, groupSort: Any,
                      groupOffset: Int, groupLimit: Int): Any = parseQuery(queryString, None) match {
@@ -520,11 +459,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       val searcher = getSearcher(refresh)
       safeSearch {
         val fieldName = validateGroupField(field)
-        val collector = new TermFirstPassGroupingCollector(fieldName,
+        val selector = new TermGroupSelector(fieldName)
+        val collector = new FirstPassGroupingCollector(selector,
           parseSort(groupSort).rewrite(searcher), groupLimit)
         searchTimer.time {
           searcher.search(query, collector)
-          collector.getTopGroups(groupOffset, true) match {
+          collector.getTopGroups(groupOffset) match {
             case null =>
               ('ok, List())
             case topGroups =>
@@ -555,9 +495,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
         }
         safeSearch {
           val fieldName = validateGroupField(field)
-          val collector = new TermSecondPassGroupingCollector(fieldName, groups1.asJava,
+          val selector = new TermGroupSelector(fieldName)
+          val collector = new TopGroupsCollector(selector, groups1.asJava,
             parseSort(groupSort).rewrite(searcher),
-            parseSort(docSort).rewrite(searcher), docLimit, true, false, true)
+            parseSort(docSort).rewrite(searcher), docLimit, false)
           searchTimer.time {
             searcher.search(query, collector)
             collector.getTopGroups(0) match {
@@ -565,6 +506,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
                 ('ok, 0, 0, List())
               case topGroups => {
                 val HPs = getHighlightParameters(request.options, query)
+                val storedFields = searcher.storedFields
                 ('ok, topGroups.totalHitCount, topGroups.totalGroupedHitCount,
                   topGroups.groups.map {
                     g =>
@@ -572,7 +514,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
                         g.groupValue,
                         g.totalHits,
                         g.scoreDocs.map({
-                          docToHit(searcher, _, includeFields, HPs)
+                          docToHit(storedFields, _, includeFields, HPs)
                         }).toList
                       )
                   }.toList)
@@ -645,10 +587,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
         case None =>
           ctx.args.queryParser.parse(query)
         case Some(p) =>
-          val q = new BooleanQuery();
-          q.add(new TermQuery(new Term("_partition", p)), Occur.MUST);
-          q.add(ctx.args.queryParser.parse(query), Occur.MUST);
-          q
+          val builder = new BooleanQuery.Builder()
+            .add(new TermQuery(new Term("_partition", p)), Occur.MUST)
+            .add(ctx.args.queryParser.parse(query), Occur.MUST)
+          builder.build
       }
     }
   }
@@ -701,24 +643,23 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     sizes.sum
   }
 
-  private def getCommittedSeq = {
-    val commitData = ctx.args.writer.getCommitData
-    commitData.get("update_seq") match {
-      case null =>
-        0L
-      case seq =>
-        seq.toLong
-    }
+  private def getCommittedSeq: Long = {
+    getSeq("update_seq")
   }
 
-  private def getCommittedPurgeSeq = {
-    val commitData = ctx.args.writer.getCommitData
-    commitData.get("purge_seq") match {
-      case null =>
-        0L
-      case seq =>
-        seq.toLong
+  private def getCommittedPurgeSeq: Long = {
+    getSeq("purge_seq")
+  }
+
+  private def getSeq(key: String): Long = {
+    val it = ctx.args.writer.getLiveCommitData.iterator
+    while (it.hasNext) {
+      val e = it.next
+      if (e.getKey.equals(key)) {
+        return e.getValue.toLong
+      }
     }
+    0L
   }
 
   private def parseSort(v: Any): Sort = v match {
@@ -730,13 +671,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       new Sort(fields.map(toSortField).toArray: _*)
   }
 
-  private def docToHit(searcher: IndexSearcher, scoreDoc: ScoreDoc,
+  private def docToHit(storedFields: StoredFields, scoreDoc: ScoreDoc,
                        includeFields: Option[Set[String]] = null, HPs: Option[HighlightParameters] = None): Hit = {
     val doc = includeFields match {
       case None =>
-        searcher.doc(scoreDoc.doc)
+        storedFields.document(scoreDoc.doc)
       case Some(fields) =>
-        searcher.doc(scoreDoc.doc, fields.asJava)
+        storedFields.document(scoreDoc.doc, fields.asJava)
     }
 
     var fields = doc.getFields.asScala.foldLeft(Map[String, Any]())((acc, field) => {
@@ -823,20 +764,64 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       throw new ParseException("Unrecognized sort parameter: " + field)
   }
 
-  private def convertFacets(name: Symbol, c: FacetsCollector): List[_] = c match {
-    case null =>
-      Nil
-    case _ =>
-      List((name, c.getFacetResults.asScala.map { f => convertFacet(f) }.toList))
+  private def convertFacets(
+    searcher: IndexSearcher,
+    counts: Option[List[String]],
+    ranges: Option[List[Product2[RangesName, List[Product2[RangesLabel, RangesQuery]]]]],
+     fc: FacetsCollector) = {
+      (counts match {
+        case None => Nil
+        case Some(counts) =>
+          List(('counts, convertCounts(searcher, counts, fc)))
+      }) ++
+      (ranges match {
+        case None => Nil
+        case Some(ranges) =>
+          List(('ranges, convertRanges(searcher, ranges, fc)))
+      })
   }
 
-  private def convertFacet(facet: FacetResult): Any = {
-    convertFacetNode(facet.getFacetResultNode)
+  private def convertCounts(searcher: IndexSearcher, counts: List[String], fc: FacetsCollector) = {
+    val reader = searcher.getIndexReader
+    reader.getDocCount(FacetsConfig.DEFAULT_INDEX_FIELD_NAME) match {
+      case 0 => Nil
+      case _ =>
+        // TODO state should be created once and re-used for a given IndexReader.
+        val state = new DefaultSortedSetDocValuesReaderState(reader, ClouseauTypeFactory.facetsConfig)
+        val facets = new SortedSetDocValuesFacetCounts(state, fc)
+        counts.map { count =>
+          collectFacets(count, facets)
+        }
+    }
   }
 
-  private def convertFacetNode(node: FacetResultNode): Any = {
-    val children = node.subResults.asScala.map { n => convertFacetNode(n) }.toList
-    (node.label.components.toList, node.value, children)
+  private def convertRanges(
+    searcher: IndexSearcher,
+    ranges: List[Product2[RangesName, List[Product2[RangesLabel, RangesQuery]]]],
+    fc: FacetsCollector) = {
+      ranges.map { range =>
+        val facets = toDoubleRangeFacetCounts(fc, range._1, range._2)
+        collectFacets(range._1, facets)
+      }
+  }
+
+  private def toDoubleRangeFacetCounts(fc: FacetsCollector, field: RangesLabel, rangeQueries: List[Product2[RangesLabel, RangesQuery]]) = {
+    val ranges = new ListBuffer[DoubleRange]
+    for (rangeQuery <- rangeQueries) {
+      ctx.args.queryParser.parseDoubleRange(rangeQuery._1, rangeQuery._2) match {
+        case Some(doubleRange) => ranges += doubleRange
+        case None => ()
+      }
+    }
+    new DoubleRangeFacetCounts(field, fc, ranges.toArray: _*)
+  }
+
+  private def collectFacets(dim: String, facets: Facets) = {
+    facets.getAllChildren(dim) match {
+      case null => (List(dim), 0.0, Nil)
+      case facetResult => (List(dim), facetResult.value,
+        facetResult.labelValues.map(lv => (List(dim, lv.label), lv.value, Nil)).toList)
+    }
   }
 
   private def toScoreDoc(sort: Sort, after: Option[Any]): Option[ScoreDoc] = after match {
@@ -906,7 +891,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
 
 object IndexService {
   val logger = LoggerFactory.getLogger("clouseau")
-  val version = Version.LUCENE_46
   val INVERSE_FIELD_SCORE = new SortField(null, SortField.Type.SCORE, true)
   val INVERSE_FIELD_DOC = new SortField(null, SortField.Type.DOC, true)
   val SORT_FIELD_RE = """^([-+])?([\.\w]+)(?:<(\w+)>)?$""".r
@@ -919,8 +903,9 @@ object IndexService {
     try {
       SupportedAnalyzers.createAnalyzer(options) match {
         case Some(analyzer) =>
-          val queryParser = new ClouseauQueryParser(version, "default", analyzer)
-          val writerConfig = new IndexWriterConfig(version, analyzer)
+          val queryParser = new ClouseauQueryParser("default", analyzer)
+          val writerConfig = new IndexWriterConfig(analyzer)
+          writerConfig.setUseCompoundFile(false)
           writerConfig.setIndexDeletionPolicy(new ExternalSnapshotDeletionPolicy(dir))
           val writer = new IndexWriter(dir, writerConfig)
           IndexServiceBuilder.start(node, IndexServiceArgs(config, path, queryParser, writer))
@@ -934,16 +919,7 @@ object IndexService {
   }
 
   private def newDirectory(config: ClouseauConfiguration, path: File): FSDirectory = {
-    val lockClassName = config.getString("clouseau.lock_class",
-      "org.apache.lucene.store.NativeFSLockFactory")
-    val lockClass = Class.forName(lockClassName)
-    val lockFactory = lockClass.newInstance().asInstanceOf[LockFactory]
-
-    val dirClassName = config.getString("clouseau.dir_class",
-      "org.apache.lucene.store.NIOFSDirectory")
-    val dirClass = Class.forName(dirClassName)
-    val dirCtor = dirClass.getConstructor(classOf[File], classOf[LockFactory])
-    dirCtor.newInstance(path, lockFactory).asInstanceOf[FSDirectory]
+    FSDirectory.open(path.toPath())
   }
 
   /**

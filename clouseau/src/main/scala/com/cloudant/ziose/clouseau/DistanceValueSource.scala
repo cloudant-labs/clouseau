@@ -12,14 +12,13 @@
 
 package com.cloudant.ziose.clouseau
 
-import com.spatial4j.core.context.SpatialContext
-import com.spatial4j.core.shape.Point
-import org.apache.lucene.queries.function.{ FunctionValues, ValueSource }
-import org.apache.lucene.index.{ AtomicReader, AtomicReaderContext }
-import org.apache.lucene.search.FieldCache
-import org.apache.lucene.util.Bits
-import com.spatial4j.core.distance.DistanceCalculator
-import java.util.Map
+import org.locationtech.spatial4j.context.SpatialContext
+import org.locationtech.spatial4j.shape.Point
+import org.apache.lucene.search.DoubleValuesSource
+import org.apache.lucene.index.LeafReaderContext
+import org.apache.lucene.search.DoubleValues
+import org.apache.lucene.index.DocValues
+import org.apache.lucene.search.IndexSearcher
 
 /*
 This is lucene spatial's DistanceValueSource but with configurable
@@ -30,44 +29,46 @@ case class DistanceValueSource(ctx: SpatialContext,
                                lat: String,
                                multiplier: Double,
                                from: Point)
-    extends ValueSource {
+    extends DoubleValuesSource {
+
+  val nullValue = 180 * multiplier
 
   def description() = "DistanceValueSource(%s)".format(from)
 
-  def getValues(context: Map[_, _], readerContext: AtomicReaderContext) = {
-    val reader: AtomicReader = readerContext.reader
+  override def toString(): String = {
+        description
+  }
 
-    val ptLon: FieldCache.Doubles = FieldCache.DEFAULT.getDoubles(reader,
-      lon, true)
-    val ptLat: FieldCache.Doubles = FieldCache.DEFAULT.getDoubles(reader,
-      lat, true)
-    val validLon: Bits = FieldCache.DEFAULT.getDocsWithField(reader, lon)
-    val validLat: Bits = FieldCache.DEFAULT.getDocsWithField(reader, lat)
+  override def getValues(readerContext: LeafReaderContext, scores: DoubleValues):DoubleValues = {
+    val reader = readerContext.reader()
+    val ptX = DocValues.getNumeric(reader, lon)
+    val ptY = DocValues.getNumeric(reader, lat)
 
-    new FunctionValues {
-
-      override def floatVal(doc: Int): Float = {
-        doubleVal(doc).asInstanceOf[Float]
-      }
-
-      override def doubleVal(doc: Int) = {
-        if (validLon.get(doc)) {
-          assert(validLat.get(doc))
-          calculator.distance(from, ptLon.get(doc), ptLat.get(doc)) * multiplier
-        } else {
-          nullValue
+    DoubleValues.withDefault(
+      new DoubleValues() {
+        val from = DistanceValueSource.this.from
+        val calculator = ctx.getDistCalc
+        override def doubleValue() = {
+          val x = java.lang.Double.longBitsToDouble(ptX.longValue())
+          val y = java.lang.Double.longBitsToDouble(ptY.longValue())
+          calculator.distance(from, x, y) * multiplier
         }
-      }
+        override def advanceExact(doc: Int) = {
+          ptX.advanceExact(doc) && ptY.advanceExact(doc)
+        }
+      },
+      nullValue
+    )
+  }
 
-      def toString(doc: Int): String = {
-        description + "=" + floatVal(doc)
-      }
+  override def needsScores() = false
 
-      private final val from: Point = DistanceValueSource.this.from
-      private final val calculator: DistanceCalculator = ctx.getDistCalc
-      private final val nullValue = if (ctx.isGeo) 180 * multiplier else
-        Double.MaxValue
-    }
+  override def isCacheable(ctx: LeafReaderContext) = {
+    DocValues.isCacheable(ctx, lon, lat)
+  }
+
+  override def rewrite(searcher: IndexSearcher) = {
+    this
   }
 
 }
