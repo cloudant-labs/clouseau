@@ -26,7 +26,7 @@ val versions: Map[String, String] = Map(
   "zio.metrics" -> "2.3.1",
   "jmx"         -> "1.14.5",
   "reflect"     -> "2.13.16",
-  "lucene"      -> "4.6.1-cloudant1",
+  "lucene"      -> "10.3.2",
   "tinylog"     -> "2.7.0"
 )
 
@@ -37,12 +37,12 @@ lazy val luceneComponents = Seq(
   "org.apache.lucene" % "lucene-core"               % versions("lucene"),
   "org.apache.lucene" % "lucene-grouping"           % versions("lucene"),
   "org.apache.lucene" % "lucene-queryparser"        % versions("lucene"),
-  "org.apache.lucene" % "lucene-analyzers-common"   % versions("lucene"),
-  "org.apache.lucene" % "lucene-analyzers-stempel"  % versions("lucene"),
-  "org.apache.lucene" % "lucene-analyzers-smartcn"  % versions("lucene"),
-  "org.apache.lucene" % "lucene-analyzers-kuromoji" % versions("lucene"),
+  "org.apache.lucene" % "lucene-analysis-common"    % versions("lucene"),
+  "org.apache.lucene" % "lucene-analysis-stempel"   % versions("lucene"),
+  "org.apache.lucene" % "lucene-analysis-smartcn"   % versions("lucene"),
+  "org.apache.lucene" % "lucene-analysis-kuromoji"  % versions("lucene"),
   "org.apache.lucene" % "lucene-facet"              % versions("lucene"),
-  "org.apache.lucene" % "lucene-spatial"            % versions("lucene"),
+  "org.apache.lucene" % "lucene-spatial-extras"     % versions("lucene"),
   "org.apache.lucene" % "lucene-highlighter"        % versions("lucene")
 )
 

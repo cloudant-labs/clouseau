@@ -12,7 +12,6 @@
 
 package com.cloudant.ziose.clouseau
 
-import java.io.Reader
 import java.util.{ Set => JSet }
 //import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -20,7 +19,7 @@ import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.analysis.Tokenizer
 //import org.apache.lucene.analysis.TokenStream
 import org.apache.lucene.analysis.Analyzer.TokenStreamComponents
-import org.apache.lucene.analysis.util.CharArraySet
+import org.apache.lucene.analysis.CharArraySet
 import scala.collection.JavaConverters._
 
 import org.apache.lucene.analysis.core.KeywordAnalyzer
@@ -57,9 +56,9 @@ import org.apache.lucene.analysis.pl.PolishAnalyzer
 import org.apache.lucene.analysis.pt.PortugueseAnalyzer
 import org.apache.lucene.analysis.ro.RomanianAnalyzer
 import org.apache.lucene.analysis.ru.RussianAnalyzer
-import org.apache.lucene.analysis.standard.ClassicAnalyzer
+import org.apache.lucene.analysis.classic.ClassicAnalyzer
 import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.analysis.standard.UAX29URLEmailAnalyzer
+import org.apache.lucene.analysis.email.UAX29URLEmailAnalyzer
 import org.apache.lucene.analysis.sv.SwedishAnalyzer
 import org.apache.lucene.analysis.th.ThaiAnalyzer
 import org.apache.lucene.analysis.tr.TurkishAnalyzer
@@ -99,256 +98,256 @@ object SupportedAnalyzers {
     case "keyword" =>
       Some(new KeywordAnalyzer())
     case "simple" =>
-      Some(new SimpleAnalyzer(IndexService.version))
+      Some(new SimpleAnalyzer())
     case "whitespace" =>
-      Some(new WhitespaceAnalyzer(IndexService.version))
+      Some(new WhitespaceAnalyzer())
     case "simple_asciifolding" =>
       Some(new Analyzer() {
-        def createComponents(fieldName: String, reader: Reader): TokenStreamComponents = {
-          val tokenizer: Tokenizer = new LetterTokenizer(IndexService.version, reader);
-          new TokenStreamComponents(tokenizer, new ASCIIFoldingFilter(new LowerCaseFilter(IndexService.version, tokenizer)))
+        def createComponents(fieldName: String): TokenStreamComponents = {
+          val tokenizer: Tokenizer = new LetterTokenizer()
+          new TokenStreamComponents(tokenizer, new ASCIIFoldingFilter(new LowerCaseFilter(tokenizer)))
         }
       })
     case "arabic" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new ArabicAnalyzer(IndexService.version, stopwords))
+          Some(new ArabicAnalyzer(stopwords))
         case None =>
-          Some(new ArabicAnalyzer(IndexService.version))
+          Some(new ArabicAnalyzer())
       }
     case "bulgarian" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new BulgarianAnalyzer(IndexService.version, stopwords))
+          Some(new BulgarianAnalyzer(stopwords))
         case None =>
-          Some(new BulgarianAnalyzer(IndexService.version))
+          Some(new BulgarianAnalyzer())
       }
     case "brazilian" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new BrazilianAnalyzer(IndexService.version, stopwords))
+          Some(new BrazilianAnalyzer(stopwords))
         case None =>
-          Some(new BrazilianAnalyzer(IndexService.version))
+          Some(new BrazilianAnalyzer())
       }
     case "catalan" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new CatalanAnalyzer(IndexService.version, stopwords))
+          Some(new CatalanAnalyzer(stopwords))
         case None =>
-          Some(new CatalanAnalyzer(IndexService.version))
+          Some(new CatalanAnalyzer())
       }
     case "cjk" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new CJKAnalyzer(IndexService.version, stopwords))
+          Some(new CJKAnalyzer(stopwords))
         case None =>
-          Some(new CJKAnalyzer(IndexService.version))
+          Some(new CJKAnalyzer())
       }
     case "chinese" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new SmartChineseAnalyzer(IndexService.version, stopwords))
+          Some(new SmartChineseAnalyzer(stopwords))
         case None =>
-          Some(new SmartChineseAnalyzer(IndexService.version))
+          Some(new SmartChineseAnalyzer())
       }
     case "czech" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new CzechAnalyzer(IndexService.version, stopwords))
+          Some(new CzechAnalyzer(stopwords))
         case None =>
-          Some(new CzechAnalyzer(IndexService.version))
+          Some(new CzechAnalyzer())
       }
     case "danish" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new DanishAnalyzer(IndexService.version, stopwords))
+          Some(new DanishAnalyzer(stopwords))
         case None =>
-          Some(new DanishAnalyzer(IndexService.version))
+          Some(new DanishAnalyzer())
       }
     case "german" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new GermanAnalyzer(IndexService.version, stopwords))
+          Some(new GermanAnalyzer(stopwords))
         case None =>
-          Some(new GermanAnalyzer(IndexService.version))
+          Some(new GermanAnalyzer())
       }
     case "greek" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new GreekAnalyzer(IndexService.version, stopwords))
+          Some(new GreekAnalyzer(stopwords))
         case None =>
-          Some(new GreekAnalyzer(IndexService.version))
+          Some(new GreekAnalyzer())
       }
     case "english" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new EnglishAnalyzer(IndexService.version, stopwords))
+          Some(new EnglishAnalyzer(stopwords))
         case None =>
-          Some(new EnglishAnalyzer(IndexService.version))
+          Some(new EnglishAnalyzer())
       }
     case "spanish" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new SpanishAnalyzer(IndexService.version, stopwords))
+          Some(new SpanishAnalyzer(stopwords))
         case None =>
-          Some(new SpanishAnalyzer(IndexService.version))
+          Some(new SpanishAnalyzer())
       }
     case "basque" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new BasqueAnalyzer(IndexService.version, stopwords))
+          Some(new BasqueAnalyzer(stopwords))
         case None =>
-          Some(new BasqueAnalyzer(IndexService.version))
+          Some(new BasqueAnalyzer())
       }
     case "persian" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new PersianAnalyzer(IndexService.version, stopwords))
+          Some(new PersianAnalyzer(stopwords))
         case None =>
-          Some(new PersianAnalyzer(IndexService.version))
+          Some(new PersianAnalyzer())
       }
     case "finnish" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new FinnishAnalyzer(IndexService.version, stopwords))
+          Some(new FinnishAnalyzer(stopwords))
         case None =>
-          Some(new FinnishAnalyzer(IndexService.version))
+          Some(new FinnishAnalyzer())
       }
     case "french" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new FrenchAnalyzer(IndexService.version, stopwords))
+          Some(new FrenchAnalyzer(stopwords))
         case None =>
-          Some(new FrenchAnalyzer(IndexService.version))
+          Some(new FrenchAnalyzer())
       }
     case "irish" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new IrishAnalyzer(IndexService.version, stopwords))
+          Some(new IrishAnalyzer(stopwords))
         case None =>
-          Some(new IrishAnalyzer(IndexService.version))
+          Some(new IrishAnalyzer())
       }
     case "galician" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new GalicianAnalyzer(IndexService.version, stopwords))
+          Some(new GalicianAnalyzer(stopwords))
         case None =>
-          Some(new GalicianAnalyzer(IndexService.version))
+          Some(new GalicianAnalyzer())
       }
     case "hindi" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new HindiAnalyzer(IndexService.version, stopwords))
+          Some(new HindiAnalyzer(stopwords))
         case None =>
-          Some(new HindiAnalyzer(IndexService.version))
+          Some(new HindiAnalyzer())
       }
     case "hungarian" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new HungarianAnalyzer(IndexService.version, stopwords))
+          Some(new HungarianAnalyzer(stopwords))
         case None =>
-          Some(new HungarianAnalyzer(IndexService.version))
+          Some(new HungarianAnalyzer())
       }
     case "armenian" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new ArmenianAnalyzer(IndexService.version, stopwords))
+          Some(new ArmenianAnalyzer(stopwords))
         case None =>
-          Some(new ArmenianAnalyzer(IndexService.version))
+          Some(new ArmenianAnalyzer())
       }
     case "indonesian" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new IndonesianAnalyzer(IndexService.version, stopwords))
+          Some(new IndonesianAnalyzer(stopwords))
         case None =>
-          Some(new IndonesianAnalyzer(IndexService.version))
+          Some(new IndonesianAnalyzer())
       }
     case "italian" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new ItalianAnalyzer(IndexService.version, stopwords))
+          Some(new ItalianAnalyzer(stopwords))
         case None =>
-          Some(new ItalianAnalyzer(IndexService.version))
+          Some(new ItalianAnalyzer())
       }
     case "japanese" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new JapaneseAnalyzer(IndexService.version, null, JapaneseTokenizer.DEFAULT_MODE, stopwords, JapaneseAnalyzer.getDefaultStopTags))
+          Some(new JapaneseAnalyzer(null, JapaneseTokenizer.DEFAULT_MODE, stopwords, JapaneseAnalyzer.getDefaultStopTags))
         case None =>
-          Some(new JapaneseAnalyzer(IndexService.version))
+          Some(new JapaneseAnalyzer())
       }
     case "latvian" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new LatvianAnalyzer(IndexService.version, stopwords))
+          Some(new LatvianAnalyzer(stopwords))
         case None =>
-          Some(new LatvianAnalyzer(IndexService.version))
+          Some(new LatvianAnalyzer())
       }
     case "dutch" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new DutchAnalyzer(IndexService.version, stopwords))
+          Some(new DutchAnalyzer(stopwords))
         case None =>
-          Some(new DutchAnalyzer(IndexService.version))
+          Some(new DutchAnalyzer())
       }
     case "norwegian" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new NorwegianAnalyzer(IndexService.version, stopwords))
+          Some(new NorwegianAnalyzer(stopwords))
         case None =>
-          Some(new NorwegianAnalyzer(IndexService.version))
+          Some(new NorwegianAnalyzer())
       }
     case "polish" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new PolishAnalyzer(IndexService.version, stopwords))
+          Some(new PolishAnalyzer(stopwords))
         case None =>
-          Some(new PolishAnalyzer(IndexService.version))
+          Some(new PolishAnalyzer())
       }
     case "portuguese" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new PortugueseAnalyzer(IndexService.version, stopwords))
+          Some(new PortugueseAnalyzer(stopwords))
         case None =>
-          Some(new PortugueseAnalyzer(IndexService.version))
+          Some(new PortugueseAnalyzer())
       }
     case "romanian" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new RomanianAnalyzer(IndexService.version, stopwords))
+          Some(new RomanianAnalyzer(stopwords))
         case None =>
-          Some(new RomanianAnalyzer(IndexService.version))
+          Some(new RomanianAnalyzer())
       }
     case "russian" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new RussianAnalyzer(IndexService.version, stopwords))
+          Some(new RussianAnalyzer(stopwords))
         case None =>
-          Some(new RussianAnalyzer(IndexService.version))
+          Some(new RussianAnalyzer())
       }
     case "classic" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new ClassicAnalyzer(IndexService.version, stopwords))
+          Some(new ClassicAnalyzer(stopwords))
         case None =>
-          Some(new ClassicAnalyzer(IndexService.version))
+          Some(new ClassicAnalyzer())
       }
     case "standard" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new StandardAnalyzer(IndexService.version, stopwords))
+          Some(new StandardAnalyzer(stopwords))
         case None =>
-          Some(new StandardAnalyzer(IndexService.version))
+          Some(new StandardAnalyzer())
       }
     case "email" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new UAX29URLEmailAnalyzer(IndexService.version, stopwords))
+          Some(new UAX29URLEmailAnalyzer(stopwords))
         case None =>
-          Some(new UAX29URLEmailAnalyzer(IndexService.version))
+          Some(new UAX29URLEmailAnalyzer())
       }
     case "perfield" =>
-      val fallbackAnalyzer = new StandardAnalyzer(IndexService.version)
+      val fallbackAnalyzer = new StandardAnalyzer()
       val defaultAnalyzer: Analyzer = options.get("default").flatMap(parseDefault) match {
         case Some(defaultOptions) =>
           createAnalyzerInt(defaultOptions) match {
@@ -392,23 +391,23 @@ object SupportedAnalyzers {
     case "swedish" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new SwedishAnalyzer(IndexService.version, stopwords))
+          Some(new SwedishAnalyzer(stopwords))
         case None =>
-          Some(new SwedishAnalyzer(IndexService.version))
+          Some(new SwedishAnalyzer())
       }
     case "thai" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new ThaiAnalyzer(IndexService.version, stopwords))
+          Some(new ThaiAnalyzer(stopwords))
         case None =>
-          Some(new ThaiAnalyzer(IndexService.version))
+          Some(new ThaiAnalyzer())
       }
     case "turkish" =>
       getStopWords(options) match {
         case Some(stopwords) =>
-          Some(new TurkishAnalyzer(IndexService.version, stopwords))
+          Some(new TurkishAnalyzer(stopwords))
         case None =>
-          Some(new TurkishAnalyzer(IndexService.version))
+          Some(new TurkishAnalyzer())
       }
     case _ =>
       None
@@ -428,7 +427,7 @@ object SupportedAnalyzers {
   }
 
   implicit def listToCharArraySet(list: List[String]): CharArraySet = {
-    CharArraySet.unmodifiableSet(CharArraySet.copy(IndexService.version, (Set() ++ list).asJava))
+    CharArraySet.unmodifiableSet(CharArraySet.copy((Set() ++ list).asJava))
   }
 
 }
