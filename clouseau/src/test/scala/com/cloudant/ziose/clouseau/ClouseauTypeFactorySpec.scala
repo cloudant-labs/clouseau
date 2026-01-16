@@ -71,26 +71,32 @@ class ClouseauTypeFactorySpec extends JUnitRunnableSpec {
         assert(toStore(Map("store" -> 12)))(equalTo(Store.NO))
       ),
       test("support true for index")(
-        assert(toIndex(Map("index" -> true)))(equalTo(Index.ANALYZED))
+        assert(toIndex(Map("index" -> true)))(isTrue)
       ),
       test("support false for index")(
-        assert(toIndex(Map("index" -> false)))(equalTo(Index.NO))
+        assert(toIndex(Map("index" -> false)))(isFalse)
       ),
-      test("support all enumeration values for index") {
-        val converted = Index.values.map(index => toIndex(Map("index" -> index.name)))
-        val names     = Index.values.map(index => Index.valueOf(index.name))
-        assert(converted)(equalTo(names))
-      },
-      test("support all enumeration values for index (case insensitively)") {
-        val converted = Index.values.map(index => toIndex(Map("index" -> index.name.toLowerCase)))
-        val names     = Index.values.map(index => Index.valueOf(index.name))
-        assert(converted)(equalTo(names))
-      },
+      test("support ANALYZED for index")(
+        assert(toIndex(Map("index" -> "ANALYZED")))(isTrue) &&
+        assert(toIndex(Map("index" -> "analyzed")))(isTrue)
+      ),
+      test("support NOT_ANALYZED for index")(
+        assert(toIndex(Map("index" -> "NOT_ANALYZED")))(isFalse) &&
+        assert(toIndex(Map("index" -> "not_analyzed")))(isFalse)
+      ),
+      test("support ANALYZED_NO_NORMS for index")(
+        assert(toIndex(Map("index" -> "ANALYZED_NO_NORMS")))(isTrue) &&
+        assert(toIndex(Map("index" -> "analyzed_no_norms")))(isTrue)
+      ),
+      test("support NOT_ANALYZED_NO_NORMS for index")(
+        assert(toIndex(Map("index" -> "NOT_ANALYZED_NO_NORMS")))(isFalse) &&
+        assert(toIndex(Map("index" -> "not_analyzed_no_norms")))(isFalse)
+      ),
       test("use the default if index string is not recognized")(
-        assert(toIndex(Map("index" -> "hello")))(equalTo(Index.ANALYZED))
+        assert(toIndex(Map("index" -> "hello")))(isTrue)
       ),
       test("use the default if index value is not recognized")(
-        assert(toIndex(Map("index" -> 12)))(equalTo(Index.ANALYZED))
+        assert(toIndex(Map("index" -> 12)))(isTrue)
       )
     )
   }
