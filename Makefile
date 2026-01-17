@@ -139,6 +139,15 @@ check-fmt: $(ARTIFACTS_DIR)
 erlfmt-format:
 	@erlfmt --write -- $(ERL_SRCS)
 
+.PHONY: scalafmt-format
+# target: scalafmt-format - Format Scala code automatically
+scalafmt-format:
+	@scalafmt --quiet
+
+.PHONY: format-code
+# target: format-code - Format source code automatically
+format-code: erlfmt-format scalafmt-format
+
 .PHONY: check-deps
 # target: check-deps - Detect publicly disclosed vulnerabilities
 check-deps: build $(ARTIFACTS_DIR)
