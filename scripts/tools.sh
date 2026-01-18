@@ -2,6 +2,7 @@
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 BIN_DIR=${SELF_DIR}/../bin
+: "${COURSIER:=coursier}"
 
 # call it as
 # result=( $(tools::requires "${os}") )
@@ -194,7 +195,7 @@ function tools::install_with_coursier() {
   local install_args=$(tools::get_dep "${1}" "install_args")
   local id=$(tools::get_dep "${1}" "id")
   (console::infoLn "installing '${1}'... ")
-  status=$(coursier bootstrap ${id}:${version} \
+  status=$(${COURSIER} bootstrap ${id}:${version} \
     ${install_args} --standalone -o "${BIN_DIR}/${binary}-${version}")
   if [[ $status -eq 0 ]]; then
     (console::infoLn "'${1}' is installed")
