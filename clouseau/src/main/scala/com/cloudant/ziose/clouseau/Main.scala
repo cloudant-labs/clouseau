@@ -6,7 +6,11 @@ package com.cloudant.ziose.clouseau
 import com.cloudant.ziose.core.{ActorFactory, AddressableActor, EngineWorker, Node}
 import com.cloudant.ziose.otp.{OTPLayers, OTPNodeConfig}
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
-import zio.{&, LogLevel, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault}
+import prometheus.PrometheusPublisherRoutes
+import zio.http.Server
+import zio.metrics.connectors.{MetricsConfig, prometheus}
+import zio.metrics.jvm.DefaultJvmMetrics
+import zio.{&, LogLevel, RIO, Runtime, Scope, System, Task, URIO, ZIO, ZIOAppArgs, ZIOAppDefault, ZLayer, durationInt}
 
 object Main extends ZIOAppDefault {
   def getNodeIdx: Task[Int] = {
@@ -74,7 +78,7 @@ object Main extends ZIOAppDefault {
     } yield ()
   }
 
-  override def run: RIO[ZIOAppArgs & Scope, Unit] = (
+  def erlangNode: RIO[ZIOAppArgs & Scope, Unit] = (
     for {
       appCfg  <- ZIO.service[AppCfg]
       nodeIdx <- getNodeIdx
@@ -90,4 +94,29 @@ object Main extends ZIOAppDefault {
         )
     } yield ()
   ).provideSome[ZIOAppArgs](AppCfg.layer)
+
+  private val metricsConfig = ZLayer.succeed(MetricsConfig(1.seconds))
+
+  def httpServer: Task[Nothing] = {
+    Server
+      .serve(PrometheusPublisherRoutes())
+      .provide(
+        Server.default,
+        metricsConfig,
+        DefaultJvmMetrics.live.unit,
+        prometheus.prometheusLayer,
+        prometheus.publisherLayer,
+        Runtime.enableRuntimeMetrics
+      )
+  }
+
+  override def run: URIO[ZIOAppArgs & Scope, Unit] = {
+    ZIO.scoped(
+      for {
+        _ <- erlangNode.fork
+        _ <- httpServer.fork
+        _ <- ZIO.never
+      } yield ()
+    )
+  }
 }

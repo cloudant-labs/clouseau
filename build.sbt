@@ -22,9 +22,10 @@ updateOptions := updateOptions.value.withCachedResolution(true)
 val versions: Map[String, String] = Map(
   "zio"         -> "2.1.16",
   "zio.config"  -> "4.0.4",
+  "zio.http"    -> "3.7.4",
   "zio.logging" -> "2.5.0",
   "zio.metrics" -> "2.3.1",
-  "jmx"         -> "1.14.5",
+  "micrometer"  -> "1.14.5",
   "reflect"     -> "2.13.16",
   "lucene"      -> "4.6.1-cloudant1",
   "tinylog"     -> "2.7.0"
@@ -153,12 +154,14 @@ lazy val commonSettings = Seq(
     "dev.zio"       %% "zio-config"                        % versions("zio.config"),
     "dev.zio"       %% "zio-config-magnolia"               % versions("zio.config"),
     "dev.zio"       %% "zio-config-typesafe"               % versions("zio.config"),
+    "dev.zio"       %% "zio-http"                          % versions("zio.http"),
     "dev.zio"       %% "zio-logging"                       % versions("zio.logging"),
     // This is needed because micrometer (see below) uses SLF4J
     "dev.zio"       %% "zio-logging-slf4j-bridge"          % versions("zio.logging"),
     "dev.zio"       %% "zio-metrics-connectors-micrometer" % versions("zio.metrics"),
+    "dev.zio"       %% "zio-metrics-connectors-prometheus" % versions("zio.metrics"),
     "dev.zio"       %% "zio-streams"                       % versions("zio"),
-    "io.micrometer"  % "micrometer-registry-jmx"           % versions("jmx"),
+    "io.micrometer"  % "micrometer-registry-jmx"           % versions("micrometer"),
     "org.scala-lang" % "scala-reflect"                     % versions("reflect"),
     "org.tinylog"    % "tinylog-api"                       % versions("tinylog"),
     "org.tinylog"    % "tinylog-impl"                      % versions("tinylog"),
