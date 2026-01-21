@@ -127,8 +127,9 @@ class SupportedAnalyzersSpec extends JUnitRunnableSpec {
       },
       test("perfield, field in object form") {
         val options = {
-          AnalyzerOptions.from(Map("name" -> "perfield", "default" -> "standard",
-            "fields" -> List("foo" -> List(("name", "english")))))
+          AnalyzerOptions.from(
+            Map("name" -> "perfield", "default" -> "standard", "fields" -> List("foo" -> List(("name", "english"))))
+          )
         }
         assert(options)(isSome) &&
         assert(createAnalyzer(options.get).toString)(
