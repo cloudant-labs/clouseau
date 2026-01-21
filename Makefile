@@ -130,9 +130,9 @@ ERL_SRCS?=$(shell git ls-files -- "*/rebar.config" "*.[e,h]rl" "*.app.src" "*.es
 .PHONY: check-fmt
 # target: check-fmt - Check mis-formatted code
 check-fmt: $(ARTIFACTS_DIR)
-	@scalafmt --test | tee $(ARTIFACTS_DIR)/scalafmt.log
-	@ec | tee $(ARTIFACTS_DIR)/editor-config.log
-	@erlfmt --verbose --check -- $(ERL_SRCS) | tee $(ARTIFACTS_DIR)/erlfmt.log
+	@set -o pipefail; scalafmt --test | tee $(ARTIFACTS_DIR)/scalafmt.log
+	@set -o pipefail; ec | tee $(ARTIFACTS_DIR)/editor-config.log
+	@set -o pipefail; erlfmt --verbose --check -- $(ERL_SRCS) | tee $(ARTIFACTS_DIR)/erlfmt.log
 
 .PHONY: erlfmt-format
 # target: erlfmt-format - Format Erlang code automatically
