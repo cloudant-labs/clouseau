@@ -122,33 +122,17 @@ object ClouseauTypeFactory extends TypeFactory {
               if (isFacet(map)) {
                 doc.add(new DoubleDocValuesField(name, value))
               }
-            case (name: String, value: Integer, options: List[(String, Any) @unchecked]) =>
-              val map         = options.collect { case t @ (_: String, _: Any) => t }.toMap
-              val doubleValue = value.doubleValue
-              doc.add(new DoubleField(name, doubleValue, toStore(map)))
-              if (isFacet(map)) {
-                doc.add(new DoubleDocValuesField(name, doubleValue))
-              }
-            case (name: String, value: Float, options: List[(String, Any) @unchecked]) =>
-              val map         = options.collect { case t @ (_: String, _: Any) => t }.toMap
-              val doubleValue = value.doubleValue
-              doc.add(new DoubleField(name, doubleValue, toStore(map)))
-              if (isFacet(map)) {
-                doc.add(new DoubleDocValuesField(name, doubleValue))
-              }
-            case (name: String, value: Long, options: List[(String, Any) @unchecked]) =>
-              val map         = options.collect { case t @ (_: String, _: Any) => t }.toMap
-              val doubleValue = value.doubleValue
-              doc.add(new DoubleField(name, doubleValue, toStore(map)))
-              if (isFacet(map)) {
-                doc.add(new DoubleDocValuesField(name, doubleValue))
-              }
-            case (name: String, value: BigInt, options: List[(String, Any) @unchecked]) =>
-              val map         = options.collect { case t @ (_: String, _: Any) => t }.toMap
-              val doubleValue = value.doubleValue
-              doc.add(new DoubleField(name, doubleValue, toStore(map)))
-              if (isFacet(map)) {
-                doc.add(new DoubleDocValuesField(name, doubleValue))
+            case (name: String, value: Any, options: List[(String, Any) @unchecked]) =>
+              val map = options.collect { case t @ (_: String, _: Any) => t }.toMap
+              toDouble(value) match {
+                case Some(doubleValue) =>
+                  doc.add(new DoubleField(name, doubleValue, toStore(map)))
+                  if (isFacet(map)) {
+                    doc.add(new DoubleDocValuesField(name, doubleValue))
+                  }
+                case None =>
+                  logger.warn("Unrecognized value: %s".format(value))
+                  'ok
               }
           }
         }
