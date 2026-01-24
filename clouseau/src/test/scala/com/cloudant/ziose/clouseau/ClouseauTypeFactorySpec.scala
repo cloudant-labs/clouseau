@@ -78,19 +78,19 @@ class ClouseauTypeFactorySpec extends JUnitRunnableSpec {
       ),
       test("support ANALYZED for index")(
         assert(toIndex(Map("index" -> "ANALYZED")))(isTrue) &&
-        assert(toIndex(Map("index" -> "analyzed")))(isTrue)
+          assert(toIndex(Map("index" -> "analyzed")))(isTrue)
       ),
       test("support NOT_ANALYZED for index")(
         assert(toIndex(Map("index" -> "NOT_ANALYZED")))(isFalse) &&
-        assert(toIndex(Map("index" -> "not_analyzed")))(isFalse)
+          assert(toIndex(Map("index" -> "not_analyzed")))(isFalse)
       ),
       test("support ANALYZED_NO_NORMS for index")(
         assert(toIndex(Map("index" -> "ANALYZED_NO_NORMS")))(isTrue) &&
-        assert(toIndex(Map("index" -> "analyzed_no_norms")))(isTrue)
+          assert(toIndex(Map("index" -> "analyzed_no_norms")))(isTrue)
       ),
       test("support NOT_ANALYZED_NO_NORMS for index")(
         assert(toIndex(Map("index" -> "NOT_ANALYZED_NO_NORMS")))(isFalse) &&
-        assert(toIndex(Map("index" -> "not_analyzed_no_norms")))(isFalse)
+          assert(toIndex(Map("index" -> "not_analyzed_no_norms")))(isFalse)
       ),
       test("use the default if index string is not recognized")(
         assert(toIndex(Map("index" -> "hello")))(isTrue)
