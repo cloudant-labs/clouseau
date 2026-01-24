@@ -445,6 +445,22 @@ class IndexServiceSpec extends JUnitRunnableSpec {
       test("be able to search uppercase _id with perfield") {
         isSearchable("FOO", "FOO", AnalyzerOptions.fromMap(Map("name" -> "perfield", "default" -> "english")))
       },
+      test("be able to ignore null values on indexing") {
+        for {
+          index <- startIndex(defaultConfig, standardAnalyzer)
+          val document = List(
+            ("field1", "bar", List()),
+            ("field2", 'null, List()),
+            ("field3", 'null, List()),
+            ("field4", "bar", List())
+          )
+          result <- updateD(index, "foo", document)
+          _      <- stopIndex(index)
+        } yield assertTrue(
+          result.isDefined,
+          adapter.toScala(result.get) == 'ok
+        )
+      },
       test("perform sorting") {
         for {
           index   <- startIndex(defaultConfig, standardAnalyzer)
