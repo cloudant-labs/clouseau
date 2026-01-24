@@ -36,7 +36,7 @@ case class UpdateDocMsg(id: String, doc: Document)             extends ClouseauM
 
 object ClouseauTypeFactory extends TypeFactory {
   type T = ClouseauMessage
-  val logger = LoggerFactory.getLogger("clouseau.tf")
+  val logger       = LoggerFactory.getLogger("clouseau.tf")
   val facetsConfig = new FacetsConfig
 
   /*
@@ -80,7 +80,7 @@ object ClouseauTypeFactory extends TypeFactory {
         Some(Group2Msg(options.map(adapter.toScala).asInstanceOf[List[(Symbol, Any)]].toMap))
       }
       case ETuple(EAtom("update"), id: EBinary, fields: EList) => { // TODO verify maybe it should be EBinary(id)
-        val dvs = SMap[Tuple2[String,Symbol], IndexableField]()
+        val dvs = SMap[Tuple2[String, Symbol], IndexableField]()
         var doc = new Document()
         doc.add(new StringField("_id", id.asString, Store.YES))
         doc.add(new SortedDocValuesField("_id", new BytesRef(id.asString)))
@@ -109,37 +109,18 @@ object ClouseauTypeFactory extends TypeFactory {
               if (toStore(map) == Store.YES) {
                 doc.add(new StoredField(name, value))
               }
-            case (name: String, value: Integer, options: List[(String, Any) @unchecked]) =>
-              val map         = options.collect { case t @ (_: String, _: Any) => t }.toMap
-              val doubleValue = value.doubleValue
-              doc.add(new DoublePoint(name, doubleValue))
-              dvs.put((name, 'ddv), new DoubleDocValuesField(name, doubleValue))
-              if (toStore(map) == Store.YES) {
-                doc.add(new StoredField(name, doubleValue))
-              }
-            case (name: String, value: Float, options: List[(String, Any) @unchecked]) =>
-              val map         = options.collect { case t @ (_: String, _: Any) => t }.toMap
-              val doubleValue = value.doubleValue
-              doc.add(new DoublePoint(name, doubleValue))
-              dvs.put((name, 'ddv), new DoubleDocValuesField(name, doubleValue))
-              if (toStore(map) == Store.YES) {
-                doc.add(new StoredField(name, doubleValue))
-              }
-            case (name: String, value: Long, options: List[(String, Any) @unchecked]) =>
-              val map         = options.collect { case t @ (_: String, _: Any) => t }.toMap
-              val doubleValue = value.doubleValue
-              doc.add(new DoublePoint(name, doubleValue))
-              dvs.put((name, 'ddv), new DoubleDocValuesField(name, doubleValue))
-              if (toStore(map) == Store.YES) {
-                doc.add(new StoredField(name, doubleValue))
-              }
-            case (name: String, value: BigInt, options: List[(String, Any) @unchecked]) =>
-              val map         = options.collect { case t @ (_: String, _: Any) => t }.toMap
-              val doubleValue = value.doubleValue
-              doc.add(new DoublePoint(name, doubleValue))
-              dvs.put((name, 'ddv), new DoubleDocValuesField(name, doubleValue))
-              if (toStore(map) == Store.YES) {
-                doc.add(new StoredField(name, doubleValue))
+            case (name: String, value: Any, options: List[(String, Any) @unchecked]) =>
+              val map = options.collect { case t @ (_: String, _: Any) => t }.toMap
+              toDouble(value) match {
+                case Some(doubleValue) =>
+                  doc.add(new DoublePoint(name, doubleValue))
+                  dvs.put((name, 'ddv), new DoubleDocValuesField(name, doubleValue))
+                  if (toStore(map) == Store.YES) {
+                    doc.add(new StoredField(name, doubleValue))
+                  }
+                case None =>
+                  logger.warn("Unrecognized value: %s".format(value))
+                  'ok
               }
           }
         }
@@ -212,16 +193,16 @@ object ClouseauTypeFactory extends TypeFactory {
 
   def toIndex(options: Map[String, Any]): Boolean = {
     options.getOrElse("index", "analyzed") match {
-      case true => true
+      case true  => true
       case false => false
       case str: String =>
         str.toUpperCase match {
-          case "ANALYZED" => true
-          case "ANALYZED_NO_NORMS" => true
-          case "NO" => false
-          case "NOT_ANALYZED" => false
+          case "ANALYZED"              => true
+          case "ANALYZED_NO_NORMS"     => true
+          case "NO"                    => false
+          case "NOT_ANALYZED"          => false
           case "NOT_ANALYZED_NO_NORMS" => false
-          case _ => true
+          case _                       => true
         }
       case _ => true
     }
