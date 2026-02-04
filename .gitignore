@@ -1,4 +1,3 @@
-**/.gradle/
 **/bin
 **/build/
 **/node_modules
@@ -7,23 +6,23 @@
 *.beam
 *.class
 *.orig
+*.out
 .asdf
 .bloop
 .bsp
 .DS_Store
 .envrc.local
-.gradle/
 .history
 _build
 artifacts
 build/
 ci-artifacts/
 deps/
-zeunit/*.xml
-gradle/
-gradlew
-gradlew.bat
+erl_crash.dump
+jmx_prometheus_javaagent*.jar
+syslog.app.conf
 tmp/
+zeunit/*.xml
 
 # idea
 *.iml
@@ -32,8 +31,3 @@ tmp/
 # vscode
 .metals
 .vscode
-
-erl_crash.dump
-
-syslog.app.conf
-syslog.out
