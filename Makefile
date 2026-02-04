@@ -178,6 +178,21 @@ jar: $(ARTIFACTS_DIR)/$(JAR_PROD)
 # target: jartest - Generate JAR files containing tests
 jartest: $(ARTIFACTS_DIR)/$(JAR_TEST)
 
+JMX_EXPORTER ?= jmx_prometheus_javaagent-1.5.0.jar
+JMX_EXPORTER_CFG ?= jmx_exporter.yaml
+JMX_EXPORTER_PORT ?= 8080
+URL_JMX_EXPORTER := https://github.com/prometheus/jmx_exporter/releases/download/1.5.0/$(JMX_EXPORTER)
+
+$(JMX_EXPORTER_CFG):
+	@echo "rules:" > $(JMX_EXPORTER_CFG)
+	@echo '  - pattern: ".*"' >> $(JMX_EXPORTER_CFG)
+	@echo "" >> $(JMX_EXPORTER_CFG)
+
+.PHONY: jmx
+jmx: epmd jar $(JMX_EXPORTER_CFG)
+	@wget -nc $(URL_JMX_EXPORTER) -O $(JMX_EXPORTER) || true
+	@java -javaagent:jmx_prometheus_javaagent-1.5.0.jar=$(JMX_EXPORTER_PORT):$(JMX_EXPORTER_CFG) \
+ 		-jar $(ARTIFACTS_DIR)/$(JAR_PROD)
 
 .PHONY: bin/clouseau_ctrl
 bin/clouseau_ctrl: clouseau-ctrl/_build/default/bin/clouseau_ctrl
