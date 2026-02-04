@@ -1,0 +1,6 @@
+startDelaySeconds: 0
+rules:
+  - pattern: com.cloudant.clouseau
+  - pattern: java.lang<name=G1.*>
+  - pattern: java.lang<type=OperatingSystem>
+  - pattern: java.lang<type=Runtime>
