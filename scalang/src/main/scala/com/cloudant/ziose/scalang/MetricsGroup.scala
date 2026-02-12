@@ -34,10 +34,8 @@ case class MetricsGroup(klass: Class[_], metricsRegistry: ScalangMeterRegistry) 
     def get: Metric.Counter[Long] = this.zioCounter
   }
 
-  final class Gauge[T](zioGauge: Metric.Gauge[Double])(f: => T) {
-    def value(): T = f
-
-    def get: Metric.Gauge[Double] = this.zioGauge
+  final class Gauge[T](codehaleGauge: metrics.Gauge[T]) {
+    def getValue = codehaleGauge.getValue()
   }
 
   final class Timer(codahaleTimer: metrics.Timer) {
@@ -54,8 +52,17 @@ case class MetricsGroup(klass: Class[_], metricsRegistry: ScalangMeterRegistry) 
   }
 
   def gauge[T](name: String)(f: => T): Gauge[T] = {
-    val zioGauge: Metric.Gauge[Double] = Metric.gauge(constructName(name))
-    new Gauge[T](zioGauge)(f)
+    val codehaleGauge = metricsRegistry
+      .getDropwizardRegistry()
+      .gauge(
+        constructName(name),
+        () => {
+          new metrics.Gauge[T] {
+            override def getValue: T = f
+          }
+        }
+      )
+    new Gauge[T](codehaleGauge)
   }
 
   def timer(name: String): Timer = {
