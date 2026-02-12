@@ -14,9 +14,8 @@ package com.cloudant.ziose.clouseau
 
 import java.io.File
 import java.io.IOException
-import java.util.HashMap
-import java.util.LinkedHashMap
-import java.util.{ Map => JMap }
+import java.util.{ HashMap, LinkedHashMap, Set => JSet, Map => JMap }
+import java.util.concurrent.ConcurrentHashMap
 import scala.collection.mutable.Map
 import _root_.com.cloudant.ziose.scalang
 
@@ -40,6 +39,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
 
     val pathToPid: JMap[String, Pid] = new InnerLRU(initialCapacity, loadFactor)
     val pidToPath: JMap[Pid, String] = new HashMap(initialCapacity, loadFactor)
+    val indexesSeen: JSet[String] = ConcurrentHashMap.newKeySet[String](initialCapacity)
 
     def get(path: String): Pid = {
       assert(pathToPid.size == pidToPath.size)
@@ -56,6 +56,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
       val prev = pathToPid.put(path, pid)
       pidToPath.remove(prev)
       pidToPath.put(pid, path)
+      indexesSeen.add(path)
     }
 
     def remove(pid: Pid) = {
@@ -87,6 +88,10 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
       }
     }
 
+    def numberOfIndexesSeen() = {
+      indexesSeen.size
+    }
+
     private def enforceCapacity() {
       var excess = pathToPid.size - capacity
       if (excess > 0) {
@@ -114,6 +119,8 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
     val LOCK_HELD = field.get(null).asInstanceOf[HashSet[String]]
     metrics.gauge("NativeFSLock.count")(getNativeFSLockHeldSize(LOCK_HELD.asScala))
   }
+
+  metrics.gauge("indexes.seen")(lru.numberOfIndexesSeen)
 
   def getNativeFSLockHeldSize(lockHeld: scala.collection.mutable.Set[String]) = lockHeld.synchronized {
     lockHeld.size
