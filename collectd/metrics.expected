@@ -5,4 +5,5 @@
 "com.cloudant.clouseau":name="deletes",type="IndexService"
 "com.cloudant.clouseau":name="lru.misses",type="IndexManagerService"
 "com.cloudant.clouseau":name="lru.evictions",type="IndexManagerService"
+"com.cloudant.clouseau":name="indexes.seen",type="IndexManagerService"
 "com.cloudant.clouseau":name="partition_search.timeout.count",type="IndexService"
