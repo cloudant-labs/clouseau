@@ -393,7 +393,7 @@ metrics-tests: $(JAR_ARTIFACTS) collectd/clouseau.class epmd FORCE
 			-Dcom.sun.management.jmxremote.port=9090 \
 			-Dcom.sun.management.jmxremote.ssl=false \
 			-Dcom.sun.management.jmxremote.password.file=jmxremote.password \
-			-jar $(JAR_ARTIFACTS)" > /dev/null
+			-jar $(JAR_ARTIFACTS) metrics.app.conf" > /dev/null
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@echo "Warming up Clouseau to expose all the metrics"
