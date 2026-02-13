@@ -62,7 +62,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
       val prev = pathToPid.put(path, pid)
       pidToPath.remove(prev)
       pidToPath.put(pid, path)
-      indexesSeen.map(_.put(path, now))
+      trackIndexesSeen(path)
     }
 
     def remove(pid: Pid) = {
@@ -94,15 +94,20 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
       }
     }
 
+    private val trackIndexesSeenRange = Duration.ofDays(7).toSeconds
+
+    private def trackIndexesSeen(path: String) = {
+      indexesSeen.map({ store =>
+        val cutOff = now - trackIndexesSeenRange
+        store.asScala.retain { case (_, timestamp) => timestamp >= cutOff }
+        store.put(path, now)
+      })
+    }
+
     def numberOfIndexesSeenRecently(duration: Duration) = indexesSeen match {
       case Some(store) =>
         val reference = now - duration.toSeconds
         store.asScala.count { case (_, timestamp) => timestamp >= reference }
-      case None => 0
-    }
-
-    def numberOfIndexesSeen: Int = indexesSeen match {
-      case Some(store) => store.size
       case None => 0
     }
 
@@ -148,8 +153,6 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
     for ((label, time) <- indexRecencyTimes) {
       metrics.gauge(s"indexes.seen.${label}")(lru.numberOfIndexesSeenRecently(time))
     }
-
-    metrics.gauge("indexes.seen.ever")(lru.numberOfIndexesSeen)
   }
 
   def getNativeFSLockHeldSize(lockHeld: scala.collection.mutable.Set[String]) = lockHeld.synchronized {

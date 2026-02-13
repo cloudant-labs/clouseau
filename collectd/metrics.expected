@@ -5,7 +5,6 @@
 "com.cloudant.clouseau":name="indexes.seen.1h",type="IndexManagerService"
 "com.cloudant.clouseau":name="indexes.seen.1m",type="IndexManagerService"
 "com.cloudant.clouseau":name="indexes.seen.1w",type="IndexManagerService"
-"com.cloudant.clouseau":name="indexes.seen.ever",type="IndexManagerService"
 "com.cloudant.clouseau":name="lru.evictions",type="IndexManagerService"
 "com.cloudant.clouseau":name="lru.misses",type="IndexManagerService"
 "com.cloudant.clouseau":name="opens",type="IndexManagerService"
