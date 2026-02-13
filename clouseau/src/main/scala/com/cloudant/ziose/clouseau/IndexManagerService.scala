@@ -139,7 +139,6 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
 
   if (trackIndexATimes) {
     val indexRecencyTimes = List(
-      ("1s", Duration.ofSeconds(1)),
       ("1m", Duration.ofMinutes(1)),
       ("1h", Duration.ofHours(1)),
       ("1d", Duration.ofDays(1)),
