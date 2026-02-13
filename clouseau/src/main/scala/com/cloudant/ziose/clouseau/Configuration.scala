@@ -72,7 +72,8 @@ final case class ClouseauConfiguration(
   lock_class: Option[String] = None,
   dir_class: Option[String] = None,
   concurrent_search_enabled: Option[Boolean] = None,
-  concurrent_search_limit: Option[Int] = None
+  concurrent_search_limit: Option[Int] = None,
+  track_index_atimes: Option[Boolean] = None
 ) {
   def getString(key: String, default: String) = key match {
     case "clouseau.dir" =>
@@ -103,6 +104,7 @@ final case class ClouseauConfiguration(
     case "clouseau.close_if_idle"             => close_if_idle.getOrElse(default)
     case "field_cache_metrics"                => field_cache_metrics.getOrElse(default)
     case "clouseau.concurrent_search_enabled" => concurrent_search_enabled.getOrElse(default)
+    case "clouseau.track_index_atimes"        => track_index_atimes.getOrElse(default)
     case _                                    => throw new Exception(s"Unexpected Boolean key '$key'")
   }
 
@@ -122,7 +124,8 @@ final case class ClouseauConfiguration(
     s"lock_class=$lock_class",
     s"dir_class=$dir_class",
     s"concurrent_search_enabled=$concurrent_search_enabled",
-    s"concurrent_search_limit=$concurrent_search_limit"
+    s"concurrent_search_limit=$concurrent_search_limit",
+    s"track_index_atimes=$track_index_atimes"
   )
 }
 
