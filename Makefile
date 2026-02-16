@@ -393,13 +393,13 @@ metrics-tests: $(JAR_ARTIFACTS) collectd/clouseau.class epmd FORCE
 			-Dcom.sun.management.jmxremote.port=9090 \
 			-Dcom.sun.management.jmxremote.ssl=false \
 			-Dcom.sun.management.jmxremote.password.file=jmxremote.password \
-			-jar $(JAR_ARTIFACTS)" > /dev/null
+			-jar $(JAR_ARTIFACTS) metrics.app.conf" > /dev/null
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@echo "Warming up Clouseau to expose all the metrics"
 	@$(TIMEOUT) $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
 	@echo "Collecting metrics"
-	@java -cp collectd clouseau "service:jmx:rmi:///jndi/rmi://localhost:9090/jmxrmi" monitorRole password > collectd/metrics.out
+	@java -cp collectd clouseau "service:jmx:rmi:///jndi/rmi://localhost:9090/jmxrmi" monitorRole password | sort > collectd/metrics.out
 	@cli stop $@
 	@echo "Comparing collected metrics with expectations:"
 	@DIFF=$$(diff -u collectd/metrics.out collectd/metrics.expected); \

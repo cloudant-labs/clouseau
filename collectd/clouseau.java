@@ -19,6 +19,8 @@ public class clouseau {
         getNames("\"com.cloudant.clouseau\":name=\"updates\",*");
         getNames("\"com.cloudant.clouseau\":name=\"deletes\",*");
         getNames("\"com.cloudant.clouseau\":type=\"IndexManagerService\",name=\"lru.*\",*");
+        getNames("\"com.cloudant.clouseau\":type=\"IndexManagerService\",name=\"indexes.*\",*");
+        getNames("\"com.cloudant.clouseau\":type=\"IndexManagerService\",name=\"NativeFSLock.count\",*");
         getNames("\"com.cloudant.clouseau\":type=\"IndexService\",name=\"partition_search.timeout.count\",*");
     }
 
