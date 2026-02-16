@@ -14,8 +14,11 @@ package com.cloudant.ziose.clouseau
 
 import java.io.File
 import java.io.IOException
+import java.time.{ Duration, Instant }
+import java.time.temporal.ChronoUnit
 import java.util.HashMap
 import java.util.LinkedHashMap
+import java.util.concurrent.ConcurrentHashMap
 import java.util.{ Map => JMap }
 import scala.collection.mutable.Map
 import _root_.com.cloudant.ziose.scalang
@@ -30,7 +33,7 @@ import zio.ZIO
 
 class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
 
-  class LRU(initialCapacity: Int = 100, loadFactor: Float = 0.75f) {
+  class LRU(initialCapacity: Int = 100, loadFactor: Float = 0.75f, trackIndexAccesses: Boolean = false) {
 
     class InnerLRU(initialCapacity: Int, loadFactor: Float) extends LinkedHashMap[String, Pid](initialCapacity, loadFactor, true)
 
@@ -40,6 +43,9 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
 
     val pathToPid: JMap[String, Pid] = new InnerLRU(initialCapacity, loadFactor)
     val pidToPath: JMap[Pid, String] = new HashMap(initialCapacity, loadFactor)
+    val indexesSeen: Option[JMap[String, Long]] =
+      if (trackIndexAccesses) Some(new ConcurrentHashMap(initialCapacity, loadFactor))
+      else None
 
     def get(path: String): Pid = {
       assert(pathToPid.size == pidToPath.size)
@@ -56,6 +62,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
       val prev = pathToPid.put(path, pid)
       pidToPath.remove(prev)
       pidToPath.put(pid, path)
+      trackIndexesSeen(path)
     }
 
     def remove(pid: Pid) = {
@@ -87,6 +94,23 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
       }
     }
 
+    private val trackIndexesSeenRange = Duration.ofDays(7).toSeconds
+
+    private def trackIndexesSeen(path: String) = {
+      indexesSeen.map({ store =>
+        val cutOff = now - trackIndexesSeenRange
+        store.asScala.retain { case (_, timestamp) => timestamp >= cutOff }
+        store.put(path, now)
+      })
+    }
+
+    def numberOfIndexesSeenRecently(duration: Long) = indexesSeen match {
+      case Some(store) =>
+        val reference = now - duration
+        store.asScala.count { case (_, timestamp) => timestamp >= reference }
+      case None => 0
+    }
+
     private def enforceCapacity() {
       var excess = pathToPid.size - capacity
       if (excess > 0) {
@@ -99,12 +123,15 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
       }
     }
 
+    private def now: Long = ChronoUnit.SECONDS.between(Instant.EPOCH, Instant.now)
+
   }
 
   val logger = LoggerFactory.getLogger("clouseau.main")
   val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
   val openTimer = metrics.timer("opens")
-  val lru = new LRU()
+  val trackIndexATimes = ctx.args.config.getBoolean("clouseau.track_index_atimes", false)
+  val lru = new LRU(trackIndexAccesses = trackIndexATimes)
   val waiters = Map[String, List[(Pid, Any)]]()
   val countLocksEnabled = ctx.args.config.getBoolean("clouseau.count_locks", false)
   if (countLocksEnabled) {
@@ -113,6 +140,19 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
     field.setAccessible(true)
     val LOCK_HELD = field.get(null).asInstanceOf[HashSet[String]]
     metrics.gauge("NativeFSLock.count")(getNativeFSLockHeldSize(LOCK_HELD.asScala))
+  }
+
+  if (trackIndexATimes) {
+    val indexRecencyTimes = List(
+      ("1m", Duration.ofMinutes(1)),
+      ("1h", Duration.ofHours(1)),
+      ("1d", Duration.ofDays(1)),
+      ("1w", Duration.ofDays(7))
+    )
+
+    for ((label, time) <- indexRecencyTimes) {
+      metrics.gauge(s"indexes.seen.${label}")(lru.numberOfIndexesSeenRecently(time.toSeconds))
+    }
   }
 
   def getNativeFSLockHeldSize(lockHeld: scala.collection.mutable.Set[String]) = lockHeld.synchronized {
