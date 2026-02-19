@@ -80,6 +80,12 @@ RELEASE_ARTIFACTS := $(addprefix $(ARTIFACTS_DIR)/, $(RELEASE_FILES))
 
 CHECKSUM_FILES := $(foreach file, $(RELEASE_FILES), $(file).chksum)
 
+JMX_EXPORTER_VSN ?= 1.5.0
+JMX_EXPORTER ?= jmx_prometheus_javaagent-$(JMX_EXPORTER_VSN).jar
+JMX_EXPORTER_CFG ?= prometheus/jmx_exporter.yaml
+JMX_EXPORTER_PORT ?= 8080
+JMX_EXPORTER_URL := https://github.com/prometheus/jmx_exporter/releases/download/$(JMX_EXPORTER_VSN)/$(JMX_EXPORTER)
+
 comma := ,
 empty :=
 space := $(empty) $(empty)
@@ -178,6 +184,14 @@ jar: $(ARTIFACTS_DIR)/$(JAR_PROD)
 # target: jartest - Generate JAR files containing tests
 jartest: $(ARTIFACTS_DIR)/$(JAR_TEST)
 
+.PHONY: jmx-prometheus
+# target: jmx-prometheus - Export metrics to Prometheus
+jmx-prometheus: download-jmx-exporter epmd $(JAR_ARTIFACTS)
+	@java -javaagent:$(JMX_EXPORTER)=$(JMX_EXPORTER_PORT):$(JMX_EXPORTER_CFG) \
+		-jar $(JAR_ARTIFACTS)
+
+download-jmx-exporter:
+	@wget -nc $(JMX_EXPORTER_URL) -O $(JMX_EXPORTER) >/dev/null 2>&1 || true
 
 .PHONY: bin/clouseau_ctrl
 bin/clouseau_ctrl: clouseau-ctrl/_build/default/bin/clouseau_ctrl
@@ -380,36 +394,48 @@ couchdb-tests: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@$(TIMEOUT) $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
 	@cli stop $@
 
+define collect_and_compare
+	echo "Collecting $(1) metrics"
+	$(2)
+	echo "Comparing $(1) metrics with expectations:"
+	DIFF=$$(diff -u $(1)/metrics.out $(1)/metrics.expected); \
+	if [[ -z $$DIFF ]]; then \
+		echo "Everything is in order"; \
+	else \
+		echo '>>>> FAILED: Metrics is different from "$(1)/metrics.expected"!'; \
+		echo "$$DIFF"; \
+		exit 1; \
+	fi
+endef
+
 collectd/clouseau.class: collectd/clouseau.java
 	javac -source 8 -target 8 "$<"
 
 .PHONY: metrics-tests
 # target: metrics-tests - Run JMX metrics collection tests
-metrics-tests: $(JAR_ARTIFACTS) collectd/clouseau.class epmd FORCE
-	@cli stop $@ || true
+metrics-tests: $(JAR_ARTIFACTS) collectd/clouseau.class download-jmx-exporter epmd
+	@cli stop $@ > /dev/null 2>&1 || true
 	@chmod 600 jmxremote.password
 	@cli start $@ \
-		"java \
+		java \
 			-Dcom.sun.management.jmxremote.port=9090 \
 			-Dcom.sun.management.jmxremote.ssl=false \
 			-Dcom.sun.management.jmxremote.password.file=jmxremote.password \
-			-jar $(JAR_ARTIFACTS) metrics.app.conf" > /dev/null
+			-javaagent:$(JMX_EXPORTER)=$(JMX_EXPORTER_PORT):$(JMX_EXPORTER_CFG) \
+			-jar $(JAR_ARTIFACTS) metrics.app.conf > /dev/null
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@echo "Warming up Clouseau to expose all the metrics"
 	@$(TIMEOUT) $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
-	@echo "Collecting metrics"
-	@java -cp collectd clouseau "service:jmx:rmi:///jndi/rmi://localhost:9090/jmxrmi" monitorRole password | sort > collectd/metrics.out
-	@cli stop $@
-	@echo "Comparing collected metrics with expectations:"
-	@DIFF=$$(diff -u collectd/metrics.out collectd/metrics.expected); \
-	if [[ -z $$DIFF ]]; then \
-		echo "Everything is in order"; \
-	else \
-		echo '>>>> FAILED: Metrics is different from "collectd/metrics.expected"!'; \
-		echo "$$DIFF"; \
-		exit 1; \
-	fi
+	@$(call collect_and_compare,\
+			collectd,\
+			java -cp collectd clouseau "service:jmx:rmi:///jndi/rmi://localhost:9090/jmxrmi" monitorRole password | \
+			sort > collectd/metrics.out)
+	@$(call collect_and_compare,\
+			prometheus,\
+			curl -s "http://localhost:$(JMX_EXPORTER_PORT)/metrics" | \
+				sed -n 's/^\(_com_cloudant_clouseau.*\)[[:space:]].*/\1/p' | \
+				sort > prometheus/metrics.out)
 
 sup-test: couchdb
 	@$(COUCHDB_DIR)/dev/run \
