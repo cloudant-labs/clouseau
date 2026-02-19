@@ -119,6 +119,20 @@ epmd:
 clouseau1 clouseau2 clouseau3: epmd
 	@sbt run -Dnode=$@ $(_JAVA_COOKIE)
 
+PROMETHEUS_BIN := $(shell which prometheus)
+PROMETHEUS_CONFIG := clouseau/src/main/resources/prometheus.yml
+
+.PHONY: prometheus
+# target: prometheus - Start Prometheus with local instance of clouseau1 node
+prometheus:
+	@if [ -z "$(PROMETHEUS_BIN)" ]; then \
+		echo "Error: Prometheus not found in PATH. Please install Prometheus or add its location to the PATH environment variable."; \
+		exit 1; \
+	fi
+	@echo "Prometheus found at: $(PROMETHEUS_BIN)"
+	@echo "Start Prometheus with config: $(PROMETHEUS_CONFIG)"
+	@$(PROMETHEUS_BIN) --config.file=$(PROMETHEUS_CONFIG)
+
 $(ARTIFACTS_DIR):
 	@mkdir -p $@
 
