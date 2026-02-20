@@ -81,8 +81,12 @@ object LoggerLayers {
 
 object LoggerFactory {
   case class NamedLogger(id: String) extends ZioSupport {
+    def isDebugEnabled()(implicit adapter: Adapter[_, _]): Boolean = {
+      LogLevel.Debug >= adapter.logLevel
+    }
+
     def debug(msg: => String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
-      if (LogLevel.Debug >= adapter.logLevel) {
+      if (isDebugEnabled) {
         log(logDebug(msg) @@ loggerName(id))
       }
     }

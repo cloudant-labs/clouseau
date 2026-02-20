@@ -9,7 +9,6 @@ import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
 
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.search._
-import java.lang.{Double => JDouble}
 
 import zio.test._
 import zio.test.Assertion._
@@ -19,8 +18,12 @@ import com.cloudant.ziose.test.helpers.TestRunner
 @RunWith(classOf[ZTestJUnitRunner])
 class ClouseauQueryParserSpec extends JUnitRunnableSpec {
   val TIMEOUT_SUITE = 5.minutes
-  val analyzer      = new StandardAnalyzer(IndexService.version)
-  def parser        = new ClouseauQueryParser(IndexService.version, "default", analyzer)
+  val analyzer      = new StandardAnalyzer()
+  def parser        = new ClouseauQueryParser("default", analyzer)
+
+  def isNumericRangeQuery(result: Any) = {
+    assert(result)(isSubtype[IndexOrDocValuesQuery](anything))
+  }
 
   val queryParserSuite: Spec[Any, Throwable] = {
     suite("query parser")(
@@ -34,26 +37,22 @@ class ClouseauQueryParserSpec extends JUnitRunnableSpec {
         assert(parser.parse("foo:[bar TO baz]"))(isSubtype[TermRangeQuery](anything))
       ),
       test("support numeric range queries (integer)")(
-        assert(parser.parse("foo:[1 TO 2]"))(isSubtype[NumericRangeQuery[JDouble]](anything))
+        isNumericRangeQuery(parser.parse("foo:[1 TO 2]"))
       ),
       test("support numeric range queries (float)")(
-        assert(parser.parse("foo:[1.0 TO 2.0]"))(isSubtype[NumericRangeQuery[JDouble]](anything))
+        isNumericRangeQuery(parser.parse("foo:[1.0 TO 2.0]"))
       ),
       test("support open-ended numeric range queries (*)")(
-        assert(parser.parse("foo:[0.0 TO *]"))(isSubtype[NumericRangeQuery[JDouble]](anything))
+        isNumericRangeQuery(parser.parse("foo:[0.0 TO *]"))
       ),
       test("support open-ended numeric range queries (Infinity)")(
-        assert(parser.parse("foo:[-Infinity TO 0]"))(isSubtype[NumericRangeQuery[JDouble]](anything))
+        isNumericRangeQuery(parser.parse("foo:[-Infinity TO 0]"))
       ),
-      test("support numeric term queries (integer)") {
-        val result = parser.parse("foo:12")
-        assert(result)(isSubtype[TermQuery](anything)) &&
-        assert(result.asInstanceOf[TermQuery].getTerm)(equalTo(Utils.doubleToTerm("foo", 12.0)))
+      test("support exact numeric queries (integer)") {
+        isNumericRangeQuery(parser.parse("foo:12"))
       },
-      test("support negative numeric term queries (integer)") {
-        val result = parser.parse("foo:\\-12")
-        assert(result)(isSubtype[TermQuery](anything)) &&
-        assert(result.asInstanceOf[TermQuery].getTerm)(equalTo(Utils.doubleToTerm("foo", -12.0)))
+      test("support exact negative numeric queries (integer)") {
+        isNumericRangeQuery(parser.parse("foo:\\-12"))
       },
       test("support string is not a number") {
         val result = parser.parse("foo:\"12\"")

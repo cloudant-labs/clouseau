@@ -12,9 +12,7 @@
 
 package com.cloudant.ziose.clouseau
 
-import org.apache.lucene.index.Term
 import org.apache.lucene.util.BytesRef
-import org.apache.lucene.util.NumericUtils
 import zio.{&, LogLevel, ZIO}
 import zio._
 import com.cloudant.ziose.core.EngineWorker
@@ -25,13 +23,6 @@ import com.cloudant.ziose.otp.OTPNodeConfig
 import com.cloudant.ziose.core.Engine
 
 object Utils {
-
-  def doubleToTerm(field: String, value: Double): Term = {
-    val bytesRef = new BytesRef
-    val asLong = NumericUtils.doubleToSortableLong(value)
-    NumericUtils.longToPrefixCoded(asLong, 0, bytesRef)
-    new Term(field, bytesRef)
-  }
 
   implicit def stringToBytesRef(string: String): BytesRef = {
     new BytesRef(string)

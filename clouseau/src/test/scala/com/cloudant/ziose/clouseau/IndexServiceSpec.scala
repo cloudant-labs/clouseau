@@ -238,10 +238,9 @@ class IndexServiceSpec extends JUnitRunnableSpec {
       cfg    <- Utils.mkConfig(config)
       worker <- ZIO.service[EngineWorker]
       val analyzer     = SupportedAnalyzers.createAnalyzer(options).get
-      val queryParser  = new ClouseauQueryParser(IndexService.version, "default", analyzer)
-      val lockFactory  = new NativeFSLockFactory()
-      val directory    = new NIOFSDirectory(indexDir, lockFactory)
-      val writerConfig = new IndexWriterConfig(IndexService.version, analyzer)
+      val queryParser  = new ClouseauQueryParser("default", analyzer)
+      val directory    = new NIOFSDirectory(indexDir.toPath)
+      val writerConfig = new IndexWriterConfig(analyzer)
       _ <- ZIO.succeed(writerConfig.setIndexDeletionPolicy(new ExternalSnapshotDeletionPolicy(directory)))
       val writer   = new IndexWriter(directory, writerConfig)
       val indexCfg = IndexServiceArgs(cfg, indexDir.getPath, queryParser, writer)
@@ -768,7 +767,7 @@ class IndexServiceSpec extends JUnitRunnableSpec {
                       List(
                         (
                           List("ffield"),
-                          0.0,
+                          3.0,
                           List((List("ffield", "f1"), 2.0, List()), (List("ffield", "f3"), 1.0, List()))
                         )
                       )
@@ -791,7 +790,7 @@ class IndexServiceSpec extends JUnitRunnableSpec {
                       List(
                         (
                           List("ffield"),
-                          0.0,
+                          2.0,
                           List((List("ffield", "f1"), 2.0, List()))
                         )
                       )
@@ -814,7 +813,7 @@ class IndexServiceSpec extends JUnitRunnableSpec {
                       List(
                         (
                           List("ffield"),
-                          0.0,
+                          3.0,
                           List((List("ffield", "f1"), 2.0, List()), (List("ffield", "f3"), 1.0, List()))
                         )
                       )

@@ -16,16 +16,13 @@ import java.util.regex.Pattern
 
 import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.queryparser.classic.QueryParser
-import org.apache.lucene.search.NumericRangeQuery
 import org.apache.lucene.search.Query
-import org.apache.lucene.search.TermQuery
-import org.apache.lucene.util.Version
-import org.apache.lucene.analysis.core.KeywordAnalyzer
+import org.apache.lucene.document.DoubleField
+import org.apache.lucene.facet.range.DoubleRange
 
-class ClouseauQueryParser(version: Version,
-                          defaultField: String,
+class ClouseauQueryParser(defaultField: String,
                           analyzer: Analyzer)
-    extends QueryParser(version, defaultField, analyzer) {
+    extends QueryParser(defaultField, analyzer) {
 
   // regexp from java.lang.Double
   val Digits = "(\\p{Digit}+)"
@@ -56,6 +53,9 @@ class ClouseauQueryParser(version: Version,
     + ")[pP][+-]?" + Digits + "))" + "[fFdD]?))" + "[\\x00-\\x20]*")
   val fpRegex = Pattern.compile(fpRegexStr)
 
+  val doubleRangeStr = "^(?<minInc>[{\\[])(?<min>" + fpRegexStr + ") TO (?<max>" + fpRegexStr + ")(?<maxInc>[}\\]])$"
+  val doubleRangeRegex = Pattern.compile(doubleRangeStr)
+
   override def getRangeQuery(field: String,
                              lower: String,
                              upper: String,
@@ -64,10 +64,16 @@ class ClouseauQueryParser(version: Version,
     val lb = Option(lower).getOrElse("-Infinity")
     val ub = Option(upper).getOrElse("Infinity")
     if (isNumber(lb) && isNumber(ub)) {
-      NumericRangeQuery.newDoubleRange(
-        field, 8, lb.toDouble, ub.toDouble, startInclusive, endInclusive)
+      var lv = lb.toDouble
+      if (!startInclusive) {
+        lv = Math.nextUp(lv)
+      }
+      var uv = ub.toDouble
+      if (!endInclusive) {
+        uv = Math.nextDown(uv)
+      }
+      DoubleField.newRangeQuery(field, lv, uv)
     } else {
-      setLowercaseExpandedTerms(field)
       super.getRangeQuery(field, lb, ub, startInclusive, endInclusive)
     }
   }
@@ -76,48 +82,27 @@ class ClouseauQueryParser(version: Version,
                              queryText: String,
                              quoted: Boolean): Query = {
     if (!quoted && isNumber(queryText)) {
-      new TermQuery(Utils.doubleToTerm(field, queryText.toDouble))
+      DoubleField.newExactQuery(field, queryText.toDouble)
     } else {
       super.getFieldQuery(field, queryText, quoted)
     }
-  }
-
-  override def getFuzzyQuery(field: String, termStr: String,
-                             minSimilarity: Float): Query = {
-    setLowercaseExpandedTerms(field)
-    super.getFuzzyQuery(field, termStr, minSimilarity)
-  }
-
-  override def getPrefixQuery(field: String, termStr: String): Query = {
-    setLowercaseExpandedTerms(field)
-    super.getPrefixQuery(field, termStr)
-  }
-
-  override def getRegexpQuery(field: String, termStr: String): Query = {
-    setLowercaseExpandedTerms(field)
-    super.getRegexpQuery(field, termStr)
-  }
-
-  override def getWildcardQuery(field: String, termStr: String): Query = {
-    setLowercaseExpandedTerms(field)
-    super.getWildcardQuery(field, termStr)
   }
 
   private def isNumber(str: String): Boolean = {
     fpRegex.matcher(str).matches()
   }
 
-  private def setLowercaseExpandedTerms(field: String): Unit = {
-    getAnalyzer match {
-      case a: PerFieldAnalyzer =>
-        setLowercaseExpandedTerms(a.getWrappedAnalyzer(field))
-      case _: Analyzer =>
-        setLowercaseExpandedTerms(analyzer)
+  def parseDoubleRange(field: String, value: String): Option[DoubleRange] = {
+    val m = doubleRangeRegex.matcher(value)
+    if (!m.matches()) {
+      return None
     }
-  }
-
-  private def setLowercaseExpandedTerms(analyzer: Analyzer): Unit = {
-    setLowercaseExpandedTerms(!analyzer.isInstanceOf[KeywordAnalyzer])
+    Some(new DoubleRange(
+      field,
+      m.group("min").toDouble,
+      m.group("minInc").equals("["),
+      m.group("max").toDouble,
+      m.group("maxInc").equals("]")))
   }
 
 }
