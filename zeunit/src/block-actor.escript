@@ -11,10 +11,7 @@ main(Args) ->
     try
         ok = check_ping(Node),
         ok = check_service(Node),
-        ok("Ziose Node Health Check"),
-        {ok, Pid} = gen_server:call({init, Node}, {spawn, echo, 'block'}),
-        Pid ! {block_for_ms, BlockTimeInMs},
-        ok
+        ok("Ziose Node Health Check")
     catch
         _:_ ->
             nok("Ziose Node Health Check FAILED"),
