@@ -80,7 +80,7 @@ t_cleanup_1(
     {ok, {_BeforeDir, ListOfFilesBeforeCleanup}} = ResultBeforeCleanup,
     #index{signature = Signature1} = get_index(1, Ctx),
     FilesBeforeCleanupIndex = maps:get(Signature1, ListOfFilesBeforeCleanup, no_files),
-    ?assertMatch(["_0.fdt", "_0.fdx" | _LockFile], lists:sort(FilesBeforeCleanupIndex)),
+    ?assertMatch(["_0.fdm", "_0.fdt" | _LockFile], lists:sort(FilesBeforeCleanupIndex)),
     ?assertEqual(ok, clouseau_rpc:cleanup(ShardsDbName)),
     DBNameSize = byte_size(DBName),
     ?assertMatch(
@@ -114,7 +114,7 @@ t_cleanup_2(_Kind, #context{} = Ctx) ->
             Signature1, FilesBeforeCleanupForIndex1
         ])
     ),
-    ?assertMatch(["_0.fdt", "_0.fdx" | _LockFile], lists:sort(FilesBeforeCleanupForIndex1)),
+    ?assertMatch(["_0.fdm", "_0.fdt" | _LockFile], lists:sort(FilesBeforeCleanupForIndex1)),
 
     #index{signature = Signature2} = get_index(2, Ctx),
     FilesBeforeCleanupForIndex2 = maps:get(Signature2, ListOfFilesBeforeCleanup, no_files),
@@ -124,7 +124,7 @@ t_cleanup_2(_Kind, #context{} = Ctx) ->
             Signature1, FilesBeforeCleanupForIndex2
         ])
     ),
-    ?assertMatch(["_0.fdt", "_0.fdx" | _LockFile], lists:sort(FilesBeforeCleanupForIndex2)),
+    ?assertMatch(["_0.fdm", "_0.fdt" | _LockFile], lists:sort(FilesBeforeCleanupForIndex2)),
 
     ResultCleanup = cleanup_index(1, Ctx),
     ?assertMatch(
@@ -133,7 +133,7 @@ t_cleanup_2(_Kind, #context{} = Ctx) ->
         ?format("Expected to still have ~p in ~p", [Signature2, ResultCleanup])
     ),
     {ok, {_, #{Signature2 := ResultCleanupFiles}}} = ResultCleanup,
-    ?assertMatch(["_0.fdt", "_0.fdx" | _LockFile], lists:sort(ResultCleanupFiles)),
+    ?assertMatch(["_0.fdm", "_0.fdt" | _LockFile], lists:sort(ResultCleanupFiles)),
 
     ResultAfterCleanup = get_files_grouped_by_index(Ctx),
     ?assertMatch(
@@ -166,7 +166,7 @@ t_cleanup_2(_Kind, #context{} = Ctx) ->
             Signature1, FilesAfterCleanupForIndex2
         ])
     ),
-    ?assertMatch(["_0.fdt", "_0.fdx" | _LockFile], lists:sort(FilesAfterCleanupForIndex2)),
+    ?assertMatch(["_0.fdm", "_0.fdt" | _LockFile], lists:sort(FilesAfterCleanupForIndex2)),
     ok.
 
 t_rename(_, #context{echo_pid = EchoService, dbname = DBName, shard_name = ShardsDbName} = Ctx) ->
