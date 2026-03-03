@@ -83,7 +83,7 @@ t_call_echo(Name, _) ->
 t_call_version(_, _) ->
     Version = gen_server:call({?INIT_SERVICE, ?NodeZ}, version),
     ensure_semantic(Version),
-    ?assertMatch({3, _, _}, parse_semantic(Version)).
+    ?assertMatch({4, _, _}, parse_semantic(Version)).
 
 t_call_build_info(_, _) ->
     Info = gen_server:call({?INIT_SERVICE, ?NodeZ}, build_info),
