@@ -1,9 +1,9 @@
-name: Build 3.x
+name: Build 4.x
 
 on:
   pull_request:
     branches:
-      - main
+      - clouseau-4.x
 
 permissions:
   contents: read
