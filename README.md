@@ -1,25 +1,28 @@
-# clouseau
+# Clouseau
 
 Expose Lucene features to CouchDB via Erlang RPC.
 
 ## Build status
 
-[![Build 3.x](https://github.com/cloudant-labs/clouseau/actions/workflows/build.yaml/badge.svg)](https://github.com/cloudant-labs/clouseau/actions/workflows/build.yaml)
+[![Build 4.x](https://github.com/cloudant-labs/clouseau/actions/workflows/build.yaml/badge.svg)](https://github.com/cloudant-labs/clouseau/actions/workflows/build.yaml)
 
-## Clouseau 3.x
+## Clouseau 4.x
 
-Version `3.x` replaces the foundation of [`clouseau`](https://github.com/cloudant-labs/clouseau/tree/master) with
-a [`ZIO`](https://github.com/zio/zio) as an asynchronous scheduler. This improves the stability and performance,
-enables Clouseau to run on modern JVMs and brings all non-Lucene dependencies up-to-date.
+Version `4.x` upgrades Apache Lucene to one of its recent major
+version on top of the foundations that were laid out in version `3.x`.
+Version `3.x` replaced the foundation of
+[`clouseau`](https://github.com/cloudant-labs/clouseau/tree/clouseau-2.x)
+with a [`ZIO`](https://github.com/zio/zio) as an asynchronous
+scheduler.  This improves the stability and performance, enables
+Clouseau to run on modern JVMs and brings all non-Lucene dependencies
+up to date.
 
-## Upgrading from 2.x
+## Upgrading from 2.x or 3.x
 
-Clouseau 3.x is intended to be a drop-in replacement for 2.x in that it remains compatible with existing Clouseau 2.x indexes. 
-However, there are some notable changes to the deployment:
-
- * Java 21 is required.
- * `clouseau.ini` is replaced by [app.conf](./app.conf).
- * CouchDB 3.5.0 required.
+Clouseau 4.x is _NOT_ a drop-in replacement for either 2.x or 3.x
+because it does _NOT_ remain compatible with existing Clouseau
+indexes.  They are created by Apache Lucene 4.6, while this version
+utilizes 10.x or later.
 
 ## Dependency management
 
@@ -87,7 +90,7 @@ You can find detailed documentation here [scripts/cli.md](./scripts/cli.md).
 
 ## Configuration options
 
-Unlike previous versions, Clouseau 3.x is configured via a [HOCON](https://github.com/lightbend/config/blob/master/HOCON.md) formatted `app.conf` file, in addition to the numerous [JVM command line options](https://docs.oracle.com/en/java/javase/21/docs/specs/man/java.html#overview-of-java-options) available. The top level [app.conf](./app.conf) file in this project briefly documents the various options, but those relevant to performance and scalability are discussed in more detail below.
+Similarly to Clouseau 3.x, this version is configured via a [HOCON](https://github.com/lightbend/config/blob/master/HOCON.md) formatted `app.conf` file, in addition to the numerous [JVM command line options](https://docs.oracle.com/en/java/javase/21/docs/specs/man/java.html#overview-of-java-options) available. The top level [app.conf](./app.conf) file in this project briefly documents the various options, but those relevant to performance and scalability are discussed in more detail below.
 
 ### `max_indexes_open`
 
@@ -111,7 +114,7 @@ This option configures the minimum JVM memory, and is recommended to set in case
 
 ## How to monitor metrics using `jconsole`
 
-JConsole can be connected to a running Clouseau 3.x instance through the standard JMX interface as follows:
+JConsole can be connected to a running Clouseau 4.x instance through the standard JMX interface as follows:
 
 1. Run Clouseau first, `make clouseau1`
 2. Open another terminal and type `make jconsole`
