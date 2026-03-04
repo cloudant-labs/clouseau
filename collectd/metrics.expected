@@ -1,4 +1,3 @@
-"com.cloudant.clouseau":name="NativeFSLock.count",type="IndexManagerService"
 "com.cloudant.clouseau":name="commits",type="IndexService"
 "com.cloudant.clouseau":name="deletes",type="IndexService"
 "com.cloudant.clouseau":name="indexes.seen.1d",type="IndexManagerService"

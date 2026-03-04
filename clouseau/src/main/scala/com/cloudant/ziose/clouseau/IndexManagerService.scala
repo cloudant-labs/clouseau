@@ -26,7 +26,6 @@ import _root_.com.cloudant.ziose.scalang
 import scalang._
 
 import scala.collection.JavaConverters._
-import java.util.HashSet
 import com.cloudant.ziose.core.ProcessContext
 import com.cloudant.ziose.core.Codec
 import zio.ZIO
@@ -133,14 +132,6 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
   val trackIndexATimes = ctx.args.config.getBoolean("clouseau.track_index_atimes", false)
   val lru = new LRU(trackIndexAccesses = trackIndexATimes)
   val waiters = Map[String, List[(Pid, Any)]]()
-  val countLocksEnabled = ctx.args.config.getBoolean("clouseau.count_locks", false)
-  if (countLocksEnabled) {
-    val lockClass = Class.forName("org.apache.lucene.store.NativeFSLock")
-    val field = lockClass.getDeclaredField("LOCK_HELD")
-    field.setAccessible(true)
-    val LOCK_HELD = field.get(null).asInstanceOf[HashSet[String]]
-    metrics.gauge("NativeFSLock.count")(getNativeFSLockHeldSize(LOCK_HELD.asScala))
-  }
 
   if (trackIndexATimes) {
     val indexRecencyTimes = List(
@@ -153,10 +144,6 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
     for ((label, time) <- indexRecencyTimes) {
       metrics.gauge(s"indexes.seen.${label}")(lru.numberOfIndexesSeenRecently(time.toSeconds))
     }
-  }
-
-  def getNativeFSLockHeldSize(lockHeld: scala.collection.mutable.Set[String]) = lockHeld.synchronized {
-    lockHeld.size
   }
 
   override def handleInit(): Unit = {
