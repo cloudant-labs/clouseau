@@ -26,7 +26,7 @@ val versions: Map[String, String] = Map(
   "zio.metrics" -> "2.3.1",
   "jmx"         -> "1.14.5",
   "reflect"     -> "2.13.16",
-  "lucene"      -> "10.3.2",
+  "lucene"      -> "10.4.0",
   "tinylog"     -> "2.7.0"
 )
 
