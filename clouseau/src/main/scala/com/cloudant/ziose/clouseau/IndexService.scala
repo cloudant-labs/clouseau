@@ -512,7 +512,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
                     g =>
                       (
                         g.groupValue,
-                        g.totalHits,
+                        g.totalHits.value,
                         g.scoreDocs.map({
                           docToHit(storedFields, _, includeFields, HPs)
                         }).toList
