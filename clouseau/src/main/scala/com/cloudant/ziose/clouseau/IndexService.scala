@@ -198,6 +198,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       'ok
     case SetPurgeSeqMsg(newPurgeSeq: Long) =>
       pendingPurgeSeq = newPurgeSeq
+      commit(pendingSeq,  pendingPurgeSeq)
       logger.debug(prefix_name("purge sequence is now %d".format(newPurgeSeq)))
       'ok
     case 'info =>
