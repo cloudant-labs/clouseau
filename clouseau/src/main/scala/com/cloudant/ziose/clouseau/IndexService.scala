@@ -83,7 +83,6 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   var updateSeq = getCommittedSeq
   var pendingSeq = updateSeq
   var purgeSeq = getCommittedPurgeSeq
-  var pendingPurgeSeq = purgeSeq
   var committing = false
   var forceRefresh = false
   var idle = true
@@ -197,9 +196,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       logger.debug(prefix_name("Pending sequence is now %d".format(newSeq)))
       'ok
     case SetPurgeSeqMsg(newPurgeSeq: Long) =>
-      pendingPurgeSeq = newPurgeSeq
-      logger.debug(prefix_name("purge sequence is now %d".format(newPurgeSeq)))
-      'ok
+      if (syncCommit(self, updateSeq, newPurgeSeq)) {
+        purgeSeq = newPurgeSeq
+        logger.debug(prefix_name("purge sequence is now %d".format(newPurgeSeq)))
+        'ok
+      } else {
+        ('error, 'commit_failed)
+      }
     case 'info =>
       ('ok, getInfo)
     case ('create_snapshot, snapshotDir: String) =>
@@ -240,7 +243,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       }
       exit('deleted)
     case 'maybe_commit =>
-      maybeAsyncCommit(pendingSeq, pendingPurgeSeq)
+      maybeAsyncCommit(pendingSeq, purgeSeq)
     case ('committed, newUpdateSeq: Long, newPurgeSeq: Long) =>
       updateSeq = newUpdateSeq
       purgeSeq = newPurgeSeq
