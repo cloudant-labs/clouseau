@@ -115,6 +115,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   val lruUpdateInterval = ctx.args.config.getInt("clouseau.lru_update_interval_msecs", 1000)
   // Set initial default to be in the past so we don't miss first LRU update
   var lastLRUUpdate = Instant.now().minus(Duration.fromMillis(lruUpdateInterval * 2))
+  val dreyfusNode = Symbol(ctx.args.config.getString("clouseau.dreyfus_node", "couchdb@127.0.0.1"))
 
   override def handleInit(): Unit = {
     logger.debug(s"handleInit(capacity = ${adapter.capacity})")
@@ -246,6 +247,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       purgeSeq = newPurgeSeq
       forceRefresh = true
       committing = false
+      ('dreyfus_index_manager, dreyfusNode) ! ('committed, self, updateSeq, purgeSeq)
       logger.debug(prefix_name("Committed update sequence %d and purge sequence %d".format(newUpdateSeq, newPurgeSeq)))
     case 'commit_failed =>
       committing = false

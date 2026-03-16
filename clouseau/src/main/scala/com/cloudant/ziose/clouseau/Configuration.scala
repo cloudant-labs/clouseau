@@ -73,7 +73,8 @@ final case class ClouseauConfiguration(
   dir_class: Option[String] = None,
   concurrent_search_enabled: Option[Boolean] = None,
   concurrent_search_limit: Option[Int] = None,
-  track_index_atimes: Option[Boolean] = None
+  track_index_atimes: Option[Boolean] = None,
+  dreyfus_node: Option[String] = None
 ) {
   def getString(key: String, default: String) = key match {
     case "clouseau.dir" =>
@@ -81,8 +82,9 @@ final case class ClouseauConfiguration(
         case Some(RootDir(value)) => value
         case None                 => default
       }
-    case "clouseau.lock_class" => lock_class.getOrElse(default).asInstanceOf[String]
-    case "clouseau.dir_class"  => dir_class.getOrElse(default).asInstanceOf[String]
+    case "clouseau.lock_class"   => lock_class.getOrElse(default).asInstanceOf[String]
+    case "clouseau.dir_class"    => dir_class.getOrElse(default).asInstanceOf[String]
+    case "clouseau.dreyfus_node" => dreyfus_node.getOrElse(default).asInstanceOf[String]
     case _                     => throw new Exception(s"Unexpected String key '$key'")
   }
   def getInt(key: String, default: Int) = key match {
