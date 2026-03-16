@@ -240,7 +240,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       }
       exit('deleted)
     case 'maybe_commit =>
-      commit(pendingSeq, pendingPurgeSeq)
+      maybeAsyncCommit(pendingSeq, pendingPurgeSeq)
     case ('committed, newUpdateSeq: Long, newPurgeSeq: Long) =>
       updateSeq = newUpdateSeq
       purgeSeq = newPurgeSeq
@@ -295,28 +295,35 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     ()
   }
 
-  private def commit(newUpdateSeq: Long, newPurgeSeq: Long) = {
+  private def maybeAsyncCommit(newUpdateSeq: Long, newPurgeSeq: Long) = {
     if (!committing && (newUpdateSeq > updateSeq || newPurgeSeq > purgeSeq)) {
-      committing = true
       val index = self
       node.spawn(_ => {
-        ctx.args.writer.setCommitData((ctx.args.writer.getCommitData.asScala +
-          ("update_seq" -> newUpdateSeq.toString) +
-          ("purge_seq" -> newPurgeSeq.toString)).asJava)
-        try {
-          commitTimer.time {
-            ctx.args.writer.commit()
-          }
-          index ! ('committed, newUpdateSeq, newPurgeSeq)
-        } catch {
-          case e: AlreadyClosedException =>
-            logger.error(prefix_name("Commit failed to closed writer"), e)
-            index ! 'commit_failed
-          case e: IOException =>
-            logger.error(prefix_name("Failed to commit changes"), e)
-            index ! 'commit_failed
-        }
+        syncCommit(index, newUpdateSeq, newPurgeSeq)
       })
+    }
+  }
+
+  private def syncCommit(index: Pid, newUpdateSeq: Long, newPurgeSeq: Long): Boolean = {
+    committing = true
+    ctx.args.writer.setCommitData((ctx.args.writer.getCommitData.asScala +
+      ("update_seq" -> newUpdateSeq.toString) +
+      ("purge_seq" -> newPurgeSeq.toString)).asJava)
+    try {
+      commitTimer.time {
+        ctx.args.writer.commit()
+      }
+      index ! ('committed, newUpdateSeq, newPurgeSeq)
+      true
+    } catch {
+      case e: AlreadyClosedException =>
+        logger.error(prefix_name("Commit failed to closed writer"), e)
+        index ! 'commit_failed
+        false
+      case e: IOException =>
+        logger.error(prefix_name("Failed to commit changes"), e)
+        index ! 'commit_failed
+        false
     }
   }
 
