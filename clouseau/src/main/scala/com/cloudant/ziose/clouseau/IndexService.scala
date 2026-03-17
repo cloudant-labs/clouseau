@@ -196,13 +196,18 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       logger.debug(prefix_name("Pending sequence is now %d".format(newSeq)))
       'ok
     case SetPurgeSeqMsg(newPurgeSeq: Long) =>
-      if (syncCommit(self, updateSeq, newPurgeSeq)) {
-        purgeSeq = newPurgeSeq
-        logger.debug(prefix_name("purge sequence is now %d".format(newPurgeSeq)))
-        'ok
-      } else {
-        ('error, 'commit_failed)
-      }
+      val index = self
+      node.spawn(_ => {
+         if (syncCommit(index, updateSeq, newPurgeSeq)) {
+            purgeSeq = newPurgeSeq
+            logger.debug(prefix_name("purge seq committed with seq %d".format(newPurgeSeq)))
+            Service.reply(tag, 'ok)
+          } else {
+            Service.reply(tag, ('error, 'commit_failed))
+          }
+      })
+      ()
+      'noreply
     case 'info =>
       ('ok, getInfo)
     case ('create_snapshot, snapshotDir: String) =>
