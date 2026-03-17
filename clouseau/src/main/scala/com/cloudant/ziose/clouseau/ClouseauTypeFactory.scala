@@ -251,14 +251,6 @@ object ClouseauTypeFactory extends TypeFactory {
       case pid: EPid     => Some(Pid.toScala(pid))
       case ref: ERef     => Some(Reference.toScala(ref))
       case byte: ENumber => byte.toInt
-      case ETuple(EAtom("committed"), newUpdateSeq: ENumber, newPurgeSeq: ENumber) => {
-        (newUpdateSeq.toLong, newPurgeSeq.toLong) match {
-          case (Some(newUpdateSeq), Some(newPurgeSeq)) =>
-            Some((Symbol("committed"), newUpdateSeq, newPurgeSeq))
-          case _ =>
-            None
-        }
-      }
       case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
         Some((Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref))))
       case ETuple(from: EPid, ref: ERef) =>

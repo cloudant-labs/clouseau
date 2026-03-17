@@ -69,6 +69,7 @@ import zio.Duration
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: QueryParser, writer: IndexWriter)
 case class HighlightParameters(highlighter: Highlighter, highlightFields: List[String], highlightNumber: Int, analyzers: List[Analyzer])
+case class CommitWaiter(tag: (Pid, Any), min_purge_seq: Long)
 
 // These must match the records in dreyfus.
 case class TopDocs(updateSeq: Long, totalHits: Long, hits: List[Hit])
@@ -88,6 +89,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   var forceRefresh = false
   var idle = true
   var concurrentRequests = new AtomicInteger(0)
+  var commitWaiters = List[CommitWaiter]()
 
   def reader = lazyReader.getOrElse(throw InvalidReader)
   def setReader(reader: DirectoryReader) =
@@ -197,9 +199,14 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       logger.debug(prefix_name("Pending sequence is now %d".format(newSeq)))
       'ok
     case SetPurgeSeqMsg(newPurgeSeq: Long) =>
+      if (newPurgeSeq <= purgeSeq) {
+        return 'ok
+      }
       pendingPurgeSeq = newPurgeSeq
       logger.debug(prefix_name("purge sequence is now %d".format(newPurgeSeq)))
-      'ok
+      commitWaiters = CommitWaiter(tag, newPurgeSeq) :: commitWaiters
+      self ! 'maybe_commit
+      'noreply
     case 'info =>
       ('ok, getInfo)
     case ('create_snapshot, snapshotDir: String) =>
@@ -241,14 +248,22 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       exit('deleted)
     case 'maybe_commit =>
       commit(pendingSeq, pendingPurgeSeq)
-    case ('committed, newUpdateSeq: Long, newPurgeSeq: Long) =>
-      updateSeq = newUpdateSeq
-      purgeSeq = newPurgeSeq
+    case ('committed, newUpdateSeq: Number, newPurgeSeq: Number) =>
+      updateSeq = newUpdateSeq.longValue
+      purgeSeq = newPurgeSeq.longValue
       forceRefresh = true
       committing = false
       logger.debug(prefix_name("Committed update sequence %d and purge sequence %d".format(newUpdateSeq, newPurgeSeq)))
-    case 'commit_failed =>
+      val(completed, waiting) = commitWaiters.partition(w => w.min_purge_seq <= purgeSeq)
+      completed.foreach(w => Service.reply(w.tag, 'ok))
+      commitWaiters = waiting
+      self ! 'maybe_commit
+    case ('commit_failed, failedUpdateSeq: Number, failedPurgeSeq: Number) =>
       committing = false
+      val(failed, waiting) = commitWaiters.partition(w => w.min_purge_seq <= failedPurgeSeq.longValue)
+      failed.foreach(w => Service.reply(w.tag, ('error, 'commit_failed)))
+      commitWaiters = waiting
+      self ! 'maybe_commit
   }
 
   def countFields() = {
@@ -295,11 +310,11 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     ()
   }
 
-  private def commit(newUpdateSeq: Long, newPurgeSeq: Long) = {
+  private def commit(newUpdateSeq: Long, newPurgeSeq: Long) {
     if (!committing && (newUpdateSeq > updateSeq || newPurgeSeq > purgeSeq)) {
       committing = true
       val index = self
-      node.spawn(_ => {
+      node.spawn(worker => {
         ctx.args.writer.setCommitData((ctx.args.writer.getCommitData.asScala +
           ("update_seq" -> newUpdateSeq.toString) +
           ("purge_seq" -> newPurgeSeq.toString)).asJava)
@@ -311,10 +326,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
         } catch {
           case e: AlreadyClosedException =>
             logger.error(prefix_name("Commit failed to closed writer"), e)
-            index ! 'commit_failed
+            index ! ('commit_failed, newUpdateSeq, newPurgeSeq)
           case e: IOException =>
             logger.error(prefix_name("Failed to commit changes"), e)
-            index ! 'commit_failed
+            index ! ('commit_failed, newUpdateSeq, newPurgeSeq)
         }
       })
     }
