@@ -87,6 +87,8 @@ object ClouseauTypeFactory extends TypeFactory {
         for (fieldE <- fields) {
           val fieldS = adapter.toScala(fieldE)
           fieldS match {
+            case ("_partition", value: String, options: List[(String, Any) @unchecked]) =>
+              doc.add(new StringField("_partition", value, Store.NO))
             case (name: String, value: String, options: List[(String, Any) @unchecked]) =>
               if (value.nonEmpty) {
                 val map = options.collect { case t @ (key: String, value: Any) => t }.toMap

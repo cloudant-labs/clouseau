@@ -98,15 +98,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
 
   // Start committer heartbeat
   val commitInterval = ctx.args.config.getInt("commit_interval_secs", 30)
-  val timeAllowed = new QueryTimeoutImpl(ctx.args.config.getLong("clouseau.search_allowed_timeout_msecs", 5000)) {
-    override def shouldExit(): Boolean = {
-      val result = super.shouldExit()
-      if (result) {
-        parSearchTimeOutCount += 1
-      }
-      result
-    }
-  }
+  val timeAllowed = ctx.args.config.getLong("clouseau.search_allowed_timeout_msecs", 5000)
   val countFieldsEnabled = ctx.args.config.getBoolean("clouseau.count_fields", false)
 
   val concurrentSearchEnabled = ctx.args.config.getBoolean("clouseau.concurrent_search_enabled", false)
@@ -399,11 +391,15 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
           }
 
           if (partition.isDefined) {
-            searcher.setTimeout(timeAllowed)
+            searcher.setTimeout(queryTimeout)
           }
 
           val reduces = searchTimer.time {
               searcher.search(query, collectorManager)
+          }
+
+          if (searcher.timedOut) {
+            throw new ParseException("Query exceeded allowed time: " + timeAllowed + "ms.")
           }
 
           if (logger.isDebugEnabled()) {
@@ -433,6 +429,18 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
         }
       case error =>
         error
+    }
+  }
+
+  private def queryTimeout = {
+    new QueryTimeoutImpl(timeAllowed) {
+      override def shouldExit(): Boolean = {
+        val result = super.shouldExit()
+        if (result) {
+          parSearchTimeOutCount += 1
+        }
+        result
+      }
     }
   }
 
