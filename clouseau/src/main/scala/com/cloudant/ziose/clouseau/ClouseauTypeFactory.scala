@@ -153,11 +153,9 @@ object ClouseauTypeFactory extends TypeFactory {
       case ETuple(EAtom("set_update_seq"), seq: ENumber) =>
         seq.toLong.map(SetUpdateSeqMsg)
       case ETuple(EAtom("forward"), path: EBinary, msg) =>
-        parse(msg).map({ parsedMessage => ForwardByPathMsg(path.asString, parsedMessage) })
+        Some(ForwardByPathMsg(path.asString, msg))
       // most of the messages would be matching here so we can handle them elsewhere
-      case other =>
-        println(s"not parsed: $other")
-        None
+      case other => None
     }
   }
 
