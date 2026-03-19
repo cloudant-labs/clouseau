@@ -155,7 +155,9 @@ object ClouseauTypeFactory extends TypeFactory {
       case ETuple(EAtom("forward"), path: EBinary, msg) =>
         parse(msg).map({ parsedMessage => ForwardByPathMsg(path.asString, parsedMessage) })
       // most of the messages would be matching here so we can handle them elsewhere
-      case other => None
+      case other =>
+        println(s"not parsed: $other")
+        None
     }
   }
 
