@@ -9,8 +9,7 @@ clouseau_rpc_without_docs_test_() ->
     {"clouseau rpc tests without docs",
         {foreachx, fun setup/1, fun teardown/2, [
             ?TDEF_FEX(ioq, t_get_update_seq),
-            ?TDEF_FEX(ioq, t_set_purge_seq),
-            ?TDEF_FEX(ioq, t_get_purge_seq),
+            ?TDEF_FEX(ioq, t_set_get_purge_seq),
             ?TDEF_FEX(ioq, t_delete),
             ?TDEF_FEX(ioq, t_commit),
 
@@ -19,8 +18,7 @@ clouseau_rpc_without_docs_test_() ->
             ?TDEF_FEX(ioq, t_group1),
 
             ?TDEF_FEX(gen_server, t_get_update_seq),
-            ?TDEF_FEX(gen_server, t_set_purge_seq),
-            ?TDEF_FEX(gen_server, t_get_purge_seq),
+            ?TDEF_FEX(gen_server, t_set_get_purge_seq),
             ?TDEF_FEX(gen_server, t_delete),
             ?TDEF_FEX(gen_server, t_commit),
 
@@ -61,14 +59,25 @@ t_get_update_seq(_, IndexPid) ->
     {ok, Seq} = clouseau_rpc:get_update_seq(IndexPid),
     ?assertEqual(0, Seq).
 
-t_set_purge_seq(_, IndexPid) ->
-    {ok, Seq} = clouseau_rpc:get_update_seq(IndexPid),
-    Response = clouseau_rpc:set_purge_seq(IndexPid, Seq),
-    ?assertEqual(ok, Response).
+t_set_get_purge_seq(_, IndexPid) ->
+    ?assertEqual(ok, clouseau_rpc:set_purge_seq(IndexPid, 0)),
+    ?assertEqual({ok, 0}, clouseau_rpc:get_purge_seq(IndexPid)),
 
-t_get_purge_seq(_, IndexPid) ->
-    {ok, Seq} = clouseau_rpc:get_purge_seq(IndexPid),
-    ?assertEqual(0, Seq).
+    ?assertEqual(ok, clouseau_rpc:set_purge_seq(IndexPid, 1)),
+    ?assertEqual({ok, 1}, clouseau_rpc:get_purge_seq(IndexPid)),
+
+    % Set the same value
+    ?assertEqual(ok, clouseau_rpc:set_purge_seq(IndexPid, 1)),
+    ?assertEqual({ok, 1}, clouseau_rpc:get_purge_seq(IndexPid)),
+
+    % Try to regress the value
+    ?assertEqual(ok, clouseau_rpc:set_purge_seq(IndexPid, 0)),
+    ?assertEqual({ok, 1}, clouseau_rpc:get_purge_seq(IndexPid)),
+
+    % Try a long value
+    LongVal = 1 bsl 60,
+    ?assertEqual(ok, clouseau_rpc:set_purge_seq(IndexPid, LongVal)),
+    ?assertEqual({ok, LongVal}, clouseau_rpc:get_purge_seq(IndexPid)).
 
 t_delete(_, IndexPid) ->
     Response = clouseau_rpc:delete(IndexPid, ?Ddoc),
