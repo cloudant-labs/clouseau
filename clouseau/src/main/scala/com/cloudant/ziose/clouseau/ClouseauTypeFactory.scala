@@ -31,6 +31,7 @@ case class SearchRequest(options: Map[Symbol, Any])            extends ClouseauM
 case class SetPurgeSeqMsg(seq: Long)                           extends ClouseauMessage
 case class SetUpdateSeqMsg(seq: Long)                          extends ClouseauMessage
 case class UpdateDocMsg(id: String, doc: Document)             extends ClouseauMessage
+case class ForwardByPathMsg(path: String, msg: Any)            extends ClouseauMessage
 
 object ClouseauTypeFactory extends TypeFactory {
   type T = ClouseauMessage
@@ -151,6 +152,8 @@ object ClouseauTypeFactory extends TypeFactory {
         seq.toLong.map(SetPurgeSeqMsg)
       case ETuple(EAtom("set_update_seq"), seq: ENumber) =>
         seq.toLong.map(SetUpdateSeqMsg)
+      case ETuple(EAtom("forward"), path: EBinary, msg) =>
+        parse(msg).map({ parsedMessage => ForwardByPathMsg(path.asString, parsedMessage) })
       // most of the messages would be matching here so we can handle them elsewhere
       case other => None
     }
