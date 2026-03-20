@@ -192,7 +192,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
         case pid =>
           ('ok, pid)
       }
-    case ForwardByPathMsg(path: String, msg: Any) =>
+    case ('forward, path: String, msg: Any) =>
       lru.get(path) match {
         case null =>
           // TODO: re-open index? it should not happen
