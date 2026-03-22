@@ -328,7 +328,7 @@ COUCHDB_DIR = $(COUCHDB_ROOT).$(COUCHDB_COMMIT)
 
 $(COUCHDB_DIR)/.checked_out:
 	@git clone $(COUCHDB_REPO) $(COUCHDB_DIR)
-	@cd $(COUCHDB_DIR) && git checkout $(COUCHDB_COMMIT)
+	@cd $(COUCHDB_DIR) && git checkout -f $(COUCHDB_COMMIT)
 	@touch $(COUCHDB_DIR)/.checked_out
 
 $(COUCHDB_DIR)/.configured: $(COUCHDB_DIR)/.checked_out
