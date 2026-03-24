@@ -31,7 +31,7 @@ for i in $(seq 1 "$RETRY"); do
       break
     fi
   done
-  jcmd | grep clouseau | cut -d' ' -f1 >"$TMP_DIR/t$i.pid"
+  pgrep -f "^java -jar (.*/)?clouseau.*\.jar$" >"$TMP_DIR/t$i.pid"
   before_kill_timestamp=$(date +%s)
   pkill -F "$TMP_DIR/t$i.pid"
 
