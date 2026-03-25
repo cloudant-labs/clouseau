@@ -154,22 +154,18 @@ final case class SyslogConfiguration(
 )
 
 /**
- * A data type to hold configured capacity exponent values
+ * A data type to hold configured capacity exponent values. Exponent must be greater than 0. If not specified
+ * backpressure wouldn't be applied.
  * @param analyzer_exponent
- *   An exponent to calculate capacity of the message queue used for `AnalyzerService`. Exponent must be greater than 0.
- *   If not specified backpressure wouldn't be applied.
+ *   An exponent to calculate capacity of the message queue used for ''AnalyzerService''.
  * @param cleanup_exponent
- *   An exponent to calculate capacity of the message queue used for `CleanupService`. Exponent must be greater than 0.
- *   If not specified backpressure wouldn't be applied.
+ *   An exponent to calculate capacity of the message queue used for ''CleanupService''.
  * @param index_exponent
- *   An exponent to calculate capacity of the message queue used for `IndexService`. Exponent must be greater than 0. If
- *   not specified backpressure wouldn't be applied.
+ *   An exponent to calculate capacity of the message queue used for ''IndexService''.
  * @param init_exponent
- *   An exponent to calculate capacity of the message queue used for `InitService`. Exponent must be greater than 0. If
- *   not specified backpressure wouldn't be applied.
+ *   An exponent to calculate capacity of the message queue used for ''InitService''.
  * @param main_exponent
- *   An exponent to calculate capacity of the message queue used for `IndexManagerService`. Exponent must be greater
- *   than 0. If not specified backpressure wouldn't be applied.
+ *   An exponent to calculate capacity of the message queue used for ''InitService''.
  */
 final case class CapacityConfiguration(
   analyzer_exponent: Option[Exponent] = None,
@@ -182,19 +178,20 @@ final case class CapacityConfiguration(
 object CapacityConfiguration {
   def readExponent(value: Int): Either[Error, Exponent] = {
     value match {
-      case 0 =>
-        Left(Error.InvalidData(message = s"Exponent cannot be 0 (got '${value}')"))
-      case v if v < 0 =>
-        Left(Error.InvalidData(message = s"Exponent cannot be negative (got '${value}')"))
-      case v if v > 16 =>
-        Left(Error.InvalidData(message = s"Exponent cannot be greater than 16 (got '${value}')"))
-      case _ =>
+      case v if (1 to 16).contains(v) =>
         Right(Exponent(value))
+      case _ =>
+        Left(
+          Error.InvalidData(
+            message = s"Exponent must be greater than 0 and less than or equal to 16 (got '${value}')"
+          )
+        )
     }
   }
 }
 
 final case class AppCfg(config: List[WorkerConfiguration], logger: LogConfiguration)
+
 object AppCfg {
   implicit val exponentDescriptor: DeriveConfig[Exponent] = {
     DeriveConfig[Int].mapOrFail(CapacityConfiguration.readExponent)
