@@ -12,14 +12,14 @@ sealed abstract class LogOutput
 sealed abstract class LogFormat
 
 object LogOutput {
-  final case object Stdout extends LogOutput
-  final case object Syslog extends LogOutput
+  case object Stdout extends LogOutput
+  case object Syslog extends LogOutput
 }
 
 object LogFormat {
-  final case object Raw  extends LogFormat
-  final case object Text extends LogFormat
-  final case object JSON extends LogFormat
+  case object Raw  extends LogFormat
+  case object Text extends LogFormat
+  case object JSON extends LogFormat
 }
 
 final case class WorkerConfiguration(
@@ -142,8 +142,8 @@ final case class ConfigurationArgs(config: Configuration)
 sealed abstract class SyslogProtocol
 
 object SyslogProtocol {
-  final case object TCP extends SyslogProtocol
-  final case object UDP extends SyslogProtocol
+  case object TCP extends SyslogProtocol
+  case object UDP extends SyslogProtocol
 }
 
 final case class SyslogConfiguration(
