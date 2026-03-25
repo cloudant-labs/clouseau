@@ -81,8 +81,8 @@ final case class ClouseauConfiguration(
         case Some(RootDir(value)) => value
         case None                 => default
       }
-    case "clouseau.lock_class" => lock_class.getOrElse(default).asInstanceOf[String]
-    case "clouseau.dir_class"  => dir_class.getOrElse(default).asInstanceOf[String]
+    case "clouseau.lock_class" => lock_class.getOrElse(default)
+    case "clouseau.dir_class"  => dir_class.getOrElse(default)
     case _                     => throw new Exception(s"Unexpected String key '$key'")
   }
   def getInt(key: String, default: Int) = key match {
