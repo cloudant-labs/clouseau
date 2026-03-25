@@ -66,7 +66,6 @@ final case class ClouseauConfiguration(
   idle_check_interval_secs: Option[Int] = None,
   lru_update_interval_msecs: Option[Int] = None,
   max_indexes_open: Option[Int] = None,
-  field_cache_metrics: Option[Boolean] = None,
   field_count_warn_threshold: Option[Int] = None,
   commit_interval_secs: Option[Int] = None,
   lock_class: Option[String] = None,
@@ -102,7 +101,6 @@ final case class ClouseauConfiguration(
     case "clouseau.count_fields"              => count_fields.getOrElse(default)
     case "clouseau.count_locks"               => count_locks.getOrElse(default)
     case "clouseau.close_if_idle"             => close_if_idle.getOrElse(default)
-    case "field_cache_metrics"                => field_cache_metrics.getOrElse(default)
     case "clouseau.concurrent_search_enabled" => concurrent_search_enabled.getOrElse(default)
     case "clouseau.track_index_atimes"        => track_index_atimes.getOrElse(default)
     case _                                    => throw new Exception(s"Unexpected Boolean key '$key'")
@@ -119,7 +117,6 @@ final case class ClouseauConfiguration(
     s"idle_check_interval_secs=$idle_check_interval_secs",
     s"lru_update_interval_msecs=$lru_update_interval_msecs",
     s"max_indexes_open=$max_indexes_open",
-    s"field_cache_metrics=$field_cache_metrics",
     s"commit_interval_secs=$commit_interval_secs",
     s"lock_class=$lock_class",
     s"dir_class=$dir_class",
