@@ -22,11 +22,6 @@ object LogFormat {
   case object JSON extends LogFormat
 }
 
-final case class WorkerConfiguration(
-  node: OTPNodeConfig,
-  clouseau: Option[ClouseauConfiguration],
-  capacity: Option[CapacityConfiguration]
-)
 final case class LogConfiguration(
   output: Option[LogOutput],
   format: Option[LogFormat],
@@ -54,6 +49,12 @@ object LogConfiguration {
     }
   }
 }
+
+final case class WorkerConfiguration(
+  node: OTPNodeConfig,
+  clouseau: Option[ClouseauConfiguration],
+  capacity: Option[CapacityConfiguration]
+)
 
 final case class RootDir(value: String) extends AnyVal
 
