@@ -1,8 +1,8 @@
 package com.cloudant.ziose.clouseau
 
-import _root_.com.cloudant.ziose.core.Exponent
-import _root_.com.cloudant.ziose.macros.CheckEnv
-import _root_.com.cloudant.ziose.otp.OTPNodeConfig
+import com.cloudant.ziose.core.Exponent
+import com.cloudant.ziose.macros.CheckEnv
+import com.cloudant.ziose.otp.OTPNodeConfig
 import zio.Config.Error
 import zio.config.magnolia.{DeriveConfig, deriveConfig}
 import zio.config.typesafe.FromConfigSourceTypesafe
