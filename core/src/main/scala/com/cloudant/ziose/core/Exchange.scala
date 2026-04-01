@@ -12,11 +12,10 @@ package com.cloudant.ziose.core
 import com.cloudant.ziose.macros.CheckEnv
 import zio.{Scope, Trace, UIO, ZIO}
 import java.util.concurrent.atomic.AtomicBoolean
-import zio.Unsafe
-import zio.Runtime
 
 class Exchange[K, M, E <: ForwardWithId[K, M]](registry: Registry[K, M, E], val keyFn: M => K)
-    extends Exchange.WithConstructor[K, M, E] {
+    extends Exchange.WithConstructor[K, M, E]
+    with ZioSupport {
   private var isFinalized: AtomicBoolean = new AtomicBoolean(false)
   def add(entity: E): UIO[Unit]          = {
     registry.add(entity)
@@ -56,13 +55,7 @@ class Exchange[K, M, E <: ForwardWithId[K, M]](registry: Registry[K, M, E], val 
     }
   }
   def shutdown(implicit trace: Trace): UIO[Unit] = {
-    if (!isFinalized.getAndSet(true)) {
-      foreach(x => {
-        Unsafe.unsafe(implicit unsafe => {
-          Runtime.default.unsafe.run(x.shutdown)
-        })
-      })
-    } else { ZIO.unit }
+    ZIO.unless(isFinalized.getAndSet(true))(foreach(_.shutdown.unsafeRun)).unit
   }
 
   def forward(msg: M)(implicit trace: zio.Trace): UIO[Boolean] = for {

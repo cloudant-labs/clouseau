@@ -8,6 +8,7 @@ import zio._
 import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
 
 import com.cloudant.ziose.core
+import com.cloudant.ziose.core.ZioSupport
 import com.cloudant.ziose.scalang.{Adapter, Pid, Reference, Service, ServiceContext, SNode, PidSend}
 import zio.test._
 import zio.test.Assertion._
@@ -160,7 +161,7 @@ private object MonitorService extends core.ActorConstructor[MonitorService] {
 }
 
 @RunWith(classOf[ZTestJUnitRunner])
-class ClouseauNodeSpec extends JUnitRunnableSpec {
+class ClouseauNodeSpec extends JUnitRunnableSpec with ZioSupport {
   def dummyCaller(testName: String)           = core.Name(core.Codec.EAtom("test"), 1, Symbol(testName))
   val TIMEOUT                                 = 2.seconds
   val WAIT_DURATION                           = 500.milliseconds
@@ -271,12 +272,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
               core.Codec.ENumber(BigInt("0")), // ts
               core.Codec.ENumber(1L)           // seq
             )
-            Unsafe.unsafe { implicit unsafe =>
-              runtime.unsafe.run(addressChannel.offer(process.self))
-            }
-            Unsafe.unsafe { implicit unsafe =>
-              runtime.unsafe.run(unleashChannel.take)
-            }
+            addressChannel.offer(process.self).unsafeRun
+            unleashChannel.take.unsafeRun
           }))
           address <- addressChannel.take
           _       <- assertAlive(address)
@@ -297,12 +294,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           unleashChannel <- Queue.bounded[Unit](1)
           _              <- ZIO
             .attemptBlocking(node.spawn(process => {
-              Unsafe.unsafe { implicit unsafe =>
-                runtime.unsafe.run(addressChannel.offer(process.self))
-              }
-              Unsafe.unsafe { implicit unsafe =>
-                runtime.unsafe.run(unleashChannel.take)
-              }
+              addressChannel.offer(process.self).unsafeRun
+              unleashChannel.take.unsafeRun
             }))
             .fork
           address    <- addressChannel.take
@@ -323,12 +316,8 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           unleashChannel <- Queue.bounded[Unit](1)
           _              <- ZIO
             .attemptBlocking(node.spawn(process => {
-              Unsafe.unsafe { implicit unsafe =>
-                runtime.unsafe.run(addressChannel.offer(process.self))
-              }
-              Unsafe.unsafe { implicit unsafe =>
-                runtime.unsafe.run(unleashChannel.take)
-              }
+              addressChannel.offer(process.self).unsafeRun
+              unleashChannel.take.unsafeRun
             }))
             .fork
           address        <- addressChannel.take
@@ -849,10 +838,10 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           unleashChannel <- Queue.bounded[Unit](1)
 
           _ <- ZIO.succeed(node.spawn(process => {
-            Unsafe.unsafe { implicit unsafe =>
+            {
               node.link(actorAPid, actorBPid)(process.adapter)
-              runtime.unsafe.run(unleashChannel.offer(()))
-            }
+              unleashChannel.offer(())
+            }.unsafeRun
           }))
 
           _ <- unleashChannel.take
@@ -914,10 +903,10 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           unleashChannel <- Queue.bounded[Unit](1)
 
           _ <- ZIO.succeed(node.spawn(process => {
-            Unsafe.unsafe { implicit unsafe =>
+            {
               node.link(actorAPid, actorBPid)(process.adapter)
-              runtime.unsafe.run(unleashChannel.offer(()))
-            }
+              unleashChannel.offer(())
+            }.unsafeRun
           }))
 
           _ <- unleashChannel.take

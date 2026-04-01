@@ -5,7 +5,7 @@ import zio._
 sealed trait EngineWorkerError            extends Exception
 case class NameAlreadyInUse(name: String) extends EngineWorkerError
 
-trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] {
+trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] with ZioSupport {
   type Context <: ProcessContext
   val id: Engine.WorkerId
   val nodeName: Symbol
@@ -29,11 +29,7 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] {
   }
 
   def processInfo[A <: Actor](addr: Address): Option[ProcessInfo] = {
-    Unsafe.unsafe { implicit unsafe =>
-      Runtime.default.unsafe
-        .run(processInfoZIO(addr))
-        .getOrThrowFiberFailure()
-    }.asInstanceOf[Option[ProcessInfo]]
+    processInfoZIO(addr).unsafeRunAndGet
   }
 
   def actorMetersZIO[A <: Actor](addr: Address): UIO[Option[List[ActorMeterInfo]]] = {
@@ -41,11 +37,7 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] {
   }
 
   def actorMeters[A <: Actor](addr: Address): Option[List[ActorMeterInfo]] = {
-    Unsafe.unsafe { implicit unsafe =>
-      Runtime.default.unsafe
-        .run(actorMetersZIO(addr))
-        .getOrThrowFiberFailure()
-    }.asInstanceOf[Option[List[ActorMeterInfo]]]
+    actorMetersZIO(addr).unsafeRunAndGet
   }
 
   def processInfoTopKZIO[A <: Actor](
@@ -63,11 +55,7 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] {
   }
 
   def processInfoTopK(valueFun: ProcessInfo => Int): List[ProcessInfo] = {
-    Unsafe.unsafe { implicit unsafe =>
-      Runtime.default.unsafe
-        .run(processInfoTopKZIO(valueFun))
-        .getOrThrowFiberFailure()
-    }.asInstanceOf[List[ProcessInfo]]
+    processInfoTopKZIO(valueFun).unsafeRunAndGet
   }
 
   def actorMeterInfoTopKZIO[A <: Actor](
@@ -87,11 +75,7 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] {
   }
 
   def actorMeterInfoTopK(query: ActorMeterInfo.Query[Double]): List[ActorMeterInfo] = {
-    Unsafe.unsafe { implicit unsafe =>
-      Runtime.default.unsafe
-        .run(actorMeterInfoTopKZIO(query))
-        .getOrThrowFiberFailure()
-    }.asInstanceOf[List[ActorMeterInfo]]
+    actorMeterInfoTopKZIO(query).unsafeRunAndGet
   }
 
 }
