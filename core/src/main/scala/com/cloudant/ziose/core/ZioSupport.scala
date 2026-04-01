@@ -1,9 +1,47 @@
 package com.cloudant.ziose.core
 
-import zio.{IO, Runtime, Unsafe}
+import zio.{Exit, Fiber, IO, Runtime, UIO, Unsafe, ZIO}
+
+trait Adapter[C, F] {
+  def runtime: Runtime[Any]
+}
 
 trait ZioSupport {
-  implicit final class ZioOps[E, A](self: IO[E, A]) {
-    def unsafeRun: A = Unsafe.unsafe(implicit u => Runtime.default.unsafe.run(self).getOrThrowFiberFailure())
+  implicit final class ZioOps[E <: Throwable, A](self: IO[E, A]) {
+    def unsafeRun: Exit[E, A] = {
+      Unsafe.unsafe(implicit u => Runtime.default.unsafe.run(self))
+    }
+
+    def unsafeRunGetOrThrowFiberFailure: A = {
+      Unsafe.unsafe(implicit u => Runtime.default.unsafe.run(self).getOrThrowFiberFailure())
+    }
+  }
+
+  implicit final class ZioOpsAdapter[E <: Throwable, A](self: IO[E, A]) {
+    def unsafeRunAdapter(implicit adapter: Adapter[_, _]): Exit[E, A] = {
+      Unsafe.unsafe(implicit u => adapter.runtime.unsafe.run(self))
+    }
+
+    def unsafeRunAdapterForkDaemon(implicit adapter: Adapter[_, _]): UIO[Fiber.Runtime[E, A]] = {
+      Unsafe.unsafe(implicit u => adapter.runtime.unsafe.run(self).forkDaemon)
+    }
+
+    def unsafeRunAdapterGetOrThrow(implicit adapter: Adapter[_, _]): A = {
+      Unsafe.unsafe(implicit u => adapter.runtime.unsafe.run(self).getOrThrow())
+    }
+  }
+
+  implicit final class ZioOpsCustomRuntime[R, E <: Throwable, A](self: ZIO[R, E, A]) {
+    def unsafeRunCustomRuntime(runtime: Runtime[R]): Exit[E, A] = {
+      Unsafe.unsafe(implicit u => runtime.unsafe.run(self))
+    }
+
+    def unsafeRunCustomRuntimeGetOrThrow(runtime: Runtime[R]): A = {
+      Unsafe.unsafe(implicit u => runtime.unsafe.run(self).getOrThrow())
+    }
+
+    def unsafeRunCustomRuntimeGetOrThrowFiberFailure(runtime: Runtime[R]): A = {
+      Unsafe.unsafe(implicit u => runtime.unsafe.run(self).getOrThrowFiberFailure())
+    }
   }
 }
