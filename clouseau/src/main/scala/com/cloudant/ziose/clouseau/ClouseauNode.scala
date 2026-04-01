@@ -13,7 +13,7 @@ import zio.Exit.Failure
 import zio.Exit.Success
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
 import com.cloudant.ziose.macros.CheckEnv
-import zio.{&, LogLevel, Runtime, Tag, Unsafe}
+import zio.{&, LogLevel, Runtime, Tag}
 
 class ClouseauNode(implicit
   override val runtime: Runtime[core.EngineWorker & core.Node],
@@ -50,27 +50,18 @@ class ClouseauNode(implicit
   val workerId = worker.id
 
   override def spawn(fun: scalang.Process => Unit): scalang.Pid = {
-    val result = Unsafe.unsafe { implicit unsafe =>
-      runtime.unsafe
-        .run(
-          for {
-            addressable <- worker.spawn(SimpleProcess.make(this, fun))
-          } yield addressable
-        )
-        .getOrThrowFiberFailure
-    }
-    result.self
+    val addressableActor: AddressableActor[_ <: Actor, _ <: ProcessContext] = (
+      for {
+        addressable <- worker.spawn(SimpleProcess.make(this, fun))
+      } yield addressable
+    ).unsafeRunAndGetWith(runtime)
+    addressableActor.self
   }
 
   override def spawnService[TS <: Service[A] with Actor: Tag, A <: Product](
     builder: ActorBuilder.Sealed[TS]
   )(implicit adapter: Adapter[_, _]): core.Result[core.Node.Error, AddressableActor[TS, ProcessContext]] = {
-    val result = Unsafe.unsafe { implicit unsafe =>
-      runtime.unsafe
-        .run(
-          spawnServiceZIO[TS, A](builder)
-        )
-    } // TODO: kill the caller
+    val result = spawnServiceZIO[TS, A](builder).unsafeRunWith(runtime) // TODO: kill the caller
     result match {
       case Failure(cause) if cause.isFailure     => core.Failure(cause.failureOption.get)
       case Failure(cause) if cause.isDie         => core.Failure(core.Node.Error.Unknown(cause.dieOption.get))
@@ -86,12 +77,7 @@ class ClouseauNode(implicit
     reentrant: Boolean
   )(implicit adapter: Adapter[_, _]): core.Result[core.Node.Error, AddressableActor[TS, ProcessContext]] = {
     // TODO Handle reentrant argument
-    val result = Unsafe.unsafe { implicit unsafe =>
-      runtime.unsafe
-        .run(
-          spawnServiceZIO[TS, A](builder, reentrant)
-        )
-    } // TODO: kill the caller
+    val result = spawnServiceZIO[TS, A](builder, reentrant).unsafeRunWith(runtime) // TODO: kill the caller
     result match {
       case Failure(cause) if cause.isFailure     => core.Failure(cause.failureOption.get)
       case Failure(cause) if cause.isDie         => core.Failure(core.Node.Error.Unknown(cause.dieOption.get))
