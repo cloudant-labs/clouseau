@@ -7,7 +7,7 @@ coursier:
 git:
   erlfmt:
     repo: https://github.com/WhatsApp/erlfmt.git
-    branch: v1.3.0
-    version: 1.3.0
+    branch: v1.8.0
+    version: 1.8.0
     build_cmd: "make release"
     binary: _build/release/bin/erlfmt

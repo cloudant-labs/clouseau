@@ -13,12 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: git config advice.detachedHead false
       - name: Comment out tools not available in mise
         run: sed -i 's/^spotbugs /#spotbugs /' .tool-versions
       - name: Install mise & tools
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4
         with:
           install: true
 
@@ -29,7 +29,7 @@ jobs:
           COURSIER="mise exec -- cs" tools::activate_tools
           mise exec -- make ci-lint
       - name: Unit tests
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
@@ -37,13 +37,13 @@ jobs:
       - name: Restart test
         run: mise exec -- make restart-test
       - name: RPC tests (zeunit)
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
           command: mise exec -- make zeunit
       - name: Concurrent RPC tests (zeunit)
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
@@ -51,13 +51,13 @@ jobs:
       - name: Syslog tests
         run: mise exec -- make syslog-tests
       - name: Elixir tests
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
           command: mise exec -- make ci-elixir
       - name: Metrics tests (mango)
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 8
           max_attempts: 3
