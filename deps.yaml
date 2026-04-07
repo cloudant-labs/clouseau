@@ -1,7 +1,7 @@
 coursier:
   scalafmt:
     id: org.scalameta:scalafmt-cli_2.13
-    version: 3.7.17
+    version: 3.11.0
     install_args: "-r sonatype:snapshots --main org.scalafmt.cli.Cli"
 
 git:
