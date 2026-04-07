@@ -40,8 +40,8 @@ class UtilsSpec extends JUnitRunnableSpec {
         })(throws(hasMessage(containsString("List(1, 2, 3, 4) contains non-string element 3"))))
       },
       test("skip processing of elements after first element of wrong type") {
-        val input                             = List("1", "2", 3, "4")
-        val recorder: mutable.ListBuffer[Any] = mutable.ListBuffer.empty
+        val input                                         = List("1", "2", 3, "4")
+        val recorder: mutable.ListBuffer[Any]             = mutable.ListBuffer.empty
         val condition: PartialFunction[Any, List[String]] = ensureElementsType(
           {
             case string: String => {

@@ -23,10 +23,10 @@ TODO: Implement builder pattern
 object MessageEnvelope {
   // TODO we need a builder pattern for these
   case class Init(to: Address) extends MessageEnvelope {
-    val from                      = None
-    val workerId: Engine.WorkerId = to.workerId
-    val workerNodeName: Symbol    = to.workerNodeName
-    def getPayload                = None
+    val from                                                 = None
+    val workerId: Engine.WorkerId                            = to.workerId
+    val workerNodeName: Symbol                               = to.workerNodeName
+    def getPayload                                           = None
     def redirect(mapFn: Address => Address): MessageEnvelope = {
       copy(to = mapFn(to))
     }
@@ -45,17 +45,17 @@ object MessageEnvelope {
     }
   }
   case class Send(from: Option[EPid], to: Address, payload: ETerm, private val base: Address) extends MessageEnvelope {
-    val workerId: Engine.WorkerId = base.workerId
-    val workerNodeName: Symbol    = base.workerNodeName
-    def getPayload                = Some(payload)
+    val workerId: Engine.WorkerId                            = base.workerId
+    val workerNodeName: Symbol                               = base.workerNodeName
+    def getPayload                                           = Some(payload)
     def redirect(mapFn: Address => Address): MessageEnvelope = {
       copy(to = mapFn(to))
     }
   }
   case class Exit(from: Option[EPid], to: Address, reason: ETerm, private val base: Address) extends MessageEnvelope {
-    val workerId: Engine.WorkerId = base.workerId
-    val workerNodeName: Symbol    = base.workerNodeName
-    def getPayload                = Some(reason)
+    val workerId: Engine.WorkerId                            = base.workerId
+    val workerNodeName: Symbol                               = base.workerNodeName
+    def getPayload                                           = Some(reason)
     def redirect(mapFn: Address => Address): MessageEnvelope = {
       copy(to = mapFn(to))
     }
@@ -83,9 +83,9 @@ object MessageEnvelope {
     timeout: Option[Duration],
     private val base: Address
   ) extends MessageEnvelope {
-    def getPayload                = Some(ETuple(tag, ETuple(from.get, replyRef), payload))
-    val workerId: Engine.WorkerId = base.workerId
-    val workerNodeName: Symbol    = base.workerNodeName
+    def getPayload                                           = Some(ETuple(tag, ETuple(from.get, replyRef), payload))
+    val workerId: Engine.WorkerId                            = base.workerId
+    val workerNodeName: Symbol                               = base.workerNodeName
     def redirect(mapFn: Address => Address): MessageEnvelope = {
       copy(to = mapFn(to))
     }
@@ -98,9 +98,9 @@ object MessageEnvelope {
     payload: ETerm,
     private val base: Address
   ) extends MessageEnvelope {
-    def getPayload                = Some(payload)
-    val workerId: Engine.WorkerId = base.workerId
-    val workerNodeName: Symbol    = base.workerNodeName
+    def getPayload                                           = Some(payload)
+    val workerId: Engine.WorkerId                            = base.workerId
+    val workerNodeName: Symbol                               = base.workerNodeName
     def redirect(mapFn: Address => Address): MessageEnvelope = {
       copy(to = mapFn(to))
     }
@@ -123,7 +123,7 @@ object MessageEnvelope {
     def isSuccess                 = reason.isEmpty
     def getCaller                 = from.get
     // when makeCall is used the Address is a PID
-    def getCallee = to.asInstanceOf[PID].pid
+    def getCallee                                            = to.asInstanceOf[PID].pid
     def redirect(mapFn: Address => Address): MessageEnvelope = {
       copy(to = mapFn(to))
     }

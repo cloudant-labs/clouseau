@@ -56,7 +56,7 @@ class IndexCleanupServiceSpec extends JUnitRunnableSpec {
     suite("index cleanup service")(
       test("rename index when database is deleted")(
         for {
-          _ <- runCleanupService('rename, "foo.1234567890")
+          _          <- runCleanupService('rename, "foo.1234567890")
           subdirList <- ZIO.attempt(
             indexDir.listFiles.filter(file => file.getName contains ".deleted")
           )

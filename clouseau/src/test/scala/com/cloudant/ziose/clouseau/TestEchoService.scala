@@ -56,7 +56,7 @@ class TestEchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: 
     request match {
       case (Symbol("echo"), request) => (Symbol("reply"), (Symbol("echo"), adapter.fromScala(request)))
       case (Symbol("crashWithReason"), reason: String) => throw new Throwable(reason)
-      case (Symbol("stop"), reason: Symbol) =>
+      case (Symbol("stop"), reason: Symbol)            =>
         (Symbol("stop"), reason, adapter.fromScala(request))
       case (Symbol("exitWithReason"), reason: String) =>
         exit(reason)

@@ -22,8 +22,8 @@ object Node {
   trait Error extends Throwable
 
   object Error {
-    case class Disconnected() extends Error
-    case class NoSuchActor()  extends Error
+    case class Disconnected()          extends Error
+    case class NoSuchActor()           extends Error
     case class NameInUse(name: String) extends Error with Codec.FromScala {
       def fromScala: Codec.ETerm = Codec.fromScala((Symbol("name_in_use"), Symbol(name)))
 
