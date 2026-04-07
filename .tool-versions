@@ -7,7 +7,7 @@ scala 2.13.18
 erlang 26.2.5.20
 rebar 3.27.0
 coursier 2.1.24
-editorconfig-checker 3.0.3
+editorconfig-checker 3.6.1
 sbt 1.12.9
 # required tools
 yq 4.53.2
