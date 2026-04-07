@@ -66,10 +66,10 @@ class UtilsSpec extends JUnitRunnableSpec {
       },
       test("usable when orElse doesn't throw exception") {
         /*
-         This is not supported use case for the function.
-         Because there is no way to distinguish the success and failure.
+        This is not supported use case for the function.
+        Because there is no way to distinguish the success and failure.
 
-         This test is written only to verify that orElse function works correctly.
+        This test is written only to verify that orElse function works correctly.
          */
         val condition: PartialFunction[Any, List[String]] = ensureElementsType(
           {

@@ -305,7 +305,7 @@ syslog-test: $(JAR_ARTIFACTS) epmd FORCE
 	@sleep 5
 	@cli stop $@
 	@if grep -Fq "Clouseau running as clouseau1@127.0.0.1" syslog.out; then \
-  	echo ">>> Log events received!"; \
+		echo ">>> Log events received!"; \
 	else \
 		echo ">>> FAILED to receive log events!"; \
 		exit 1; \
@@ -542,7 +542,7 @@ ci-build: artifacts $(CI_ARTIFACTS_DIR)
 ci-unit: test $(CI_ARTIFACTS_DIR)
 	@echo ci-unit
 	@for dir in $(ALL_SUBPROJECTS); do \
-  	cp -R $(ARTIFACTS_DIR)/$$dir/ $(CI_ARTIFACTS_DIR)/ || true; \
+		cp -R $(ARTIFACTS_DIR)/$$dir/ $(CI_ARTIFACTS_DIR)/ || true; \
 	done
 
 ci-zeunit: zeunit $(CI_ARTIFACTS_DIR)
