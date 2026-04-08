@@ -5,7 +5,7 @@ import com.cloudant.ziose.{core, scalang}
 import core.{Actor, ActorBuilder, AddressableActor, EngineWorker, Node, ProcessContext, Result}
 import scalang.{Adapter, SNode, ScalangMeterRegistry, Service}
 import zio.Exit.{Failure, Success}
-import zio.{&, LogLevel, Runtime, Tag, ZIO}
+import zio.{&, LogLevel, Runtime, Tag, Unsafe, ZIO}
 
 class ClouseauNode(implicit
   override val runtime: Runtime[EngineWorker & Node],
@@ -46,14 +46,14 @@ class ClouseauNode(implicit
       for {
         addressable <- worker.spawn(SimpleProcess.make(this, fun))
       } yield addressable
-    ).unsafeRunCustomRuntimeGetOrThrowFiberFailure(runtime)
+    ).unsafeRunWith(runtime).getOrThrowFiberFailure()(Unsafe)
     addressableActor.self
   }
 
   override def spawnService[TS <: Service[A] & Actor: Tag, A <: Product](
     builder: ActorBuilder.Sealed[TS]
   )(implicit adapter: Adapter[_, _]): Result[Node.Error, AddressableActor[TS, ProcessContext]] = {
-    val result = spawnServiceZIO[TS, A](builder).unsafeRunCustomRuntime(runtime) // TODO: kill the caller
+    val result = spawnServiceZIO[TS, A](builder).unsafeRunWith(runtime) // TODO: kill the caller
     result match {
       case Failure(cause) if cause.isFailure     => core.Failure(cause.failureOption.get)
       case Failure(cause) if cause.isDie         => core.Failure(Node.Error.Unknown(cause.dieOption.get))
@@ -70,7 +70,7 @@ class ClouseauNode(implicit
   )(implicit adapter: Adapter[_, _]): Result[Node.Error, AddressableActor[TS, ProcessContext]] = {
     // TODO Handle reentrant argument
     // TODO: kill the caller
-    val result = spawnServiceZIO[TS, A](builder, reentrant).unsafeRunCustomRuntime(runtime)
+    val result = spawnServiceZIO[TS, A](builder, reentrant).unsafeRunWith(runtime)
     result match {
       case Failure(cause) if cause.isFailure     => core.Failure(cause.failureOption.get)
       case Failure(cause) if cause.isDie         => core.Failure(Node.Error.Unknown(cause.dieOption.get))

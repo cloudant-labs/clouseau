@@ -118,7 +118,7 @@ object LoggerFactory {
     }
 
     def log(event: UIO[Unit])(implicit adapter: Adapter[_, _]): UIO[Fiber.Runtime[Nothing, Option[Unit]]] = {
-      event.timeout(Duration.fromSeconds(10)).unsafeRunAdapterForkDaemon
+      event.timeout(Duration.fromSeconds(10)).unsafeRunWith(adapter.runtime).forkDaemon
     }
   }
 

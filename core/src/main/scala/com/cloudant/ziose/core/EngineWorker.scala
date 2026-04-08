@@ -29,7 +29,7 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] with 
   }
 
   def processInfo[A <: Actor](addr: Address): Option[ProcessInfo] = {
-    processInfoZIO(addr).unsafeRunGetOrThrowFiberFailure
+    processInfoZIO(addr).unsafeRun.getOrThrowFiberFailure()(Unsafe)
   }
 
   def actorMetersZIO[A <: Actor](addr: Address): UIO[Option[List[ActorMeterInfo]]] = {
@@ -37,7 +37,7 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] with 
   }
 
   def actorMeters[A <: Actor](addr: Address): Option[List[ActorMeterInfo]] = {
-    actorMetersZIO(addr).unsafeRunGetOrThrowFiberFailure
+    actorMetersZIO(addr).unsafeRun.getOrThrowFiberFailure()(Unsafe)
   }
 
   def processInfoTopKZIO[A <: Actor](
@@ -55,7 +55,7 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] with 
   }
 
   def processInfoTopK(valueFun: ProcessInfo => Int): List[ProcessInfo] = {
-    processInfoTopKZIO(valueFun).unsafeRunGetOrThrowFiberFailure
+    processInfoTopKZIO(valueFun).unsafeRun.getOrThrowFiberFailure()(Unsafe)
   }
 
   def actorMeterInfoTopKZIO[A <: Actor](
@@ -75,7 +75,7 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] with 
   }
 
   def actorMeterInfoTopK(query: ActorMeterInfo.Query[Double]): List[ActorMeterInfo] = {
-    actorMeterInfoTopKZIO(query).unsafeRunGetOrThrowFiberFailure
+    actorMeterInfoTopKZIO(query).unsafeRun.getOrThrowFiberFailure()(Unsafe)
   }
 }
 

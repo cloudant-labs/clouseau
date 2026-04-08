@@ -70,7 +70,7 @@ class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(i
       case (false, false) => return false
     }
 
-    adapter.link(msg).unsafeRunAdapter(adapter)
+    adapter.link(msg).unsafeRunWith(adapter.runtime)
     true
   }
 
@@ -99,7 +99,7 @@ class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(i
             case None => ZIO.some(false)
           }
           _ <- resultChannel.offer(res.getOrElse(false))
-        } yield ()).unsafeRunCustomRuntime(runtime)
+        } yield ()).unsafeRunWith(runtime)
       }))
       isTerminated <- resultChannel.take
     } yield isTerminated

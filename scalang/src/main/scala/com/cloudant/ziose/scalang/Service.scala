@@ -4,7 +4,7 @@ import com.cloudant.ziose.core
 import com.cloudant.ziose.macros.CheckEnv
 import core.Codec.{EAtom, EPid, ERef, ETerm, ETuple}
 import core.{Actor, ActorCallback, ActorResult, Address, MessageEnvelope, Node, ProcessContext, ZioSupport}
-import zio.{Cause, Duration, Exit, Runtime, Schedule, Task, Trace, UIO, ZIO}
+import zio.{Cause, Duration, Exit, Runtime, Schedule, Task, Trace, UIO, Unsafe, ZIO}
 
 import java.util.concurrent.TimeUnit
 import scala.util.{Failure, Success, Try}
@@ -160,7 +160,7 @@ trait ProcessLike[A <: Adapter[_, _]] extends Actor with ZioSupport {
   }
 
   def unlink(to: Pid): UIO[Unit] = {
-    adapter.unlink(to.fromScala).unsafeRunAdapter(adapter)
+    adapter.unlink(to.fromScala).unsafeRunWith(adapter.runtime)
   }
 
   def link(to: Pid): Unit = {
@@ -187,7 +187,7 @@ trait ProcessLike[A <: Adapter[_, _]] extends Actor with ZioSupport {
   }
 
   def demonitor(ref: Reference): UIO[Unit] = {
-    adapter.demonitor(ref.fromScala).unsafeRunAdapter(adapter)
+    adapter.demonitor(ref.fromScala).unsafeRunWith(adapter.runtime)
   }
 }
 
@@ -240,19 +240,23 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
 
   def sendEvery(pid: Pid, msg: Any, delay: Long) = {
     val interval: Duration = Duration.fromMillis(delay)
-    adapter.forkScoped(sendZIO(pid, msg).schedule(Schedule.spaced(interval))).unsafeRunGetOrThrowFiberFailure
+    adapter.forkScoped(sendZIO(pid, msg).schedule(Schedule.spaced(interval))).unsafeRun.getOrThrowFiberFailure()(Unsafe)
   }
 
   def sendEvery(name: Symbol, msg: Any, delay: Long) = {
     val interval: Duration = Duration.fromMillis(delay)
-    adapter.forkScoped(sendZIO(name, msg).schedule(Schedule.spaced(interval))).unsafeRunGetOrThrowFiberFailure
+    adapter
+      .forkScoped(sendZIO(name, msg).schedule(Schedule.spaced(interval)))
+      .unsafeRun
+      .getOrThrowFiberFailure()(Unsafe)
   }
 
   def sendEvery(dest: (RegName, NodeName), msg: Any, delay: Long) = {
     val interval: Duration = Duration.fromMillis(delay)
     adapter
       .forkScoped(sendZIO(dest, Pid.toScala(self.pid), msg).schedule(Schedule.spaced(interval)))
-      .unsafeRunGetOrThrowFiberFailure
+      .unsafeRun
+      .getOrThrowFiberFailure()(Unsafe)
   }
 
   def sendAfter(pid: Pid, msg: Any, delay: Long) = {
@@ -593,14 +597,14 @@ object Service extends ZioSupport {
   def call(to: Address, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
     val rt: Runtime[Node]                                  = adapter.runtime.asInstanceOf[Runtime[Node]]
     val result: Exit[Node.Error, MessageEnvelope.Response] = {
-      callZIO(to, msg).unsafeRunCustomRuntime(rt)
+      callZIO(to, msg).unsafeRunWith(rt)
     }
     replyFromCall(result)
   }
   def call(to: Address, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
     val rt: Runtime[Node]                                  = adapter.runtime.asInstanceOf[Runtime[Node]]
     val result: Exit[Node.Error, MessageEnvelope.Response] = {
-      callZIO(to, msg, Some(Duration.fromMillis(timeout))).unsafeRunCustomRuntime(rt)
+      callZIO(to, msg, Some(Duration.fromMillis(timeout))).unsafeRunWith(rt)
     }
     replyFromCall(result)
   }
@@ -639,7 +643,7 @@ object Service extends ZioSupport {
 
   def cast(to: Address, msg: Any)(implicit adapter: Adapter[_, _]): Exit[Node.Error, Unit] = {
     val rt = adapter.runtime.asInstanceOf[Runtime[Node]]
-    castZIO(to, msg).unsafeRunCustomRuntime(rt)
+    castZIO(to, msg).unsafeRunWith(rt)
   }
   def cast(to: Pid, msg: Any)(implicit adapter: Adapter[_, _]): Unit    = cast(toAddress(to), msg)
   def cast(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]): Unit = cast(toAddress(to), msg)
@@ -668,7 +672,6 @@ object Service extends ZioSupport {
   def ping(to: Address)(implicit adapter: Adapter[_, _]): Any = {
     call(to, Symbol("ping"), PING_TIMEOUT_IN_MSEC) == Symbol("pong")
   }
-
   def ping(to: Pid)(implicit adapter: Adapter[_, _]): Boolean = {
     call(to, Symbol("ping"), PING_TIMEOUT_IN_MSEC) == Symbol("pong")
   }
