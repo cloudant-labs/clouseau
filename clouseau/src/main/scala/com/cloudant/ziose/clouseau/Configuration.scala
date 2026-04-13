@@ -1,8 +1,8 @@
 package com.cloudant.ziose.clouseau
 
-import _root_.com.cloudant.ziose.core.Exponent
-import _root_.com.cloudant.ziose.macros.CheckEnv
-import _root_.com.cloudant.ziose.otp.OTPNodeConfig
+import com.cloudant.ziose.core.Exponent
+import com.cloudant.ziose.macros.CheckEnv
+import com.cloudant.ziose.otp.OTPNodeConfig
 import zio.Config.Error
 import zio.config.magnolia.{DeriveConfig, deriveConfig}
 import zio.config.typesafe.FromConfigSourceTypesafe
@@ -12,21 +12,16 @@ sealed abstract class LogOutput
 sealed abstract class LogFormat
 
 object LogOutput {
-  final case object Stdout extends LogOutput
-  final case object Syslog extends LogOutput
+  case object Stdout extends LogOutput
+  case object Syslog extends LogOutput
 }
 
 object LogFormat {
-  final case object Raw  extends LogFormat
-  final case object Text extends LogFormat
-  final case object JSON extends LogFormat
+  case object Raw  extends LogFormat
+  case object Text extends LogFormat
+  case object JSON extends LogFormat
 }
 
-final case class WorkerConfiguration(
-  node: OTPNodeConfig,
-  clouseau: Option[ClouseauConfiguration],
-  capacity: Option[CapacityConfiguration]
-)
 final case class LogConfiguration(
   output: Option[LogOutput],
   format: Option[LogFormat],
@@ -55,6 +50,12 @@ object LogConfiguration {
   }
 }
 
+final case class WorkerConfiguration(
+  node: OTPNodeConfig,
+  clouseau: Option[ClouseauConfiguration],
+  capacity: Option[CapacityConfiguration]
+)
+
 final case class RootDir(value: String) extends AnyVal
 
 final case class ClouseauConfiguration(
@@ -66,7 +67,6 @@ final case class ClouseauConfiguration(
   idle_check_interval_secs: Option[Int] = None,
   lru_update_interval_msecs: Option[Int] = None,
   max_indexes_open: Option[Int] = None,
-  field_cache_metrics: Option[Boolean] = None,
   field_count_warn_threshold: Option[Int] = None,
   commit_interval_secs: Option[Int] = None,
   lock_class: Option[String] = None,
@@ -81,8 +81,8 @@ final case class ClouseauConfiguration(
         case Some(RootDir(value)) => value
         case None                 => default
       }
-    case "clouseau.lock_class" => lock_class.getOrElse(default).asInstanceOf[String]
-    case "clouseau.dir_class"  => dir_class.getOrElse(default).asInstanceOf[String]
+    case "clouseau.lock_class" => lock_class.getOrElse(default)
+    case "clouseau.dir_class"  => dir_class.getOrElse(default)
     case _                     => throw new Exception(s"Unexpected String key '$key'")
   }
   def getInt(key: String, default: Int) = key match {
@@ -102,7 +102,6 @@ final case class ClouseauConfiguration(
     case "clouseau.count_fields"              => count_fields.getOrElse(default)
     case "clouseau.count_locks"               => count_locks.getOrElse(default)
     case "clouseau.close_if_idle"             => close_if_idle.getOrElse(default)
-    case "field_cache_metrics"                => field_cache_metrics.getOrElse(default)
     case "clouseau.concurrent_search_enabled" => concurrent_search_enabled.getOrElse(default)
     case "clouseau.track_index_atimes"        => track_index_atimes.getOrElse(default)
     case _                                    => throw new Exception(s"Unexpected Boolean key '$key'")
@@ -119,7 +118,6 @@ final case class ClouseauConfiguration(
     s"idle_check_interval_secs=$idle_check_interval_secs",
     s"lru_update_interval_msecs=$lru_update_interval_msecs",
     s"max_indexes_open=$max_indexes_open",
-    s"field_cache_metrics=$field_cache_metrics",
     s"commit_interval_secs=$commit_interval_secs",
     s"lock_class=$lock_class",
     s"dir_class=$dir_class",
@@ -142,8 +140,8 @@ final case class ConfigurationArgs(config: Configuration)
 sealed abstract class SyslogProtocol
 
 object SyslogProtocol {
-  final case object TCP extends SyslogProtocol
-  final case object UDP extends SyslogProtocol
+  case object TCP extends SyslogProtocol
+  case object UDP extends SyslogProtocol
 }
 
 final case class SyslogConfiguration(
@@ -156,22 +154,18 @@ final case class SyslogConfiguration(
 )
 
 /**
- * A data type to hold configured capacity exponent values
+ * A data type to hold configured capacity exponent values. Exponent must be greater than 0. If not specified
+ * backpressure wouldn't be applied.
  * @param analyzer_exponent
- *   An exponent to calculate capacity of the message queue used for `AnalyzerService`. Exponent must be greater than 0.
- *   If not specified backpressure wouldn't be applied.
+ *   An exponent to calculate capacity of the message queue used for ''AnalyzerService''.
  * @param cleanup_exponent
- *   An exponent to calculate capacity of the message queue used for `CleanupService`. Exponent must be greater than 0.
- *   If not specified backpressure wouldn't be applied.
+ *   An exponent to calculate capacity of the message queue used for ''CleanupService''.
  * @param index_exponent
- *   An exponent to calculate capacity of the message queue used for `IndexService`. Exponent must be greater than 0. If
- *   not specified backpressure wouldn't be applied.
+ *   An exponent to calculate capacity of the message queue used for ''IndexService''.
  * @param init_exponent
- *   An exponent to calculate capacity of the message queue used for `InitService`. Exponent must be greater than 0. If
- *   not specified backpressure wouldn't be applied.
+ *   An exponent to calculate capacity of the message queue used for ''InitService''.
  * @param main_exponent
- *   An exponent to calculate capacity of the message queue used for `IndexManagerService`. Exponent must be greater
- *   than 0. If not specified backpressure wouldn't be applied.
+ *   An exponent to calculate capacity of the message queue used for ''InitService''.
  */
 final case class CapacityConfiguration(
   analyzer_exponent: Option[Exponent] = None,
@@ -184,19 +178,20 @@ final case class CapacityConfiguration(
 object CapacityConfiguration {
   def readExponent(value: Int): Either[Error, Exponent] = {
     value match {
-      case 0 =>
-        Left(Error.InvalidData(message = s"Exponent cannot be 0 (got '${value}')"))
-      case v if v < 0 =>
-        Left(Error.InvalidData(message = s"Exponent cannot be negative (got '${value}')"))
-      case v if v > 16 =>
-        Left(Error.InvalidData(message = s"Exponent cannot be greater than 16 (got '${value}')"))
-      case _ =>
+      case v if (1 to 16).contains(v) =>
         Right(Exponent(value))
+      case _ =>
+        Left(
+          Error.InvalidData(
+            message = s"Exponent must be greater than 0 and less than or equal to 16 (got '${value}')"
+          )
+        )
     }
   }
 }
 
 final case class AppCfg(config: List[WorkerConfiguration], logger: LogConfiguration)
+
 object AppCfg {
   implicit val exponentDescriptor: DeriveConfig[Exponent] = {
     DeriveConfig[Int].mapOrFail(CapacityConfiguration.readExponent)

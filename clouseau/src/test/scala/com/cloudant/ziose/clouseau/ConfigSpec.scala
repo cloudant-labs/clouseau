@@ -3,18 +3,17 @@ sbt 'clouseau/testOnly com.cloudant.ziose.clouseau.ConfigSpec'
  */
 package com.cloudant.ziose.clouseau
 
-import org.junit.runner.RunWith
-import zio._
-import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
-
-import zio.test._
-import zio.test.Assertion._
 import com.cloudant.ziose.core.Exponent
 import com.cloudant.ziose.test.helpers.TestRunner
+import org.junit.runner.RunWith
+import zio.test.Assertion.{equalTo, isSome}
+import zio.test.{assert, assertTrue}
+import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
+import zio.{Chunk, Config, LogLevel}
 
 @RunWith(classOf[ZTestJUnitRunner])
 class ConfigSpec extends JUnitRunnableSpec {
-  def capacityFixture(key: String, value: Int) = {
+  def capacityFixture(key: String, value: Int = 0, withCapacity: Boolean = true): String = {
     s"""
        |config: [
        |  {
@@ -23,17 +22,14 @@ class ConfigSpec extends JUnitRunnableSpec {
        |      domain: 127.0.0.1
        |      cookie: cookie
        |    }
-       |    capacity: {
-       |      ${key}: ${value}
-       |    }
+       |    ${if (withCapacity) s"capacity: { $key: $value }".stripMargin else ""}
        |  }
-       |
        |]
        |""".stripMargin
   }
 
-  def suiteForCapacity(key: String, getter: (CapacityConfiguration) => Option[Exponent]) = {
-    def getCapacity(appConfig: AppCfg) = {
+  def suiteForCapacity(key: String, getter: CapacityConfiguration => Option[Exponent]) = {
+    def getCapacity(appConfig: AppCfg): Option[Exponent] = {
       getter(appConfig.config.head.capacity.get)
     }
 
@@ -47,10 +43,10 @@ class ConfigSpec extends JUnitRunnableSpec {
       )
     })
 
-    val invalidTests = IndexedSeq(
-      test("Ensure we return 'InvalidData' error - negative value")(
+    def testInvalidCapacity(name: String, capacity: Int) = {
+      test(s"Ensure we return 'InvalidData' error - $name")(
         for {
-          error <- AppCfg.fromHoconString(capacityFixture(key, -1)).flip.exit
+          error <- AppCfg.fromHoconString(capacityFixture(key, capacity)).flip.exit
         } yield assertTrue(
           error.exists(_.isInstanceOf[Config.Error.InvalidData])
         ) ?? "Expect error of type 'Config.Error.InvalidData'"
@@ -58,56 +54,37 @@ class ConfigSpec extends JUnitRunnableSpec {
             error.exists(_.asInstanceOf[Config.Error.InvalidData].path == Chunk("config", "[0]", "capacity", key))
           ) ?? "Expect error to be for 'config.[0].capacity.${key}' path"
           && assertTrue(
-            error.exists(_.toString().contains(s"got '-1'"))
-          ) ?? s"Expect error message to include provided value ('-1')"
-          && assertTrue(
             error.exists(
-              _.toString().contains("Exponent cannot be negative")
+              _.toString.contains(s"Exponent must be greater than 0 and less than or equal to 16 (got '$capacity'")
             )
-          ) ?? "Expect error message to contain hint"
-      ),
-      test("Ensure we return 'InvalidData' error - zero value")(
+          ) ?? s"Expect error message to include provided value ('$capacity')"
+      )
+    }
+
+    val invalidTests = List(
+      ("negative value", -1),
+      ("zero value", 0),
+      ("big exponent value", 17)
+    ).map { case (name, capacity) =>
+      testInvalidCapacity(name, capacity)
+    }
+
+    val noCapacityTest = List(
+      test(s"No capacity specified in the config")(
         for {
-          error <- AppCfg.fromHoconString(capacityFixture(key, 0)).flip.exit
+          config <- AppCfg.fromHoconString(capacityFixture(key, withCapacity = false))
         } yield assertTrue(
-          error.exists(_.isInstanceOf[Config.Error.InvalidData])
-        ) ?? "Expect error of type 'Config.Error.InvalidData'"
-          && assertTrue(
-            error.exists(_.asInstanceOf[Config.Error.InvalidData].path == Chunk("config", "[0]", "capacity", key))
-          ) ?? "Expect error to be for 'config.[0].capacity.${key}' path"
-          && assertTrue(
-            error.exists(_.toString().contains(s"got '0'"))
-          ) ?? s"Expect error message to include provided value ('0')"
-          && assertTrue(
-            error.exists(
-              _.toString().contains("Exponent cannot be 0")
-            )
-          ) ?? "Expect error message to contain hint"
-      ),
-      test("Ensure we return 'InvalidData' error - big exponent (17)")(
-        for {
-          error <- AppCfg.fromHoconString(capacityFixture(key, 17)).flip.exit
-        } yield assertTrue(
-          error.exists(_.isInstanceOf[Config.Error.InvalidData])
-        ) ?? "Expect error of type 'Config.Error.InvalidData'"
-          && assertTrue(
-            error.exists(_.asInstanceOf[Config.Error.InvalidData].path == Chunk("config", "[0]", "capacity", key))
-          ) ?? "Expect error to be for 'config.[0].capacity.${key}' path"
-          && assertTrue(
-            error.exists(_.toString().contains(s"got '17'"))
-          ) ?? s"Expect error message to include provided value ('17')"
-          && assertTrue(
-            error.exists(
-              _.toString().contains("Exponent cannot be greater than 16")
-            )
-          ) ?? "Expect error message to contain hint"
+          getCapacity(config).isEmpty
+        ) ?? s"Expected capacity should be None"
       )
     )
 
-    suite(s"configSuite for 'config.capacity.${key}'")(validTests ++ invalidTests)
+    suite(s"configSuite for 'config.capacity.$key'")(
+      validTests ++ invalidTests ++ noCapacityTest
+    )
   }
 
-  def logLevelFixture(level: String) = {
+  def logLevelFixture(level: String): String = {
     s"""
        |logger {
        |  level: ${level}
@@ -124,34 +101,32 @@ class ConfigSpec extends JUnitRunnableSpec {
        |""".stripMargin
   }
 
-  def suiteForLogLevel(level: LogLevel): Spec[Any, Throwable] = {
+  def suiteForLogLevel(level: LogLevel) = {
     def levelToString(level: LogLevel) = level.label.toLowerCase() match {
       case "warn"    => "warning"
       case "off"     => "none"
       case lowerCase => lowerCase
     }
+
     val levelLowerCase   = levelToString(level)
     val mixedCase        = levelLowerCase.capitalize
     val trailingSpace    = levelLowerCase + " "
     val leadingSpace     = " " + levelLowerCase
     val levelWithTypo    = levelLowerCase + "typo"
     val expectedLogLevel = s"LogLevel.${levelLowerCase.capitalize}"
+
+    def testLogLevelParsing(name: String, testCase: String) = {
+      test(s"Ensure we can parse log levels - $name")(
+        for {
+          config <- AppCfg.fromHoconString(logLevelFixture(testCase))
+        } yield assertTrue(config.logger.level.get == level) ?? s"Expected Some(${expectedLogLevel})"
+      )
+    }
+
     suite(s"configSuite for 'logger.level' - '${levelLowerCase}'")(
-      test("Ensure we can parse log levels - mixed case")(
-        for {
-          config <- AppCfg.fromHoconString(logLevelFixture(mixedCase))
-        } yield assert(config.logger.level)(isSome(equalTo(level))) ?? s"Expected Some(${expectedLogLevel})"
-      ),
-      test("Ensure we can parse log levels - trailing space")(
-        for {
-          config <- AppCfg.fromHoconString(logLevelFixture(trailingSpace))
-        } yield assert(config.logger.level)(isSome(equalTo(level))) ?? s"Expected Some(${expectedLogLevel})"
-      ),
-      test("Ensure we can parse log levels - leading space")(
-        for {
-          config <- AppCfg.fromHoconString(logLevelFixture(leadingSpace))
-        } yield assert(config.logger.level)(isSome(equalTo(level))) ?? s"Expected Some(${expectedLogLevel})"
-      ),
+      testLogLevelParsing("mixed case", mixedCase),
+      testLogLevelParsing("leading space", leadingSpace),
+      testLogLevelParsing("trailing space", trailingSpace),
       test("Ensure we return 'InvalidData' error - typo")(
         for {
           error <- AppCfg.fromHoconString(logLevelFixture(levelWithTypo)).flip.exit
@@ -162,18 +137,16 @@ class ConfigSpec extends JUnitRunnableSpec {
             error.exists(_.asInstanceOf[Config.Error.InvalidData].path == Chunk("logger", "level"))
           ) ?? "Expect error to be for 'logger.level' path"
           && assertTrue(
-            error.exists(_.toString().contains(s"got '${levelWithTypo}'"))
+            error.exists(_.toString.contains(s"got '${levelWithTypo}'"))
           ) ?? s"Expect error message to include provided value ('${levelWithTypo}')"
           && assertTrue(
-            error.exists(
-              _.toString().contains("ALL|FATAL|ERROR|WARNING|INFO|DEBUG|TRACE|NONE")
-            )
+            error.exists(_.toString.contains("ALL|FATAL|ERROR|WARNING|INFO|DEBUG|TRACE|NONE"))
           ) ?? "Expect error message to contain hint of supported levels"
       )
     )
   }
 
-  def spec: Spec[Any, Throwable] = {
+  def spec = {
     suite("ConfigSpec")(
       suiteForCapacity("analyzer_exponent", capacity => capacity.analyzer_exponent),
       suiteForCapacity("cleanup_exponent", capacity => capacity.cleanup_exponent),

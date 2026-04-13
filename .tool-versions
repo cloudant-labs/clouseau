@@ -19,6 +19,6 @@ bat 0.24.0
 spotbugs 4.8.6
 # CouchDB tests
 elixir 1.17.3-otp-26
-python 3.12.7
+python 3.14.3
 # documentation
 typst 0.14.0
