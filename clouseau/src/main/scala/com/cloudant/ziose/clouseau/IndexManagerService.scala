@@ -192,6 +192,14 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
         case pid =>
           ('ok, pid)
       }
+    case ('forward, path: String, msg: Any) =>
+      lru.get(path) match {
+        case null =>
+          // TODO: re-open index? it should not happen
+          ('forwarding_error, 'index_unavailable)
+        case pid =>
+          call(pid, msg)
+      }
     case ('get_root_dir) =>
       ('ok, rootDir.getAbsolutePath())
     case DeleteDocMsg(path: String) =>
