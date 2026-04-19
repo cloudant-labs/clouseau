@@ -268,41 +268,41 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
   implicit def sym2sendable(to: Symbol): SymSend               = new SymSend(to, this)
   implicit def dest2sendable(dest: (Symbol, Symbol)): DestSend = new DestSend(dest, self, this)
 
-  def sendEvery(pid: Pid, msg: Any, delay: Long) = {
+  private def sendEveryCommon(send: UIO[Unit], delay: Long) = {
     val interval: Duration = Duration.fromMillis(delay)
-    adapter.forkScoped(sendZIO(pid, msg).schedule(Schedule.spaced(interval))).unsafeRun
+    adapter.forkScoped(send.schedule(Schedule.fixed(interval))).unsafeRun
+  }
+
+  def sendEvery(pid: Pid, msg: Any, delay: Long) = {
+    sendEveryCommon(sendZIO(pid, msg), delay)
   }
 
   def sendEvery(name: Symbol, msg: Any, delay: Long) = {
-    val interval: Duration = Duration.fromMillis(delay)
-    adapter.forkScoped(sendZIO(name, msg).schedule(Schedule.spaced(interval))).unsafeRun
+    sendEveryCommon(sendZIO(name, msg), delay)
   }
 
   def sendEvery(dest: (RegName, NodeName), msg: Any, delay: Long) = {
-    val interval: Duration = Duration.fromMillis(delay)
-    adapter.forkScoped(sendZIO(dest, Pid.toScala(self.pid), msg).schedule(Schedule.spaced(interval))).unsafeRun
+    sendEveryCommon(sendZIO(dest, Pid.toScala(self.pid), msg), delay)
+  }
+
+  private def sendAfterCommon(send: UIO[Unit], delay: Long) = {
+    val effect = for {
+      _ <- send
+    } yield ()
+    val duration = Duration(delay, TimeUnit.MILLISECONDS)
+    effect.delay(duration)
   }
 
   def sendAfter(pid: Pid, msg: Any, delay: Long) = {
-    val effect = for {
-      _ <- sendZIO(pid, msg)
-    } yield ()
-    val duration = Duration(delay, TimeUnit.MILLISECONDS)
-    effect.delay(duration)
+    sendAfterCommon(sendZIO(pid, msg), delay)
   }
+
   def sendAfter(name: Symbol, msg: Any, delay: Long) = {
-    val effect = for {
-      _ <- sendZIO(name, msg)
-    } yield ()
-    val duration = Duration(delay, TimeUnit.MILLISECONDS)
-    effect.delay(duration)
+    sendAfterCommon(sendZIO(name, msg), delay)
   }
+
   def sendAfter(dest: (RegName, NodeName), msg: Any, delay: Long) = {
-    val effect = for {
-      _ <- sendZIO(dest, Pid.toScala(self.pid), msg)
-    } yield ()
-    val duration = Duration(delay, TimeUnit.MILLISECONDS)
-    effect.delay(duration)
+    sendAfterCommon(sendZIO(dest, Pid.toScala(self.pid), msg), delay)
   }
 
   def onInit[PContext <: ProcessContext](_ctx: PContext): ZIO[Any, Throwable, _ <: ActorResult] = {
