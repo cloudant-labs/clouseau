@@ -163,8 +163,8 @@ trait ProcessLike[A <: Adapter[_, _]] extends Actor with ZioSupport {
     adapter.unlink(to.fromScala).unsafeRunWith(adapter.runtime)
   }
 
-  def link(to: Pid): Unit = {
-    adapter.link(to.fromScala).unsafeRunAdapterGetOrThrow(adapter)
+  def link(to: Pid): Node.Error <:< Throwable => Unit = {
+    adapter.link(to.fromScala).unsafeRunWith(adapter.runtime).getOrThrow()(_, Unsafe)
   }
 
   def monitorZIO(monitored: Any): ZIO[Node, _ <: Node.Error, Reference] = {
@@ -181,9 +181,9 @@ trait ProcessLike[A <: Adapter[_, _]] extends Actor with ZioSupport {
     } yield Reference.toScala(ref)
   }
 
-  def monitor(monitored: Any): Reference = {
+  def monitor(monitored: Any): Node.Error <:< Throwable => Reference = {
     val rt: Runtime[Node] = adapter.runtime.asInstanceOf[Runtime[Node]]
-    monitorZIO(monitored).unsafeRunCustomRuntimeGetOrThrow(rt)
+    monitorZIO(monitored).unsafeRunWith(rt).getOrThrow()(_, Unsafe)
   }
 
   def demonitor(ref: Reference): UIO[Unit] = {

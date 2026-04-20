@@ -13,19 +13,9 @@ trait ZioSupport {
     }
   }
 
-  implicit final class ZioOpsAdapter[E <: Throwable, A](self: IO[E, A]) {
-    def unsafeRunAdapterGetOrThrow(implicit adapter: Adapter[_, _]): A = {
-      Unsafe.unsafe(implicit u => adapter.runtime.unsafe.run(self).getOrThrow())
-    }
-  }
-
   implicit final class ZioOpsCustomRuntime[R, E <: Throwable, A](self: ZIO[R, E, A]) {
     def unsafeRunWith(runtime: Runtime[R]): Exit[E, A] = {
       Unsafe.unsafe(implicit u => runtime.unsafe.run(self))
-    }
-
-    def unsafeRunCustomRuntimeGetOrThrow(runtime: Runtime[R]): A = {
-      Unsafe.unsafe(implicit u => runtime.unsafe.run(self).getOrThrow())
     }
   }
 }
