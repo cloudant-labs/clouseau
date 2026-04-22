@@ -13,7 +13,7 @@ object Main extends ZIOAppDefault {
     for {
       prop <- System.property("node")
       lastChar = prop.getOrElse("1").last
-      index = {
+      index    = {
         if (('1' to '3').contains(lastChar)) {
           lastChar - '1'
         } else {

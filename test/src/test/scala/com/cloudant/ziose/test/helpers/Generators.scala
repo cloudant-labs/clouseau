@@ -181,7 +181,7 @@ object Generators {
     for {
       children <- g
       elements = children.zip(children)
-      emap = elements.foldLeft(mutable.LinkedHashMap.empty[ETerm, ETerm]) { case (a, (k, v)) =>
+      emap     = elements.foldLeft(mutable.LinkedHashMap.empty[ETerm, ETerm]) { case (a, (k, v)) =>
         a += (k -> v)
       }
     } yield EMap(emap)
@@ -200,7 +200,7 @@ object Generators {
       values <- vg
       keys   <- listOfN(values.size)(kg)
       elements = keys.zip(values)
-      emap = elements.foldLeft(mutable.LinkedHashMap.empty[ETerm, ETerm]) { case (a, (k, v)) =>
+      emap     = elements.foldLeft(mutable.LinkedHashMap.empty[ETerm, ETerm]) { case (a, (k, v)) =>
         a += (k -> v)
       }
     } yield EMap(emap)
@@ -383,7 +383,7 @@ object Generators {
         children <- g
         elements     = children.zip(children)
         otpErlangMap = new OtpErlangMap
-        _ = elements.foreach { case (otpKey, otpTerm) =>
+        _            = elements.foreach { case (otpKey, otpTerm) =>
           otpErlangMap.put(otpKey, otpTerm)
         }
       } yield otpErlangMap
@@ -581,7 +581,7 @@ object Generators {
         elements      = keys zip children
         otpErlangMap  = new OtpErlangMap
         linkedHashMap = mutable.LinkedHashMap.empty[ETerm, ETerm]
-        _ = elements.foreach { case ((eKey, otpKey), (eTerm, otpTerm)) =>
+        _             = elements.foreach { case ((eKey, otpKey), (eTerm, otpTerm)) =>
           linkedHashMap.put(eKey, eTerm)
           otpErlangMap.put(otpKey, otpTerm)
         }
@@ -781,7 +781,7 @@ object Generators {
         elements = keys zip children
         aHashMap = mutable.LinkedHashMap.empty[ETerm, ETerm]
         bHashMap = mutable.LinkedHashMap.empty[ETerm, ETerm]
-        _ = elements.foreach { case ((aKey, bKey), (aTerm, bTerm)) =>
+        _        = elements.foreach { case ((aKey, bKey), (aTerm, bTerm)) =>
           aHashMap.put(aKey, aTerm)
           bHashMap.put(bKey, bTerm)
         }

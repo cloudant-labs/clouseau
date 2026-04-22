@@ -14,8 +14,8 @@ object Metrics {
     type Type = M
     protected val inner: M
 
-    def getName() = Symbol(inner.getId().getName())
-    def getTags() = inner.getId().getTags().asScala.map(tag => (tag.getKey(), tag.getValue())).toMap
+    def getName()                  = Symbol(inner.getId().getName())
+    def getTags()                  = inner.getId().getTags().asScala.map(tag => (tag.getKey(), tag.getValue())).toMap
     def getCount(): Option[Double] = inner match {
       case counter: MicrometerCounter => Some(counter.count())
       case _                          => None

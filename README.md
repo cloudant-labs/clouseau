@@ -14,7 +14,7 @@ enables Clouseau to run on modern JVMs and brings all non-Lucene dependencies up
 
 ## Upgrading from 2.x
 
-Clouseau 3.x is intended to be a drop-in replacement for 2.x in that it remains compatible with existing Clouseau 2.x indexes. 
+Clouseau 3.x is intended to be a drop-in replacement for 2.x in that it remains compatible with existing Clouseau 2.x indexes.
 However, there are some notable changes to the deployment:
 
  * Java 21 is required.

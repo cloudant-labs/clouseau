@@ -175,7 +175,7 @@ object LoggerFactory {
     val output: LogOutput = cfg.output.getOrElse(LogOutput.Stdout)
     val format: LogFormat = cfg.format.getOrElse(LogFormat.Raw)
     val level: LogLevel   = cfg.level.getOrElse(LogLevel.Debug)
-    val formatSpecifier = format match {
+    val formatSpecifier   = format match {
       case LogFormat.Raw  => logFormatRaw
       case LogFormat.Text => logFormatText
       case LogFormat.JSON => logFormatJSON

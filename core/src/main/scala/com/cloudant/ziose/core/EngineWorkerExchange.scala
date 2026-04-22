@@ -9,7 +9,7 @@ class EngineWorkerExchange private (
   def info(key: Address): UIO[Option[ProcessInfo]] = {
     for {
       maybeActor <- getActor(key)
-      i <- maybeActor match {
+      i          <- maybeActor match {
         case Some(actor) => ProcessInfo.from(actor).map(Some(_))
         case None        => ZIO.succeed(None)
       }
@@ -19,7 +19,7 @@ class EngineWorkerExchange private (
   def actorMeters[A <: Actor](key: Address): UIO[Option[List[ActorMeterInfo]]] = {
     for {
       maybeActor <- getActor(key)
-      i <- maybeActor match {
+      i          <- maybeActor match {
         case Some(actor) => {
           val info = actor.getMeters().map(meter => ActorMeterInfo.fromMeter(actor, meter))
           ZIO.succeed(Some(info))

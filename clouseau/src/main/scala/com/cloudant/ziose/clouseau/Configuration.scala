@@ -40,7 +40,7 @@ object LogConfiguration {
       case "DEBUG"   => Right(LogLevel.Debug)
       case "TRACE"   => Right(LogLevel.Trace)
       case "NONE"    => Right(LogLevel.None)
-      case _ =>
+      case _         =>
         Left(
           Error.InvalidData(message = {
             s"LogLevel must be one of (case insensitive) ALL|FATAL|ERROR|WARNING|INFO|DEBUG|TRACE|NONE (got '${value}')"

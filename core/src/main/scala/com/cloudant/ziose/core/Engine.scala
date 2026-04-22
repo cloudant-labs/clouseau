@@ -42,8 +42,8 @@ class Engine(exchange: EngineExchange) {
     exchange.buildAndRegister(workerId => builder.build(engineId, workerId))
   }
 
-  def list                     = exchange.list
-  def get(id: Engine.WorkerId) = exchange.get(id)
+  def list                                                                   = exchange.list
+  def get(id: Engine.WorkerId)                                               = exchange.get(id)
   def forward(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
     exchange.forward(msg)
   }

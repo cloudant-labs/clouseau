@@ -18,7 +18,7 @@ import zio.Runtime
 class Exchange[K, M, E <: ForwardWithId[K, M]](registry: Registry[K, M, E], val keyFn: M => K)
     extends Exchange.WithConstructor[K, M, E] {
   private var isFinalized: AtomicBoolean = new AtomicBoolean(false)
-  def add(entity: E): UIO[Unit] = {
+  def add(entity: E): UIO[Unit]          = {
     registry.add(entity)
   }
   def remove(key: K): ZIO[Any, Nothing, Option[E]] = {
@@ -43,7 +43,7 @@ class Exchange[K, M, E <: ForwardWithId[K, M]](registry: Registry[K, M, E], val 
   /*
     Returns a registered entity based on passed `key`
    */
-  def get(key: K) = registry.get(key)
+  def get(key: K)                                                    = registry.get(key)
   def buildWith(builderFn: Int => ZIO[Any with Scope, Throwable, E]) = {
     registry.buildWith(builderFn)
   }

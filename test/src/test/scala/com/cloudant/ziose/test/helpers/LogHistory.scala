@@ -100,7 +100,7 @@ class LogHistory private (val entries: Chunk[(Int, LogEntry)]) {
   def intersect(other: LogHistory) = {
     val myEntriesMap    = entries.toMap
     val otherEntriesMap = other.entries.toMap
-    val resultMap = {
+    val resultMap       = {
       myEntriesMap.keySet.intersect(otherEntriesMap.keySet).map(k => k -> otherEntriesMap(k)).toMap
     }
     new LogHistory(resultMap.view.to(Chunk))
@@ -112,7 +112,7 @@ class LogHistory private (val entries: Chunk[(Int, LogEntry)]) {
   def union(other: LogHistory) = {
     val myEntriesMap    = entries.toMap
     val otherEntriesMap = other.entries.toMap
-    val resultMap = {
+    val resultMap       = {
       myEntriesMap.keySet.union(otherEntriesMap.keySet).map(k => k -> otherEntriesMap(k)).toMap
     }
     new LogHistory(resultMap.view.to(Chunk))
@@ -124,7 +124,7 @@ class LogHistory private (val entries: Chunk[(Int, LogEntry)]) {
   def diff(other: LogHistory) = {
     val myEntriesMap    = entries.toMap
     val otherEntriesMap = other.entries.toMap
-    val resultMap = {
+    val resultMap       = {
       myEntriesMap.keySet.diff(otherEntriesMap.keySet).map(k => k -> otherEntriesMap(k)).toMap
     }
     new LogHistory(resultMap.view.to(Chunk))

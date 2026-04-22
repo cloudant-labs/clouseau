@@ -74,7 +74,7 @@ object HandleInfoCBError {
   }
 }
 
-case class UnreachableError() extends Error
+case class UnreachableError()                     extends Error
 case class HandleCallUndefined(className: String) extends Error {
   override def toString: String = s"Error.${getClass.getSimpleName}($className) did not define a call handler"
 }
@@ -609,8 +609,8 @@ object Service {
           case (None, None)     => ()
           case (Some(error), _) => ActorResult.exit(adapter.fromScala(error))
         }
-      case Exit.Failure(Cause.Fail(error, _)) => ActorResult.exit(adapter.fromScala(error))
-      case Exit.Failure(Cause.Die(error, _))  => ActorResult.exit(adapter.fromScala(error.toString()))
+      case Exit.Failure(Cause.Fail(error, _))        => ActorResult.exit(adapter.fromScala(error))
+      case Exit.Failure(Cause.Die(error, _))         => ActorResult.exit(adapter.fromScala(error.toString()))
       case Exit.Failure(Cause.Interrupt(fiberId, _)) =>
         ActorResult.exit(adapter.fromScala(Node.Error.Interrupt(fiberId)))
       case Exit.Failure(_) => ActorResult.exit(adapter.fromScala(Node.Error.Nothing))
@@ -712,7 +712,7 @@ object Service {
   }
 
   def replyZIO[P <: Process](caller: (Pid, Any), reply: Any)(implicit process: P): UIO[Unit] = {
-    val adapter = process.adapter
+    val adapter  = process.adapter
     val envelope = MessageEnvelope.Response.make(
       process.self,
       adapter.fromScala(caller),

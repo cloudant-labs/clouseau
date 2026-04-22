@@ -67,7 +67,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   def setTag(tag: String): Unit           = ctx.setTag(tag)
   def getMeters(): List[Metrics.Meter[_]] = ctx.getMeters()
   def findMeter(name: String)             = ctx.findMeter(name)
-  def isRunningZIO = status().map(_.values.collect {
+  def isRunningZIO                        = status().map(_.values.collect {
     case status if !status.isDone => true
   }.size == NUMBER_OF_FIBERS)
   def isStoppedZIO = status().map(_.values.collect {
@@ -143,11 +143,11 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
      * Note right of actorFiber: call Actor.onInit
      * ```
      */
-    val handleMessage = handleActorMessage(continue)
+    val handleMessage                      = handleActorMessage(continue)
     def loop(): ZIO[Any, Nothing, Boolean] = {
       ZIO.iterate(true)(res => res) { _ =>
         (for {
-          event <- ctx.nextEvent
+          event          <- ctx.nextEvent
           shouldContinue <- event match {
             case Some(event) if !isFinalized.get => handleMessage(event)
             case Some(event)                     => ZIO.succeed(false)
