@@ -29,7 +29,7 @@ object Codec {
     https://github.com/erlang/otp/blob/413da54ce2eca7c40786871859b87930cc21d239/lib/jinterface/java_src/com/ericsson/otp/erlang/OtpErlangRef.java#L298C2-L306C6
    */
   class ERef(val obj: OtpErlangRef) extends ETerm {
-    override def hashCode: Int = obj.hashCode()
+    override def hashCode: Int               = obj.hashCode()
     override def equals(other: Any): Boolean = {
       other match {
         case other: ERef => obj.equals(other.obj)
@@ -67,7 +67,7 @@ object Codec {
   }
 
   class EAtom(val atom: Symbol) extends ETerm {
-    override def hashCode(): Int = atom.hashCode()
+    override def hashCode(): Int             = atom.hashCode()
     override def equals(other: Any): Boolean = other match {
       case other: EAtom => atom == other.atom
       case _            => false
@@ -203,7 +203,7 @@ object Codec {
       extends ETerm
       with scala.collection.LinearSeq[ETerm] {
     def this(obj: OtpErlangList) = this(EList.maybeImproper(obj), obj.isProper)
-    override def hashCode: Int = elems.hashCode() + isProper.hashCode()
+    override def hashCode: Int               = elems.hashCode() + isProper.hashCode()
     override def equals(other: Any): Boolean = {
       other match {
         case other: EList if other.isProper == isProper => elems.equals(other.elems)
@@ -293,7 +293,7 @@ object Codec {
   // TODO switch to Array for internal container
   class ETuple(val elems: List[ETerm]) extends ETerm {
     def this(obj: OtpErlangTuple) = this(obj.elements.map(fromErlang).toList)
-    override def hashCode: Int = elems.hashCode()
+    override def hashCode: Int               = elems.hashCode()
     override def equals(other: Any): Boolean = {
       other match {
         case other: ETuple => elems.equals(other.elems)
@@ -330,7 +330,7 @@ object Codec {
 
   // TODO add tests
   class EBinary(payload: Array[Byte], val isPrintable: Boolean = false) extends ETerm {
-    override def hashCode: Int = payload.toList.hashCode()
+    override def hashCode: Int               = payload.toList.hashCode()
     override def equals(other: Any): Boolean = {
       other match {
         case other: EBinary => payload.toList.equals(other.asBytes.toList)
@@ -413,7 +413,7 @@ object Codec {
   ): Any = {
     extra(obj) match {
       case Some(term) => term
-      case None =>
+      case None       =>
         obj match {
           case b: EBoolean   => b.boolean
           case a: EAtom      => a.atom
@@ -425,7 +425,7 @@ object Codec {
           case ref: ERef     => ref.obj
           case list: EList   => list.elems.map(e => toScala(e, extra))
           case tuple: ETuple => product(tuple.elems.map(e => toScala(e, extra)))
-          case map: EMap =>
+          case map: EMap     =>
             map.mapLH.foldLeft(Map.empty[Any, Any]) { case (newMap, (k: ETerm, v: ETerm)) =>
               newMap + (toScala(k, extra) -> toScala(v, extra))
             }
@@ -485,7 +485,7 @@ object Codec {
   ): ETerm = {
     extra(scala) match {
       case Some(term) => term
-      case None =>
+      case None       =>
         scala match {
           case e: ETerm       => e
           case any: FromScala => any.fromScala
@@ -503,7 +503,7 @@ object Codec {
           case list: List[_]               => EList(list.map(e => fromScala(e, extra)), true)
           case list: Seq[_]                => EList(List.from(list.map(e => fromScala(e, extra))), true)
           case arraybuffer: ArrayBuffer[_] => EList(List.from(arraybuffer.map(e => fromScala(e, extra))), true)
-          case tuple: Product => {
+          case tuple: Product              => {
             tuple.getClass().getPackageName() match {
               case "scala" => ETuple(tuple.productIterator.map(e => fromScala(e, extra)).toList)
               case _       =>

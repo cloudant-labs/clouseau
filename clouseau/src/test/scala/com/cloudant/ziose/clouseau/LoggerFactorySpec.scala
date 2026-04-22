@@ -21,8 +21,8 @@ class LoggerFactorySpec extends JUnitRunnableSpec {
     val logLevelTests = (List("debug", "info", "warn", "error")).map(level => {
       test(s"crash in '${level}' doesn't terminate actor")(
         for {
-          node   <- Utils.clouseauNode
-          handle <- TestService.start(node, "echo")
+          node    <- Utils.clouseauNode
+          handle  <- TestService.start(node, "echo")
           success <- handle
             .doTestCall(
               core.Codec.ETuple(core.Codec.EAtom(s"crashLogger.${level}"), core.Codec.EBinary("myReason"))

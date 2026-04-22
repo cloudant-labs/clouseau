@@ -195,7 +195,7 @@ object Generators {
     fieldsValue    <- fieldNames
     tag            <- stringBinaryE
     intValue       <- int(Int.MinValue, Int.MaxValue)
-    term <- oneOf(
+    term           <- oneOf(
       const(ETuple(EAtom("query"), stringValue)),
       const(ETuple(EAtom("field"), stringValue)),
       const(ETuple(EAtom("refresh"), booleanValue)),
@@ -224,7 +224,7 @@ object Generators {
     tag            <- stringBinaryE
     intValue       <- int(Int.MinValue, Int.MaxValue)
     legacyValue    <- booleanE
-    term <- oneOf(
+    term           <- oneOf(
       const(ETuple(EAtom("query"), stringValue)),
       const(ETuple(EAtom("partition"), partitionValue)),
       const(ETuple(EAtom("after"), bookmarkValue)),

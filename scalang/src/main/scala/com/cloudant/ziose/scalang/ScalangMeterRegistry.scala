@@ -18,8 +18,8 @@ class ScalangMeterRegistry(registry: MetricRegistry, durationUnit: TimeUnit, rat
       registry,
       reporter
     ) {
-  def getDurationUnit = durationUnit
-  def getRateUnit     = rateUnit
+  def getDurationUnit              = durationUnit
+  def getRateUnit                  = rateUnit
   def rateUnitName(unit: TimeUnit) = {
     unit match {
       case TimeUnit.DAYS         => "events/day"
@@ -69,7 +69,7 @@ object ScalangMeterRegistry {
     rateUnit: TimeUnit
   ): ScalangMeterRegistry = {
     val metricRegistry = new MetricRegistry()
-    val registry = {
+    val registry       = {
       new ScalangMeterRegistry(
         metricRegistry,
         durationUnit,

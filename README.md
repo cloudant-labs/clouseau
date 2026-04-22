@@ -24,6 +24,12 @@ because it does _NOT_ remain compatible with existing Clouseau
 indexes.  They are created by Apache Lucene 4.6, while this version
 utilizes 10.x or later.
 
+There are also some notable changes to the deployment:
+
+ * Java 21 is required.
+ * `clouseau.ini` is replaced by [app.conf](./app.conf).
+ * CouchDB 3.5.0 required.
+
 ## Dependency management
 
 This project uses  a combination of [`asdf`](https://github.com/asdf-vm/asdf) tool

@@ -179,8 +179,8 @@ object ClouseauTypeFactory extends TypeFactory {
 
   def toStore(options: Map[String, Any]): Store = {
     options.getOrElse("store", "no") match {
-      case true  => Store.YES
-      case false => Store.NO
+      case true        => Store.YES
+      case false       => Store.NO
       case str: String =>
         try {
           Store.valueOf(str.toUpperCase)
@@ -195,8 +195,8 @@ object ClouseauTypeFactory extends TypeFactory {
 
   def toIndex(options: Map[String, Any]): Boolean = {
     options.getOrElse("index", "analyzed") match {
-      case true  => true
-      case false => false
+      case true        => true
+      case false       => false
       case str: String =>
         str.toUpperCase match {
           case "ANALYZED"              => true
@@ -213,9 +213,9 @@ object ClouseauTypeFactory extends TypeFactory {
   def toScala(term: ETerm): Option[Any] = {
     term match {
       // case tuple: ETuple => Some(toScala(tuple))
-      case pid: EPid     => Some(Pid.toScala(pid))
-      case ref: ERef     => Some(Reference.toScala(ref))
-      case byte: ENumber => byte.toInt
+      case pid: EPid                                                    => Some(Pid.toScala(pid))
+      case ref: ERef                                                    => Some(Reference.toScala(ref))
+      case byte: ENumber                                                => byte.toInt
       case ETuple(from: EPid, EListImproper(EAtom("alias"), ref: ERef)) =>
         Some((Pid.toScala(from), List(Symbol("alias"), Reference.toScala(ref))))
       case ETuple(from: EPid, ref: ERef) =>
@@ -226,9 +226,9 @@ object ClouseauTypeFactory extends TypeFactory {
 
   def fromScala(term: Any): Option[ETerm] = {
     term match {
-      case pid: Pid           => Some(pid.fromScala)
-      case ref: Reference     => Some(ref.fromScala)
-      case bytesRef: BytesRef => Some(EBinary(bytesRef.utf8ToString()))
+      case pid: Pid                                                 => Some(pid.fromScala)
+      case ref: Reference                                           => Some(ref.fromScala)
+      case bytesRef: BytesRef                                       => Some(EBinary(bytesRef.utf8ToString()))
       case (from: Pid, List(Symbol("alias"), reference: Reference)) =>
         val ref = reference.fromScala
         Some(ETuple(from.fromScala, EListImproper(EAtom("alias"), ref), ref))

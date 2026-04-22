@@ -40,8 +40,8 @@ class UtilsSpec extends JUnitRunnableSpec {
         })(throws(hasMessage(containsString("List(1, 2, 3, 4) contains non-string element 3"))))
       },
       test("skip processing of elements after first element of wrong type") {
-        val input                             = List("1", "2", 3, "4")
-        val recorder: mutable.ListBuffer[Any] = mutable.ListBuffer.empty
+        val input                                         = List("1", "2", 3, "4")
+        val recorder: mutable.ListBuffer[Any]             = mutable.ListBuffer.empty
         val condition: PartialFunction[Any, List[String]] = ensureElementsType(
           {
             case string: String => {
@@ -66,10 +66,10 @@ class UtilsSpec extends JUnitRunnableSpec {
       },
       test("usable when orElse doesn't throw exception") {
         /*
-         This is not supported use case for the function.
-         Because there is no way to distinguish the success and failure.
+        This is not supported use case for the function.
+        Because there is no way to distinguish the success and failure.
 
-         This test is written only to verify that orElse function works correctly.
+        This test is written only to verify that orElse function works correctly.
          */
         val condition: PartialFunction[Any, List[String]] = ensureElementsType(
           {

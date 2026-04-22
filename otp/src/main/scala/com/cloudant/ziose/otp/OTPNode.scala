@@ -46,16 +46,17 @@ object OTPNode {
       queue <- Queue.unbounded[Envelope[Command[_], _, _]].withFinalizer(_.shutdown)
       accessKey = AccessKey.create()
       cookie    = cfg.cookieVal
-      service <- for {
-        _           <- ZIO.logDebug(s"Creating OtpNode($name, ****)")
-        nodeProcess <- NodeProcess.make(name, cookie, queue, accessKey)
-        fiber       <- nodeProcess.stream.runDrain.fork
-        nodeScope   <- ZIO.scope
-        service = unsafeMake(fiber, queue, nodeProcess, nodeScope, factory, ctx)
-        _ <- service.acquire
-        _ <- ZIO.addFinalizer(service.release)
-        _ <- ZIO.logDebug("Adding to the environment")
-      } yield service
+      service <-
+        for {
+          _           <- ZIO.logDebug(s"Creating OtpNode($name, ****)")
+          nodeProcess <- NodeProcess.make(name, cookie, queue, accessKey)
+          fiber       <- nodeProcess.stream.runDrain.fork
+          nodeScope   <- ZIO.scope
+          service = unsafeMake(fiber, queue, nodeProcess, nodeScope, factory, ctx)
+          _ <- service.acquire
+          _ <- ZIO.addFinalizer(service.release)
+          _ <- ZIO.logDebug("Adding to the environment")
+        } yield service
     } yield service
   }
 
@@ -154,7 +155,7 @@ object OTPNode {
           Success(Response.PingNode(node.ping(nodeName, DEFAULT_PING_TIMEOUT.toMillis)))
         case cmd @ PingNode(nodeName, Some(timeout)) =>
           Success(Response.PingNode(node.ping(nodeName, timeout.toMillis)))
-        case CreateMbox(None) => Success(Response.CreateMbox(node.createMbox()))
+        case CreateMbox(None)       => Success(Response.CreateMbox(node.createMbox()))
         case CreateMbox(Some(name)) =>
           node.createMbox(name) match {
             case null          => Failure(Node.Error.NameInUse(name))
@@ -163,7 +164,7 @@ object OTPNode {
         case MakeRef()                             => Success(Response.MakeRef(node.createRef()))
         case Register(mbox: OtpMbox, name: String) => Success(Response.Register(node.registerName(name, mbox)))
         case ListNames()                           => Success(Response.ListNames(node.getNames.toList))
-        case LookUpName(name: String) =>
+        case LookUpName(name: String)              =>
           node.whereis(name) match {
             case null => Success(Response.LookUpName(None))
             case pid  => Success(Response.LookUpName(Some(pid)))
@@ -299,7 +300,7 @@ object OTPNode {
           mbox       <- createMbox(builder.name)
           worker     <- ZIO.service[EngineWorker]
           actorScope <- nodeScope.fork
-          context <- ctx
+          context    <- ctx
             .withOtpMbox(mbox)
             .withWorker(worker.asInstanceOf[OTPEngineWorker])
             .withBuilder(builder)

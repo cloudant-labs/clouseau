@@ -68,7 +68,7 @@ class OTPProcessContext private (
         for {
           maybePid <- lookUpName(name.asString)
           msgToPid <- maybePid match {
-            case None => ZIO.succeed(msg)
+            case None          => ZIO.succeed(msg)
             case Some(address) =>
               ZIO.succeed(
                 msg.redirect(to => Address.fromPid(address.asInstanceOf[PID].pid, to.workerId, to.workerNodeName))
@@ -136,7 +136,7 @@ class OTPProcessContext private (
     }
   }
 
-  def unlink(to: Codec.EPid) = mailbox.unlink(to)
+  def unlink(to: Codec.EPid)              = mailbox.unlink(to)
   def unlink(msg: MessageEnvelope.Unlink) = {
     if (msg.to.isRemote || msg.to == id) {
       mailbox.unlink(msg.from.get)
@@ -145,7 +145,7 @@ class OTPProcessContext private (
     }
   }
 
-  def link(to: Codec.EPid) = mailbox.link(to)
+  def link(to: Codec.EPid)            = mailbox.link(to)
   def link(msg: MessageEnvelope.Link) = {
     if (msg.to.isRemote && msg.from.get == id.pid) {
       mailbox.link(msg.from.get)

@@ -71,7 +71,7 @@ class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(i
 
   def terminateNamedWith(name: String, terminator: ((core.Address, Adapter[_, _]) => UIO[Unit])) = for {
     resultChannel <- Queue.bounded[Boolean](1)
-    _ <- ZIO.succeed(spawn(process => {
+    _             <- ZIO.succeed(spawn(process => {
       Unsafe.unsafe { implicit unsafe =>
         runtime.unsafe.run(
           for {

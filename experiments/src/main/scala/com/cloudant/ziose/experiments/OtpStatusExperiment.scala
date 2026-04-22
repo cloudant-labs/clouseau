@@ -103,7 +103,7 @@ object Main extends ZIOAppDefault {
     }
   }
 
-  def parse(msg: OtpErlangObject): EMessage = OTPMessage(msg).asInstanceOf[EMessage]
+  def parse(msg: OtpErlangObject): EMessage   = OTPMessage(msg).asInstanceOf[EMessage]
   def receiveMessage(mbox: OtpMbox): EMessage = {
     try {
       Console.printLine("called receiveMessage")

@@ -161,9 +161,9 @@ private object MonitorService extends core.ActorConstructor[MonitorService] {
 
 @RunWith(classOf[ZTestJUnitRunner])
 class ClouseauNodeSpec extends JUnitRunnableSpec {
-  def dummyCaller(testName: String) = core.Name(core.Codec.EAtom("test"), 1, Symbol(testName))
-  val TIMEOUT                       = 2.seconds
-  val WAIT_DURATION                 = 500.milliseconds
+  def dummyCaller(testName: String)           = core.Name(core.Codec.EAtom("test"), 1, Symbol(testName))
+  val TIMEOUT                                 = 2.seconds
+  val WAIT_DURATION                           = 500.milliseconds
   val serviceSpawnSuite: Spec[Any, Throwable] = {
     suite("serviceSpawn")(
       test("Start Echo")(
@@ -258,7 +258,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           unleashChannel <- Queue.bounded[Unit](1)
 
           actor <- TestService.start(node, "ProcessSpawn.Closure")
-          _ <- ZIO.succeed(node.spawn(process => {
+          _     <- ZIO.succeed(node.spawn(process => {
             // this is needed to enable `actor ! message` syntax
             // this shouldn't be required in clouseau code because
             // we only use this syntax from the service classes
@@ -295,7 +295,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           monitorerActor <- MonitorService.startZIO(node, "ProcessSpawn.Monitorer.ActorStops")
           addressChannel <- Queue.bounded[core.PID](1)
           unleashChannel <- Queue.bounded[Unit](1)
-          _ <- ZIO
+          _              <- ZIO
             .attemptBlocking(node.spawn(process => {
               Unsafe.unsafe { implicit unsafe =>
                 runtime.unsafe.run(addressChannel.offer(process.self))
@@ -321,7 +321,7 @@ class ClouseauNodeSpec extends JUnitRunnableSpec {
           monitorerActor <- MonitorService.startZIO(node, "ProcessClosure.Monitorer.NonBlocking")
           addressChannel <- Queue.bounded[core.PID](1)
           unleashChannel <- Queue.bounded[Unit](1)
-          _ <- ZIO
+          _              <- ZIO
             .attemptBlocking(node.spawn(process => {
               Unsafe.unsafe { implicit unsafe =>
                 runtime.unsafe.run(addressChannel.offer(process.self))

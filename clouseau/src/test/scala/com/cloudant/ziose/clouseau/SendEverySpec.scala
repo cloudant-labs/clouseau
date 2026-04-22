@@ -145,7 +145,7 @@ class SendEverySpec extends JUnitRunnableSpec {
           actorName = "SendEveryHandleCallSuite.SendIncrement"
           actor         <- SendEveryService.startZIO(node, actorName)
           counterBefore <- SendEveryService.getCounter(actor)
-          _ <- ZIO.succeed(
+          _             <- ZIO.succeed(
             node.spawn(process => {
               implicit def pid2sendable(pid: core.PID): PidSend = new PidSend(pid, process)
 
@@ -203,7 +203,7 @@ class SendEverySpec extends JUnitRunnableSpec {
           counter        <- SendEveryService.getCounter(actor)
           startChannel   <- Queue.bounded[Unit](1)
           unleashChannel <- Queue.bounded[Unit](1)
-          _ <- ZIO.attemptBlocking(node.spawn(process => {
+          _              <- ZIO.attemptBlocking(node.spawn(process => {
             Unsafe.unsafe { implicit unsafe =>
               runtime.unsafe.run(startChannel.take)
             }
@@ -238,7 +238,7 @@ class SendEverySpec extends JUnitRunnableSpec {
         for {
           node  <- Utils.clouseauNode
           actor <- SendEveryService.startZIO(node, "SendEveryHandleInfoSuite.SendIncrement")
-          _ <- ZIO.succeed(node.spawn(process => {
+          _     <- ZIO.succeed(node.spawn(process => {
             implicit def pid2sendable(pid: core.PID): PidSend = new PidSend(pid, process)
 
             val actorPID: core.PID = actor.self

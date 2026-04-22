@@ -168,7 +168,7 @@ class OTPMailbox private (
 
   def nextEvent = compositeMailbox.take <* ZIO.succeed(compositeMailboxMeter -= 1)
 
-  def capacity: Int = compositeMailbox.capacity
+  def capacity: Int                                   = compositeMailbox.capacity
   def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
     compositeMailbox.awaitShutdown <&> internalMailbox.awaitShutdown
   }
@@ -239,7 +239,7 @@ class OTPMailbox private (
   def monitor(monitored: Address): ZIO[Node, _ <: Node.Error, Codec.ERef] = {
     ZIO.blocking(for {
       node <- ZIO.service[Node]
-      ref <- attempt(monitored match {
+      ref  <- attempt(monitored match {
         case PID(pid, _workerId, _workerName) =>
           mbox.monitor(pid.toOtpErlangObject)
         case Name(name, _workerId, _workerName) =>
@@ -274,7 +274,7 @@ class OTPMailbox private (
   }
 
   def start(scope: Scope.Closeable) = for {
-    _ <- scope.addFinalizerExit(onExit)
+    _                    <- scope.addFinalizerExit(onExit)
     internalMailboxFiber <- ZStream
       .fromQueueWithShutdown(internalMailbox)
       .mapZIO(

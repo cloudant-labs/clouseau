@@ -13,7 +13,7 @@ jobs:
     name: Release of clouseau-{version}-dist.zip
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: git config advice.detachedHead false
       - name: Set ENV for github-release
         run: |
@@ -22,7 +22,7 @@ jobs:
       - name: Comment out tools not available in mise
         run: sed -i 's/^spotbugs /#spotbugs /' .tool-versions
       - name: Install mise & tools
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4
         with:
           install: true
 

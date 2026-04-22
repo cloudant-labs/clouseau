@@ -25,7 +25,7 @@ class MetricsSpec extends JUnitRunnableSpec {
 
   val metricsSuite = suite("metrics testing")(
     test("testing Timer.time throws exception") {
-      var timer = metrics.timer("Exception")
+      var timer  = metrics.timer("Exception")
       val result = {
         try {
           Right(timer.time {
@@ -43,7 +43,7 @@ class MetricsSpec extends JUnitRunnableSpec {
       assert(timer.getMeanRate)(isGreaterThan(0.0))
     },
     test("testing Timer.time throws custom exception") {
-      var timer = metrics.timer("myException")
+      var timer  = metrics.timer("myException")
       val result = {
         try {
           Right(timer.time {
@@ -61,7 +61,7 @@ class MetricsSpec extends JUnitRunnableSpec {
       assert(timer.getMeanRate)(isGreaterThan(0.0))
     },
     test("testing Timer.time throws FileNotFoundException exception") {
-      var timer = metrics.timer("FileNotFoundException")
+      var timer  = metrics.timer("FileNotFoundException")
       val result = {
         try {
           Right(timer.time {
@@ -79,7 +79,7 @@ class MetricsSpec extends JUnitRunnableSpec {
       assert(timer.getMeanRate)(isGreaterThan(0.0))
     },
     test("testing Timer.time returns result") {
-      var timer = metrics.timer("testTimer")
+      var timer  = metrics.timer("testTimer")
       val result = {
         try {
           Right(timer.time {

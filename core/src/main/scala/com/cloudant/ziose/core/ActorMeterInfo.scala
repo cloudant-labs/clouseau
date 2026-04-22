@@ -51,7 +51,7 @@ case class ActorMeterInfo(
 
   def asPrettyPrintedETerm(term: Any): ETerm = {
     term match {
-      case xs: List[_] => EList(xs.map(asPrettyPrintedETerm(_)))
+      case xs: List[_]   => EList(xs.map(asPrettyPrintedETerm(_)))
       case xs: Map[_, _] =>
         EMap(xs.map { case (k, v) =>
           asPrettyPrintedETerm(k) -> asPrettyPrintedETerm(v)

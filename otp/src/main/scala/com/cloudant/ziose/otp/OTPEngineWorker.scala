@@ -22,7 +22,7 @@ final class OTPEngineWorker private (
   val exchange: EngineWorkerExchange
 ) extends EngineWorker {
   type Context = OTPProcessContext
-  val id = workerId
+  val id                 = workerId
   def acquire: UIO[Unit] = {
     ZIO.logDebug(s"Acquired ${nodeName.name}")
   }
