@@ -260,7 +260,7 @@ class OTPMailbox private (
 
   def send(message: MessageEnvelope.Send)(implicit trace: zio.Trace): UIO[Unit] = {
     // println(s"OTPMailbox.send($msg)")
-    ZIO.succeedBlocking(message.to match {
+    ZIO.succeed(message.to match {
       case PID(pid, _workerId, _workerNodeName) =>
         mbox.send(
           pid.toOtpErlangObject,
