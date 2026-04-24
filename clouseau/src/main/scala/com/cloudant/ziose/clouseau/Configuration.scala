@@ -58,6 +58,8 @@ final case class WorkerConfiguration(
 
 final case class RootDir(value: String) extends AnyVal
 
+final case class Liveness(value: Int) extends AnyVal
+
 final case class ClouseauConfiguration(
   dir: Option[RootDir] = None,
   search_allowed_timeout_msecs: Option[Long] = None,
@@ -73,7 +75,8 @@ final case class ClouseauConfiguration(
   dir_class: Option[String] = None,
   concurrent_search_enabled: Option[Boolean] = None,
   concurrent_search_limit: Option[Int] = None,
-  track_index_atimes: Option[Boolean] = None
+  track_index_atimes: Option[Boolean] = None,
+  liveness: Option[Liveness] = None
 ) {
   def getString(key: String, default: String) = key match {
     case "clouseau.dir" =>
@@ -92,7 +95,12 @@ final case class ClouseauConfiguration(
     case "commit_interval_secs"                => commit_interval_secs.getOrElse(default)
     case "clouseau.concurrent_search_limit"    => concurrent_search_limit.getOrElse(default)
     case "clouseau.field_count_warn_threshold" => field_count_warn_threshold.getOrElse(default)
-    case _                                     => throw new Exception(s"Unexpected Int key '$key'")
+    case "clouseau.liveness"                   =>
+      liveness match {
+        case Some(Liveness(value)) => value
+        case None                  => default
+      }
+    case _ => throw new Exception(s"Unexpected Int key '$key'")
   }
   def getLong(key: String, default: Long) = key match {
     case "clouseau.search_allowed_timeout_msecs" => search_allowed_timeout_msecs.getOrElse(default)
@@ -123,7 +131,8 @@ final case class ClouseauConfiguration(
     s"dir_class=$dir_class",
     s"concurrent_search_enabled=$concurrent_search_enabled",
     s"concurrent_search_limit=$concurrent_search_limit",
-    s"track_index_atimes=$track_index_atimes"
+    s"track_index_atimes=$track_index_atimes",
+    s"liveness=$liveness"
   )
 }
 
@@ -190,6 +199,21 @@ object CapacityConfiguration {
   }
 }
 
+object LivenessConfiguration {
+  def readLiveness(value: Int): Either[Error, Liveness] = {
+    value match {
+      case v if (1 to 1000).contains(v) =>
+        Right(Liveness(value))
+      case _ =>
+        Left(
+          Error.InvalidData(
+            message = s"Liveness must be greater than 0 and less than or equal to 1000 (got '${value}')"
+          )
+        )
+    }
+  }
+}
+
 final case class AppCfg(config: List[WorkerConfiguration], logger: LogConfiguration)
 
 object AppCfg {
@@ -199,6 +223,10 @@ object AppCfg {
 
   implicit val logLevelDescriptor: DeriveConfig[LogLevel] = {
     DeriveConfig[String].mapOrFail(LogConfiguration.readLogLevel)
+  }
+
+  implicit val livenessDescriptor: DeriveConfig[Liveness] = {
+    DeriveConfig[Int].mapOrFail(LivenessConfiguration.readLiveness)
   }
 
   val config: Config[AppCfg] = deriveConfig[AppCfg]
