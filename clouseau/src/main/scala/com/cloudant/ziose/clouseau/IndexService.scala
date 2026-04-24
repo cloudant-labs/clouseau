@@ -113,6 +113,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   // Check if the index is idle and optionally close it if there is no activity between
   //Two consecutive idle status checks.
   val closeIfIdleEnabled = ctx.args.config.getBoolean("clouseau.close_if_idle", false)
+  val liveness = ctx.args.config.getInt("clouseau.liveness", 0)
   val idleTimeout = ctx.args.config.getInt("clouseau.idle_check_interval_secs", 300)
   val lruUpdateInterval = ctx.args.config.getInt("clouseau.lru_update_interval_msecs", 1000)
   // Set initial default to be in the past so we don't miss first LRU update
@@ -127,6 +128,10 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
 
     if (closeIfIdleEnabled) {
       sendEvery(self.pid, 'close_if_idle, idleTimeout * 1000)
+    }
+
+    if (liveness > 0) {
+      sendEvery(self.pid, 'ping, 1000 / liveness)
     }
 
     logger.debug(prefix_name("Opened at update_seq %d".format(updateSeq)))
@@ -264,6 +269,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       failed.foreach(w => Service.reply(w.tag, ('error, 'commit_failed)))
       commitWaiters = waiting
       self ! 'maybe_commit
+    case 'ping =>
+      'pong
   }
 
   def countFields() = {
