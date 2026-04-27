@@ -1,0 +1,29 @@
+services:
+  couchdb:
+    image: couchdb:3.5.1
+    environment:
+      COUCHDB_USER: admin
+      COUCHDB_PASSWORD: pass
+      NODENAME: couchdb
+      COUCHDB_ERLANG_COOKIE: ${ERLANG_COOKIE}
+    ports:
+      - "5984:5984"
+    volumes:
+      - ./erlang.cookie:/run/secrets/erlang.cookie:ro
+      - ./local.ini:/tmp/search.ini:ro
+    command:
+      - sh
+      - -c
+      - |
+        cp /tmp/search.ini /opt/couchdb/etc/local.d/search.ini
+        exec /docker-entrypoint.sh /opt/couchdb/bin/couchdb
+
+  clouseau:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    volumes:
+      - ./erlang.cookie:/run/secrets/erlang.cookie:ro
+      - ./app.conf:/opt/couchdb-search/etc/app.conf:ro
+    depends_on:
+      - couchdb

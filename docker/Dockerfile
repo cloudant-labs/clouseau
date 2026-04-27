@@ -10,11 +10,11 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-ARG CLOUSEAU_VERSION=3.0.0
+ARG CLOUSEA5U_VERSION=3.3.0
 ARG CLOUSEAU_REPO=https://github.com/cloudant-labs/clouseau
 
 
-FROM debian:bookworm-slim AS fetcher
+FROM debian:trixie-slim AS fetcher
 
 ARG CLOUSEAU_VERSION
 ARG CLOUSEAU_REPO
@@ -48,7 +48,7 @@ RUN set -ex; \
     apt-get update; \
     apt-get install -y --no-install-recommends tini; \
     rm -rf /var/lib/apt/lists/*; \
-    tini --version
+    tini --version;
 
 # Set up directories with correct permissions to avoid chmod later
 WORKDIR /opt/couchdb-search
@@ -68,8 +68,13 @@ USER clouseau
 ENTRYPOINT ["tini", "--"]
 CMD ["java", \
      "-server", \
+     "-Xmx2G", \
+     "-Xms1600M", \
+     "-XX:+UseG1GC", \
+     "-XX:+ParallelRefProcEnabled", \
      "-Dsun.net.inetaddr.ttl=30", \
      "-Dsun.net.inetaddr.negative.ttl=30", \
+     "-Dcookie.file=/run/secrets/erlang.cookie", \
      "-classpath", "/opt/couchdb-search/lib/*", \
      "com.cloudant.ziose.clouseau.Main", \
      "/opt/couchdb-search/etc/app.conf"]
