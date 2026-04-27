@@ -552,7 +552,7 @@ ci-concurrent-zeunit: concurrent-zeunit-tests
 
 ci-mango: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli stop $@ || true
-	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
+	@cli start $@ "java $(_JAVA_COOKIE) -jar $< ci.app.conf"
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@$(TIMEOUT) $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
@@ -560,7 +560,7 @@ ci-mango: $(JAR_ARTIFACTS) couchdb epmd FORCE
 
 ci-elixir: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli stop $@ || true
-	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
+	@cli start $@ "java $(_JAVA_COOKIE) -jar $< ci.app.conf"
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@$(TIMEOUT) $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
 	@cli stop $@
