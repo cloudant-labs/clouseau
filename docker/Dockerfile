@@ -12,8 +12,15 @@
 
 ARG CLOUSEAU_VERSION=3.3.0
 ARG CLOUSEAU_REPO=https://github.com/cloudant-labs/clouseau
+ARG BUILD_MODE=release
 
 
+# Stage 1: Copy local JAR files (for dev builds)
+FROM scratch AS local-jars
+COPY artifacts/*.jar /usr/src/
+
+
+# Stage 2: Download from GitHub release (for release builds)
 FROM debian:trixie-slim AS fetcher
 
 ARG CLOUSEAU_VERSION
@@ -29,6 +36,12 @@ RUN set -ex; \
     wget -q -O clouseau.zip "${CLOUSEAU_REPO}/releases/download/${CLOUSEAU_VERSION}/clouseau-${CLOUSEAU_VERSION}-dist.zip"; \
     unzip clouseau.zip -d /usr/src; \
     rm clouseau.zip
+
+
+# Stage 3: Select JAR source based on BUILD_MODE
+FROM local-jars AS jars-local
+FROM fetcher AS jars-release
+FROM jars-${BUILD_MODE} AS jars
 
 
 FROM eclipse-temurin:21-jre AS runner
@@ -59,7 +72,7 @@ RUN chown clouseau:clouseau . && \
     lib \
     data
 
-COPY --from=fetcher --chown=clouseau:clouseau /usr/src/*.jar lib/
+COPY --from=jars --chown=clouseau:clouseau /usr/src/*.jar lib/
 COPY --chown=clouseau:clouseau app.conf etc/
 
 VOLUME /opt/couchdb-search/data

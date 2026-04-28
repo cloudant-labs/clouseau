@@ -65,8 +65,14 @@ jobs:
       #     timeout_minutes: 8
       #     max_attempts: 3
       #     command: mise exec -- make metrics-tests
-      - name: Build Docker image
-        run: docker build -t clouseau:${{ github.sha }} -f docker/Dockerfile .
+      - name: Build JAR
+        run: mise exec -- make jar
+      - name: Build Docker image (local mode)
+        run: |
+          docker build \
+            --build-arg BUILD_MODE=local \
+            -t clouseau:${{ github.sha }} \
+            -f docker/Dockerfile .
       - name: Run docker compose
         uses: hoverkraft-tech/compose-action@d2bee4f07e8ca410d6b196d00f90c12e7d48c33a # v2.6.0
         with:
