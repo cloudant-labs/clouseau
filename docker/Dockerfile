@@ -43,7 +43,7 @@ LABEL maintainer="CouchDB Developers dev@couchdb.apache.org"
 RUN groupadd -g 5986 -r clouseau && \
     useradd -u 5986 -d /opt/couchdb-search -g clouseau clouseau
 
-# Install dependencies (Tini)
+# Install runtime dependencies
 RUN set -ex; \
     apt-get update; \
     apt-get install -y --no-install-recommends tini erlang-base; \
