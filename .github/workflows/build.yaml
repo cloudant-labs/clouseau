@@ -122,6 +122,10 @@ jobs:
           echo "CouchDB search/error logs:"
           docker compose -f docker/compose.yaml logs couchdb 2>&1 | \
             grep -i "clouseau\|search\|error" | tail -20
+      - name: Verify JAR in Docker image
+        run: |
+          echo "JAR files in Docker image:"
+          docker run --rm clouseau:${{ github.sha }} ls -lh /opt/couchdb-search/lib/
       - name: Cleanup erlang.cookie
         if: always()
         run: rm -f docker/erlang.cookie
