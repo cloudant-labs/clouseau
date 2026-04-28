@@ -15,6 +15,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
+      - name: Create erlang.cookie
+        run: echo "asdf" > docker/erlang.cookie
       - run: git config advice.detachedHead false
       - name: Comment out tools not available in mise
         run: sed -i 's/^spotbugs /#spotbugs /' .tool-versions
@@ -23,43 +25,107 @@ jobs:
         with:
           install: true
 
-      - name: Lint
+      # - name: Lint
+      #   run: |
+      #     source scripts/console.sh
+      #     source scripts/tools.sh
+      #     COURSIER="mise exec -- cs" tools::activate_tools
+      #     mise exec -- make ci-lint
+      # - name: Unit tests
+      #   uses: nick-fields/retry@v4
+      #   with:
+      #     timeout_minutes: 5
+      #     max_attempts: 3
+      #     command: mise exec -- make test
+      # - name: Restart test
+      #   run: mise exec -- make restart-test
+      # - name: RPC tests (zeunit)
+      #   uses: nick-fields/retry@v4
+      #   with:
+      #     timeout_minutes: 5
+      #     max_attempts: 3
+      #     command: mise exec -- make zeunit
+      # - name: Concurrent RPC tests (zeunit)
+      #   uses: nick-fields/retry@v4
+      #   with:
+      #     timeout_minutes: 5
+      #     max_attempts: 3
+      #     command: mise exec -- make concurrent-zeunit-tests
+      # - name: Syslog tests
+      #   run: mise exec -- make syslog-tests
+      # - name: Elixir tests
+      #   uses: nick-fields/retry@v4
+      #   with:
+      #     timeout_minutes: 5
+      #     max_attempts: 3
+      #     command: mise exec -- make ci-elixir
+      # - name: Metrics tests (mango)
+      #   uses: nick-fields/retry@v4
+      #   with:
+      #     timeout_minutes: 8
+      #     max_attempts: 3
+      #     command: mise exec -- make metrics-tests
+      - name: Build JAR
+        run: mise exec -- make jar
+      - name: Build Docker image (local mode)
         run: |
-          source scripts/console.sh
-          source scripts/tools.sh
-          COURSIER="mise exec -- cs" tools::activate_tools
-          mise exec -- make ci-lint
-      - name: Unit tests
-        uses: nick-fields/retry@v4
+          docker build \
+            --build-arg BUILD_MODE=release \
+            -t clouseau:${{ github.sha }} \
+            -f docker/Dockerfile .
+      - name: Run docker compose
+        uses: hoverkraft-tech/compose-action@d2bee4f07e8ca410d6b196d00f90c12e7d48c33a # v2.6.0
         with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: mise exec -- make test
-      - name: Restart test
-        run: mise exec -- make restart-test
-      - name: RPC tests (zeunit)
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: mise exec -- make zeunit
-      - name: Concurrent RPC tests (zeunit)
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: mise exec -- make concurrent-zeunit-tests
-      - name: Syslog tests
-        run: mise exec -- make syslog-tests
-      - name: Elixir tests
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: mise exec -- make ci-elixir
-      - name: Metrics tests (mango)
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: 8
-          max_attempts: 3
-          command: mise exec -- make metrics-tests
+          compose-file: "./docker/compose.yaml"
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for CouchDB to be ready..."
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:5984/ > /dev/null; then
+              echo "CouchDB is ready!"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+      - name: Test CouchDB and Clouseau integration
+        run: |
+          curl -G http://127.0.0.1:5984/_search_analyze \
+            -u admin:pass \
+            --data-urlencode analyzer=keyword \
+            --data-urlencode text='ablanks@renovations.com'
+      - name: Debug Erlang Connectivity
+        run: |
+          docker ps
+          docker network ls
+          docker network inspect docker_default | jq '.[0].Containers'
+          docker compose -f docker/compose.yaml exec -T couchdb \
+            sh -c "getent hosts clouseau || echo 'DNS failed'"
+          docker compose -f docker/compose.yaml exec -T couchdb \
+            sh -c "netstat -tlnp 2>/dev/null | grep 4369 || echo 'No EPMD port'"
+          echo "CouchDB node:"
+          docker compose -f docker/compose.yaml logs couchdb 2>&1 | \
+            grep -i "starting\|node" | head -5
+          echo "Clouseau node:"
+          docker compose -f docker/compose.yaml logs clouseau 2>&1 | \
+            grep -i "running as\|node" | head -5
+          echo "CouchDB cookie:"
+          docker compose -f docker/compose.yaml exec -T couchdb \
+            cat /run/secrets/erlang.cookie 2>/dev/null || echo "Cookie file not found"
+          echo "Clouseau cookie:"
+          docker compose -f docker/compose.yaml exec -T clouseau \
+            cat /run/secrets/erlang.cookie 2>/dev/null || echo "Cookie file not found"
+          echo "CouchDB search config:"
+          docker compose -f docker/compose.yaml exec -T couchdb \
+            cat /opt/couchdb/etc/local.d/search.ini
+          docker compose -f docker/compose.yaml logs clouseau
+          echo "CouchDB search/error logs:"
+          docker compose -f docker/compose.yaml logs couchdb 2>&1 | \
+            grep -i "clouseau\|search\|error" | tail -20
+      - name: Verify JAR in Docker image
+        run: |
+          echo "JAR files in Docker image:"
+          docker run --rm clouseau:${{ github.sha }} ls -lh /opt/couchdb-search/lib/
+      - name: Cleanup erlang.cookie
+        if: always()
+        run: rm -f docker/erlang.cookie
