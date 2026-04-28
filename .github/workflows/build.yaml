@@ -70,7 +70,7 @@ jobs:
       - name: Build Docker image (local mode)
         run: |
           docker build \
-            --build-arg BUILD_MODE=local \
+            --build-arg BUILD_MODE=release \
             -t clouseau:${{ github.sha }} \
             -f docker/Dockerfile .
       - name: Run docker compose
