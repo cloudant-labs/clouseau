@@ -33,9 +33,4 @@ zeunit/*.xml
 .metals
 .vscode
 
-erl_crash.dump
-
-syslog.app.conf
-syslog.out
-
 docker/erlang.cookie
