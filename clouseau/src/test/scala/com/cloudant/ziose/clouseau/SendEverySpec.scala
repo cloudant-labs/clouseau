@@ -7,9 +7,9 @@ import org.junit.runner.RunWith
 import zio._
 import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
 import zio.test.Assertion._
-
 import com.cloudant.ziose.core
-import com.cloudant.ziose.scalang.{Adapter, Pid, Service, ServiceContext, SNode, PidSend}
+import com.cloudant.ziose.core.ZioSupport
+import com.cloudant.ziose.scalang.{Adapter, Pid, PidSend, SNode, Service, ServiceContext}
 import zio.test._
 import zio.test.TestAspect
 import com.cloudant.ziose.test.helpers.Asserts.containsShapeOption
@@ -122,7 +122,7 @@ private object SendEveryService extends core.ActorConstructor[SendEveryService] 
 }
 
 @RunWith(classOf[ZTestJUnitRunner])
-class SendEverySpec extends JUnitRunnableSpec {
+class SendEverySpec extends JUnitRunnableSpec with ZioSupport {
   def dummyCaller(actorName: String) = core.Name(core.Codec.EAtom("test"), 1, Symbol(actorName))
   val TIMEOUT_SUITE                  = 5.minutes
   val TIMEOUT_TEST                   = 2.seconds
@@ -204,13 +204,9 @@ class SendEverySpec extends JUnitRunnableSpec {
           startChannel   <- Queue.bounded[Unit](1)
           unleashChannel <- Queue.bounded[Unit](1)
           _              <- ZIO.attemptBlocking(node.spawn(process => {
-            Unsafe.unsafe { implicit unsafe =>
-              runtime.unsafe.run(startChannel.take)
-            }
+            startChannel.take.unsafeRun
             process.sendEvery(actor.self.pid, Symbol("increment"), 100)
-            Unsafe.unsafe { implicit unsafe =>
-              runtime.unsafe.run(unleashChannel.take)
-            }
+            unleashChannel.take.unsafeRun
           }))
           _                 <- startChannel.offer(())
           _                 <- ZIO.sleep(1.second)

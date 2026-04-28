@@ -10,21 +10,21 @@ package com.cloudant.ziose.core
  */
 
 import com.cloudant.ziose.macros.CheckEnv
-import zio.{Scope, Trace, UIO, ZIO}
+import zio.{RIO, Scope, Trace, UIO, ZIO}
+
 import java.util.concurrent.atomic.AtomicBoolean
-import zio.Unsafe
-import zio.Runtime
 
 class Exchange[K, M, E <: ForwardWithId[K, M]](registry: Registry[K, M, E], val keyFn: M => K)
-    extends Exchange.WithConstructor[K, M, E] {
+    extends Exchange.WithConstructor[K, M, E]
+    with ZioSupport {
   private var isFinalized: AtomicBoolean = new AtomicBoolean(false)
   def add(entity: E): UIO[Unit]          = {
     registry.add(entity)
   }
-  def remove(key: K): ZIO[Any, Nothing, Option[E]] = {
+  def remove(key: K): UIO[Option[E]] = {
     registry.remove(key)
   }
-  def replace(entity: E): ZIO[Any, Nothing, Option[E]] = {
+  def replace(entity: E): UIO[Option[E]] = {
     registry.replace(entity)
   }
   def isKnown(key: K): UIO[Boolean] = {
@@ -43,8 +43,8 @@ class Exchange[K, M, E <: ForwardWithId[K, M]](registry: Registry[K, M, E], val 
   /*
     Returns a registered entity based on passed `key`
    */
-  def get(key: K)                                                    = registry.get(key)
-  def buildWith(builderFn: Int => ZIO[Any with Scope, Throwable, E]) = {
+  def get(key: K)                                         = registry.get(key)
+  def buildWith(builderFn: Int => RIO[Any with Scope, E]) = {
     registry.buildWith(builderFn)
   }
   private def maybeForward(destination: Option[E], msg: M): UIO[Boolean] = destination match {
@@ -56,13 +56,7 @@ class Exchange[K, M, E <: ForwardWithId[K, M]](registry: Registry[K, M, E], val 
     }
   }
   def shutdown(implicit trace: Trace): UIO[Unit] = {
-    if (!isFinalized.getAndSet(true)) {
-      foreach(x => {
-        Unsafe.unsafe(implicit unsafe => {
-          Runtime.default.unsafe.run(x.shutdown)
-        })
-      })
-    } else { ZIO.unit }
+    ZIO.unless(isFinalized.getAndSet(true))(foreach(_.shutdown.unsafeRun)).unit
   }
 
   def forward(msg: M)(implicit trace: zio.Trace): UIO[Boolean] = for {
@@ -83,7 +77,7 @@ object Exchange {
     def buildWith(builderFn: Int => ZIO[Any with Scope, Throwable, E]): ZIO[Any with Scope, Throwable, E]
   }
 
-  def make[K, M, E <: ForwardWithId[K, M]](keyFn: M => K): ZIO[Any, Nothing, Exchange[K, M, E]] = {
+  def make[K, M, E <: ForwardWithId[K, M]](keyFn: M => K): UIO[Exchange[K, M, E]] = {
     for {
       registry <- Registry.make[K, M, E]
     } yield new Exchange(registry, keyFn)

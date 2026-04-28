@@ -1,14 +1,25 @@
 package com.cloudant.ziose.scalang
 
 import com.cloudant.ziose.core
-import core.Address
-import core.MessageEnvelope
 import com.cloudant.ziose.macros.CheckEnv
-import zio._
+import core.{
+  Actor,
+  ActorBuilder,
+  ActorFactory,
+  Address,
+  AddressableActor,
+  EngineWorker,
+  MessageEnvelope,
+  Node,
+  ProcessContext,
+  Result,
+  ZioSupport
+}
+import zio.{&, LogLevel, Queue, Runtime, Tag, UIO, ZIO, durationInt}
 
 class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(implicit
-  val runtime: Runtime[core.EngineWorker & core.Node]
-) {
+  val runtime: Runtime[EngineWorker & Node]
+) extends ZioSupport {
   type RegName  = Symbol
   type NodeName = Symbol
 
@@ -18,20 +29,20 @@ class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(i
   type Mailbox = Process
 
   /// spawnService is overridden by ClouseauNode
-  def spawnService[TS <: Service[A] with core.Actor: Tag, A <: Product](builder: core.ActorBuilder.Sealed[TS])(implicit
+  def spawnService[TS <: Service[A] & Actor: Tag, A <: Product](builder: ActorBuilder.Sealed[TS])(implicit
     adapter: Adapter[_, _]
-  ): core.Result[core.Node.Error, core.AddressableActor[TS, core.ProcessContext]] = ???
-  def spawnService[TS <: Service[A] with core.Actor: Tag, A <: Product](
-    builder: core.ActorBuilder.Sealed[TS],
+  ): Result[Node.Error, AddressableActor[TS, ProcessContext]] = ???
+  def spawnService[TS <: Service[A] & Actor: Tag, A <: Product](
+    builder: ActorBuilder.Sealed[TS],
     reentrant: Boolean
-  )(implicit adapter: Adapter[_, _]): core.Result[core.Node.Error, core.AddressableActor[TS, core.ProcessContext]] = ???
-  def spawnServiceZIO[TS <: Service[A] with core.Actor: Tag, A <: Product](
-    builder: core.ActorBuilder.Sealed[TS]
-  ): ZIO[core.EngineWorker with core.Node with core.ActorFactory, core.Node.Error, core.AddressableActor[_, _]] = ???
-  def spawnServiceZIO[TS <: Service[A] with core.Actor: Tag, A <: Product](
-    builder: core.ActorBuilder.Sealed[TS],
+  )(implicit adapter: Adapter[_, _]): Result[Node.Error, AddressableActor[TS, ProcessContext]] = ???
+  def spawnServiceZIO[TS <: Service[A] & Actor: Tag, A <: Product](
+    builder: ActorBuilder.Sealed[TS]
+  ): ZIO[EngineWorker & Node & ActorFactory, Node.Error, AddressableActor[_, _]] = ???
+  def spawnServiceZIO[TS <: Service[A] & Actor: Tag, A <: Product](
+    builder: ActorBuilder.Sealed[TS],
     reentrant: Boolean
-  ): ZIO[core.EngineWorker with core.Node with core.ActorFactory, core.Node.Error, core.AddressableActor[_, _]] = ???
+  ): ZIO[EngineWorker & Node & ActorFactory, Node.Error, AddressableActor[_, _]] = ???
 
   def spawn[T <: Process](): Pid                = ???
   def spawn(fun: Process => Unit): Pid          = ???
@@ -59,51 +70,46 @@ class SNode(val metricsRegistry: ScalangMeterRegistry, val logLevel: LogLevel)(i
       case (false, false) => return false
     }
 
-    Unsafe.unsafe { implicit unsafe =>
-      adapter.runtime.unsafe.run(adapter.link(msg))
-    }
-    return true
+    adapter.link(msg).unsafeRunWith(adapter.runtime)
+    true
   }
 
   /*
    * Use it for tests only
    */
 
-  def terminateNamedWith(name: String, terminator: ((core.Address, Adapter[_, _]) => UIO[Unit])) = for {
-    resultChannel <- Queue.bounded[Boolean](1)
-    _             <- ZIO.succeed(spawn(process => {
-      Unsafe.unsafe { implicit unsafe =>
-        runtime.unsafe.run(
-          for {
-            addressOption <- process.adapter
-              .lookUpName(name)
-              .repeatUntil(_.isDefined)
-              .map(_.get)
-              .timeout(3.seconds)
-            res <- addressOption match {
-              case Some(address) => {
-                terminator(address, process.adapter) *> process.adapter
-                  .lookUpName(name)
-                  .delay(100.milliseconds)
-                  .map((_ != Some(address)))
-                  .repeatUntil(_ == true)
-                  .timeout(3.seconds)
-              }
-              case None => ZIO.succeed(Some(false))
-            }
-            _ <- resultChannel.offer(res.getOrElse(false))
-          } yield ()
-        )
-      }
-    }))
-    isTerminated <- resultChannel.take
-  } yield isTerminated
+  private def terminateNamedWith(name: String, terminator: (Address, Adapter[_, _]) => UIO[Unit]) = {
+    for {
+      resultChannel <- Queue.bounded[Boolean](1)
+      _             <- ZIO.succeed(spawn(process => {
+        (for {
+          addressOption <- process.adapter
+            .lookUpName(name)
+            .repeatUntil(_.isDefined)
+            .map(_.get)
+            .timeout(3.seconds)
+          res <- addressOption match {
+            case Some(address) =>
+              terminator(address, process.adapter) *> process.adapter
+                .lookUpName(name)
+                .delay(100.milliseconds)
+                .map(!_.contains(address))
+                .repeatUntil(_ == true)
+                .timeout(3.seconds)
+            case None => ZIO.some(false)
+          }
+          _ <- resultChannel.offer(res.getOrElse(false))
+        } yield ()).unsafeRunWith(runtime)
+      }))
+      isTerminated <- resultChannel.take
+    } yield isTerminated
+  }
 
   /*
    * Use it for tests only
    */
 
-  def terminateNamedWithExit(name: String, reason: Any) = for {
+  def terminateNamedWithExit(name: String, reason: Any): UIO[Boolean] = for {
     isTerminated <- terminateNamedWith(
       name,
       (address, adapter) => {
