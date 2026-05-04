@@ -258,6 +258,7 @@ read_config(Path) ->
         {ok, [Config]} when is_map(Config) ->
             Config;
         _ ->
+            io:format(standard_error, "Warning: Unable to read config file: ~s~n", [Path]),
             #{}
     end.
 
