@@ -1,30 +1,30 @@
 package com.cloudant.ziose.otp
 
-import java.util.concurrent.atomic.AtomicBoolean
-import com.cloudant.ziose.core.Mailbox
-
+import com.cloudant.ziose.core.{
+  Address,
+  Codec,
+  Mailbox,
+  MessageEnvelope,
+  Metrics,
+  Name,
+  NameOnNode,
+  Node,
+  PID,
+  ZioSupport
+}
+import com.cloudant.ziose.macros.CheckEnv
 import com.ericsson.otp.erlang.{
-  OtpMbox,
-  OtpMboxListener,
+  OtpErlangAtom,
+  OtpErlangConnectionException,
   OtpErlangException,
   OtpErlangExit,
-  OtpErlangConnectionException,
-  OtpErlangAtom
+  OtpMbox,
+  OtpMboxListener
 }
-
-import com.cloudant.ziose.core.Codec
-import com.cloudant.ziose.core.Address
-import com.cloudant.ziose.core.MessageEnvelope
-import com.cloudant.ziose.core.PID
-import com.cloudant.ziose.core.Name
-import com.cloudant.ziose.core.NameOnNode
-import com.cloudant.ziose.core.Node
-import com.cloudant.ziose.core.Metrics
-import com.cloudant.ziose.core.ZioSupport
-import com.cloudant.ziose.macros.CheckEnv
-import zio._
 import zio.stream.ZStream
-import zio.Exit
+import zio.{Exit, IO, Queue, Scope, Trace, UIO, ZIO}
+
+import java.util.concurrent.atomic.AtomicBoolean
 
 /*
  * - def stream: - is used by Actor to retrieve messages
@@ -168,22 +168,20 @@ class OTPMailbox private (
   private var externalMailboxMeter  = meterRegistry.plainCounter("mailbox", "external")
   private var compositeMailboxMeter = meterRegistry.plainCounter("mailbox", "composite")
 
-  def nextEvent = compositeMailbox.take <* ZIO.succeed(compositeMailboxMeter -= 1)
-
-  def capacity: Int                                   = compositeMailbox.capacity
-  def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
+  def nextEvent: UIO[MessageEnvelope] =
+    compositeMailbox.take <* ZIO.succeed(compositeMailboxMeter -= 1)
+  def capacity: Int =
+    compositeMailbox.capacity
+  def awaitShutdown(implicit trace: Trace): UIO[Unit] =
     compositeMailbox.awaitShutdown <&> internalMailbox.awaitShutdown
-  }
-  def shutdown(implicit trace: Trace): UIO[Unit] = {
+  def shutdown(implicit trace: Trace): UIO[Unit] =
     ZIO.unit
-  }
-  def forward(msg: MessageEnvelope)(implicit trace: zio.Trace): UIO[Boolean] = {
+  def forward(msg: MessageEnvelope)(implicit trace: Trace): UIO[Boolean] =
     internalMailbox.offer(msg) <* ZIO.succeed(internalMailboxMeter += 1)
-  }
 
   // There is no easy way to account for externalMailbox
   // without consuming messages
-  def size(implicit trace: zio.Trace): UIO[Int] = for {
+  def size(implicit trace: Trace): UIO[Int] = for {
     composite <- compositeMailboxSize
     internal  <- internalMailboxSize
   } yield composite + internal
@@ -234,14 +232,14 @@ class OTPMailbox private (
     ZIO.succeed(mbox.unlink(to.toOtpErlangObject))
   }
 
-  def link(to: Codec.EPid): ZIO[Any, _ <: Node.Error, Unit] = {
+  def link(to: Codec.EPid): IO[_ <: Node.Error, Unit] = {
     attempt(mbox.link(to.toOtpErlangObject))
   }
 
   def monitor(monitored: Address): ZIO[Node, _ <: Node.Error, Codec.ERef] = {
     ZIO.blocking(for {
-      node <- ZIO.service[Node]
-      ref  <- attempt(monitored match {
+      _node <- ZIO.service[Node]
+      ref   <- attempt(monitored match {
         case PID(pid, _workerId, _workerName) =>
           mbox.monitor(pid.toOtpErlangObject)
         case Name(name, _workerId, _workerName) =>
@@ -252,15 +250,14 @@ class OTPMailbox private (
     } yield Codec.ERef(ref))
   }
 
-  def demonitor(ref: Codec.ERef): UIO[Unit] = {
+  def demonitor(ref: Codec.ERef): UIO[Unit] =
     ZIO.succeed(mbox.demonitor(ref.toOtpErlangObject))
-  }
 
-  def cast(message: MessageEnvelope.Cast)(implicit trace: zio.Trace): UIO[Unit] = for {
+  def cast(message: MessageEnvelope.Cast)(implicit trace: Trace): UIO[Unit] = for {
     _ <- forward(message)
   } yield ()
 
-  def send(message: MessageEnvelope.Send)(implicit trace: zio.Trace): UIO[Unit] = {
+  def send(message: MessageEnvelope.Send)(implicit trace: Trace): UIO[Unit] = {
     // println(s"OTPMailbox.send($msg)")
     ZIO.succeedBlocking(message.to match {
       case PID(pid, _workerId, _workerNodeName) =>
@@ -316,7 +313,7 @@ class OTPMailbox private (
     }
   }
 
-  private def readMessage = {
+  private def readMessage: MessageEnvelope = {
     try {
       // TODO: Ignore "net_kernel" events
       val message = mbox.receiveMsg
@@ -329,7 +326,7 @@ class OTPMailbox private (
     }
   }
 
-  def onMessageReceived = (
+  def onMessageReceived: Unit = (
     for {
       message <- ZIO.succeed(readMessage)
       _       <- externalMailbox.offer(message)

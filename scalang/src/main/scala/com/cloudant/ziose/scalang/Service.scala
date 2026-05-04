@@ -1,24 +1,12 @@
 package com.cloudant.ziose.scalang
 
-import _root_.com.cloudant.ziose.core
-import core.ActorResult
-import core.Codec
-import core.Codec.EAtom
-import core.Codec.EPid
-import core.Codec.ERef
-import core.Codec.ETerm
-import core.Codec.ETuple
-import core.Address
-import core.Node
-import core.MessageEnvelope
-import core.ProcessContext
-import core.ZioSupport
+import com.cloudant.ziose.core
 import com.cloudant.ziose.macros.CheckEnv
-import zio._
+import core.Codec.{EAtom, EPid, ERef, ETerm, ETuple}
+import core.{Actor, ActorCallback, ActorResult, Address, MessageEnvelope, Node, PID, ProcessContext, ZioSupport}
+import zio.{Cause, Duration, Exit, Runtime, Schedule, Task, Trace, UIO, ZIO, durationLong}
 
-import scala.util.Try
-import scala.util.Success
-import scala.util.Failure
+import scala.util.{Failure, Success, Try}
 
 trait Error extends Throwable
 
@@ -89,7 +77,7 @@ object ProcessLike {
   type NodeName = Symbol
 }
 
-trait ProcessLike[A <: Adapter[_, _]] extends core.Actor with ZioSupport {
+trait ProcessLike[A <: Adapter[_, _]] extends Actor with ZioSupport {
   type RegName  = ProcessLike.RegName
   type NodeName = ProcessLike.NodeName
 
@@ -101,54 +89,54 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor with ZioSupport {
   }
 
   def toAddress(name: RegName): Address = {
-    Address.fromName(Codec.EAtom(name), self.workerId, self.workerNodeName)
+    Address.fromName(EAtom(name), self.workerId, self.workerNodeName)
   }
 
   def toAddress(dest: (RegName, NodeName)): Address = {
     val (name, node) = dest
-    Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(node), self.workerId, self.workerNodeName)
+    Address.fromRemoteName(EAtom(name), EAtom(node), self.workerId, self.workerNodeName)
   }
 
-  def send(pid: Pid, msg: Any) = {
+  def send(pid: Pid, msg: Any): Unit = {
     sendZIO(pid, msg).unsafeRun
   }
 
-  def send(name: RegName, msg: Any) = {
+  def send(name: RegName, msg: Any): Unit = {
     sendZIO(name, msg).unsafeRun
   }
 
-  def send(dest: (RegName, NodeName), from: Pid, msg: Any) = {
+  def send(dest: (RegName, NodeName), from: Pid, msg: Any): Unit = {
     sendZIO(dest, from, msg).unsafeRun
   }
 
-  def sendZIO(pid: Pid, msg: Any) = {
+  def sendZIO(pid: Pid, msg: Any): UIO[Unit] = {
     val envelope = MessageEnvelope.makeSend(toAddress(pid), adapter.fromScala(msg), self)
     adapter.send(envelope)
   }
-  def sendZIO(name: RegName, msg: Any) = {
+  def sendZIO(name: RegName, msg: Any): UIO[Unit] = {
     val envelope = MessageEnvelope.makeSend(toAddress(name), adapter.fromScala(msg), self)
     adapter.send(envelope)
   }
-  def sendZIO(dest: (RegName, NodeName), from: Pid, msg: Any) = {
+  def sendZIO(dest: (RegName, NodeName), from: Pid, msg: Any): UIO[Unit] = {
     val envelope = MessageEnvelope.makeRegSend(from.fromScala, toAddress(dest), adapter.fromScala(msg), self)
     adapter.send(envelope)
   }
 
-  def exit(pid: Pid, reason: Any) = {
+  def exit(pid: Pid, reason: Any): Unit = {
     exitZIO(pid, reason).unsafeRun
   }
 
-  def exit(name: RegName, reason: Any): UIO[Unit] = {
+  def exit(name: RegName, reason: Any): Unit = {
     exitZIO(name, reason).unsafeRun
   }
 
-  def exitZIO(pid: Pid, reason: Any) = {
+  def exitZIO(pid: Pid, reason: Any): UIO[Unit] = {
     val address  = Address.fromPid(pid.fromScala, self.workerId, self.workerNodeName)
     val envelope = MessageEnvelope.Exit(None, address, adapter.fromScala(reason), self)
     adapter.exit(envelope)
   }
-  def exitZIO(name: RegName, reason: Any) = {
-    val address  = Address.fromName(Codec.EAtom(name), self.workerId, self.workerNodeName)
+  def exitZIO(name: RegName, reason: Any): UIO[Unit] = {
+    val address  = Address.fromName(EAtom(name), self.workerId, self.workerNodeName)
     val envelope = MessageEnvelope.Exit(None, address, adapter.fromScala(reason), self)
     adapter.exit(envelope)
   }
@@ -157,7 +145,7 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor with ZioSupport {
   def handleMessage(msg: Any): Unit
 
   // TODO: Fully evaluate the effect and return Unit
-  def handleExit(from: Pid, reason: Any) = {
+  def handleExit(from: Pid, reason: Any): Unit = {
     exit(reason)
   }
 
@@ -183,10 +171,10 @@ trait ProcessLike[A <: Adapter[_, _]] extends core.Actor with ZioSupport {
       ref <- monitored match {
         case address: Address => adapter.monitor(address)
         case pid: Pid         => adapter.monitor(Address.fromPid(pid.fromScala, self.workerId, self.workerNodeName))
-        case atom: Symbol => adapter.monitor(Address.fromName(Codec.EAtom(atom), self.workerId, self.workerNodeName))
+        case atom: Symbol     => adapter.monitor(Address.fromName(EAtom(atom), self.workerId, self.workerNodeName))
         case (name: RegName, nodeName: NodeName) =>
           adapter.monitor(
-            Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(nodeName), self.workerId, self.workerNodeName)
+            Address.fromRemoteName(EAtom(name), EAtom(nodeName), self.workerId, self.workerNodeName)
           )
       }
     } yield Reference.toScala(ref)
@@ -244,13 +232,13 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
 
   implicit val process: Process = this
 
-  implicit def pid2sendable(pid: core.PID): PidSend            = new PidSend(pid, this)
+  implicit def pid2sendable(pid: PID): PidSend                 = new PidSend(pid, this)
   implicit def pid2sendable(pid: Pid): PidSend                 = new PidSend(pid, this)
   implicit def sym2sendable(to: Symbol): SymSend               = new SymSend(to, this)
   implicit def dest2sendable(dest: (Symbol, Symbol)): DestSend = new DestSend(dest, self, this)
 
   private def sendEveryCommon(send: UIO[Unit], delay: Long) = {
-    val interval = delay.millis
+    val interval: Duration = delay.millis
     adapter.forkScoped(send.schedule(Schedule.fixed(interval))).unsafeRun
   }
 
@@ -267,7 +255,7 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
   }
 
   private def sendAfterCommon(send: UIO[Unit], delay: Long) = {
-    val duration = delay.millis
+    val duration: Duration = delay.millis
     adapter.forkScoped(send.delay(duration)).unsafeRun
   }
 
@@ -283,14 +271,14 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
     sendAfterCommon(sendZIO(dest, Pid.toScala(self.pid), msg), delay)
   }
 
-  def onInit[PContext <: ProcessContext](_ctx: PContext): ZIO[Any, Throwable, _ <: ActorResult] = {
+  def onInit[PContext <: ProcessContext](_ctx: PContext): Task[_ <: ActorResult] = {
     ZIO.succeed(handleInit()).as(ActorResult.Continue())
   }
 
   def onMessage[PContext <: ProcessContext](
     event: MessageEnvelope,
     ctx: PContext
-  )(implicit trace: Trace): ZIO[Any, Throwable, _ <: ActorResult] = {
+  )(implicit trace: Trace): Task[_ <: ActorResult] = {
     event.getPayload match {
       case None        => ZIO.succeed(handleMessage(())).as(ActorResult.Continue())
       case Some(value) => ZIO.succeed(handleMessage(adapter.toScala(value))).as(ActorResult.Continue())
@@ -458,7 +446,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
                 case Failure(err) =>
                   ActorResult.onError(err).getOrElse {
                     ActorResult
-                      .onCallbackError(HandleInfoCBError("onMessage[ETerm]", err), core.ActorCallback.OnMessage)
+                      .onCallbackError(HandleInfoCBError("onMessage[ETerm]", err), ActorCallback.OnMessage)
                   }
               }
             }
@@ -472,7 +460,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
                   case Failure(err) =>
                     ActorResult.onError(err).getOrElse {
                       ActorResult
-                        .onCallbackError(HandleCallCBError("onMessage[Any]", err), core.ActorCallback.OnMessage)
+                        .onCallbackError(HandleCallCBError("onMessage[Any]", err), ActorCallback.OnMessage)
                     }
                 }
               }
@@ -519,7 +507,7 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
         case Failure(err) =>
           ZIO.succeed(ActorResult.onError(err).getOrElse {
-            ActorResult.onCallbackError(HandleCallCBError("onMessage[$gen_call]", err), core.ActorCallback.OnMessage)
+            ActorResult.onCallbackError(HandleCallCBError("onMessage[$gen_call]", err), ActorCallback.OnMessage)
           })
       }
     } yield res
@@ -567,17 +555,17 @@ object Service extends ZioSupport {
   type RegName  = Symbol
   type NodeName = Symbol
 
-  private def toAddress(pid: Pid)(implicit adapter: Adapter[_, _]): core.Address = {
+  private def toAddress(pid: Pid)(implicit adapter: Adapter[_, _]): Address = {
     Address.fromPid(pid.fromScala, adapter.workerId, adapter.workerNodeName)
   }
 
-  private def toAddress(name: RegName)(implicit adapter: Adapter[_, _]): core.Address = {
-    Address.fromName(Codec.EAtom(name), adapter.workerId, adapter.workerNodeName)
+  private def toAddress(name: RegName)(implicit adapter: Adapter[_, _]): Address = {
+    Address.fromName(EAtom(name), adapter.workerId, adapter.workerNodeName)
   }
 
-  private def toAddress(dest: (RegName, NodeName))(implicit adapter: Adapter[_, _]): core.Address = {
+  private def toAddress(dest: (RegName, NodeName))(implicit adapter: Adapter[_, _]): Address = {
     val (name, node) = dest
-    Address.fromRemoteName(Codec.EAtom(name), Codec.EAtom(node), adapter.workerId, adapter.workerNodeName)
+    Address.fromRemoteName(EAtom(name), EAtom(node), adapter.workerId, adapter.workerNodeName)
   }
 
   private def replyFromCall(result: Exit[Node.Error, MessageEnvelope.Response])(implicit adapter: Adapter[_, _]) = {
@@ -598,14 +586,14 @@ object Service extends ZioSupport {
     }
   }
 
-  def call(to: core.Address, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
+  def call(to: Address, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
     val rt: Runtime[Node] =
       adapter.runtime.asInstanceOf[Runtime[Node]]
     val result: Exit[Node.Error, MessageEnvelope.Response] =
       callZIO(to, msg).unsafeRunWith(rt)
     replyFromCall(result)
   }
-  def call(to: core.Address, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
+  def call(to: Address, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
     val rt: Runtime[Node] =
       adapter.runtime.asInstanceOf[Runtime[Node]]
     val result: Exit[Node.Error, MessageEnvelope.Response] =
@@ -627,16 +615,16 @@ object Service extends ZioSupport {
     call(toAddress(to), msg, timeout)
   }
 
-  def callZIO(to: core.Address, msg: Any, timeout: Option[Duration] = None)(implicit
+  def callZIO(to: Address, msg: Any, timeout: Option[Duration] = None)(implicit
     adapter: Adapter[_, _]
-  ): zio.ZIO[core.Node, core.Node.Error, core.MessageEnvelope.Response] = {
+  ): ZIO[Node, Node.Error, MessageEnvelope.Response] = {
     for {
       node <- ZIO.service[Node]
       ref  <- node.makeRef()
       message = MessageEnvelope
         .makeCall(
           to,
-          Codec.ETuple(adapter.self.pid, ref),
+          ETuple(adapter.self.pid, ref),
           adapter.fromScala(msg),
           timeout
         )
@@ -645,7 +633,7 @@ object Service extends ZioSupport {
     } yield result
   }
 
-  def cast(to: core.Address, msg: Any)(implicit adapter: Adapter[_, _]): Unit = {
+  def cast(to: Address, msg: Any)(implicit adapter: Adapter[_, _]): Unit = {
     val rt = adapter.runtime.asInstanceOf[Runtime[Node]]
     castZIO(to, msg).unsafeRunWith(rt)
   }
@@ -655,15 +643,15 @@ object Service extends ZioSupport {
     cast(toAddress(to), msg)
   }
 
-  def castZIO(to: core.Address, msg: Any)(implicit
+  def castZIO(to: Address, msg: Any)(implicit
     adapter: Adapter[_, _]
-  ): zio.ZIO[core.Node, core.Node.Error, Unit] = {
+  ): ZIO[Node, Node.Error, Unit] = {
     for {
       node <- ZIO.service[Node]
       ref  <- node.makeRef()
       message = MessageEnvelope
         .makeCast(
-          Codec.EAtom("$gen_cast"),
+          EAtom("$gen_cast"),
           adapter.self.pid,
           to,
           adapter.fromScala(msg),
@@ -673,7 +661,7 @@ object Service extends ZioSupport {
     } yield result
   }
 
-  def ping(to: core.Address)(implicit adapter: Adapter[_, _]): Any = {
+  def ping(to: Address)(implicit adapter: Adapter[_, _]): Boolean = {
     call(to, Symbol("ping"), PING_TIMEOUT_IN_MSEC) == Symbol("pong")
   }
   def ping(to: Pid)(implicit adapter: Adapter[_, _]): Boolean = {

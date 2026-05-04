@@ -1,10 +1,8 @@
 package com.cloudant.ziose.scalang
 
-import com.cloudant.ziose.core
-import com.cloudant.ziose.core.{Address, Codec, MessageEnvelope, PID, ProcessContext}
+import com.cloudant.ziose.core.{Address, Codec, Engine, MessageEnvelope, PID, ProcessContext, Adapter => CoreAdapter}
 import com.cloudant.ziose.macros.CheckEnv
-import zio.{LogLevel, Runtime}
-import com.cloudant.ziose.core.Engine
+import zio.{Fiber, LogLevel, Runtime, URIO, ZIO}
 
 case object InvalidAdapter extends Exception
 
@@ -14,7 +12,7 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
   type_factory: Option[F],
   val workerId: Engine.WorkerId,
   val workerNodeName: Symbol
-) extends core.Adapter[C, F] {
+) extends CoreAdapter[C, F] {
   def ctx: C             = process_ctx.getOrElse(throw InvalidAdapter)
   def node: SNode        = snode.getOrElse(throw InvalidAdapter)
   def logLevel: LogLevel = node.logLevel
@@ -57,7 +55,8 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
     Codec.fromScala(term, factory.fromScala)
   }
 
-  def forkScoped[R, E, A](effect: zio.ZIO[R, E, A]): zio.URIO[R, zio.Fiber.Runtime[E, A]] = ctx.forkScoped(effect)
+  def forkScoped[R, E, A](effect: ZIO[R, E, A]): URIO[R, Fiber.Runtime[E, A]] =
+    ctx.forkScoped(effect)
 
   @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
