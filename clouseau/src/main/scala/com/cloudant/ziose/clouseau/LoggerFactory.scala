@@ -2,8 +2,10 @@ package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.core.ZioSupport
 import com.cloudant.ziose.scalang.Adapter
-import zio.{Cause, Duration, Fiber, LogLevel, Runtime, Trace, UIO, ZIO, ZLayer, ZLogger}
-import zio.ZIO.{logDebug, logError, logErrorCause, logInfo, logWarning, logWarningCause}
+import org.tinylog.configuration.Configuration
+import org.tinylog.Logger
+import zio.logging.LogFormat._
+import zio.logging.slf4j.bridge.Slf4jBridge
 import zio.logging.{
   ConsoleLoggerConfig,
   FilteredLogger,
@@ -14,26 +16,25 @@ import zio.logging.{
   consoleLogger,
   loggerName
 }
-import zio.logging.LogFormat._
-import zio.logging.slf4j.bridge.Slf4jBridge
-import org.tinylog.Logger
-import org.tinylog.configuration.Configuration
-import java.time.format.DateTimeFormatter
+import zio.ZIO.{logDebug, logError, logErrorCause, logInfo, logWarning, logWarningCause}
+import zio.{Cause, Duration, Fiber, LogLevel, Runtime, TaskLayer, Trace, UIO, ULayer, ZIO, ZLayer, ZLogger}
+
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 // ad-hoc extension of zio.logging.LoggerLayers, shall be backported to upstream
 object LoggerLayers {
   def syslogLogger(
     config: ConsoleLoggerConfig,
     syslogConfig: Option[SyslogConfiguration]
-  ): ZLayer[Any, Nothing, Unit] = {
+  ): ULayer[Unit] = {
     makeZLayer(config.format.toLogger, config.toFilter, syslogConfig)
   }
 
   def syslogJsonLogger(
     config: ConsoleLoggerConfig,
     syslogConfig: Option[SyslogConfiguration]
-  ): ZLayer[Any, Nothing, Unit] = {
+  ): ULayer[Unit] = {
     makeZLayer(config.format.toJsonLogger, config.toFilter, syslogConfig)
   }
 
@@ -41,7 +42,7 @@ object LoggerLayers {
     logger: ZLogger[String, String],
     filter: LogFilter[String],
     config: Option[SyslogConfiguration]
-  ): ZLayer[Any, Nothing, Unit] = {
+  ): ULayer[Unit] = {
     ZLayer.scoped {
       ZIO
         .succeed(syslogLogger(logger, config))
@@ -150,7 +151,7 @@ object LoggerFactory {
     timestamp(timeStampFormat) + space +
       bracket(level) +
       bracket(fiberId) +
-      bracket((enclosingClass + text(":") + traceLine)) +
+      bracket(enclosingClass + text(":") + traceLine) +
       bracket(zio.logging.LogFormat.loggerName(LoggerNameExtractor.annotation("logger_name"))) + space +
       line +
       (space + cause).filter(LogFilter.causeNonEmpty)
@@ -161,18 +162,18 @@ object LoggerFactory {
       LogGroup.apply((_, _, _, _, _, _, _, annotations) => annotations)
     }
     val annotationsNonEmpty: LogFilter[Any] = {
-      LogFilter.apply[Any, Map[String, String]](extractAnnotations, !_.isEmpty)
+      LogFilter.apply[Any, Map[String, String]](extractAnnotations, _.nonEmpty)
     }
 
     label("timestamp", timestamp) |-|
       label("level", level) |-|
       label("fiberId", fiberId) |-|
-      (label("annotations", annotations)).filter(annotationsNonEmpty) |-|
+      label("annotations", annotations).filter(annotationsNonEmpty) |-|
       label("location", label("module", enclosingClass) |-| label("line", traceLine)) |-|
       label("message", quoted(line)) + (space + label("cause", cause)).filter(LogFilter.causeNonEmpty)
   }
 
-  private def loggerForOutput(cfg: LogConfiguration) = {
+  private def loggerForOutput(cfg: LogConfiguration): TaskLayer[Unit] = {
     val output: LogOutput = cfg.output.getOrElse(LogOutput.Stdout)
     val format: LogFormat = cfg.format.getOrElse(LogFormat.Raw)
     val level: LogLevel   = cfg.level.getOrElse(LogLevel.Debug)
@@ -191,7 +192,7 @@ object LoggerFactory {
     logger >+> Slf4jBridge.init(config.toFilter)
   }
 
-  def loggerDefault(cfg: LogConfiguration) = {
+  def loggerDefault(cfg: LogConfiguration): TaskLayer[Unit] = {
     Runtime.removeDefaultLoggers >>> loggerForOutput(cfg)
   }
 

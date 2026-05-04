@@ -1,6 +1,6 @@
 package com.cloudant.ziose.core
 
-import zio._
+import zio.{&, Tag, Trace, UIO, URIO, ZIO}
 
 sealed trait EngineWorkerError            extends Exception
 case class NameAlreadyInUse(name: String) extends EngineWorkerError
@@ -13,8 +13,8 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] with 
   val exchange: EngineWorkerExchange
   def acquire: UIO[Unit]
   def release: UIO[Unit]
-  def register(entity: ForwardWithId[Address, MessageEnvelope]): UIO[Unit] = exchange.add(entity)
-  def unregister(addr: Address): ZIO[Any, Nothing, Option[ForwardWithId[Address, MessageEnvelope]]] = {
+  def register(entity: ForwardWithId[Address, MessageEnvelope]): UIO[Unit]            = exchange.add(entity)
+  def unregister(addr: Address): UIO[Option[ForwardWithId[Address, MessageEnvelope]]] = {
     exchange.remove(addr)
   }
   def spawn[A <: Actor](
@@ -77,7 +77,6 @@ trait EngineWorker extends ForwardWithId[Engine.WorkerId, MessageEnvelope] with 
   def actorMeterInfoTopK(query: ActorMeterInfo.Query[Double]): List[ActorMeterInfo] = {
     actorMeterInfoTopKZIO(query).unsafeRunAndGet
   }
-
 }
 
 object EngineWorker {

@@ -6,10 +6,9 @@ package com.cloudant.ziose.clouseau
 import org.junit.runner.RunWith
 import zio._
 import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
-
 import com.cloudant.ziose.core
 import com.cloudant.ziose.core.ZioSupport
-import com.cloudant.ziose.scalang.{Adapter, Pid, Reference, Service, ServiceContext, SNode, PidSend}
+import com.cloudant.ziose.scalang.{Adapter, Pid, PidSend, Reference, SNode, Service, ServiceContext}
 import zio.test._
 import zio.test.Assertion._
 import zio.test.TestAspect
