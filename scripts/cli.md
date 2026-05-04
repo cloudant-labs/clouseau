@@ -9,16 +9,15 @@ Use `cli help <command>` to get more help.
 * `help`      - display this help message
 * `commands`  - list all commands
 * `verify`    - verify developer setup
-* `deps`      - group of dependency management commands
 * `bootstrap` - a step-by-step guide to help set up environment
 * `start`     - start clouseau node
 * `stop`      - stop clouseau node
-* `tdump`     - do a java tread dump
+* `tdump`     - capture a Java thread dump
 * `await`     - await the clouseau node
 * `logs`      - get recent logs file for terminated clouseau node
 * `processId` - get clouseau PID
-* `zeunit`    - run `zeunit` tests
-* `fmt`       - reformat scala code
+* `zeunit`    - run ZEUnit tests
+* `fmt`       - reformat Scala code
 * `gh`        - GitHub related commands
 * `issue`     - Issues management
 
@@ -37,12 +36,6 @@ Execute set of check which would verify the environment and print out hints what
 ---
 
 ### `commands`: List all commands
-
----
-
-### `deps`: A set of dependency management commands
-
-* `cli deps tree` - display dependency tree of Java/Scala packages
 
 ---
 
@@ -72,20 +65,20 @@ cli stop "clouseau"
 
 ---
 
-### `tdump`: Do a java tread dump
+### `tdump`: Capture a Java thread dump
 
-* `cli tdump [name]` - do a java thread dump for clouseau node
+* `cli tdump [name]` - capture a Java thread dump for clouseau node
 
 ```bash
-cli tdump "ziose"
-cli tdump "ziose" tmp/thread_dump.log
+cli tdump "clouseau"
+cli tdump "clouseau" tmp/thread_dump.log
 ```
 
 ---
 
 ### `await`: Await clouseau node to finish start up
 
-* `cli await [name]` - await clouseau node to finish start up
+* `cli await [name] [cookie]` - await clouseau node to finish start up
 
 ```bash
 cli await "clouseau" "myCookie"
@@ -113,15 +106,20 @@ cli processId "clouseau1"
 
 ---
 
-### `zeunit`: Run zeunit tests
+### `zeunit`: Run ZEUnit tests
 
-* `cli zeunit [name] [cookie=cookie] [suites=] [tests=]` - Run zeunit tests using specified `cookie`, `suites` and `tests`
+* `cli zeunit [name] [--setcookie=cookie] [--module=] [--test=]` - Run zeunit tests with specified `cookie`, `module` and `test`
 
 ```bash
-cli zeunit clouseau1 # Run all zeunit tests
-cli zeunit clouseau1 cookie=secret # Use specified cookie
-cli zeunit clouseau1 suites=echo_tests # Run specified tests only
+cli zeunit clouseau                     # Run all ZEUnit tests
+cli zeunit clouseau --setcookie=secret  # Use specified cookie
+cli zeunit clouseau --module=echo_tests # Run specified tests only
 ```
+
+**Note**:
+1. Please start CouchDB and Clouseau first, then run `cli zeunit`. Alternatively, simply run `make zeunit`, which will automatically start CouchDB and Clouseau.
+
+2. If you encounter `*** context setup failed ***`, please check your cookies.
 
 ---
 
@@ -133,9 +131,7 @@ cli zeunit clouseau1 suites=echo_tests # Run specified tests only
 
 ### `gh`: Low level access to GitHub related commands
 
-* `cli gh login`         - Login to GitHub
-* `cli gh browse`        - Open the GitHub repository in the web browser
-* `cli gh pr`            - Work with GitHub PRs
+* `cli gh login` - Login to GitHub
 
 ---
 
