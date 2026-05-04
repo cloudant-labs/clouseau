@@ -7,10 +7,9 @@ import org.junit.runner.RunWith
 import zio._
 import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
 import zio.test.Assertion._
-
 import com.cloudant.ziose.core
 import com.cloudant.ziose.core.ZioSupport
-import com.cloudant.ziose.scalang.{Adapter, Pid, Service, ServiceContext, SNode, PidSend}
+import com.cloudant.ziose.scalang.{Adapter, Pid, PidSend, SNode, Service, ServiceContext}
 import zio.test._
 import zio.test.TestAspect
 import com.cloudant.ziose.test.helpers.Asserts.containsShapeOption
