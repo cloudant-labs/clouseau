@@ -19,12 +19,8 @@ jobs:
         run: |
           echo "RELEASE_TAG=${GITHUB_REF:10}" >> $GITHUB_ENV
           echo "RELEASE_NAME=$GITHUB_WORKFLOW" >> $GITHUB_ENV
-      - name: Comment out tools not available in mise
-        run: sed -i 's/^spotbugs /#spotbugs /' .tool-versions
       - name: Install mise & tools
         uses: jdx/mise-action@v4
-        with:
-          install: true
 
       - name: Test
         run: mise exec -- make test

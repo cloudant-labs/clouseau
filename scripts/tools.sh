@@ -1,9 +1,6 @@
 #!/bin/bash
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-BIN_DIR=${SELF_DIR}/../bin
-: "${COURSIER:=coursier}"
-
 # call it as
 # result=( $(tools::requires "${os}") )
 # where `os` is one of `darwin | linux`
@@ -97,7 +94,7 @@ function tools::verify() {
       echo ""
       (console::errorLn "Run the following commands to install missing dependencies")
       for tool in "${missing[@]}"; do
-        hint=$(tools::hint "${SELF_DIR}/../.deps" "${tool}")
+        hint=$(tools::hint "${SELF_DIR}/../.global-deps" "${tool}")
         console::warn "    $(console::red)${hint}"
       done
       echo ""
@@ -105,10 +102,6 @@ function tools::verify() {
     exit 1
   fi
   (console::infoLn "OK")
-}
-
-function tools::bootstrap_topic() {
-  cat ${SELF_DIR}/bootstrap.md | awk "/##.*\`${1}\`:.*/,/---/ {print}" -
 }
 
 function tools::bootstrap() {
@@ -129,123 +122,10 @@ function tools::bootstrap() {
     exit 1
     ;;
   esac
-  asdf direnv setup --shell ${shell} --version latest
   if [ $? -eq 0 ]; then
     (console::infoLn "OK")
     (console::infoLn "Congratulations!!! Your system is ready.")
   fi
-}
-
-function tools::deps() {
-  local class="${1}"
-  class=${class} \
-    yq '.[env(class)][] | key' deps.yaml
-}
-
-function tools::deps_classes() {
-  yq '. | keys' deps.yaml
-}
-
-function tools::get_dep() {
-  local class=""
-  local tool=""
-  IFS=":" read class tool <<<"${1}"
-  local field="${2}"
-  class=${class} tool=${tool} field=${field} \
-    yq '.[env(class)].[env(tool)].[env(field)]' deps.yaml
-}
-
-function tools::has_version() {
-  local binary="${1}"
-  local version="${2}"
-  [ -x "${BIN_DIR}/${binary}-${version}" ]
-}
-
-function tools::activate_tools() {
-  local class=""
-  local tool=""
-  local version=""
-  for class in $(tools::deps_classes); do
-    for tool in $(tools::deps "${class}"); do
-      version=$(tools::get_dep "${class}:${tool}" "version")
-      if ! $(tools::has_version "${tool}" "${version}"); then
-        tools::install_tool "${class}:${tool}"
-      else
-        (console::infoLn "${tool} ${version} is already installed")
-      fi
-      tools::activate_tool "${class}:${tool}"
-    done
-  done
-}
-
-function tools::activate_tool() {
-  local class=""
-  local tool=""
-  IFS=":" read class binary <<<"${1}"
-  [ -L "${BIN_DIR}/${binary}" ] && rm "${BIN_DIR}/${binary}"
-  (console::infoLn "activating '${class}:${binary}' ${version}")
-  ln -s "${BIN_DIR}/${binary}-${version}" "${BIN_DIR}/${binary}"
-}
-
-function tools::install_with_coursier() {
-  local class=""
-  local tool=""
-  IFS=":" read class binary <<<"${1}"
-  local version=$(tools::get_dep "${1}" "version")
-  local install_args=$(tools::get_dep "${1}" "install_args")
-  local id=$(tools::get_dep "${1}" "id")
-  (console::infoLn "installing '${1}'... ")
-  status=$(${COURSIER} bootstrap ${id}:${version} \
-    ${install_args} --standalone -o "${BIN_DIR}/${binary}-${version}")
-  if [[ $status -eq 0 ]]; then
-    (console::infoLn "'${1}' is installed")
-  else
-    (console::infoLn "there was a failure while installing '${1}'")
-    exit 1
-  fi
-}
-
-function tools::install_with_git() {
-  local class=""
-  local tool=""
-  IFS=":" read class binary <<<"${1}"
-  local repo=$(tools::get_dep "${1}" "repo")
-  local branch=$(tools::get_dep "${1}" "branch")
-  local build_cmd=$(tools::get_dep "${1}" "build_cmd")
-  local src_binary=$(tools::get_dep "${1}" "binary")
-  local wrkdir=$(mktemp -d 'wrkdir.XXXXX')
-  (console::infoLn "installing '${1}'... ")
-  git clone --depth 1 --branch "${branch}" "${repo}" "${wrkdir}" && \
-    pushd "${wrkdir}" && \
-    ${build_cmd} && \
-    cp "${src_binary}" "${BIN_DIR}/${binary}-${version}" && \
-    popd && \
-    rm -rf "${wrkdir}"
-  status=$?
-  if [[ $status -eq 0 ]]; then
-    (console::infoLn "'${1}' is installed")
-  else
-    (console::infoLn "there was a failure while installing '${1}', see '${wrkdir}' for the work files")
-    exit 1
-  fi
-}
-
-function tools::install_tool() {
-  local class=""
-  local tool=""
-  IFS=":" read class _binary <<<"${1}"
-  case "${class}" in
-  coursier)
-    tools::install_with_coursier "${1}" || exit $?
-    ;;
-  git)
-    tools::install_with_git "${1}" || exit $?
-    ;;
-  *)
-    console::warnLn "Unsupported tool class '${class}'"
-    exit 1
-    ;;
-  esac
 }
 
 if [[ "$(basename -- "$0")" == "tools.sh" ]]; then
