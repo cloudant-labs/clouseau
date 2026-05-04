@@ -617,3 +617,25 @@ changes:
 		| xargs git show --format="%s" \
 		| cut -d' ' -f4 \
 		| xargs -I {} echo - {}
+
+MODE ?= release
+
+.PHONY: docker-build
+# target: docker-build - Build Docker image (MODE=local|release, default: release)
+ifeq ($(MODE),local)
+docker-build:
+	@docker build \
+		--build-arg BUILD_MODE=local \
+		--build-arg CLOUSEAU_VERSION=$(PROJECT_VSN) \
+		-t clouseau:$(PROJECT_VSN) \
+		-t clouseau:latest \
+		-f docker/Dockerfile .
+else
+docker-build:
+	@docker build \
+		--build-arg BUILD_MODE=release \
+		--build-arg CLOUSEAU_VERSION=$(PROJECT_VSN) \
+		-t clouseau:$(PROJECT_VSN) \
+		-t clouseau:latest \
+		-f docker/Dockerfile .
+endif
