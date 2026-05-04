@@ -13,7 +13,6 @@ PROJECT_LABEL=type:technical-foundation
 
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"
 
-requirements=()
 . "${SELF_DIR}"/console.sh
 . "${SELF_DIR}"/tools.sh
 . "${SELF_DIR}"/run.sh
@@ -69,16 +68,6 @@ function help_cmd() {
   else
     console::markdown "help_topic $1"
   fi
-}
-
-function deps_cmd() {
-  ensure_args 1 "help_topic deps" $@
-  local command=${1}
-  case "${command}" in
-  tree)
-    echo "not yet implemented"
-    ;;
-  esac
 }
 
 is_gh_authenticated() {
@@ -150,20 +139,12 @@ verify)
   tools::verify "${requirements[@]}"
   exit $?
   ;;
-activate)
-  tools::activate_tools
-  exit $?
-  ;;
 commands)
   console::markdown list
   exit $?
   ;;
 help)
   help_cmd "$@"
-  exit $?
-  ;;
-deps)
-  deps_cmd "$@"
   exit $?
   ;;
 bootstrap)
@@ -210,9 +191,7 @@ processId)
 zeunit)
   ensure_args 1 "help_topic zeunit" "$@"
   name=$1
-  cookie=$(echo "$2" | sed 's/.*=//g')
   shift
-  [ -z "$cookie" ] && shift
   run::eunit "$@"
   exit $?
   ;;

@@ -1,222 +1,59 @@
-# Settings things up for `bash`
+# Settings things up for [`mise`](https://mise.jdx.dev/)
 
-There are two steps which need to be done to set up environment.
+## Install `mise`
 
-1. The `asdf` tool manager would need to be installed
-2. The `direnv` plugin for `asdf` manager would need to be installed
-
-You can install `asdf` from [brew](https://brew.sh/) by following command.
+You can install `mise` from [brew](https://brew.sh/) by following command.
 
 ```bash
-brew install asdf
+brew install mise
 ```
 
-Once you install `asdf` you can either continue following the steps outlined in the current document or run `scripts/cli verify` followed by `scripts/cli bootstrap`. The `verify` command would check if you are missing any important tools we depend on. While `bootstrap` command would guide you through the steps needed to finish setup. It will not modify anything for you. So it is totally safe to run.
+## Activate `mise`
 
-## `bash-asdf`: setup `asdf` tool manager
-
-Add following line to `~/.bash_profile`
+### Bash
 
 ```bash
-source $(brew --prefix asdf)/libexec/asdf.sh
+echo 'eval "$(mise activate bash)"' >> ~/.bashrc
 ```
 
-You can do it by copy/paste of the following line
+### Zsh
+
+```zsh
+echo 'eval "$(mise activate zsh)"' >> "${ZDOTDIR-$HOME}/.zshrc"
+```
+
+### Fish
+
+If you installed `mise` via `Homebrew`, it activates automatically, so you do not need to perform this step.
+
+```fish
+echo 'mise activate fish | source' >> ~/.config/fish/config.fish
+```
+
+## Parse the config file - [`mise.toml`](../mise.toml)
 
 ```bash
-echo -e "\n. $(brew --prefix asdf)/libexec/asdf.sh" >> ~/.bash_profile
+mise trust
 ```
 
-Please restart shell and re-run `scripts/cli bootstrap` once you do it
+## Install dependencies
 
----
-
-## `bash-direnv`: setup `direnv` plugin
-
-**Note**: Keep in mind that the `direnv` plugin can conflict with global installation of `direnv` you might need to remove your existent configuration.
-
-Run following commands to install `direnv` plugin
+Since `mise` entry hooks are enabled, `mise trust` should automatically install all dependencies.
+If it fails to do so, please run the following command:
 
 ```bash
-asdf plugin-add direnv
-asdf install direnv latest
-asdf global direnv latest
+mise install
 ```
 
-Once you have done with above commands add following to the `~/.bash_profile`
+If you encounter issues, you can run the following command to diagnose common problems:
 
 ```bash
-
-# Hook direnv into your shell.
-eval "$(asdf exec direnv hook bash)"
-
-# A shortcut for asdf managed direnv.
-direnv() { asdf exec direnv "$@"; }
+mise doctor
 ```
 
-You can do it by copy/paste of the following
+## Verify dependencies are installed
 
-```bash
-cat << EOF >> ~/.bashrc
-# Hook direnv into your shell.
-eval "$(asdf exec direnv hook bash)"
-
-# A shortcut for asdf managed direnv.
-direnv() { asdf exec direnv "$@"; }
-EOF
-```
-
----
-
-# Settings things up for `fish`
-
-There are two steps which need to be done to set up environment.
-
-1. The `asdf` tool manager would need to be installed
-2. The `direnv` plugin for `asdf` manager would need to be installed
-
-You can install `asdf` from [brew](https://brew.sh/) by following command.
-
-```bash
-brew install asdf
-```
-
-Once you install `asdf` you can either continue following the steps outlined in the current document or run `scripts/cli verify` followed by `scripts/cli bootstrap`. The `verify` command would check if you are missing any important tools we depend on. While `bootstrap` command would guide you through the steps needed to finish setup. It will not modify anything for you. So it is totally safe to run.
-
-## `fish-asdf`: setup `asdf` tool manager
-
-Add following line to `~/.config/fish/config.fish`
-
-```bash
-source (brew --prefix asdf)/libexec/asdf.fish
-```
-
-You can do it by copy/paste of the following line
-
-```bash
-echo -e "\nsource (brew --prefix asdf)/libexec/asdf.fish" >>  ~/.config/fish/config.fish
-```
-
-Please restart shell and re-run `scripts/cli bootstrap` once you do it
-
----
-
-## `fish-direnv`: setup `direnv` plugin
-
-**Note**: Keep in mind that the `direnv` plugin can conflict with global installation of `direnv` you might need to remove your existent configuration.
-
-Run following commands to install `direnv` plugin
-
-```bash
-asdf plugin-add direnv
-asdf install direnv latest
-asdf global direnv latest
-```
-
-Once you have done with above commands add following to the `~/.config/fish/config.fish`
-
-```bash
-# Hook direnv into your shell.
-asdf exec direnv hook fish | source
-
-# A shortcut for asdf managed direnv.
-function direnv
-    asdf exec direnv "$argv"
-end
-```
-
-You can do it by copy/paste of the following
-
-```bash
-printf "\
-# Hook direnv into your shell.
-asdf exec direnv hook fish | source
-
-# A shortcut for asdf managed direnv.
-function direnv
-  asdf exec direnv \"\$argv\"
-end
-" >> ~/.config/fish/config.fish
-```
-
----
-
-# Settings things up for `zsh`
-
-There are two steps which need to be done to set up environment.
-
-1. The `asdf` tool manager would need to be installed
-2. The `direnv` plugin for `asdf` manager would need to be installed
-
-You can install `asdf` from [brew](https://brew.sh/) by following command.
-
-```bash
-brew install asdf
-```
-
-Once you install `asdf` you can either continue following the steps outlined in the current document or run `scripts/cli verify` followed by `scripts/cli bootstrap`. The `verify` command would check if you are missing any important tools we depend on. While `bootstrap` command would guide you through the steps needed to finish setup. It will not modify anything for you. So it is totally safe to run.
-
-## `zsh-asdf`: setup `asdf` tool manager
-
-Add following line to `~/.zshrc` (or `${ZDOTDIR}/.zshrc` if you use custom location).
-
-```bash
-source $(brew --prefix asdf)/libexec/asdf.sh
-```
-
-You can do it by copy/paste of the following line
-
-```bash
-echo -e "\n. $(brew --prefix asdf)/libexec/asdf.sh" >> ${ZDOTDIR:-~}/.zshrc
-```
-
-Please restart shell and re-run `scripts/cli bootstrap` once you do it
-
----
-
-## `zsh-direnv`: setup `direnv` plugin
-
-**Note**: Keep in mind that the `direnv` plugin can conflict with global installation of `direnv` you might need to remove your existent configuration.
-
-Run following commands to install `direnv` plugin
-
-```bash
-asdf plugin-add direnv
-asdf install direnv latest
-asdf global direnv latest
-```
-
-Once you have done with above commands add following to the  `~/.zshrc` (or `${ZDOTDIR}/.zshrc` if you use custom location).
-
-```bash
-# Hook direnv into your shell.
-eval "$(asdf exec direnv hook zsh)"
-
-# A shortcut for asdf managed direnv.
-direnv() { asdf exec direnv "$@"; }
-```
-
-You can do it by copy/paste of the following
-
-```bash
-cat << EOF >>  ~/.zshrc
-# Hook direnv into your shell.
-eval "$(asdf exec direnv hook zsh)"
-
-# A shortcut for asdf managed direnv.
-direnv() { asdf exec direnv "$@"; }
-EOF
-```
-
----
-
-# Common steps
-
-## `direnv`: enable `use asdf` feature
-
-Finally, when both `asdf` and `direnv` are configured you need to run the following command to set them up. Once set, close and open your terminal.
-
-```bash
-# asdf direnv setup --shell <bash/fish/zsh> --version latest
-asdf direnv setup --shell bash --version latest
-```
+Once you have installed `mise`, you can run `cli verify` followed by `cli bootstrap`.
+The `verify` command checks for any missing tools,
+while `bootstrap` command guides you through the final setup steps.
+Neither command will modify your system, so they are completely safe to run.
