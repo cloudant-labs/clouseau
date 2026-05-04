@@ -16,19 +16,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - run: git config advice.detachedHead false
-      - name: Comment out tools not available in mise
-        run: sed -i 's/^spotbugs /#spotbugs /' .tool-versions
       - name: Install mise & tools
         uses: jdx/mise-action@v4
-        with:
-          install: true
 
       - name: Lint
-        run: |
-          source scripts/console.sh
-          source scripts/tools.sh
-          COURSIER="mise exec -- cs" tools::activate_tools
-          mise exec -- make ci-lint
+        run: mise exec -- make ci-lint
       - name: Unit tests
         uses: nick-fields/retry@v4
         with:

@@ -4,6 +4,7 @@ SHELL := /bin/bash
 BUILD_DIR=$(shell pwd)
 ARTIFACTS_DIR=$(BUILD_DIR)/artifacts
 CI_ARTIFACTS_DIR=$(BUILD_DIR)/ci-artifacts
+SCRIPTS_DIR=$(BUILD_DIR)/scripts
 
 COUCHDB_REPO?=https://github.com/apache/couchdb
 COUCHDB_COMMIT?=d0a509b3f215c0a8379cc1e22183e740ff435927
@@ -92,10 +93,6 @@ space := $(empty) $(empty)
 apps ?= clouseau,core,macros,otp,scalang,vendor
 skip ?= vendor
 COMMON_PATH := /target/scala-$(SCALA_SHORT_VSN)/classes
-SPOTBUGS_OPTS = $(foreach app,$(filter-out \
-		$(subst $(comma),$(space),$(skip)),\
-		$(subst $(comma),$(space),$(apps))\
-	),$(app)$(COMMON_PATH))
 
 define to_artifacts
 	find $(1) -name '$(2)' -print0 | while IFS= read -r -d '' pathname; \
@@ -138,7 +135,7 @@ ERL_SRCS?=$(shell git ls-files -- "*/rebar.config" "*.[e,h]rl" "*.app.src" "*.es
 check-fmt: $(ARTIFACTS_DIR)
 	@set -o pipefail; scalafmt --test | tee $(ARTIFACTS_DIR)/scalafmt.log
 	@set -o pipefail; ec | tee $(ARTIFACTS_DIR)/editor-config.log
-	@set -o pipefail; erlfmt --verbose --check -- $(ERL_SRCS) | tee $(ARTIFACTS_DIR)/erlfmt.log
+	@set -o pipefail; rebar3 fmt --verbose --check -- $(ERL_SRCS) | tee $(ARTIFACTS_DIR)/erlfmt.log
 
 .PHONY: erlfmt-format
 # target: erlfmt-format - Format Erlang code automatically
@@ -162,12 +159,6 @@ check-deps: build $(ARTIFACTS_DIR)
 		-Dnvd_data_dir=$(OWASP_NVD_DATA_DIR) \
 		-Dlog4j2.level=info
 	@$(call to_artifacts,$(SCALA_SUBPROJECTS),dependency-check-report.*)
-
-.PHONY: check-spotbugs
-# target: check-spotbugs - Inspect bugs in Java bytecode
-check-spotbugs: build $(ARTIFACTS_DIR)
-	@spotbugs -textui -quiet -html=$(ARTIFACTS_DIR)/spotbugs.html \
-		-xml=$(ARTIFACTS_DIR)/spotbugs.xml $(SPOTBUGS_OPTS)
 
 .PHONY: docs
 # target: docs - Generate documentation
@@ -195,6 +186,7 @@ jmx-prometheus: $(JAR_ARTIFACTS) $(JMX_EXPORTER) epmd
 
 .PHONY: bin/clouseau_ctrl
 bin/clouseau_ctrl: clouseau-ctrl/_build/default/bin/clouseau_ctrl
+	@mkdir -p bin
 	@cp $? $@
 
 clouseau-ctrl/_build/default/bin/clouseau_ctrl: clouseau-ctrl/src
@@ -579,7 +571,7 @@ ci-elixir: $(JAR_ARTIFACTS) couchdb epmd FORCE
 ci-metrics: metrics-tests
 ci-restart: restart-test
 ci-syslog: syslog-tests
-ci-verify: check-deps check-spotbugs
+ci-verify: check-deps
 
 .PHONY: artifacts
 # target: artifacts - Generate release artifacts

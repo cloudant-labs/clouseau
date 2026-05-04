@@ -1,0 +1,27 @@
+# mise configuration
+# See: https://mise.jdx.dev/configuration.html
+
+[tools]
+bat = "0.26.0"
+editorconfig-checker = "3.6.1"
+elixir = "1.19.5-otp-27"
+erlang = "27.3.4.11"
+github-cli = "2.91.0"
+java = "openjdk-21.0.2"
+python = "3.14.4"
+rebar = "3.27.0"
+sbt = "1.12.9"
+scala = "2.13.18"
+scalafmt = "3.11.0"
+typst = "0.14.2"
+
+[env]
+_.path = ["./bin", "./scripts"]
+ERL_EPMD_ADDRESS = "127.0.0.1"
+GH_HOST = "github.com"
+
+[settings]
+experimental = true
+
+[hooks]
+enter = "mise install"
