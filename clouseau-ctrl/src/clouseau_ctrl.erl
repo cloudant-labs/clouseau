@@ -5,6 +5,7 @@
 %% API exports
 -export([
     main/1,
+    dispatch/1,
     service_list/1,
     service_restart/1,
     service_info/1,
@@ -21,6 +22,9 @@
 
 main(CLIArgs) ->
     clouseau_cli:run(CLIArgs, clouseau_service:known_services()).
+
+dispatch(#{handler := {Module, Function}} = Args) ->
+    apply(Module, Function, [maps:remove(handler, Args)]).
 
 service_list(#{} = Args) ->
     Ctx = init(Args),
