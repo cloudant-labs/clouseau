@@ -631,7 +631,8 @@ MODE ?= release
 .PHONY: generate-erlang-cookie
 # target: generate-erlang-cookie - Generate secure erlang.cookie file
 generate-erlang-cookie:
-	@umask 0077 && openssl rand -base64 16 | tr -d '\n' > $(ERLANG_COOKIE_FILE) && umask 0022
+	@umask 0077 && openssl rand -base64 16 > $(ERLANG_COOKIE_FILE) && umask 0022
+	@chmod 644 $(ERLANG_COOKIE_FILE)
 	@echo "Generated erlang.cookie at $(ERLANG_COOKIE_FILE)"
 
 .PHONY: docker-build
