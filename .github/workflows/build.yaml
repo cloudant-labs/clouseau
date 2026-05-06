@@ -15,8 +15,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-      - name: Create erlang.cookie
-        run: echo "asdf" > docker/erlang.cookie
+      - name: Generate erlang.cookie
+        run: make generate-erlang-cookie
       - run: git config advice.detachedHead false
       - name: Comment out tools not available in mise
         run: sed -i 's/^spotbugs /#spotbugs /' .tool-versions
@@ -79,4 +79,4 @@ jobs:
         run: make docker-compose-down
       - name: Cleanup erlang.cookie
         if: always()
-        run: rm -f docker/erlang.cookie
+        run: make clean-erlang-cookie

@@ -24,6 +24,8 @@ TIMEOUT_ELIXIR_SEARCH?=20m
 
 REBAR?=rebar3
 
+ERLANG_COOKIE_FILE ?= docker/erlang.cookie
+
 COUCHDB_HOST ?= 127.0.0.1
 COUCHDB_PORT ?= 5984
 COUCHDB_URL ?= http://$(COUCHDB_HOST):$(COUCHDB_PORT)
@@ -626,6 +628,12 @@ changes:
 
 MODE ?= release
 
+.PHONY: generate-erlang-cookie
+# target: generate-erlang-cookie - Generate secure erlang.cookie file
+generate-erlang-cookie:
+	@umask 0077 && openssl rand -base64 16 | tr -d '\n' > $(ERLANG_COOKIE_FILE) && umask 0022
+	@echo "Generated erlang.cookie at $(ERLANG_COOKIE_FILE)"
+
 .PHONY: docker-build
 # target: docker-build - Build Docker image (MODE=local|release, default: release)
 docker-build:
@@ -677,3 +685,9 @@ docker-compose-up:
 # target: docker-compose-down - Stop docker compose services
 docker-compose-down:
 	@docker compose -f docker/compose.yaml down
+
+.PHONY: clean-erlang-cookie
+# target: clean-erlang-cookie - Remove erlang.cookie file
+clean-erlang-cookie:
+	@rm -f $(ERLANG_COOKIE_FILE)
+	@echo "Removed $(ERLANG_COOKIE_FILE)"

@@ -15,7 +15,7 @@ services:
       - sh
       - -c
       - |
-        export COUCHDB_ERLANG_COOKIE=$(cat /run/secrets/erlang.cookie)
+        export COUCHDB_ERLANG_COOKIE=$(cat /run/secrets/erlang.cookie | tr -d '\n')
         cp /tmp/search.ini /opt/couchdb/etc/local.d/search.ini
         exec /docker-entrypoint.sh /opt/couchdb/bin/couchdb
 
