@@ -5,7 +5,6 @@ services:
       COUCHDB_USER: "${COUCHDB_USER:-admin}"
       COUCHDB_PASSWORD: "${COUCHDB_PASS:-pass}"
       NODENAME: couchdb
-      COUCHDB_ERLANG_COOKIE: asdf
     hostname: couchdb.local
     ports:
       - "${COUCHDB_PORT:-5984}:5984"  # HOST:CONTAINER
@@ -16,6 +15,7 @@ services:
       - sh
       - -c
       - |
+        export COUCHDB_ERLANG_COOKIE=$(cat /run/secrets/erlang.cookie)
         cp /tmp/search.ini /opt/couchdb/etc/local.d/search.ini
         exec /docker-entrypoint.sh /opt/couchdb/bin/couchdb
 

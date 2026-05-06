@@ -666,7 +666,7 @@ docker-test-integration:
 	@echo "Integration test passed!"
 
 .PHONY: docker-compose-up
-# target: docker-compose-up - Start docker compose services (COUCHDB_HOST, COUCHDB_PORT, COUCHDB_USER, COUCHDB_PASS)
+# target: docker-compose-up - Start docker compose services (COUCHDB_PORT, COUCHDB_USER, COUCHDB_PASS)
 docker-compose-up:
 	@COUCHDB_PORT=$(COUCHDB_PORT) \
 	 COUCHDB_USER=$(COUCHDB_USER) \
