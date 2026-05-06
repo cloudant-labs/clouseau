@@ -692,3 +692,13 @@ docker-compose-down:
 clean-erlang-cookie:
 	@rm -f $(ERLANG_COOKIE_FILE)
 	@echo "Removed $(ERLANG_COOKIE_FILE)"
+
+.PHONY: docker-mango-test
+# target: docker-mango-test - Run mango tests against dockerized CouchDB (COUCHDB_HOST, COUCHDB_PORT, COUCHDB_USER, COUCHDB_PASS)
+docker-mango-test: $(COUCHDB_DIR)/src/mango/.venv
+	@echo "Running mango tests against Docker CouchDB at $(COUCHDB_URL)..."
+	@COUCH_HOST=$(COUCHDB_HOST) \
+	 COUCH_PORT=$(COUCHDB_PORT) \
+	 COUCH_USER=$(COUCHDB_USER) \
+	 COUCH_PASS=$(COUCHDB_PASS) \
+	 $(COUCHDB_DIR)/src/mango/.venv/bin/nose2 -F -s $(COUCHDB_DIR)/src/mango/test -c test/mango/unittest.cfg

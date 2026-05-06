@@ -75,8 +75,13 @@ jobs:
         run: mise exec -- make docker-wait-couchdb
       - name: Test CouchDB and Clouseau integration
         run: mise exec -- make docker-test-integration
-      - name: Stop docker compose services
-        run: make docker-compose-down
-      - name: Cleanup erlang.cookie
+      - name: Setup CouchDB for mango tests
+        run: $(COUCHDB_DIR)/src/mango/.venv
+      - name: Run mango tests on Docker CouchDB
+        run: make docker-mango-test
+        timeout-minutes: 20
+      - name: Cleanup
         if: always()
-        run: make clean-erlang-cookie
+        run: |
+          make docker-compose-down
+          make clean-erlang-cookie
