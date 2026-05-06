@@ -75,8 +75,6 @@ jobs:
         run: mise exec -- make docker-wait-couchdb
       - name: Test CouchDB and Clouseau integration
         run: mise exec -- make docker-test-integration
-      - name: Setup CouchDB for mango tests
-        run: $(COUCHDB_DIR)/src/mango/.venv
       - name: Run mango tests on Docker CouchDB
         run: mise exec -- make docker-mango-test
         timeout-minutes: 20
