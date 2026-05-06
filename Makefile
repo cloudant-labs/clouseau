@@ -712,3 +712,15 @@ docker-mango-test: mango-test-env
 	 COUCH_USER=$(COUCHDB_USER) \
 	 COUCH_PASS=$(COUCHDB_PASS) \
 	 $(COUCHDB_DIR)/src/mango/.venv/bin/nose2 -F -s $(COUCHDB_DIR)/src/mango/test -c test/mango/unittest.cfg
+
+
+.PHONY: docker-elixir-test
+# target: docker-elixir-test - Run Elixir search tests against dockerized CouchDB
+docker-elixir-test: $(COUCHDB_DIR)/.compiled
+	@echo "Running Elixir search tests against Docker CouchDB at $(COUCHDB_URL)..."
+	@ERLANG_COOKIE=$$(cat $(ERLANG_COOKIE_FILE)) && \
+	 cd $(COUCHDB_DIR) && \
+	 COUCHDB_URL=$(COUCHDB_URL) \
+	 COUCHDB_USER=$(COUCHDB_USER) \
+	 COUCHDB_PASSWORD=$(COUCHDB_PASS) \
+	 $(MAKE) elixir-search _WITH_CLOUSEAU=-q ERLANG_COOKIE=$$ERLANG_COOKIE

@@ -78,6 +78,9 @@ jobs:
       - name: Run mango tests on Docker CouchDB
         run: mise exec -- make docker-mango-test
         timeout-minutes: 20
+      - name: Run Elixir search tests on Docker CouchDB
+        run: mise exec -- make docker-elixir-test
+        timeout-minutes: 20
       - name: Cleanup
         if: always()
         run: |
