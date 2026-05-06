@@ -665,13 +665,13 @@ docker-wait-couchdb:
 .PHONY: docker-test-integration
 # target: docker-test-integration - Test CouchDB and Clouseau integration (COUCHDB_URL, COUCHDB_USER, COUCHDB_PASS)
 docker-test-integration:
-	@echo "Testing CouchDB and Clouseau integration..."
-	@curl -G $(COUCHDB_URL)/_search_analyze \
+	@echo "Testing CouchDB and Clouseau integration at $(COUCHDB_URL)..."
+	@curl -G --fail-with-body $(COUCHDB_URL)/_search_analyze \
 		-u $(COUCHDB_USER):$(COUCHDB_PASS) \
 		--data-urlencode analyzer=keyword \
 		--data-urlencode text='ablanks@renovations.com' \
-		|| (echo "ERROR: Integration test failed"; exit 1)
-	@echo "Integration test passed!"
+		&& echo "Integration test passed!" \
+		|| (echo "ERROR: Integration test failed!"; exit 1)
 
 .PHONY: docker-compose-up
 # target: docker-compose-up - Start docker compose services (COUCHDB_PORT, COUCHDB_USER, COUCHDB_PASS)
