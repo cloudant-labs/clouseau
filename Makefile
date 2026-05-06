@@ -622,20 +622,13 @@ MODE ?= release
 
 .PHONY: docker-build
 # target: docker-build - Build Docker image (MODE=local|release, default: release)
+docker-build:
 ifeq ($(MODE),local)
-docker-build:
-	@docker build \
-		--build-arg BUILD_MODE=local \
-		--build-arg CLOUSEAU_VERSION=$(PROJECT_VSN) \
-		-t clouseau:$(PROJECT_VSN) \
-		-t clouseau:latest \
-		-f docker/Dockerfile .
-else
-docker-build:
-	@docker build \
-		--build-arg BUILD_MODE=release \
-		--build-arg CLOUSEAU_VERSION=$(PROJECT_VSN) \
-		-t clouseau:$(PROJECT_VSN) \
-		-t clouseau:latest \
-		-f docker/Dockerfile .
+	@$(MAKE) $(ARTIFACTS_DIR)/$(JAR_PROD)
 endif
+	@docker build \
+		--build-arg BUILD_MODE=$(MODE) \
+		--build-arg CLOUSEAU_VERSION=$(PROJECT_VSN) \
+		-t clouseau:$(PROJECT_VSN) \
+		-t clouseau:latest \
+		-f docker/Dockerfile .

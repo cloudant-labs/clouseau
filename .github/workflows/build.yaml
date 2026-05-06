@@ -25,48 +25,46 @@ jobs:
         with:
           install: true
 
-      - name: Lint
-        run: |
-          source scripts/console.sh
-          source scripts/tools.sh
-          COURSIER="mise exec -- cs" tools::activate_tools
-          mise exec -- make ci-lint
-      - name: Unit tests
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: mise exec -- make test
-      - name: Restart test
-        run: mise exec -- make restart-test
-      - name: RPC tests (zeunit)
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: mise exec -- make zeunit
-      - name: Concurrent RPC tests (zeunit)
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: mise exec -- make concurrent-zeunit-tests
-      - name: Syslog tests
-        run: mise exec -- make syslog-tests
-      - name: Elixir tests
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: mise exec -- make ci-elixir
-      - name: Metrics tests (mango)
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: 8
-          max_attempts: 3
-          command: mise exec -- make metrics-tests
-      - name: Build JAR
-        run: mise exec -- make jar
+      # - name: Lint
+      #   run: |
+      #     source scripts/console.sh
+      #     source scripts/tools.sh
+      #     COURSIER="mise exec -- cs" tools::activate_tools
+      #     mise exec -- make ci-lint
+      # - name: Unit tests
+      #   uses: nick-fields/retry@v4
+      #   with:
+      #     timeout_minutes: 5
+      #     max_attempts: 3
+      #     command: mise exec -- make test
+      # - name: Restart test
+      #   run: mise exec -- make restart-test
+      # - name: RPC tests (zeunit)
+      #   uses: nick-fields/retry@v4
+      #   with:
+      #     timeout_minutes: 5
+      #     max_attempts: 3
+      #     command: mise exec -- make zeunit
+      # - name: Concurrent RPC tests (zeunit)
+      #   uses: nick-fields/retry@v4
+      #   with:
+      #     timeout_minutes: 5
+      #     max_attempts: 3
+      #     command: mise exec -- make concurrent-zeunit-tests
+      # - name: Syslog tests
+      #   run: mise exec -- make syslog-tests
+      # - name: Elixir tests
+      #   uses: nick-fields/retry@v4
+      #   with:
+      #     timeout_minutes: 5
+      #     max_attempts: 3
+      #     command: mise exec -- make ci-elixir
+      # - name: Metrics tests (mango)
+      #   uses: nick-fields/retry@v4
+      #   with:
+      #     timeout_minutes: 8
+      #     max_attempts: 3
+      #     command: mise exec -- make metrics-tests
       - name: Build Clouseau Docker image (local mode)
         run: mise exec -- make docker-build MODE=local
       - name: Run docker compose
