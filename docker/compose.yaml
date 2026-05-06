@@ -20,9 +20,7 @@ services:
         exec /docker-entrypoint.sh /opt/couchdb/bin/couchdb
 
   clouseau:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
+    image: clouseau:latest
     hostname: clouseau.local
     volumes:
       - ./erlang.cookie:/run/secrets/erlang.cookie:ro
