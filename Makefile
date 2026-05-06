@@ -24,6 +24,14 @@ TIMEOUT_ELIXIR_SEARCH?=20m
 
 REBAR?=rebar3
 
+ERLANG_COOKIE_FILE ?= docker/erlang.cookie
+
+COUCHDB_HOST ?= 127.0.0.1
+COUCHDB_PORT ?= 5984
+COUCHDB_URL ?= http://$(COUCHDB_HOST):$(COUCHDB_PORT)
+COUCHDB_USER ?= admin
+COUCHDB_PASS ?= pass
+
 ERLANG_COOKIE?= #
 ifneq ($(ERLANG_COOKIE),)
 	_DEVRUN_COOKIE=--erlang-cookie=$(ERLANG_COOKIE)
@@ -617,3 +625,102 @@ changes:
 		| xargs git show --format="%s" \
 		| cut -d' ' -f4 \
 		| xargs -I {} echo - {}
+
+MODE ?= release
+
+.PHONY: generate-erlang-cookie
+# target: generate-erlang-cookie - Generate secure erlang.cookie file
+generate-erlang-cookie:
+	@umask 0077 && openssl rand -base64 16 > $(ERLANG_COOKIE_FILE) && umask 0022
+	@chmod 644 $(ERLANG_COOKIE_FILE)
+	@echo "Generated erlang.cookie at $(ERLANG_COOKIE_FILE)"
+
+.PHONY: docker-build
+# target: docker-build - Build Docker image (MODE=local|release, default: release)
+docker-build:
+ifeq ($(MODE),local)
+	@$(MAKE) $(ARTIFACTS_DIR)/$(JAR_PROD)
+endif
+	@docker build \
+		--build-arg BUILD_MODE=$(MODE) \
+		--build-arg CLOUSEAU_VERSION=$(PROJECT_VSN) \
+		-t clouseau:$(PROJECT_VSN) \
+		-t clouseau:latest \
+		-f docker/Dockerfile .
+
+.PHONY: docker-wait-couchdb
+# target: docker-wait-couchdb - Wait for CouchDB to be ready (COUCHDB_URL, COUCHDB_WAIT_TIMEOUT, COUCHDB_WAIT_INTERVAL)
+docker-wait-couchdb:
+	@echo "Waiting for CouchDB to be ready at $(COUCHDB_URL)..."
+	@for i in $$(seq 1 $(COUCHDB_WAIT_TIMEOUT)); do \
+		if curl -s $(COUCHDB_URL)/ > /dev/null 2>&1; then \
+			echo "CouchDB is ready!"; \
+			exit 0; \
+		fi; \
+		echo "Waiting... ($$i/$(COUCHDB_WAIT_TIMEOUT))"; \
+		sleep $(COUCHDB_WAIT_INTERVAL); \
+	done; \
+	echo "ERROR: CouchDB did not become ready within $(COUCHDB_WAIT_TIMEOUT) attempts"; \
+	exit 1
+
+.PHONY: docker-test-integration
+# target: docker-test-integration - Test CouchDB and Clouseau integration (COUCHDB_URL, COUCHDB_USER, COUCHDB_PASS)
+docker-test-integration:
+	@echo "Testing CouchDB and Clouseau integration at $(COUCHDB_URL)..."
+	@curl -G --fail-with-body $(COUCHDB_URL)/_search_analyze \
+		-u $(COUCHDB_USER):$(COUCHDB_PASS) \
+		--data-urlencode analyzer=keyword \
+		--data-urlencode text='ablanks@renovations.com' \
+		&& echo "Integration test passed!" \
+		|| (echo "ERROR: Integration test failed!"; exit 1)
+
+.PHONY: docker-compose-up
+# target: docker-compose-up - Start docker compose services (COUCHDB_PORT, COUCHDB_USER, COUCHDB_PASS)
+docker-compose-up:
+	@COUCHDB_PORT=$(COUCHDB_PORT) \
+	 COUCHDB_USER=$(COUCHDB_USER) \
+	 COUCHDB_PASS=$(COUCHDB_PASS) \
+	 docker compose -f docker/compose.yaml up -d
+
+.PHONY: docker-compose-down
+# target: docker-compose-down - Stop docker compose services
+docker-compose-down:
+	@docker compose -f docker/compose.yaml down
+
+.PHONY: clean-erlang-cookie
+# target: clean-erlang-cookie - Remove erlang.cookie file
+clean-erlang-cookie:
+	@rm -f $(ERLANG_COOKIE_FILE)
+	@echo "Removed $(ERLANG_COOKIE_FILE)"
+
+.PHONY: mango-test-env
+# target: mango-test-env - Setup mango test environment without building CouchDB
+mango-test-env: $(COUCHDB_DIR)/.checked_out
+	@if [ ! -d $(COUCHDB_DIR)/src/mango/.venv ]; then \
+		echo "Creating Python venv for mango tests..."; \
+		python3 -m venv $(COUCHDB_DIR)/src/mango/.venv; \
+		$(COUCHDB_DIR)/src/mango/.venv/bin/pip3 install --upgrade pip wheel setuptools; \
+		$(COUCHDB_DIR)/src/mango/.venv/bin/pip3 install -r $(COUCHDB_DIR)/src/mango/requirements.txt; \
+		$(COUCHDB_DIR)/src/mango/.venv/bin/pip3 install nose-exclude; \
+	fi
+
+.PHONY: docker-mango-test
+# target: docker-mango-test - Run mango tests against dockerized CouchDB (COUCHDB_HOST, COUCHDB_PORT, COUCHDB_USER, COUCHDB_PASS)
+docker-mango-test: mango-test-env
+	@echo "Running mango tests against Docker CouchDB at $(COUCHDB_URL)..."
+	@COUCH_HOST=$(COUCHDB_URL) \
+	 COUCH_USER=$(COUCHDB_USER) \
+	 COUCH_PASS=$(COUCHDB_PASS) \
+	 $(COUCHDB_DIR)/src/mango/.venv/bin/nose2 -F -s $(COUCHDB_DIR)/src/mango/test -c test/mango/unittest.cfg
+
+
+.PHONY: docker-elixir-test
+# target: docker-elixir-test - Run Elixir search tests against dockerized CouchDB
+docker-elixir-test: $(COUCHDB_DIR)/.compiled
+	@echo "Running Elixir search tests against Docker CouchDB at $(COUCHDB_URL)..."
+	@ERLANG_COOKIE=$$(cat $(ERLANG_COOKIE_FILE)) && \
+	 cd $(COUCHDB_DIR) && \
+	 COUCHDB_URL=$(COUCHDB_URL) \
+	 COUCHDB_USER=$(COUCHDB_USER) \
+	 COUCHDB_PASSWORD=$(COUCHDB_PASS) \
+	 $(MAKE) elixir-search _WITH_CLOUSEAU=-q ERLANG_COOKIE=$$ERLANG_COOKIE
