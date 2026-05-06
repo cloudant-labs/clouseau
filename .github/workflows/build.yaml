@@ -67,10 +67,10 @@ jobs:
       #     command: mise exec -- make metrics-tests
       - name: Build Clouseau Docker image (local mode)
         run: mise exec -- make docker-build MODE=local
+      - name: Set up Docker Compose
+        uses: docker/setup-compose-action@v2
       - name: Run docker compose
-        uses: hoverkraft-tech/compose-action@d2bee4f07e8ca410d6b196d00f90c12e7d48c33a # v2.6.0
-        with:
-          compose-file: "./docker/compose.yaml"
+        run: docker compose -f docker/compose.yaml up -d
       - name: Wait for services to be ready
         run: |
           echo "Waiting for CouchDB to be ready..."
