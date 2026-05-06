@@ -2,13 +2,13 @@ services:
   couchdb:
     image: couchdb:3.5.1
     environment:
-      COUCHDB_USER: admin
-      COUCHDB_PASSWORD: pass
+      COUCHDB_USER: "${COUCHDB_USER:-admin}"
+      COUCHDB_PASSWORD: "${COUCHDB_PASS:-pass}"
       NODENAME: couchdb
       COUCHDB_ERLANG_COOKIE: asdf
     hostname: couchdb.local
     ports:
-      - "5984:5984"
+      - "${COUCHDB_PORT:-5984}:5984"  # HOST:CONTAINER
     volumes:
       - ./erlang.cookie:/run/secrets/erlang.cookie:ro
       - ./local.ini:/tmp/search.ini:ro

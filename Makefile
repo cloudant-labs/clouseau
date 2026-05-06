@@ -24,6 +24,12 @@ TIMEOUT_ELIXIR_SEARCH?=20m
 
 REBAR?=rebar3
 
+COUCHDB_HOST ?= 127.0.0.1
+COUCHDB_PORT ?= 5984
+COUCHDB_URL ?= http://$(COUCHDB_HOST):$(COUCHDB_PORT)
+COUCHDB_USER ?= admin
+COUCHDB_PASS ?= pass
+
 ERLANG_COOKIE?= #
 ifneq ($(ERLANG_COOKIE),)
 	_DEVRUN_COOKIE=--erlang-cookie=$(ERLANG_COOKIE)
@@ -632,3 +638,42 @@ endif
 		-t clouseau:$(PROJECT_VSN) \
 		-t clouseau:latest \
 		-f docker/Dockerfile .
+
+.PHONY: docker-wait-couchdb
+# target: docker-wait-couchdb - Wait for CouchDB to be ready (COUCHDB_URL, COUCHDB_WAIT_TIMEOUT, COUCHDB_WAIT_INTERVAL)
+docker-wait-couchdb:
+	@echo "Waiting for CouchDB to be ready at $(COUCHDB_URL)..."
+	@for i in $$(seq 1 $(COUCHDB_WAIT_TIMEOUT)); do \
+		if curl -s $(COUCHDB_URL)/ > /dev/null 2>&1; then \
+			echo "CouchDB is ready!"; \
+			exit 0; \
+		fi; \
+		echo "Waiting... ($$i/$(COUCHDB_WAIT_TIMEOUT))"; \
+		sleep $(COUCHDB_WAIT_INTERVAL); \
+	done; \
+	echo "ERROR: CouchDB did not become ready within $(COUCHDB_WAIT_TIMEOUT) attempts"; \
+	exit 1
+
+.PHONY: docker-test-integration
+# target: docker-test-integration - Test CouchDB and Clouseau integration (COUCHDB_URL, COUCHDB_USER, COUCHDB_PASS)
+docker-test-integration:
+	@echo "Testing CouchDB and Clouseau integration..."
+	@curl -G $(COUCHDB_URL)/_search_analyze \
+		-u $(COUCHDB_USER):$(COUCHDB_PASS) \
+		--data-urlencode analyzer=keyword \
+		--data-urlencode text='ablanks@renovations.com' \
+		|| (echo "ERROR: Integration test failed"; exit 1)
+	@echo "Integration test passed!"
+
+.PHONY: docker-compose-up
+# target: docker-compose-up - Start docker compose services (COUCHDB_HOST, COUCHDB_PORT, COUCHDB_USER, COUCHDB_PASS)
+docker-compose-up:
+	@COUCHDB_PORT=$(COUCHDB_PORT) \
+	 COUCHDB_USER=$(COUCHDB_USER) \
+	 COUCHDB_PASS=$(COUCHDB_PASS) \
+	 docker compose -f docker/compose.yaml up -d
+
+.PHONY: docker-compose-down
+# target: docker-compose-down - Stop docker compose services
+docker-compose-down:
+	@docker compose -f docker/compose.yaml down

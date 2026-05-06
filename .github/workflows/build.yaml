@@ -70,24 +70,13 @@ jobs:
       - name: Set up Docker Compose
         uses: docker/setup-compose-action@v2
       - name: Run docker compose
-        run: docker compose -f docker/compose.yaml up -d
-      - name: Wait for services to be ready
-        run: |
-          echo "Waiting for CouchDB to be ready..."
-          for i in {1..30}; do
-            if curl -s http://127.0.0.1:5984/ > /dev/null; then
-              echo "CouchDB is ready!"
-              break
-            fi
-            echo "Waiting... ($i/30)"
-            sleep 2
-          done
+        run: make docker-compose-up
+      - name: Wait for CouchDB to be ready
+        run: mise exec -- make docker-wait-couchdb
       - name: Test CouchDB and Clouseau integration
-        run: |
-          curl -G http://127.0.0.1:5984/_search_analyze \
-            -u admin:pass \
-            --data-urlencode analyzer=keyword \
-            --data-urlencode text='ablanks@renovations.com'
+        run: mise exec -- make docker-test-integration
+      - name: Stop docker compose services
+        run: make docker-compose-down
       - name: Cleanup erlang.cookie
         if: always()
         run: rm -f docker/erlang.cookie
