@@ -78,7 +78,7 @@ jobs:
       - name: Setup CouchDB for mango tests
         run: $(COUCHDB_DIR)/src/mango/.venv
       - name: Run mango tests on Docker CouchDB
-        run: make docker-mango-test
+        run: mise exec -- make docker-mango-test
         timeout-minutes: 20
       - name: Cleanup
         if: always()
