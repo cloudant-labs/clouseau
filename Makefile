@@ -256,13 +256,14 @@ help:
 .PHONY: clouseau-ctrl-smoke
 # target: clouseau-ctrl-smoke - Start clouseau1 and verify `clouseau_ctrl service list`
 clouseau-ctrl-smoke: clouseau-ctrl/_build/default/bin/clouseau_ctrl epmd
-	@set -e; \
-	trap 'scripts/cli stop clouseau1 >/dev/null 2>&1 || true' EXIT; \
-	scripts/cli start clouseau1 sbt run -Dnode=clouseau1 $(_JAVA_COOKIE); \
-	scripts/cli await clouseau1 "$(ERLANG_COOKIE)"; \
-	output="$$(./clouseau-ctrl/_build/default/bin/clouseau_ctrl -config "$(BUILD_DIR)/clouseau-ctrl-config.eterm" service list)"; \
-	printf '%s\n' "$$output"; \
-	printf '%s\n' "$$output" | grep -q analyzer
+	@-cli stop clouseau1 >/dev/null 2>&1
+	@cli start clouseau1 sbt run -Dnode=clouseau1 $(_JAVA_COOKIE)
+	@cli await clouseau1 "$(ERLANG_COOKIE)"
+	@./clouseau-ctrl/_build/default/bin/clouseau_ctrl -config "$(BUILD_DIR)/clouseau-ctrl-config.eterm" service list \
+		| tee tmp/clouseau-ctrl-smoke.out \
+		| grep -q analyzer \
+		|| ( echo '>>>>> clouseau_ctrl smoke test failed' ; exit 1 )
+	@-cli stop clouseau1 >/dev/null 2>&1
 
 ############### Tests ###############
 .PHONY: all-tests

@@ -209,7 +209,7 @@ normalize_args(ParsedArgs) ->
         cookie => resolve_value(
             maps:get(cookie, ParsedArgs, false),
             os:getenv("CLOUSEAU_COOKIE"),
-            maps:get(cookie, Config, read_erlang_cookie())
+            maps:get(cookie, Config, undefined)
         ),
         host => resolve_value(
             maps:get(host, ParsedArgs, false),
@@ -255,8 +255,10 @@ resolve_value(Value, _EnvValue, _Default) ->
 
 read_config(Path) ->
     case file:consult(Path) of
-        {ok, [Config]} when is_map(Config) ->
-            Config;
+        {ok, [{_, _} | _] = Config} ->
+            maps:from_list(
+                [{Key, Value} || {Key, Value} <- Config]
+            );
         {error, enoent} ->
             #{};
         {error, Reason} ->
@@ -265,18 +267,4 @@ read_config(Path) ->
         {ok, _} ->
             io:format(standard_error, "Error: Invalid config file format: ~s~n", [Path]),
             halt(1)
-    end.
-
-read_erlang_cookie() ->
-    case os:getenv("HOME") of
-        false ->
-            undefined;
-        Home ->
-            CookiePath = filename:join(Home, ".erlang.cookie"),
-            case file:read_file(CookiePath) of
-                {ok, Cookie} ->
-                    string:trim(binary_to_list(Cookie));
-                _ ->
-                    undefined
-            end
     end.

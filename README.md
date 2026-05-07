@@ -133,15 +133,13 @@ Default lookup order for values is:
 The default config file path is `/etc/clouseau/clouseau-ctrl-config.eterm`. A sample file is provided at [`clouseau-ctrl-config.eterm`](clouseau-ctrl-config.eterm):
 
 ```erlang
-#{
-    name => "clouseau1",
-    host => "127.0.0.1",
-    %% cookie => "secret",
-    format => table
-}.
+{name, "clouseau1"}.
+{host, "127.0.0.1"}.
+%% {cookie, "secret"}.
+{format, table}.
 ```
 
-This allows production wrappers to provide stable defaults without exposing the Erlang cookie on the process command line.
+This allows wrappers to provide stable defaults without exposing the Erlang cookie on the process command line.
 
 ## Using `sbt`
 
