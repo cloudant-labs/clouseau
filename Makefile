@@ -253,6 +253,16 @@ help:
 		| sort \
 		| awk '{printf("    %-20s", $$1); $$1=$$2=""; print "-" $$0}'
 
+.PHONY: clouseau-ctrl-smoke
+# target: clouseau-ctrl-smoke - Start clouseau1 and verify `clouseau_ctrl service list`
+clouseau-ctrl-smoke: clouseau-ctrl/_build/default/bin/clouseau_ctrl epmd
+	@set -e; \
+	trap 'scripts/cli stop clouseau1 >/dev/null 2>&1 || true' EXIT; \
+	scripts/cli start clouseau1 sbt run -Dnode=clouseau1 $(_JAVA_COOKIE); \
+	scripts/cli await clouseau1 "$(ERLANG_COOKIE)"; \
+	output="$$(./clouseau-ctrl/_build/default/bin/clouseau_ctrl -config "$(BUILD_DIR)/clouseau-ctrl-config.eterm" service list)"; \
+	printf '%s\n' "$$output"; \
+	printf '%s\n' "$$output" | grep -q analyzer
 
 ############### Tests ###############
 .PHONY: all-tests
