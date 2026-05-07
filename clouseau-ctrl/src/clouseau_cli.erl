@@ -257,9 +257,14 @@ read_config(Path) ->
     case file:consult(Path) of
         {ok, [Config]} when is_map(Config) ->
             Config;
-        _ ->
-            io:format(standard_error, "Warning: Unable to read config file: ~s~n", [Path]),
-            #{}
+        {error, enoent} ->
+            #{};
+        {error, Reason} ->
+            io:format(standard_error, "Error: Unable to read config file ~s: ~p~n", [Path, Reason]),
+            halt(1);
+        {ok, _} ->
+            io:format(standard_error, "Error: Invalid config file format: ~s~n", [Path]),
+            halt(1)
     end.
 
 read_erlang_cookie() ->

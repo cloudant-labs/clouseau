@@ -125,9 +125,9 @@ The [`clouseau_ctrl`](./clouseau-ctrl) escript supports default connection setti
 
 Default lookup order for values is:
 
-1. explicit command-line flags such as `--name`, `--host`, `--cookie`, `--format`
+1. explicit command-line flags such as `-name`, `-host`, `-cookie`, `-format`
 2. environment variables such as `CLOUSEAU_NODE_NAME`, `CLOUSEAU_HOST`, `CLOUSEAU_COOKIE`, `CLOUSEAU_FORMAT`
-3. config file specified by `CLOUSEAU_CTRL_CONFIG` or `--config`
+3. config file specified by `CLOUSEAU_CTRL_CONFIG` or `-config`
 4. fallback defaults, including `~/.erlang.cookie` for the Erlang cookie when not explicitly configured
 
 The default config file path is `/etc/clouseau/clouseau-ctrl-config.eterm`. A sample file is provided at [`clouseau-ctrl-config.eterm`](clouseau-ctrl-config.eterm):
