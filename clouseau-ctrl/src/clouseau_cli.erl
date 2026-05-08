@@ -97,7 +97,6 @@ arguments(Mode) ->
         },
         #{
             name => config,
-            short => $g,
             long => "config",
             type => string,
             default => default_config_path(),
@@ -106,7 +105,6 @@ arguments(Mode) ->
         maybe_default(
             #{
                 name => name,
-                short => $n,
                 long => "name",
                 type => string,
                 help =>
@@ -118,7 +116,6 @@ arguments(Mode) ->
         maybe_default(
             #{
                 name => cookie,
-                short => $c,
                 long => "cookie",
                 type => string,
                 help =>
@@ -130,7 +127,6 @@ arguments(Mode) ->
         maybe_default(
             #{
                 name => host,
-                short => $h,
                 long => "host",
                 type => string,
                 help =>
@@ -142,7 +138,6 @@ arguments(Mode) ->
         maybe_default(
             #{
                 name => format,
-                short => $f,
                 long => "format",
                 type => atom,
                 help =>
