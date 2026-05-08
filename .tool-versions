@@ -4,7 +4,7 @@ direnv 2.37.1
 java openjdk-21.0.2
 scala 2.13.18
 # erlang needs java so it should be after it in the list
-erlang 26.2.5.20
+erlang 27.3.4.11
 rebar 3.27.0
 coursier 2.1.24
 editorconfig-checker 3.6.1
@@ -18,7 +18,7 @@ bat 0.26.0
 # static analysis tool
 spotbugs 4.8.6
 # CouchDB tests
-elixir 1.19.5-otp-26
+elixir 1.19.5-otp-27
 python 3.14.4
 # documentation
 typst 0.14.2
