@@ -88,7 +88,7 @@ object ClouseauTypeFactory extends TypeFactory {
                 case Some(field: Field) =>
                   map.get("boost") match {
                     case Some(boost: Number) =>
-                      field.setBoost(toFloat(1.2))
+                      field.setBoost(toFloat(boost))
                       'ok
                     // make the match exhaustive
                     case Some(_) =>
