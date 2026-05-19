@@ -58,13 +58,12 @@ LABEL maintainer="CouchDB Developers dev@couchdb.apache.org"
 RUN groupadd -g 5986 -r clouseau && \
     useradd -u 5986 -d /opt/couchdb-search -g clouseau clouseau
 
-# Install runtime dependencies
+# Install dependencies (Tini)
 RUN set -ex; \
     apt-get update; \
-    apt-get install -y --no-install-recommends tini erlang-base; \
+    apt-get install -y --no-install-recommends tini; \
     rm -rf /var/lib/apt/lists/*; \
-    tini --version; \
-    epmd -help || true
+    tini --version
 
 # Set up directories with correct permissions to avoid chmod later
 WORKDIR /opt/couchdb-search
@@ -83,7 +82,6 @@ USER clouseau
 
 ENTRYPOINT ["tini", "--"]
 CMD ["sh", "-c", "\
-    epmd -daemon && \
     exec java \
     -server \
     -Xmx${JAVA_XMX} \
