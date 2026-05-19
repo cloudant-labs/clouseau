@@ -21,7 +21,7 @@ services:
 
   clouseau:
     image: clouseau:latest
-    hostname: clouseau.local
+    network_mode: "service:couchdb"
     volumes:
       - ./erlang.cookie:/run/secrets/erlang.cookie:ro
       - ./app.conf:/opt/couchdb-search/etc/app.conf:ro
