@@ -255,11 +255,11 @@ help:
 
 .PHONY: clouseau-ctrl-smoke
 # target: clouseau-ctrl-smoke - Start clouseau1 and verify `clouseau_ctrl service list`
-clouseau-ctrl-smoke: clouseau-ctrl/_build/default/bin/clouseau_ctrl epmd
+clouseau-ctrl-smoke: bin/clouseau_ctrl epmd
 	@-cli stop clouseau1 >/dev/null 2>&1
 	@cli start clouseau1 sbt run -Dnode=clouseau1 $(_JAVA_COOKIE)
 	@cli await clouseau1 "$(ERLANG_COOKIE)"
-	@./clouseau-ctrl/_build/default/bin/clouseau_ctrl -config "$(BUILD_DIR)/clouseau-ctrl-config.eterm" service list \
+	@./clouseau-ctrl/_build/default/bin/clouseau_ctrl -config "$(BUILD_DIR)/clouseau-ctrl-config.erl" service list \
 		| tee tmp/clouseau-ctrl-smoke.out \
 		| grep -q analyzer \
 		|| ( echo '>>>>> clouseau_ctrl smoke test failed' ; exit 1 )

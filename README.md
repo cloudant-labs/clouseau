@@ -123,14 +123,14 @@ JConsole can be connected to a running Clouseau 3.x instance through the standar
 
 The [`clouseau_ctrl`](./clouseau-ctrl) escript supports default connection settings from a config file in addition to command-line arguments.
 
-Default lookup order for values is:
+Configuration values are looked up in this order (first found wins):
 
-1. explicit command-line flags such as `-name`, `-host`, `-cookie`, `-format`
-2. environment variables such as `CLOUSEAU_NODE_NAME`, `CLOUSEAU_HOST`, `CLOUSEAU_COOKIE`, `CLOUSEAU_FORMAT`
-3. config file specified by `CLOUSEAU_CTRL_CONFIG` or `-config`
-4. fallback defaults, including `~/.erlang.cookie` for the Erlang cookie when not explicitly configured
+1. Command-line flags: `-name`, `-host`, `-cookie`, `-format`
+2. Environment variables: `CLOUSEAU_NODE_NAME`, `CLOUSEAU_HOST`, `CLOUSEAU_COOKIE`, `CLOUSEAU_FORMAT`
+3. Config file (via `CLOUSEAU_CTRL_CONFIG` or `-config`)
+4. Built-in defaults (e.g., `~/.erlang.cookie` for cookie)
 
-The default config file path is `/etc/clouseau/clouseau-ctrl-config.eterm`. A sample file is provided at [`clouseau-ctrl-config.eterm`](clouseau-ctrl-config.eterm):
+The default config file path is `/etc/clouseau/clouseau-ctrl-config.erl`. A sample file is provided at [`clouseau-ctrl-config.erl`](clouseau-ctrl-config.erl):
 
 ```erlang
 {name, "clouseau1"}.

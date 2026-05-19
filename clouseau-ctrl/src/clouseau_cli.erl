@@ -158,7 +158,7 @@ run(["help"], Services) ->
     io:format("~s", [help(Services)]);
 run(Args, Services) ->
     {ok, ParsedArgs, _Path, CommandSpec} = argparse:parse(Args, spec(Services), parser_options()),
-    clouseau_ctrl:dispatch(
+    clouseau_utils:dispatch(
         normalize_args(
             maps:merge(ParsedArgs, maps:with([handler], CommandSpec))
         )
@@ -171,7 +171,7 @@ run(Args, Services) ->
 default_config_path() ->
     case os:getenv("CLOUSEAU_CTRL_CONFIG") of
         false ->
-            filename:join("/etc/clouseau", "clouseau-ctrl-config.eterm");
+            filename:join("/etc/clouseau", "clouseau-ctrl-config.erl");
         Path ->
             Path
     end.
