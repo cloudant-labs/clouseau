@@ -22,20 +22,18 @@ COPY artifacts/*.jar /usr/src/
 
 # Stage 2: Release build
 FROM eclipse-temurin:21-jre AS release-builder
+
 ARG CLOUSEAU_VERSION
 ARG CLOUSEAU_REPO
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends unzip && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN set -ex; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends \
-        ca-certificates \
-        unzip \
-        wget \
-    ; \
-    wget -q "${CLOUSEAU_REPO}/releases/download/${CLOUSEAU_VERSION}/checksums.txt"; \
-    wget -q -O clouseau.zip "${CLOUSEAU_REPO}/releases/download/${CLOUSEAU_VERSION}/clouseau-${CLOUSEAU_VERSION}-dist.zip"; \
-    grep "clouseau-${CLOUSEAU_VERSION}-dist.zip" checksums.txt | sha256sum -c - || \
+ADD "${CLOUSEAU_REPO}/releases/download/${CLOUSEAU_VERSION}/clouseau-${CLOUSEAU_VERSION}-dist.zip" /clouseau.zip
+ADD "${CLOUSEAU_REPO}/releases/download/${CLOUSEAU_VERSION}/checksums.txt" /checksums.txt
+
+RUN grep "clouseau-${CLOUSEAU_VERSION}-dist.zip" checksums.txt | sha256sum -c - || \
         (echo "ERROR: Checksum verification failed" && exit 1); \
     unzip clouseau.zip -d /usr/src; \
     rm clouseau.zip checksums.txt
