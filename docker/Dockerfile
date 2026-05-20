@@ -21,7 +21,7 @@ COPY artifacts/*.jar /usr/src/
 
 
 # Stage 2: Download from GitHub release (for release builds)
-FROM debian:trixie-slim AS fetcher
+FROM eclipse-temurin:21-jre AS fetcher
 
 ARG CLOUSEAU_VERSION
 ARG CLOUSEAU_REPO
