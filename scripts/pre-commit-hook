@@ -12,7 +12,7 @@ scalafmt --reportError
 formatted1=$?
 ec
 formatted2=$?
-erlfmt --check -- \
+rebar3 fmt --check -- \
   $(git ls-files -- "*/rebar.config" "*.app.src" "*.erl" "*.hrl" "*.escript")
 formatted3=$?
 

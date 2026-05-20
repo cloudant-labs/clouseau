@@ -21,6 +21,7 @@ ci-artifacts/
 deps/
 erl_crash.dump
 jmx_prometheus_javaagent*.jar
+scripts/clouseau_ctrl
 syslog.app.conf
 tmp/
 zeunit/*.xml
