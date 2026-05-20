@@ -15,17 +15,15 @@ ARG CLOUSEAU_REPO=https://github.com/cloudant-labs/clouseau
 ARG BUILD_MODE=release
 
 
-# Stage 1: Copy local JAR files (for dev builds)
-FROM scratch AS local-jars
+# Stage 1: Local build
+FROM eclipse-temurin:21-jre AS local-builder
 COPY artifacts/*.jar /usr/src/
 
 
-# Stage 2: Download from GitHub release (for release builds)
-FROM eclipse-temurin:21-jre AS fetcher
-
+# Stage 2: Release build
+FROM eclipse-temurin:21-jre AS release-builder
 ARG CLOUSEAU_VERSION
 ARG CLOUSEAU_REPO
-
 RUN set -ex; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -38,12 +36,12 @@ RUN set -ex; \
     rm clouseau.zip
 
 
-# Stage 3: Select JAR source based on BUILD_MODE
-FROM local-jars AS jars-local
-FROM fetcher AS jars-release
-FROM jars-${BUILD_MODE} AS jars
+# Stage 3: Select builder based on BUILD_MODE
+FROM local-builder AS builder-local
+FROM release-builder AS builder-release
+FROM builder-${BUILD_MODE} AS builder
 
-
+# Runner stage
 FROM eclipse-temurin:21-jre AS runner
 
 # Helpful for `docker inspect`
@@ -73,7 +71,7 @@ RUN chown clouseau:clouseau . && \
     lib \
     data
 
-COPY --from=jars --chown=clouseau:clouseau /usr/src/*.jar lib/
+COPY --from=builder --chown=clouseau:clouseau /usr/src/*.jar lib/
 COPY --chown=clouseau:clouseau app.conf etc/
 
 VOLUME /opt/couchdb-search/data
