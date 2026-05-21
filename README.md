@@ -119,6 +119,28 @@ JConsole can be connected to a running Clouseau 3.x instance through the standar
 
 ![jmx.png](assets/jmx.png)
 
+## `clouseau_ctrl` configuration
+
+The [`clouseau_ctrl`](./clouseau-ctrl) escript supports default connection settings from a config file in addition to command-line arguments.
+
+Configuration values are looked up in this order (first found wins):
+
+1. Command-line flags: `-name`, `-host`, `-cookie`, `-format`
+2. Environment variables: `CLOUSEAU_NODE_NAME`, `CLOUSEAU_HOST`, `CLOUSEAU_COOKIE`, `CLOUSEAU_FORMAT`
+3. Config file (via `CLOUSEAU_CTRL_CONFIG` or `-config`)
+4. Built-in defaults (e.g., `~/.erlang.cookie` for cookie)
+
+The default config file path is `/etc/clouseau/clouseau-ctrl-config.erl`. A sample file is provided at [`clouseau-ctrl-config.erl`](clouseau-ctrl-config.erl):
+
+```erlang
+{name, "clouseau1"}.
+{host, "127.0.0.1"}.
+%% {cookie, "secret"}.
+{format, table}.
+```
+
+This allows wrappers to provide stable defaults without exposing the Erlang cookie on the process command line.
+
 ## Using `sbt`
 
 The Scala Built Tool `sbt` can be used directly to compile and start up the service, or to run individual unit tests, e.g.

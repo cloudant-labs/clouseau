@@ -1,0 +1,6 @@
+{name, "clouseau1"}.
+{host, "127.0.0.1"}.
+%% By default ~/.erlang.cookie is used when cookie is not configured here
+%% or via the CLOUSEAU_COOKIE environment variable.
+%% {cookie, "secret"}.
+{format, table}.
