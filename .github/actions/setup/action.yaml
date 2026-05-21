@@ -1,0 +1,14 @@
+name: 'Setup Environment'
+description: 'Setup common environment'
+runs:
+  using: 'composite'
+  steps:
+    - run: git config advice.detachedHead false
+      shell: bash
+    - name: Comment out tools not available in mise
+      run: sed -i 's/^spotbugs /#spotbugs /' .tool-versions
+      shell: bash
+    - name: Install mise & tools
+      uses: jdx/mise-action@v4
+      with:
+        install: true
