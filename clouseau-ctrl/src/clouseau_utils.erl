@@ -4,6 +4,7 @@
 
 -export([
     init/1,
+    dispatch/1,
     check_node_ping/1,
     concurrent_retry/2,
     random_string/1,
@@ -19,6 +20,9 @@
 -define(NODE_TIMEOUT_IN_MS, 60_000).
 -define(PING_TIMEOUT_IN_MS, 10_000).
 -define(RETRY_DELAY, 300).
+
+dispatch(#{handler := {Module, Function}} = Args) ->
+    apply(Module, Function, [maps:remove(handler, Args)]).
 
 set_custom_cookie(#clouseau_ctx{cookie = undefined}) ->
     ok;
