@@ -3,6 +3,7 @@
 
 [tools]
 bat = "0.26.1"
+# Sync version with ".editorconfig-checker.json"
 editorconfig-checker = { version = "3.7.0", postinstall = """
 jq --arg v "v$MISE_TOOL_VERSION" '.Version = $v' .editorconfig-checker.json >tmp.json &&
 mv tmp.json .editorconfig-checker.json
@@ -14,6 +15,7 @@ java = "openjdk-21.0.2"
 jq = "1.8.1"
 python = "3.14.5"
 rebar = "3.27.0"
+# Sync version with "./project/build.properties"
 sbt = { version = "1.12.9", postinstall = """
 if [[ $OSTYPE == "darwin"* ]]; then
   sed -i "" "s/sbt.version=.*/sbt.version=$MISE_TOOL_VERSION/" ./project/build.properties
@@ -22,6 +24,7 @@ else
 fi
 """ }
 scala = "2.13.18"
+# Sync version with ".scalafmt.conf"
 scalafmt = { version = "3.11.1", postinstall = """
 if [[ $OSTYPE == "darwin"* ]]; then
   sed -i "" "s/version = .*/version = $MISE_TOOL_VERSION/" .scalafmt.conf
