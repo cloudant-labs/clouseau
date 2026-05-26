@@ -2,16 +2,17 @@
 # See: https://mise.jdx.dev/configuration.html
 
 [tools]
-bat = "0.26.0"
-editorconfig-checker = { version = "3.6.1", postinstall = """
+bat = "0.26.1"
+editorconfig-checker = { version = "3.7.0", postinstall = """
 jq --arg v "v$MISE_TOOL_VERSION" '.Version = $v' .editorconfig-checker.json >tmp.json &&
 mv tmp.json .editorconfig-checker.json
 """ }
 elixir = "1.19.5-otp-27"
 erlang = "27.3.4.11"
-github-cli = "2.91.0"
+github-cli = "2.92.0"
 java = "openjdk-21.0.2"
-python = "3.14.4"
+jq = "1.8.1"
+python = "3.14.5"
 rebar = "3.27.0"
 sbt = { version = "1.12.9", postinstall = """
 if [[ $OSTYPE == "darwin"* ]]; then
@@ -21,7 +22,7 @@ else
 fi
 """ }
 scala = "2.13.18"
-scalafmt = { version = "3.11.0", postinstall = """
+scalafmt = { version = "3.11.1", postinstall = """
 if [[ $OSTYPE == "darwin"* ]]; then
   sed -i "" "s/version = .*/version = $MISE_TOOL_VERSION/" .scalafmt.conf
 else
