@@ -3,16 +3,31 @@
 
 [tools]
 bat = "0.26.0"
-editorconfig-checker = "3.6.1"
+editorconfig-checker = { version = "3.6.1", postinstall = """
+jq --arg v "v$MISE_TOOL_VERSION" '.Version = $v' .editorconfig-checker.json >tmp.json &&
+mv tmp.json .editorconfig-checker.json
+""" }
 elixir = "1.19.5-otp-27"
 erlang = "27.3.4.11"
 github-cli = "2.91.0"
 java = "openjdk-21.0.2"
 python = "3.14.4"
 rebar = "3.27.0"
-sbt = "1.12.9"
+sbt = { version = "1.12.9", postinstall = """
+if [[ $OSTYPE == "darwin"* ]]; then
+  sed -i "" "s/sbt.version=.*/sbt.version=$MISE_TOOL_VERSION/" ./project/build.properties
+else
+  sed -i "s/sbt.version=.*/sbt.version=$MISE_TOOL_VERSION/" ./project/build.properties
+fi
+""" }
 scala = "2.13.18"
-scalafmt = "3.11.0"
+scalafmt = { version = "3.11.0", postinstall = """
+if [[ $OSTYPE == "darwin"* ]]; then
+  sed -i "" "s/version = .*/version = $MISE_TOOL_VERSION/" .scalafmt.conf
+else
+  sed -i "s/version = .*/version = $MISE_TOOL_VERSION/" .scalafmt.conf
+fi
+""" }
 typst = "0.14.2"
 
 [env]
