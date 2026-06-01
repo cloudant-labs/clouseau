@@ -73,7 +73,8 @@ JAR_PROD := clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar
 JAR_TEST := clouseau_$(SCALA_VSN)_$(PROJECT_VSN)_test.jar
 
 RELEASE_FILES := $(JAR_PROD) \
-	clouseau-$(PROJECT_VSN)-dist.zip
+	clouseau-$(PROJECT_VSN)-dist.zip \
+	clouseau-$(PROJECT_VSN)-dist.tar.gz
 
 JAR_ARTIFACTS := $(addprefix $(ARTIFACTS_DIR)/, $(JAR_PROD))
 RELEASE_ARTIFACTS := $(addprefix $(ARTIFACTS_DIR)/, $(RELEASE_FILES))
@@ -586,15 +587,24 @@ release: $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 		--generate-notes $(RELEASE_ARTIFACTS) $(ARTIFACTS_DIR)/checksums.txt
 
 $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)-dist.zip: $(JAR_ARTIFACTS) $(ARTIFACTS_DIR)/clouseau_ctrl
-	@mkdir -p $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)/bin
+	@mkdir -p $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
 	@cp $(JAR_ARTIFACTS) $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
-	@cp $(ARTIFACTS_DIR)/clouseau_ctrl $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)/bin
-	@zip --junk-paths -r $@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
+	@cp $(ARTIFACTS_DIR)/clouseau_ctrl $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
+	@zip -r $@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
+
+$(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)-dist.tar.gz: $(JAR_ARTIFACTS) $(ARTIFACTS_DIR)/clouseau_ctrl
+	@mkdir -p $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
+	@cp $(JAR_ARTIFACTS) $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
+	@cp $(ARTIFACTS_DIR)/clouseau_ctrl $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
+	@tar --gzip -cf $@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
 
 $(ARTIFACTS_DIR)/%.jar.chksum: $(ARTIFACTS_DIR)/%.jar
 	@cd $(ARTIFACTS_DIR) && sha256sum $(<F) > $(@F)
 
 $(ARTIFACTS_DIR)/%.zip.chksum: $(ARTIFACTS_DIR)/%.zip
+	@cd $(ARTIFACTS_DIR) && sha256sum $(<F) > $(@F)
+
+$(ARTIFACTS_DIR)/%.tar.gz.chksum: $(ARTIFACTS_DIR)/%.tar.gz
 	@cd $(ARTIFACTS_DIR) && sha256sum $(<F) > $(@F)
 
 $(ARTIFACTS_DIR)/checksums.txt: $(addprefix $(ARTIFACTS_DIR)/, $(CHECKSUM_FILES))
