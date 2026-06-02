@@ -608,7 +608,7 @@ $(ARTIFACTS_DIR)/%.tar.gz.chksum: $(ARTIFACTS_DIR)/%.tar.gz
 	@cd $(ARTIFACTS_DIR) && sha256sum $(<F) > $(@F)
 
 $(ARTIFACTS_DIR)/checksums.txt: $(addprefix $(ARTIFACTS_DIR)/, $(CHECKSUM_FILES))
-	@cat $? > $@
+	@cat $^ > $@
 	@cd $(ARTIFACTS_DIR)/ && sha256sum -c checksums.txt
 
 $(ARTIFACTS_DIR)/clouseau_ctrl: bin/clouseau_ctrl
