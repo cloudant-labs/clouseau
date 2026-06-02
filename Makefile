@@ -593,13 +593,13 @@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)-dist.zip: $(JAR_ARTIFACTS) $(ARTIFACTS_
 	@mkdir -p $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
 	@cp $(JAR_ARTIFACTS) $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
 	@cp $(ARTIFACTS_DIR)/clouseau_ctrl $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
-	@zip -r $@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
+	@cd $(ARTIFACTS_DIR) && zip -r $@ clouseau-$(PROJECT_VSN)
 
 $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)-dist.tar.gz: $(JAR_ARTIFACTS) $(ARTIFACTS_DIR)/clouseau_ctrl
 	@mkdir -p $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
 	@cp $(JAR_ARTIFACTS) $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
 	@cp $(ARTIFACTS_DIR)/clouseau_ctrl $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
-	@tar --gzip -cf $@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
+	@cd $(ARTIFACTS_DIR) && tar --gzip -cf $@ clouseau-$(PROJECT_VSN)
 
 $(ARTIFACTS_DIR)/%.jar.chksum: $(ARTIFACTS_DIR)/%.jar
 	@cd $(ARTIFACTS_DIR) && sha256sum $(<F) > $(@F)
