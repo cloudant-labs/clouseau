@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   release:
-    name: Release of clouseau-{version}-dist.zip
+    name: Release of clouseau-{version}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
