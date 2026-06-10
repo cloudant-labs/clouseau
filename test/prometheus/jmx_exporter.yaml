@@ -1,3 +1,7 @@
+httpServer:
+  metrics:
+    path: /custom_path
+
 startDelaySeconds: 0
 rules:
   - pattern: com.cloudant.clouseau
