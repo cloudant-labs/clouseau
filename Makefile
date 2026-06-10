@@ -86,7 +86,7 @@ JMX_EXPORTER_VSN ?= 1.5.0
 JMX_EXPORTER ?= jmx_prometheus_javaagent-$(JMX_EXPORTER_VSN).jar
 JMX_EXPORTER_CFG ?= test/prometheus/jmx_exporter.yaml
 JMX_EXPORTER_PORT ?= 8080
-JMX_EXPORTER_URL := https://github.com/prometheus/jmx_exporter/releases/download/$(JMX_EXPORTER_VSN)/$(JMX_EXPORTER)
+JMX_EXPORTER_URL := https://github.com/prometheus/jmx_exporter/releases/download/v$(JMX_EXPORTER_VSN)/$(JMX_EXPORTER)
 
 comma := ,
 empty :=
