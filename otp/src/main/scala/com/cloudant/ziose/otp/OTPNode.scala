@@ -15,8 +15,8 @@ import com.cloudant.ziose.core.{
 }
 import com.cloudant.ziose.macros.CheckEnv
 import com.ericsson.otp.erlang.{OtpErlangPid, OtpErlangRef, OtpMbox, OtpNode}
-import zio.stream.{UStream, ZStream}
-import zio.{&, Duration, IO, Promise, Queue, RIO, RLayer, Schedule, Scope, Trace, UIO, URIO, ZIO, ZLayer, durationInt}
+import zio.stream.ZStream
+import zio.{&, Duration, IO, Promise, Queue, RIO, RLayer, Schedule, Scope, Trace, UIO, URIO, ZIO, ZLayer}
 import com.cloudant.ziose.core.EngineWorker
 import zio.Fiber
 import com.cloudant.ziose.core.Metrics
@@ -48,8 +48,8 @@ object OTPNode {
       cookie    = cfg.cookieVal
       service <-
         for {
-          _           <- ZIO.logDebug(s"Creating OtpNode($name, ****)")
-          nodeProcess <- NodeProcess.make(name, cookie, queue, accessKey)
+          _           <- ZIO.logDebug(s"Creating OtpNode($cfg)")
+          nodeProcess <- NodeProcess.make(name, cookie, queue, accessKey, cfg.pingTimeoutVal)
           fiber       <- nodeProcess.stream.runDrain.fork
           nodeScope   <- ZIO.scope
           service = unsafeMake(fiber, queue, nodeProcess, nodeScope, factory, ctx)
@@ -115,22 +115,18 @@ object OTPNode {
   class NodeProcess private (
     private val node: OtpNode,
     private val queue: Queue[Envelope[Command[_], _, _]],
-    accessKey: AccessKey
+    accessKey: AccessKey,
+    private val pingTimeout: Duration
   ) {
-    val DEFAULT_PING_TIMEOUT: Duration                 = 61.seconds
-    val DEFAULT_REMOTE_NODE_MONITOR_INTERVAL: Duration = 61.seconds
-    def release(): Unit                                = close()
-    def createMbox(name: String): OtpMbox              = node.createMbox(name)
-    def close(): Unit                                  = node.close()
-    def stream: ZStream[Scope, Nothing, Unit]          = ZStream.fromQueueWithShutdown(queue).mapZIO(loop)
-    def monitorRemoteNode(name: String, timeout: Option[Duration]): UStream[Boolean] = {
-      ZStream((name, timeout))
-        .schedule(Schedule.spaced(DEFAULT_REMOTE_NODE_MONITOR_INTERVAL))
-        .mapZIO(checkRemoteNode)
+    def release(): Unit                       = close()
+    def createMbox(name: String): OtpMbox     = node.createMbox(name)
+    def close(): Unit                         = node.close()
+    def stream: ZStream[Scope, Nothing, Unit] = ZStream.fromQueueWithShutdown(queue).mapZIO(loop)
+
+    def pingRemoteNode(name: String, timeout: Duration): UIO[Boolean] = {
+      ZIO.succeedBlocking(node.ping(name, timeout.toMillis))
     }
-    def checkRemoteNode(spec: (String, Option[Duration])): UIO[Boolean] = {
-      ZIO.succeedBlocking(node.ping(spec._1, spec._2.getOrElse(DEFAULT_PING_TIMEOUT).toMillis))
-    }
+
     def loop(event: Envelope[Command[_], _, _]): URIO[Scope, Unit] = for {
       _ <- event.command match {
         case StartActor(actor: AddressableActor[_, _], continue) =>
@@ -152,7 +148,7 @@ object OTPNode {
           node.close()
           Success(Response.CloseNode(()))
         case cmd @ PingNode(nodeName, None) =>
-          Success(Response.PingNode(node.ping(nodeName, DEFAULT_PING_TIMEOUT.toMillis)))
+          Success(Response.PingNode(node.ping(nodeName, pingTimeout.toMillis)))
         case cmd @ PingNode(nodeName, Some(timeout)) =>
           Success(Response.PingNode(node.ping(nodeName, timeout.toMillis)))
         case CreateMbox(None)       => Success(Response.CreateMbox(node.createMbox()))
@@ -186,11 +182,12 @@ object OTPNode {
       name: String,
       cookie: String,
       queue: Queue[Envelope[Command[_], _, _]],
-      accessKey: AccessKey
+      accessKey: AccessKey,
+      pingTimeout: Duration
     )(implicit trace: Trace): RIO[Scope, NodeProcess] = {
       ZIO.acquireRelease(
         ZIO.attemptBlocking(
-          new NodeProcess(new OtpNode(name, cookie), queue, accessKey)
+          new NodeProcess(new OtpNode(name, cookie), queue, accessKey, pingTimeout)
         )
       )(node => ZIO.attemptBlockingIO(node.close()).orDie.unit) // TODO orDie could be too harsh
     }
@@ -269,13 +266,12 @@ object OTPNode {
       }
 
       // TODO prevent attempts to run multiple monitors for the same node
-      def monitorRemoteNode(name: String, timeout: Option[Duration] = None): UIO[Unit] = {
-        val loop = process.monitorRemoteNode(name, timeout).runDrain.forever
-        for {
-          _ <- (for {
-            _ <- loop.forkIn(nodeScope)
-          } yield ()).fork
-        } yield ()
+      def monitorRemoteNode(name: String, timeout: Duration, interval: Duration): UIO[Unit] = {
+        process
+          .pingRemoteNode(name, timeout)
+          .schedule(Schedule.fixed(interval))
+          .forkIn(nodeScope)
+          .unit
       }
 
       private def startActor[A <: Actor](
