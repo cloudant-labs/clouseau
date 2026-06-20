@@ -84,7 +84,7 @@ CHECKSUM_FILES := $(foreach file, $(RELEASE_FILES), $(file).chksum)
 
 JMX_EXPORTER_VSN ?= 1.5.0
 JMX_EXPORTER ?= jmx_prometheus_javaagent-$(JMX_EXPORTER_VSN).jar
-JMX_EXPORTER_CFG ?= prometheus/jmx_exporter.yaml
+JMX_EXPORTER_CFG ?= test/prometheus/jmx_exporter.yaml
 JMX_EXPORTER_PORT ?= 8080
 JMX_EXPORTER_URL := https://github.com/prometheus/jmx_exporter/releases/download/$(JMX_EXPORTER_VSN)/$(JMX_EXPORTER)
 
@@ -210,7 +210,7 @@ $(ARTIFACTS_DIR)/$(JAR_TEST): $(ARTIFACTS_DIR)
 # target: clean - Clean Java/Scala artifacts
 clean:
 	@rm -rf tmp $(ARTIFACTS_DIR)/*
-	@rm -f collectd/*.class collectd/*.out
+	@rm -f test/collectd/*.class test/collectd/*.out
 	@rm -rf bin/clouseau_ctrl ; cd clouseau-ctrl && $(REBAR) clean
 	@sbt clean
 
@@ -283,7 +283,7 @@ zeunit: $(ARTIFACTS_DIR)/$(JAR_TEST) epmd FORCE
 	@cli stop $@
 
 concurrent-zeunit-tests: $(ARTIFACTS_DIR)/$(JAR_TEST) epmd FORCE
-	@cli start $@ "java $(_JAVA_COOKIE) -jar $< concurrent.app.conf"
+	@cli start $@ "java $(_JAVA_COOKIE) -jar $< test/conf/concurrent.app.conf"
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
@@ -302,8 +302,8 @@ syslog-test: $(JAR_ARTIFACTS) epmd FORCE
 		-e "s/%%PORT%%/$(PORT)/" \
 		-e "s/%%FACILITY%%/$(FACILITY)/" \
 		-e "s/%%LEVEL%%/$(LEVEL)/" \
-		syslog.app.conf.templ > syslog.app.conf
-	@cli start $@ "java -jar $< syslog.app.conf"
+		test/conf/syslog.app.conf.templ > test/conf/syslog.app.conf
+	@cli start $@ "java -jar $< test/conf/syslog.app.conf"
 	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) test-failed ID=$@
 	@echo ">>> Waiting for Clouseau to generate logs (5 seconds)"
 	@sleep 5
@@ -412,12 +412,12 @@ define collect_and_compare
 	fi
 endef
 
-collectd/clouseau.class: collectd/clouseau.java
+test/collectd/clouseau.class: test/collectd/clouseau.java
 	javac -source 8 -target 8 "$<"
 
 .PHONY: metrics-tests
 # target: metrics-tests - Run JMX metrics collection tests
-metrics-tests: $(JAR_ARTIFACTS) $(JMX_EXPORTER) collectd/clouseau.class epmd
+metrics-tests: $(JAR_ARTIFACTS) $(JMX_EXPORTER) test/collectd/clouseau.class epmd
 	@cli stop $@ > /dev/null 2>&1 || true
 	@chmod 600 jmxremote.password
 	@cli start $@ \
@@ -426,20 +426,20 @@ metrics-tests: $(JAR_ARTIFACTS) $(JMX_EXPORTER) collectd/clouseau.class epmd
 			-Dcom.sun.management.jmxremote.ssl=false \
 			-Dcom.sun.management.jmxremote.password.file=jmxremote.password \
 			-javaagent:$(JMX_EXPORTER)=$(JMX_EXPORTER_PORT):$(JMX_EXPORTER_CFG) \
-			-jar $(JAR_ARTIFACTS) metrics.app.conf > /dev/null
+			-jar $(JAR_ARTIFACTS) test/conf/metrics.app.conf > /dev/null
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@echo "Warming up Clouseau to expose all the metrics"
 	@$(TIMEOUT) $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
 	@$(call collect_and_compare,\
 			collectd,\
-			java -cp collectd clouseau "service:jmx:rmi:///jndi/rmi://localhost:9090/jmxrmi" monitorRole password | \
-			sort > collectd/metrics.out)
+			java -cp test/collectd clouseau "service:jmx:rmi:///jndi/rmi://localhost:9090/jmxrmi" monitorRole password | \
+			sort > test/collectd/metrics.out)
 	@$(call collect_and_compare,\
 			prometheus,\
 			curl -Ss "http://localhost:$(JMX_EXPORTER_PORT)/metrics" | \
 				sed -n 's/^\(_com_cloudant_clouseau.*\)[[:space:]].*/\1/p' | \
-				sort > prometheus/metrics.out)
+				sort > test/prometheus/metrics.out)
 
 sup-test: couchdb
 	@$(COUCHDB_DIR)/dev/run \
@@ -556,7 +556,7 @@ ci-concurrent-zeunit: concurrent-zeunit-tests
 
 ci-mango: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli stop $@ || true
-	@cli start $@ "java $(_JAVA_COOKIE) -jar $< ci.app.conf"
+	@cli start $@ "java $(_JAVA_COOKIE) -jar $< test/conf/ci.app.conf"
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@$(TIMEOUT) $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
@@ -564,7 +564,7 @@ ci-mango: $(JAR_ARTIFACTS) couchdb epmd FORCE
 
 ci-elixir: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli stop $@ || true
-	@cli start $@ "java $(_JAVA_COOKIE) -jar $< ci.app.conf"
+	@cli start $@ "java $(_JAVA_COOKIE) -jar $< test/conf/ci.app.conf"
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@$(TIMEOUT) $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
 	@cli stop $@
