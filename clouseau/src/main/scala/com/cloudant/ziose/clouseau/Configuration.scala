@@ -215,12 +215,9 @@ object AppCfg {
 
   def layer: ZLayer[ZIOAppArgs, Config.Error, AppCfg] = {
     ZLayer {
-      for {
-        config <- ZIOAppArgs.getArgs
-          .map(_.headOption.getOrElse(DEFAULT_CFG))
-          .map(fromHoconFilePath)
-        cfg <- config
-      } yield cfg
+      ZIOAppArgs.getArgs
+        .map(_.headOption.getOrElse(DEFAULT_CFG))
+        .flatMap(fromHoconFilePath)
     }
   }
 }
