@@ -64,9 +64,9 @@ object Main extends ZIOAppDefault {
     metricsRegistry: ScalangMeterRegistry,
     loggerCfg: LogConfiguration
   ): Task[Unit] = {
-    val node               = workerCfg.node
-    val name               = s"${node.name}@${node.domain}"
-    val clouseauCfg        = workerCfg.clouseau.get
+    val node        = workerCfg.node
+    val name        = s"${node.name}@${node.domain}"
+    val clouseauCfg = workerCfg.clouseau.get
     val closeIfIdle = clouseauCfg.close_if_idle.getOrElse(false)
     for {
       _ <- ZIO.when(closeIfIdle) {
