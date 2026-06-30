@@ -64,16 +64,16 @@ object Main extends ZIOAppDefault {
     metricsRegistry: ScalangMeterRegistry,
     loggerCfg: LogConfiguration
   ): Task[Unit] = {
-    val node               = workerCfg.node
-    val name               = s"${node.name}@${node.domain}"
-    val clouseauCfg        = workerCfg.clouseau.get
-    val closeIfIdleEnabled = clouseauCfg.getBoolean("clouseau.close_if_idle", false)
+    val node        = workerCfg.node
+    val name        = s"${node.name}@${node.domain}"
+    val clouseauCfg = workerCfg.clouseau.get
+    val closeIfIdle = clouseauCfg.close_if_idle.getOrElse(false)
     for {
-      _ <- ZIO.when(closeIfIdleEnabled) {
-        val idleTimeout = clouseauCfg.getInt("clouseau.idle_check_interval_secs", 300)
+      _ <- ZIO.when(closeIfIdle) {
+        val idleTimeout = clouseauCfg.idle_check_interval_secs.getOrElse(300)
         ZIO.logInfo(s"Idle timeout is enabled and will check the indexer idle status every $idleTimeout seconds")
       }
-      _ <- ZIO.logInfo(s"Clouseau running as ${name} from ${entryPoint}")
+      _ <- ZIO.logInfo(s"Clouseau running as $name from $entryPoint")
       _ <- ZIO
         .scoped(main(workerCfg, metricsRegistry, loggerCfg))
         .provide(OTPLayers.nodeLayers(engineId, workerId, node))

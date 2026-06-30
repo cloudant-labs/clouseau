@@ -171,7 +171,7 @@ lazy val commonSettings = Seq(
   ThisBuild / assemblyShadeRules := shadeRules,
   assemblyPackageScala / assembleArtifact := false,
   testFrameworks                          := Seq(new TestFramework("com.novocode.junit.JUnitFramework")),
-  scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports")
+  scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports", "-Xlint")
 ) ++ dependencyCheck
 
 lazy val vendor = (project in file("vendor"))

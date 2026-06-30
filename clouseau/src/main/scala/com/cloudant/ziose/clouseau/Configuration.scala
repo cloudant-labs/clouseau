@@ -8,6 +8,8 @@ import zio.config.magnolia.{DeriveConfig, deriveConfig}
 import zio.config.typesafe.FromConfigSourceTypesafe
 import zio.{Config, ConfigProvider, IO, LogLevel, ZIOAppArgs, ZLayer}
 
+import java.nio.file.{Files, Paths}
+
 sealed abstract class LogOutput
 sealed abstract class LogFormat
 
@@ -204,7 +206,10 @@ object AppCfg {
   val config: Config[AppCfg] = deriveConfig[AppCfg]
 
   def fromHoconFilePath(pathToCfgFile: String): IO[Config.Error, AppCfg] = {
-    ConfigProvider.fromHoconFilePath(pathToCfgFile).load(config)
+    if (Files.isReadable(Paths.get(pathToCfgFile)))
+      ConfigProvider.fromHoconFilePath(pathToCfgFile).load(config)
+    else
+      throw new IllegalArgumentException(s"Not a readable file: $pathToCfgFile")
   }
 
   def fromHoconString(input: String): IO[Config.Error, AppCfg] = {
@@ -215,12 +220,9 @@ object AppCfg {
 
   def layer: ZLayer[ZIOAppArgs, Config.Error, AppCfg] = {
     ZLayer {
-      for {
-        config <- ZIOAppArgs.getArgs
-          .map(_.headOption.getOrElse(DEFAULT_CFG))
-          .map(fromHoconFilePath)
-        cfg <- config
-      } yield cfg
+      ZIOAppArgs.getArgs
+        .map(_.headOption.getOrElse(DEFAULT_CFG))
+        .flatMap(fromHoconFilePath)
     }
   }
 }
