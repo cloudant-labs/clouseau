@@ -69,7 +69,7 @@ val testOverrides = Map(
   "EchoService" -> "TestEchoService"
 )
 
-def isOverriden(classFileName: String) =
+def isOverridden(classFileName: String) =
   getOverride(classFileName).isDefined
 
 def getOverride(classFileName: String) = {
@@ -114,7 +114,7 @@ val commonMergeStrategy: String => sbtassembly.MergeStrategy = {
   case PathList("META-INF", "LICENSE.txt")             => MergeStrategy.first
   case PathList("NOTICE", _*)                          => MergeStrategy.discard
   case PathList(ps @ _*) if Assembly.isReadme(ps.last) => MergeStrategy.discard
-  case PathList("com", "cloudant", _, "clouseau", last) if isOverriden(last) => handleOverride(last)
+  case PathList("com", "cloudant", _, "clouseau", last) if isOverridden(last) => handleOverride(last)
   case ps                                              => MergeStrategy.deduplicate
 }
 
