@@ -97,7 +97,7 @@ def handleOverride(classFileName: String) = {
     dependency.source.endsWith(overrideClassFile)
   CustomMergeStrategy("test-override") { conflicts =>
     if (isTestJar) {
-      val entry = conflicts.find(shouldOverride(_)).getOrElse(conflicts.head)
+      val entry = conflicts.find(shouldOverride).getOrElse(conflicts.head)
       Right(Vector(JarEntry(entry.target, entry.stream)))
     } else {
       val entry = conflicts.find(!shouldOverride(_)).getOrElse(conflicts.head)
@@ -171,7 +171,11 @@ lazy val commonSettings = Seq(
   ThisBuild / assemblyShadeRules := shadeRules,
   assemblyPackageScala / assembleArtifact := false,
   testFrameworks                          := Seq(new TestFramework("com.novocode.junit.JUnitFramework")),
-  scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports")
+  scalacOptions ++= Seq(
+    "-Ymacro-annotations",
+    "-Ywarn-unused:imports",
+    s"-Xmacro-settings:clouseau.version=${version.value}"
+  )
 ) ++ dependencyCheck
 
 lazy val vendor = (project in file("vendor"))
