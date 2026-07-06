@@ -80,6 +80,7 @@ case object InvalidReader extends Exception
 class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
   import IndexService._
 
+  logger.debug(s"Started index service with path ${ctx.args.writer.getDirectory}")
   var lazyReader: Option[DirectoryReader] = None
   var updateSeq = getCommittedSeq
   var pendingSeq = updateSeq
@@ -337,6 +338,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
 
   private def search(request: SearchRequest): Any = {
     val queryString = request.options.getOrElse('query, "*:*").asInstanceOf[String]
+    logger.debug(s"Evaluating query: ${queryString}")
     val refresh = request.options.getOrElse('refresh, true).asInstanceOf[Boolean]
     val limit = request.options.getOrElse('limit, 25).asInstanceOf[Int]
 
@@ -352,6 +354,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
 
     parseQuery(queryString, partition) match {
       case baseQuery: Query =>
+        logger.debug(s"Parsed query: $baseQuery")
         safeSearch {
           val query = getDrilldown(request.options) match {
             case Some(categories: List[_]) => {
@@ -479,6 +482,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
           }
         }
       case error =>
+        logger.debug(s"Query parse error: ${error}")
         error
     }
   }
@@ -931,6 +935,7 @@ object IndexService {
   def start(node: SNode, config: Configuration, path: String, options: AnalyzerOptions)(implicit adapter: Adapter[_, _]): Any = {
     val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
     val dir = newDirectory(config.clouseau, new File(rootDir, path))
+    logger.debug(s"Starting index service with path ${dir.getDirectory}")
     try {
       SupportedAnalyzers.createAnalyzer(options) match {
         case Some(analyzer) =>

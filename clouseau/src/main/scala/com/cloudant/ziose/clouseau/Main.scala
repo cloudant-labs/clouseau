@@ -82,7 +82,10 @@ object Main extends ZIOAppDefault {
 
   override def run: RIO[ZIOAppArgs & Scope, Unit] = (
     for {
+      args <- getArgs
+      _ <- ZIO.logInfo(s"Clouseau starts with command line arguments (length=${args.length}): $args")
       appCfg  <- ZIO.service[AppCfg]
+      _ <- ZIO.logInfo(s"Resolved configuration: $appCfg")
       nodeIdx <- getNodeIdx
       workerCfg       = appCfg.config(nodeIdx)
       loggerCfg       = appCfg.logger

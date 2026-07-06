@@ -490,10 +490,13 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
 
   def onHandleCallMessage(msg: MessageEnvelope.Call)(implicit trace: Trace) = {
     val callerTag: (Pid, Any) = extractCallerTag(msg)
+    val request = adapter.toScala(msg.payload)
     for {
+      _ <- ZIO.logDebug(s"Handling call message: $request")
       result <- ZIO.attemptBlockingInterrupt {
-        Try(handleCall(callerTag, adapter.toScala(msg.payload)))
+        Try(handleCall(callerTag, request))
       }
+      _ <- ZIO.logDebug(s"Handled call message $request, response: $result")
       res <- result match {
         case Success((Symbol("reply"), replyTerm)) =>
           Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())

@@ -101,8 +101,12 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
   }
 
   def onMessage(message: MessageEnvelope)(implicit trace: Trace): UIO[ActorResult] = {
-    def onFunc = actor.onMessage(message, ctx)
-    callHandler(onFunc, ActorCallback.OnMessage)
+    lazy val onFunc = actor.onMessage(message, ctx)
+    for {
+      _   <- ZIO.logDebug(s"Handling mail message: $message")
+      res <- callHandler(onFunc, ActorCallback.OnMessage)
+      _ <- ZIO.logDebug(s"Handled mail message $message, response: $res")
+    } yield res
   }
 
   def awaitShutdown(implicit trace: Trace): UIO[Unit] = {
