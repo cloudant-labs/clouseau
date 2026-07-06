@@ -333,7 +333,7 @@ object Codec {
     override def hashCode: Int               = payload.toList.hashCode()
     override def equals(other: Any): Boolean = {
       other match {
-        case other: EBinary => payload.toList.equals(other.asBytes.toList)
+        case other: EBinary => payload.sameElements(other.payload)
         case _              => false
       }
     }
