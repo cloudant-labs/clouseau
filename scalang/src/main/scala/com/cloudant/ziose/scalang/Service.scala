@@ -1,9 +1,8 @@
 package com.cloudant.ziose.scalang
 
-import com.cloudant.ziose.core
+import com.cloudant.ziose.core.{Actor, ActorCallback, ActorResult, Address, MessageEnvelope, Node, PID, ProcessContext, ZioSupport}
+import com.cloudant.ziose.core.Codec.{EAtom, EPid, ERef, ETerm, ETuple}
 import com.cloudant.ziose.macros.CheckEnv
-import core.Codec.{EAtom, EPid, ERef, ETerm, ETuple}
-import core.{Actor, ActorCallback, ActorResult, Address, MessageEnvelope, Node, PID, ProcessContext, ZioSupport}
 import zio.{Cause, Duration, Exit, Runtime, Schedule, Task, Trace, UIO, ZIO, durationLong}
 
 import scala.util.{Failure, Success, Try}
