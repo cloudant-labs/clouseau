@@ -149,7 +149,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   }
 
   // TODO the ClouseauTypeFactory should happen elsewhere
-  def internalHandleCall(tag: (Pid, Any), msg: Any): Any = msg match {
+  private def internalHandleCall(tag: (Pid, Any), msg: Any): Any = msg match {
     case request: SearchRequest =>
       if (concurrentSearchEnabled) {
         if (concurrentRequests.getAndIncrement() <= concurrentSearchLimit) {
