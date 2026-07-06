@@ -13,7 +13,7 @@ trait Node {
   def listNames(): ZIO[Node, _ <: Node.Error, List[String]]
   // testing only
   def lookUpName(name: String): ZIO[Node, _ <: Node.Error, Option[Codec.EPid]]
-  def monitorRemoteNode(name: String, timeout: Option[Duration] = None): ZIO[Node, _ <: Node.Error, Unit]
+  def monitorRemoteNode(name: String, interval: Duration, timeout: Duration): ZIO[Node, _ <: Node.Error, Unit]
   def makeRef(): ZIO[Any, _ <: Node.Error, Codec.ERef]
   def shutdown(implicit trace: Trace): UIO[Unit]
 }
