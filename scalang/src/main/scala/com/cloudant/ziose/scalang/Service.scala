@@ -371,7 +371,7 @@ class DestSend(to: (Symbol, Symbol), from: Pid, proc: Process) {
 class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_, _])
     extends Process()(adapter)
     with ZioSupport {
-  def metricsRegistry = adapter.node.metricsRegistry
+  def metricsRegistry: ScalangMeterRegistry = adapter.node.metricsRegistry
 
   val metrics              = MetricsGroup(getClass, metricsRegistry)
   val PING_TIMEOUT_IN_MSEC = 3000
