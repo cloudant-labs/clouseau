@@ -105,7 +105,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     for {
       _   <- ZIO.logDebug(s"Handling mail message: $message")
       res <- callHandler(onFunc, ActorCallback.OnMessage)
-      _ <- ZIO.logDebug(s"Handled mail message $message, response: $res")
+      _   <- ZIO.logDebug(s"Handled mail message $message, response: $res")
     } yield res
   }
 

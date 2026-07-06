@@ -1,6 +1,16 @@
 package com.cloudant.ziose.scalang
 
-import com.cloudant.ziose.core.{Actor, ActorCallback, ActorResult, Address, MessageEnvelope, Node, PID, ProcessContext, ZioSupport}
+import com.cloudant.ziose.core.{
+  Actor,
+  ActorCallback,
+  ActorResult,
+  Address,
+  MessageEnvelope,
+  Node,
+  PID,
+  ProcessContext,
+  ZioSupport
+}
 import com.cloudant.ziose.core.Codec.{EAtom, EPid, ERef, ETerm, ETuple}
 import com.cloudant.ziose.macros.CheckEnv
 import zio.{Cause, Duration, Exit, Runtime, Schedule, Task, Trace, UIO, ZIO, durationLong}
@@ -487,15 +497,17 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
   }
 
-  private def onHandleCallMessage(msg: MessageEnvelope.Call)(implicit trace: Trace): ZIO[Any, Throwable, ActorResult] = {
+  private def onHandleCallMessage(
+    msg: MessageEnvelope.Call
+  )(implicit trace: Trace): ZIO[Any, Throwable, ActorResult] = {
     val callerTag: (Pid, Any) = extractCallerTag(msg)
-    val request = adapter.toScala(msg.payload)
+    val request               = adapter.toScala(msg.payload)
     for {
-      _ <- ZIO.logDebug(s"Handling call message: $request")
+      _      <- ZIO.logDebug(s"Handling call message: $request")
       result <- ZIO.attemptBlockingInterrupt {
         Try(handleCall(callerTag, request))
       }
-      _ <- ZIO.logDebug(s"Handled call message $request, response: $result")
+      _   <- ZIO.logDebug(s"Handled call message $request, response: $result")
       res <- result match {
         case Success((Symbol("reply"), replyTerm)) =>
           Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())

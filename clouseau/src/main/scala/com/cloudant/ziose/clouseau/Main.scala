@@ -9,7 +9,6 @@ import com.cloudant.ziose.otp.{OTPLayers, OTPNodeConfig}
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
 import zio.{&, LogLevel, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault}
 
-
 object Main extends ZIOAppDefault {
   val version: String = getVersion
 
@@ -86,11 +85,11 @@ object Main extends ZIOAppDefault {
 
   override def run: RIO[ZIOAppArgs & Scope, Unit] = (
     for {
-      _ <- ZIO.logInfo(s"Starting Clouseau $version")
-      args <- getArgs
-      _ <- ZIO.logInfo(s"Clouseau starts with command line arguments (length=${args.length}): $args")
+      _       <- ZIO.logInfo(s"Starting Clouseau $version")
+      args    <- getArgs
+      _       <- ZIO.logInfo(s"Clouseau starts with command line arguments (length=${args.length}): $args")
       appCfg  <- ZIO.service[AppCfg]
-      _ <- ZIO.logInfo(s"Resolved configuration: $appCfg")
+      _       <- ZIO.logInfo(s"Resolved configuration: $appCfg")
       nodeIdx <- getNodeIdx
       workerCfg       = appCfg.config(nodeIdx)
       loggerCfg       = appCfg.logger
