@@ -1,9 +1,18 @@
 package com.cloudant.ziose.scalang
 
-import com.cloudant.ziose.core
+import com.cloudant.ziose.core.{
+  Actor,
+  ActorCallback,
+  ActorResult,
+  Address,
+  MessageEnvelope,
+  Node,
+  PID,
+  ProcessContext,
+  ZioSupport
+}
+import com.cloudant.ziose.core.Codec.{EAtom, EPid, ERef, ETerm, ETuple}
 import com.cloudant.ziose.macros.CheckEnv
-import core.Codec.{EAtom, EPid, ERef, ETerm, ETuple}
-import core.{Actor, ActorCallback, ActorResult, Address, MessageEnvelope, Node, PID, ProcessContext, ZioSupport}
 import zio.{Cause, Duration, Exit, Runtime, Schedule, Task, Trace, UIO, ZIO, durationLong}
 
 import scala.util.{Failure, Success, Try}
@@ -371,7 +380,7 @@ class DestSend(to: (Symbol, Symbol), from: Pid, proc: Process) {
 class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_, _])
     extends Process()(adapter)
     with ZioSupport {
-  def metricsRegistry = adapter.node.metricsRegistry
+  def metricsRegistry: ScalangMeterRegistry = adapter.node.metricsRegistry
 
   val metrics              = MetricsGroup(getClass, metricsRegistry)
   val PING_TIMEOUT_IN_MSEC = 3000
@@ -471,29 +480,34 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
     }
   }
 
-  def monitoredToScala(monitored: ETerm): Any = monitored match {
+  private def monitoredToScala(monitored: ETerm): Any = monitored match {
     case pid: EPid   => Pid.toScala(pid)
     case name: EAtom => adapter.toScala(name)
     case other       => throw new Throwable("unreachable")
   }
 
-  def onHandlePingMessage(msg: MessageEnvelope.Call) = {
+  private def onHandlePingMessage(msg: MessageEnvelope.Call): ZIO[Any, Nothing, ActorResult.Continue] = {
     val callerTag: (Pid, Any) = extractCallerTag(msg)
     Service.replyZIO(callerTag, Symbol("pong"))(this).as(ActorResult.Continue())
   }
 
-  def onHandleMetricsMessage(msg: MessageEnvelope.Call) = {
+  private def onHandleMetricsMessage(msg: MessageEnvelope.Call): ZIO[Any, Nothing, ActorResult.Continue] = {
     val callerTag: (Pid, Any) = extractCallerTag(msg)
     val replyTerm             = (Symbol("ok"), metrics.dumpAsSymbolValuePairs())
     Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())
   }
 
-  def onHandleCallMessage(msg: MessageEnvelope.Call)(implicit trace: Trace) = {
+  private def onHandleCallMessage(
+    msg: MessageEnvelope.Call
+  )(implicit trace: Trace): ZIO[Any, Throwable, ActorResult] = {
     val callerTag: (Pid, Any) = extractCallerTag(msg)
+    val request               = adapter.toScala(msg.payload)
     for {
+      _      <- ZIO.logDebug(s"Handling call message: $request")
       result <- ZIO.attemptBlockingInterrupt {
-        Try(handleCall(callerTag, adapter.toScala(msg.payload)))
+        Try(handleCall(callerTag, request))
       }
+      _   <- ZIO.logDebug(s"Handled call message $request, response: $result")
       res <- result match {
         case Success((Symbol("reply"), replyTerm)) =>
           Service.replyZIO(callerTag, replyTerm)(this).as(ActorResult.Continue())

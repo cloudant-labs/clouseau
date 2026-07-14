@@ -54,7 +54,7 @@ object LoggerLayers {
   private def syslogLogger(
     logger: ZLogger[String, String],
     config: Option[SyslogConfiguration]
-  ): ZLogger[String, Any] = {
+  ): ZLogger[String, Unit] = {
     val protocol = config.flatMap(_.protocol).getOrElse(SyslogProtocol.UDP)
     val host     = config.flatMap(_.host).getOrElse("localhost")
     val port     = config.flatMap(_.port).getOrElse(514)

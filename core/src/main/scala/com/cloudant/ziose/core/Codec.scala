@@ -329,11 +329,11 @@ object Codec {
   }
 
   // TODO add tests
-  class EBinary(payload: Array[Byte], val isPrintable: Boolean = false) extends ETerm {
+  class EBinary(val payload: Array[Byte], val isPrintable: Boolean = false) extends ETerm {
     override def hashCode: Int               = payload.toList.hashCode()
     override def equals(other: Any): Boolean = {
       other match {
-        case other: EBinary => payload.toList.equals(other.asBytes.toList)
+        case other: EBinary => payload.sameElements(other.payload)
         case _              => false
       }
     }
@@ -349,7 +349,6 @@ object Codec {
       }
     }
     def asString: String     = new String(payload, StandardCharsets.UTF_8)
-    def asBytes: Array[Byte] = payload
     def asPrintable: EBinary = {
       if (isPrintable) {
         this
@@ -365,7 +364,7 @@ object Codec {
     def apply(str: String)          = new EBinary(str.getBytes(StandardCharsets.UTF_8), true)
     def apply(bytes: Array[Byte])   = new EBinary(bytes)
 
-    def unapply(eBinary: EBinary): Option[Array[Byte]] = Some(eBinary.asBytes)
+    def unapply(eBinary: EBinary): Option[Array[Byte]] = Some(eBinary.payload)
   }
 
   /*

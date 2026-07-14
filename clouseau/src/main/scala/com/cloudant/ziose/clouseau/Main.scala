@@ -4,11 +4,14 @@ sbt 'clouseau/runMain com.cloudant.ziose.clouseau.Main'
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.core.{ActorFactory, AddressableActor, EngineWorker, Node}
+import com.cloudant.ziose.macros.Version.getVersion
 import com.cloudant.ziose.otp.{OTPLayers, OTPNodeConfig}
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
 import zio.{&, LogLevel, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 object Main extends ZIOAppDefault {
+  val version: String = getVersion
+
   def getNodeIdx: Task[Int] = {
     for {
       prop <- System.property("node")
@@ -86,7 +89,11 @@ object Main extends ZIOAppDefault {
 
   override def run: RIO[ZIOAppArgs & Scope, Unit] = (
     for {
+      _       <- ZIO.logInfo(s"Starting Clouseau $version")
+      args    <- getArgs
+      _       <- ZIO.logInfo(s"Clouseau starts with command line arguments (length=${args.length}): $args")
       appCfg  <- ZIO.service[AppCfg]
+      _       <- ZIO.logInfo(s"Resolved configuration: $appCfg")
       nodeIdx <- getNodeIdx
       workerCfg       = appCfg.config(nodeIdx)
       loggerCfg       = appCfg.logger

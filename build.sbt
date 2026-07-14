@@ -69,7 +69,7 @@ val testOverrides = Map(
   "EchoService" -> "TestEchoService"
 )
 
-def isOverriden(classFileName: String) =
+def isOverridden(classFileName: String) =
   getOverride(classFileName).isDefined
 
 def getOverride(classFileName: String) = {
@@ -97,7 +97,7 @@ def handleOverride(classFileName: String) = {
     dependency.source.endsWith(overrideClassFile)
   CustomMergeStrategy("test-override") { conflicts =>
     if (isTestJar) {
-      val entry = conflicts.find(shouldOverride(_)).getOrElse(conflicts.head)
+      val entry = conflicts.find(shouldOverride).getOrElse(conflicts.head)
       Right(Vector(JarEntry(entry.target, entry.stream)))
     } else {
       val entry = conflicts.find(!shouldOverride(_)).getOrElse(conflicts.head)
@@ -114,7 +114,7 @@ val commonMergeStrategy: String => sbtassembly.MergeStrategy = {
   case PathList("META-INF", "LICENSE.txt")             => MergeStrategy.first
   case PathList("NOTICE", _*)                          => MergeStrategy.discard
   case PathList(ps @ _*) if Assembly.isReadme(ps.last) => MergeStrategy.discard
-  case PathList("com", "cloudant", _, "clouseau", last) if isOverriden(last) => handleOverride(last)
+  case PathList("com", "cloudant", _, "clouseau", last) if isOverridden(last) => handleOverride(last)
   case ps                                              => MergeStrategy.deduplicate
 }
 
@@ -171,7 +171,11 @@ lazy val commonSettings = Seq(
   ThisBuild / assemblyShadeRules := shadeRules,
   assemblyPackageScala / assembleArtifact := false,
   testFrameworks                          := Seq(new TestFramework("com.novocode.junit.JUnitFramework")),
-  scalacOptions ++= Seq("-Ymacro-annotations", "-Ywarn-unused:imports")
+  scalacOptions ++= Seq(
+    "-Ymacro-annotations",
+    "-Ywarn-unused:imports",
+    s"-Xmacro-settings:clouseau.version=${version.value}"
+  )
 ) ++ dependencyCheck
 
 lazy val vendor = (project in file("vendor"))
