@@ -28,7 +28,7 @@ class ClouseauAdapterSpec extends JUnitRunnableSpec {
         check(for { xs <- alphaNumericString } yield EBinary(xs)) { case term: EBinary =>
           for {
             _ <- logDebug(term.toString)
-            bytes = new BytesRef(term.asBytes)
+            bytes = new BytesRef(term.payload)
             decoded <- succeed(adapter.fromScala(bytes))
           } yield assertTrue(
             decoded == term
