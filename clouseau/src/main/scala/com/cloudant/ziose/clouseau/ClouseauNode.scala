@@ -20,7 +20,7 @@ class ClouseauNode(implicit
    * import com.cloudant.ziose.scalang.{Node => SNode}
    *
    * object ClouseauSupervisor extends ActorConstructor[ClouseauSupervisor] {
-   *   def make(node: SNode, service_ctx: ServiceContext[ConfigurationArgs]) = {
+   *   def make(node: SNode, service_ctx: ServiceContext[Configuration]) = {
    *     def maker[PContext <: ProcessContext](process_context: PContext): ClouseauSupervisor =
    *       ClouseauSupervisor(service_ctx)(Adapter(process_context, node))
    *
@@ -32,8 +32,8 @@ class ClouseauNode(implicit
    *     }
    *
    *   def start(node: SNode, config: Configuration) = {
-   *     val ctx = new ServiceContext[ConfigurationArgs] {val args = ConfigurationArgs(config)}
-   *     node.spawnServiceZIO[ClouseauSupervisor, ConfigurationArgs](make(node, ctx))
+   *     val ctx = new ServiceContext[Configuration] {val args = ConfigurationArgs(config)}
+   *     node.spawnServiceZIO[ClouseauSupervisor, Configuration](make(node, ctx))
    *   }
    * }
    * ```

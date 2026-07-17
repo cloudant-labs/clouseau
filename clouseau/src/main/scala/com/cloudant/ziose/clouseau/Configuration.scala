@@ -23,10 +23,10 @@ object LogFormat {
 }
 
 final case class LogConfiguration(
-  output: Option[LogOutput],
-  format: Option[LogFormat],
-  level: Option[LogLevel],
-  syslog: Option[SyslogConfiguration]
+  output: LogOutput = LogOutput.Stdout,
+  format: LogFormat = LogFormat.Raw,
+  level: LogLevel = LogLevel.Debug,
+  syslog: SyslogConfiguration = SyslogConfiguration()
 )
 
 object LogConfiguration {
@@ -50,92 +50,29 @@ object LogConfiguration {
   }
 }
 
-final case class WorkerConfiguration(
-  node: OTPNodeConfig,
-  clouseau: Option[ClouseauConfiguration],
-  capacity: Option[CapacityConfiguration]
+final case class ClouseauConfiguration(
+  dir: String = "target/indexes",
+  search_allowed_timeout_msecs: Long = 5000,
+  count_fields: Boolean = false,
+  count_locks: Boolean = false,
+  close_if_idle: Boolean = false,
+  idle_check_interval_secs: Int = 300,
+  lru_update_interval_msecs: Int = 1000,
+  max_indexes_open: Int = 100,
+  field_count_warn_threshold: Int = 5000,
+  commit_interval_secs: Int = 30,
+  lock_class: String = "org.apache.lucene.store.NativeFSLockFactory",
+  dir_class: String = "org.apache.lucene.store.NIOFSDirectory",
+  concurrent_search_enabled: Boolean = false,
+  concurrent_search_limit: Int = 1000,
+  track_index_atimes: Boolean = false
 )
 
-final case class RootDir(value: String) extends AnyVal
-
-final case class ClouseauConfiguration(
-  dir: Option[RootDir] = None,
-  search_allowed_timeout_msecs: Option[Long] = None,
-  count_fields: Option[Boolean] = None,
-  count_locks: Option[Boolean] = None,
-  close_if_idle: Option[Boolean] = None,
-  idle_check_interval_secs: Option[Int] = None,
-  lru_update_interval_msecs: Option[Int] = None,
-  max_indexes_open: Option[Int] = None,
-  field_count_warn_threshold: Option[Int] = None,
-  commit_interval_secs: Option[Int] = None,
-  lock_class: Option[String] = None,
-  dir_class: Option[String] = None,
-  concurrent_search_enabled: Option[Boolean] = None,
-  concurrent_search_limit: Option[Int] = None,
-  track_index_atimes: Option[Boolean] = None
-) {
-  def getString(key: String, default: String) = key match {
-    case "clouseau.dir" =>
-      dir match {
-        case Some(RootDir(value)) => value
-        case None                 => default
-      }
-    case "clouseau.lock_class" => lock_class.getOrElse(default)
-    case "clouseau.dir_class"  => dir_class.getOrElse(default)
-    case _                     => throw new Exception(s"Unexpected String key '$key'")
-  }
-  def getInt(key: String, default: Int) = key match {
-    case "clouseau.idle_check_interval_secs"   => idle_check_interval_secs.getOrElse(default)
-    case "clouseau.lru_update_interval_msecs"  => lru_update_interval_msecs.getOrElse(default)
-    case "clouseau.max_indexes_open"           => max_indexes_open.getOrElse(default)
-    case "commit_interval_secs"                => commit_interval_secs.getOrElse(default)
-    case "clouseau.concurrent_search_limit"    => concurrent_search_limit.getOrElse(default)
-    case "clouseau.field_count_warn_threshold" => field_count_warn_threshold.getOrElse(default)
-    case _                                     => throw new Exception(s"Unexpected Int key '$key'")
-  }
-  def getLong(key: String, default: Long) = key match {
-    case "clouseau.search_allowed_timeout_msecs" => search_allowed_timeout_msecs.getOrElse(default)
-    case _                                       => throw new Exception(s"Unexpected Long key '$key'")
-  }
-  def getBoolean(key: String, default: Boolean) = key match {
-    case "clouseau.count_fields"              => count_fields.getOrElse(default)
-    case "clouseau.count_locks"               => count_locks.getOrElse(default)
-    case "clouseau.close_if_idle"             => close_if_idle.getOrElse(default)
-    case "clouseau.concurrent_search_enabled" => concurrent_search_enabled.getOrElse(default)
-    case "clouseau.track_index_atimes"        => track_index_atimes.getOrElse(default)
-    case _                                    => throw new Exception(s"Unexpected Boolean key '$key'")
-  }
-
-  @CheckEnv(System.getProperty("env"))
-  def toStringMacro: List[String] = List(
-    s"${getClass.getSimpleName}",
-    s"dir=$dir",
-    s"search_allowed_timeout_msecs=$search_allowed_timeout_msecs",
-    s"count_fields=$count_fields",
-    s"count_locks=$count_locks",
-    s"close_if_idle=$close_if_idle",
-    s"idle_check_interval_secs=$idle_check_interval_secs",
-    s"lru_update_interval_msecs=$lru_update_interval_msecs",
-    s"max_indexes_open=$max_indexes_open",
-    s"commit_interval_secs=$commit_interval_secs",
-    s"lock_class=$lock_class",
-    s"dir_class=$dir_class",
-    s"concurrent_search_enabled=$concurrent_search_enabled",
-    s"concurrent_search_limit=$concurrent_search_limit",
-    s"track_index_atimes=$track_index_atimes"
-  )
-}
-
-case class Configuration(clouseau: ClouseauConfiguration, workers: OTPNodeConfig, capacity: CapacityConfiguration) {
-  // these getters are only for compatibility with old clouseau and shouldn't be used in new code
-  def getString(key: String, default: String)   = clouseau.getString(key, default)
-  def getInt(key: String, default: Int)         = clouseau.getInt(key, default)
-  def getLong(key: String, default: Long)       = clouseau.getLong(key, default)
-  def getBoolean(key: String, default: Boolean) = clouseau.getBoolean(key, default)
-}
-
-final case class ConfigurationArgs(config: Configuration)
+final case class Configuration(
+  node: OTPNodeConfig,
+  clouseau: ClouseauConfiguration = ClouseauConfiguration(),
+  capacity: CapacityConfiguration = CapacityConfiguration()
+)
 
 sealed abstract class SyslogProtocol
 
@@ -145,12 +82,12 @@ object SyslogProtocol {
 }
 
 final case class SyslogConfiguration(
-  protocol: Option[SyslogProtocol] = None,
-  host: Option[String] = None,
-  port: Option[Int] = None,
-  facility: Option[String] = None,
-  level: Option[String] = None,
-  tag: Option[String] = None
+  protocol: SyslogProtocol = SyslogProtocol.UDP,
+  host: String = "localhost",
+  port: Int = 514,
+  facility: String = "CONSOLE",
+  level: String = "debug",
+  tag: String = ""
 )
 
 /**
@@ -176,21 +113,18 @@ final case class CapacityConfiguration(
 )
 
 object CapacityConfiguration {
-  def readExponent(value: Int): Either[Error, Exponent] = {
-    value match {
-      case v if (1 to 16).contains(v) =>
-        Right(Exponent(value))
-      case _ =>
-        Left(
-          Error.InvalidData(
-            message = s"Exponent must be greater than 0 and less than or equal to 16 (got '${value}')"
-          )
+  def readExponent(value: Int): Either[Error, Exponent] =
+    if (1 <= value && value <= 16)
+      Right(Exponent(value))
+    else
+      Left(
+        Error.InvalidData(
+          message = s"Exponent must be greater than 0 and less than or equal to 16 (got '$value')"
         )
-    }
-  }
+      )
 }
 
-final case class AppCfg(config: List[WorkerConfiguration], logger: LogConfiguration)
+final case class AppCfg(config: List[Configuration], logger: LogConfiguration)
 
 object AppCfg {
   implicit val exponentDescriptor: DeriveConfig[Exponent] = {
@@ -216,11 +150,9 @@ object AppCfg {
   def layer: ZLayer[ZIOAppArgs, Config.Error, AppCfg] = {
     ZLayer {
       for {
-        config <- ZIOAppArgs.getArgs
-          .map(_.headOption.getOrElse(DEFAULT_CFG))
-          .map(fromHoconFilePath)
-        cfg <- config
-      } yield cfg
+        args   <- ZIOAppArgs.getArgs
+        config <- fromHoconFilePath(args.headOption.getOrElse(DEFAULT_CFG))
+      } yield config
     }
   }
 }
