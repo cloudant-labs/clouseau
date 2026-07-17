@@ -21,12 +21,12 @@ import core.ActorConstructor
 import core.ActorBuilder
 
 object AnalyzerServiceBuilder extends ActorConstructor[AnalyzerService] {
-  def make(node: SNode, service_ctx: ServiceContext[ConfigurationArgs]) = {
+  def make(node: SNode, service_ctx: ServiceContext[Configuration]) = {
     def maker[PContext <: ProcessContext](process_context: PContext): AnalyzerService = {
       new AnalyzerService(service_ctx)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
-    val capacityExponent = service_ctx.args.config.capacity.analyzer_exponent
+    val capacityExponent = service_ctx.args.capacity.analyzer_exponent
 
     ActorBuilder()
       .withOptionalCapacityExponent(capacityExponent)
@@ -39,8 +39,8 @@ object AnalyzerServiceBuilder extends ActorConstructor[AnalyzerService] {
         `{ok, Pid}` or `error`
    */
   def start(node: SNode, config: Configuration)(implicit adapter: Adapter[_, _]): Any = {
-    val ctx = new ServiceContext[ConfigurationArgs] { val args = ConfigurationArgs(config) }
-    node.spawnService[AnalyzerService, ConfigurationArgs](make(node, ctx)) match {
+    val ctx = new ServiceContext[Configuration] { val args = config }
+    node.spawnService[AnalyzerService, Configuration](make(node, ctx)) match {
       case core.Success(actor)  => (Symbol("ok"), Pid.toScala(actor.self.pid))
       case core.Failure(reason) => reason
     }

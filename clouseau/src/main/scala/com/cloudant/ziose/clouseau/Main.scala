@@ -6,7 +6,7 @@ package com.cloudant.ziose.clouseau
 import com.cloudant.ziose.core.{ActorFactory, AddressableActor, EngineWorker, Node}
 import com.cloudant.ziose.otp.{OTPLayers, OTPNodeConfig}
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
-import zio.{&, LogLevel, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault, Runtime, RuntimeFlag}
+import zio.{&, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault, Runtime, RuntimeFlag}
 
 object Main extends ZIOAppDefault {
   override val bootstrap = Runtime.disableFlags(RuntimeFlag.FiberRoots)
@@ -14,28 +14,12 @@ object Main extends ZIOAppDefault {
   def getNodeIdx: Task[Int] = {
     for {
       prop <- System.property("node")
-      lastChar = prop.getOrElse("1").last
-      index    = {
-        if (('1' to '3').contains(lastChar)) {
-          lastChar - '1'
-        } else {
-          0
-        }
-      }
-    } yield index
-  }
-
-  private def startSupervisor(
-    node: ClouseauNode,
-    config: WorkerConfiguration
-  ): RIO[EngineWorker & Node & ActorFactory, AddressableActor[_, _]] = {
-    val clouseauCfg: ClouseauConfiguration = config.clouseau.get
-    val nodeCfg: OTPNodeConfig             = config.node
-    ClouseauSupervisor.start(node, Configuration(clouseauCfg, nodeCfg, capacity(config)))
+      n    <- ZIO.attempt(prop.fold(1)(Integer.parseInt))
+    } yield (n - 1).min(2).max(0)
   }
 
   private def main(
-    workerCfg: WorkerConfiguration,
+    workerCfg: Configuration,
     metricsRegistry: ScalangMeterRegistry,
     loggerCfg: LogConfiguration
   ): RIO[Scope & EngineWorker & Node & ActorFactory, Unit] = {
@@ -48,10 +32,9 @@ object Main extends ZIOAppDefault {
         workerCfg.node.pingTimeoutResolved,
         workerCfg.node.pingIntervalResolved
       )
-      worker <- ZIO.service[EngineWorker]
-      logLevel = loggerCfg.level.getOrElse(LogLevel.Debug)
-      node       <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry, logLevel))
-      supervisor <- startSupervisor(node, workerCfg)
+      worker     <- ZIO.service[EngineWorker]
+      node       <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry, loggerCfg.level))
+      supervisor <- ClouseauSupervisor.start(node, workerCfg)
       _          <- ZIO.addFinalizer(worker.shutdown *> supervisor.shutdown *> otp_node.shutdown)
       _          <- supervisor.awaitShutdown
     } yield ()
@@ -60,23 +43,19 @@ object Main extends ZIOAppDefault {
   private val workerId: Int = 1
   private val engineId: Int = 1
 
-  private def capacity(workerCfg: WorkerConfiguration) = {
-    workerCfg.capacity.getOrElse(CapacityConfiguration())
-  }
-
   def app(
     entryPoint: String,
-    workerCfg: WorkerConfiguration,
+    workerCfg: Configuration,
     metricsRegistry: ScalangMeterRegistry,
     loggerCfg: LogConfiguration
   ): Task[Unit] = {
-    val node               = workerCfg.node
-    val name               = s"${node.name}@${node.domain}"
-    val clouseauCfg        = workerCfg.clouseau.get
-    val closeIfIdleEnabled = clouseauCfg.getBoolean("clouseau.close_if_idle", false)
+    val node        = workerCfg.node
+    val name        = s"${node.name}@${node.domain}"
+    val clouseauCfg = workerCfg.clouseau
+    val closeIfIdle = clouseauCfg.close_if_idle
     for {
-      _ <- ZIO.when(closeIfIdleEnabled) {
-        val idleTimeout = clouseauCfg.getInt("clouseau.idle_check_interval_secs", 300)
+      _ <- ZIO.when(closeIfIdle) {
+        val idleTimeout = clouseauCfg.idle_check_interval_secs
         ZIO.logInfo(s"Idle timeout is enabled and will check the indexer idle status every $idleTimeout seconds")
       }
       _ <- ZIO.logInfo(s"Clouseau running as ${name} from ${entryPoint}")
