@@ -91,6 +91,8 @@ final case class SyslogConfiguration(
   tag: String = ""
 )
 
+final case class NodeIndexProperty(node: String)
+
 /**
  * A data type to hold configured capacity exponent values. Exponent must be greater than 0. If not specified
  * backpressure wouldn't be applied.
@@ -125,7 +127,16 @@ object CapacityConfiguration {
       )
 }
 
-final case class AppCfg(config: List[Configuration], logger: LogConfiguration)
+final case class AppCfg(
+  config: List[Configuration] = List(Configuration()),
+  configIndex: Int = 0,
+  logger: LogConfiguration = LogConfiguration()
+) {
+  override def toString: String = ConfigWriter[AppCfg].to(this).render(AppCfg.formatOptions)
+
+  if (configIndex < 0 || configIndex >= config.length)
+    throw new IllegalArgumentException(s"Node index ${configIndex + 1} must be a valid index: 1 to ${config.length}")
+}
 
 object AppCfg {
   import pureconfig._
@@ -150,6 +161,7 @@ object AppCfg {
   implicit val configurationReader: ConfigReader[Configuration]                 = deriveReader
   implicit val logConfigurationReader: ConfigReader[LogConfiguration]           = deriveReader
   implicit val appConfigReader: ConfigReader[AppCfg]                            = deriveReader
+  implicit val nodeIndexPropertyReader: ConfigReader[NodeIndexProperty]         = deriveReader
 
   implicit val exponentDescriptor: DeriveConfig[Exponent] =
     DeriveConfig[Int].mapOrFail(CapacityConfiguration.validateExponent)
@@ -166,22 +178,48 @@ object AppCfg {
   def fromHoconString(input: String): IO[Config.Error, AppCfg] =
     ConfigProvider.fromHoconString(input).load(config)
 
-  private val DEFAULT_CFG: String = "app.conf"
-
-  val conf: com.typesafe.config.Config = ConfigFactory.parseFile(new java.io.File(DEFAULT_CFG))
-
-  def layer: ZLayer[ZIOAppArgs, RuntimeException, AppCfg] = {
-    ZLayer {
-      for {
-        args <- ZIOAppArgs.getArgs
-        configFile = new java.io.File(args.headOption.getOrElse(DEFAULT_CFG))
-        contents <- ZIO.attempt(ConfigFactory.parseFile(configFile)).refineToOrDie[com.typesafe.config.ConfigException]
-      } yield {
-        pureconfig.ConfigSource.fromConfig(contents).load[AppCfg] match {
-          case Left(err)                => throw ConfigReaderException(err)
-          case Right(appConfig: AppCfg) => appConfig
-        }
-      }
+  private val getProperties: ZIO[Any, Throwable, Map[String, String]] = for {
+    properties <- System.properties
+  } yield {
+    val whitelist = List("node", "clouseau")
+    properties.filter { case (k, _) =>
+      k.split('.').headOption.exists(s => whitelist.contains(s))
     }
   }
+
+  private def getNodeIndex: Task[Int] = {
+    import scala.jdk.CollectionConverters._
+    for {
+      properties <- getProperties
+      parseResult = ConfigSource.fromConfig(ConfigFactory.parseMap(properties.asJava)).load[NodeIndexProperty]
+    } yield parseResult.fold(
+      _ => 0,
+      {
+        case NodeIndexProperty(nodeName) if nodeName.nonEmpty =>
+          val last = nodeName.last
+          if ('1' <= last && last <= '3')
+            last - '1'
+          else
+            0
+        case _ =>
+          0
+      }
+    )
+  }
+
+  def layer: ZLayer[ZIOAppArgs, Throwable, AppCfg] =
+    ZLayer {
+      for {
+        args      <- ZIOAppArgs.getArgs
+        appConfig <- args.headOption.fold(ZIO.succeed(AppCfg()))(s =>
+          for {
+            fileParseResult <- fromHoconFile(s)
+          } yield fileParseResult match {
+            case Right(appConfig) => appConfig
+            case Left(err)        => throw ConfigReaderException[AppCfg](err)
+          }
+        )
+        index <- getNodeIndex
+      } yield appConfig.copy(configIndex = index)
+    }
 }
