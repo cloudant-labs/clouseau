@@ -4,27 +4,12 @@ sbt 'clouseau/runMain com.cloudant.ziose.clouseau.Main'
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.core.{ActorFactory, EngineWorker, Node}
-import com.cloudant.ziose.macros.Version.getVersion
 import com.cloudant.ziose.otp.OTPLayers
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
 import zio.{&, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault, Runtime, RuntimeFlag}
 
 object Main extends ZIOAppDefault {
   override val bootstrap = Runtime.disableFlags(RuntimeFlag.FiberRoots)
-
-  def getNodeIdx: Task[Int] = {
-    for {
-      prop <- System.property("node")
-      lastChar = prop.getOrElse("1").last
-      index    = {
-        if (('1' to '3').contains(lastChar)) {
-          lastChar - '1'
-        } else {
-          0
-        }
-      }
-    } yield index
-  }
 
   private def main(
     workerCfg: Configuration,
@@ -76,8 +61,7 @@ object Main extends ZIOAppDefault {
     for {
       appCfg <- ZIO.service[AppCfg]
       _      <- ZIO.logInfo(s"Resolved configuration: $appCfg")
-      idx    <- getNodeIdx
-      workerCfg       = appCfg.config(idx)
+      workerCfg       = appCfg.config(appCfg.configIndex)
       loggerCfg       = appCfg.logger
       metricsRegistry = ClouseauMetrics.makeRegistry
       metricsLayer    = ClouseauMetrics.makeLayer(metricsRegistry)
