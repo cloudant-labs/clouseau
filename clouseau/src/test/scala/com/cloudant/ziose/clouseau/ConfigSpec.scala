@@ -6,161 +6,118 @@ package com.cloudant.ziose.clouseau
 import com.cloudant.ziose.core.Exponent
 import com.cloudant.ziose.test.helpers.TestRunner
 import org.junit.runner.RunWith
-import zio.test.Assertion.{equalTo, isSome}
-import zio.test.{assert, assertTrue}
+import pureconfig.error.ConvertFailure
+import zio.LogLevel
 import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
-import zio.{Chunk, Config, LogLevel}
+import zio.test._
 
 @RunWith(classOf[ZTestJUnitRunner])
 class ConfigSpec extends JUnitRunnableSpec {
-  def capacityFixture(key: String, value: Int = 0, withCapacity: Boolean = true): String = {
-    s"""
-       |config: [
-       |  {
-       |    node: {
-       |      name: ziose1
-       |      domain: 127.0.0.1
-       |      cookie: cookie
-       |    }
-       |    ${if (withCapacity) s"capacity: { $key: $value }" else ""}
-       |  }
-       |]
-       |""".stripMargin
-  }
-
-  def suiteForCapacity(key: String, getter: CapacityConfiguration => Option[Exponent]) = {
-    def getCapacity(appConfig: AppCfg): Option[Exponent] = {
-      getter(appConfig.config.head.capacity)
-    }
-
-    val validTests = (1 to 16).map(idx => {
-      test(s"Ensure we can get correct exponent - ${idx}")(
-        for {
-          config <- AppCfg.fromHoconString(capacityFixture(key, idx))
-        } yield assert(getCapacity(config))(
-          isSome(equalTo(Exponent(idx)))
-        ) ?? s"Expected capacity exponent to be set to ${idx}"
-      )
-    })
-
-    def testInvalidCapacity(name: String, capacity: Int) = {
-      test(s"Ensure we return 'InvalidData' error - $name")(
-        for {
-          error <- AppCfg.fromHoconString(capacityFixture(key, capacity)).flip.exit
-        } yield assertTrue(
-          error.exists(_.isInstanceOf[Config.Error.InvalidData])
-        ) ?? "Expect error of type 'Config.Error.InvalidData'"
-          && assertTrue(
-            error.exists(_.asInstanceOf[Config.Error.InvalidData].path == Chunk("config", "[0]", "capacity", key))
-          ) ?? "Expect error to be for 'config.[0].capacity.${key}' path"
-          && assertTrue(
-            error.exists(
-              _.toString.contains(s"Exponent must be greater than 0 and less than or equal to 16 (got '$capacity'")
-            )
-          ) ?? s"Expect error message to include provided value ('$capacity')"
-      )
-    }
-
-    val invalidTests = List(
-      ("negative value", -1),
-      ("zero value", 0),
-      ("big exponent value", 17)
-    ).map { case (name, capacity) =>
-      testInvalidCapacity(name, capacity)
-    }
-
-    val noCapacityTest = List(
-      test(s"No capacity specified in the config")(
-        for {
-          config <- AppCfg.fromHoconString(capacityFixture(key, withCapacity = false))
-        } yield assertTrue(
-          getCapacity(config).isEmpty
-        ) ?? s"Expected capacity should be None"
-      )
-    )
-
-    suite(s"configSuite for 'config.capacity.$key'")(
-      validTests ++ invalidTests ++ noCapacityTest
-    )
-  }
-
-  def logLevelFixture(level: String): String = {
-    s"""
-       |logger {
-       |  level: ${level}
-       |}
-       |config: [
-       |  {
-       |    node: {
-       |      name: ziose1
-       |      domain: 127.0.0.1
-       |      cookie: cookie
-       |    }
-       |  }
-       |]
-       |""".stripMargin
-  }
-
-  def suiteForLogLevel(level: LogLevel) = {
-    def levelToString(level: LogLevel) = level.label.toLowerCase() match {
-      case "warn"    => "warning"
-      case "off"     => "none"
-      case lowerCase => lowerCase
-    }
-
-    val levelLowerCase   = levelToString(level)
-    val mixedCase        = levelLowerCase.capitalize
-    val trailingSpace    = levelLowerCase + " "
-    val leadingSpace     = " " + levelLowerCase
-    val levelWithTypo    = levelLowerCase + "typo"
-    val expectedLogLevel = s"LogLevel.${levelLowerCase.capitalize}"
-
-    def testLogLevelParsing(name: String, testCase: String) = {
-      test(s"Ensure we can parse log levels - $name")(
-        for {
-          config <- AppCfg.fromHoconString(logLevelFixture(testCase))
-        } yield assertTrue(config.logger.level == level) ?? s"Expected Some(${expectedLogLevel})"
-      )
-    }
-
-    suite(s"configSuite for 'logger.level' - '${levelLowerCase}'")(
-      testLogLevelParsing("mixed case", mixedCase),
-      testLogLevelParsing("leading space", leadingSpace),
-      testLogLevelParsing("trailing space", trailingSpace),
-      test("Ensure we return 'InvalidData' error - typo")(
-        for {
-          error <- AppCfg.fromHoconString(logLevelFixture(levelWithTypo)).flip.exit
-        } yield assertTrue(
-          error.exists(_.isInstanceOf[Config.Error.InvalidData])
-        ) ?? "Expect error of type 'Config.Error.InvalidData'"
-          && assertTrue(
-            error.exists(_.asInstanceOf[Config.Error.InvalidData].path == Chunk("logger", "level"))
-          ) ?? "Expect error to be for 'logger.level' path"
-          && assertTrue(
-            error.exists(_.toString.contains(s"got '${levelWithTypo}'"))
-          ) ?? s"Expect error message to include provided value ('${levelWithTypo}')"
-          && assertTrue(
-            error.exists(_.toString.contains("ALL|FATAL|ERROR|WARNING|INFO|DEBUG|TRACE|NONE"))
-          ) ?? "Expect error message to contain hint of supported levels"
-      )
-    )
-  }
-
-  def spec = {
+  def spec: Spec[Any, Nothing] = {
     suite("ConfigSpec")(
-      suiteForCapacity("analyzer_exponent", _.analyzer_exponent),
-      suiteForCapacity("cleanup_exponent", _.cleanup_exponent),
-      suiteForCapacity("index_exponent", _.index_exponent),
-      suiteForCapacity("init_exponent", _.init_exponent),
-      suiteForCapacity("main_exponent", _.main_exponent),
-      suiteForLogLevel(LogLevel.All),
-      suiteForLogLevel(LogLevel.Fatal),
-      suiteForLogLevel(LogLevel.Error),
-      suiteForLogLevel(LogLevel.Warning),
-      suiteForLogLevel(LogLevel.Info),
-      suiteForLogLevel(LogLevel.Debug),
-      suiteForLogLevel(LogLevel.Trace),
-      suiteForLogLevel(LogLevel.None)
+      suite(s"configSuite for exponent type")(
+        test(s"Ensure we can parse lower bound")(
+          for {
+            config <- AppCfg.fromHoconFile("src/test/resources/testCapacity_LowerBound.conf")
+          } yield {
+            assertTrue(config.is(_.right).config.head.capacity.main_exponent.is(_.some) == Exponent(1))
+          }
+        ),
+        test(s"Ensure we can parse upper bound")(
+          for {
+            config <- AppCfg.fromHoconFile("src/test/resources/testCapacity_UpperBound.conf")
+          } yield {
+            assertTrue(config.is(_.right).config.head.capacity.main_exponent.is(_.some) == Exponent(16))
+          }
+        ),
+        test(s"Ensure we can parse config file when no capacity specified")(
+          for {
+            config <- AppCfg.fromHoconFile("src/test/resources/testCapacity_NoCapacity.conf")
+          } yield assertTrue(
+            config.is(_.right).config.head.capacity.main_exponent.isEmpty
+          ) ?? s"Expected capacity should be None"
+        ),
+        test(s"Ensure we return 'InvalidData' error when capacity above upper limit")(
+          for {
+            error <- AppCfg.fromHoconFile("src/test/resources/testCapacity_Invalid_TooHigh.conf")
+          } yield (assertTrue(
+            error.is(_.left).head.asInstanceOf[ConvertFailure].path == "config.0.capacity.main_exponent"
+          )
+            ?? "Expect error to be for 'config.0.capacity.main_exponent' path")
+            && assertTrue(
+              error.is(_.left).head.description.contains(s"Exponent must be between 1 and 16 inclusive")
+            )
+        ),
+        test(s"Ensure we return 'InvalidData' error when capacity below lower limit")(
+          for {
+            error <- AppCfg.fromHoconFile("src/test/resources/testCapacity_Invalid_TooLow.conf")
+          } yield assertTrue(
+            error.is(_.left).head.asInstanceOf[ConvertFailure].path == "config.0.capacity.main_exponent"
+          )
+            // error.exists(res => res.is(_.left).head.asInstanceOf[ConvertFailure].path == "config.0.capacity.main_exponent"))
+            ?? "Expect error to be for 'config.0.capacity.main_exponent' path"
+            && (assertTrue(
+              error
+                .is(_.left)
+                .head
+                .asInstanceOf[ConvertFailure]
+                .reason
+                .description
+                .contains("Exponent must be between 1 and 16 inclusive")
+            ))
+            ?? s"Expect error message to include actual value from the file"
+        )
+      ),
+      suite("configSuite for 'logger.level'")(
+        test("Ensure we can parse log level ALL - mixed case")(
+          for {
+            config <- AppCfg.fromHoconFile("src/test/resources/testLogLevel_All.conf")
+          } yield assertTrue(
+            config.is(_.right).logger.level == LogLevel.All
+          ) ?? s"Expected Some(${LogLevel.All.label})"
+        ),
+        test("Ensure we can parse log level DEBUG - upper case")(
+          for {
+            config <- AppCfg.fromHoconFile("src/test/resources/testLogLevel_Debug.conf")
+          } yield assertTrue(
+            config.is(_.right).logger.level == LogLevel.Debug
+          ) ?? s"Expected Some(${LogLevel.Debug.label})"
+        ),
+        test("Ensure we can parse log level DEBUG - upper case")(
+          for {
+            config <- AppCfg.fromHoconFile("src/test/resources/testLogLevel_Debug.conf")
+          } yield assertTrue(
+            config.is(_.right).logger.level == LogLevel.Debug
+          ) ?? s"Expected Some(${LogLevel.Debug.label})"
+        ),
+        test("Ensure we can parse log level NONE - lower case")(
+          for {
+            config <- AppCfg.fromHoconFile("src/test/resources/testLogLevel_None.conf")
+          } yield assertTrue(
+            config.is(_.right).logger.level == LogLevel.None
+          ) ?? s"Expected Some(${LogLevel.None.label})"
+        ),
+        test("Ensure we return 'InvalidData' error - typo")(
+          for {
+            error <- AppCfg.fromHoconFile("src/test/resources/testLogLevel_Invalid.conf")
+          } yield (
+            assertTrue(error.is(_.left).head.asInstanceOf[ConvertFailure].path == "logger.level")
+              ?? "Expect error to be for 'logger.level' path"
+              && (assertTrue(
+                error.is(_.left).head.asInstanceOf[ConvertFailure].description.startsWith("Cannot convert '")
+              )
+                ?? s"Expect error message to include actual value")
+              && assertTrue(
+                error
+                  .is(_.left)
+                  .head
+                  .asInstanceOf[ConvertFailure]
+                  .description
+                  .contains("ALL|FATAL|ERROR|WARNING|INFO|DEBUG|TRACE|NONE")
+              )
+          ) ?? "Expect error message to contain hint of supported levels"
+        )
+      )
     )
   }
 }

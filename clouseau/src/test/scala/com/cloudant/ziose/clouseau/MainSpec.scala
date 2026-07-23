@@ -4,47 +4,46 @@ sbt 'clouseau/testOnly com.cloudant.ziose.clouseau.MainSpec'
 package com.cloudant.ziose.clouseau
 
 import org.junit.runner.RunWith
-import zio.{Config, System}
-import zio.test.Assertion.{anything, fails, isSubtype, succeeds}
+import zio.test.TestSystem.Data
+import zio.test._
 import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
-import zio.test.TestSystem.{Data, DefaultData}
-import zio.test.{Spec, TestSystem, assert, assertTrue}
-import com.cloudant.ziose.test.helpers.TestRunner
 
 @RunWith(classOf[ZTestJUnitRunner])
 class MainSpec extends JUnitRunnableSpec {
-  val getConfigSuite: Spec[Any, Config.Error] = {
+  val getConfigSuite: Spec[Any, Throwable] = {
     suite("readConfig")(
       test("readConfig success: config file exists") {
         for {
-          nodes <- AppCfg.fromHoconFilePath("src/test/resources/testApp.conf")
+          parseResult <- AppCfg.fromHoconFile("src/test/resources/testApp.conf")
+          Right(nodes)                   = parseResult
           List(node1Config, node2Config) = nodes.config
         } yield assertTrue(
           node1Config.node.name == "ziose1",
           node1Config.node.domain == "127.0.0.1",
           !node1Config.clouseau.close_if_idle,
           node1Config.clouseau.max_indexes_open == 10,
-          node1Config.clouseau.count_locks,
+          node2Config.node.name == "ziose2",
           node2Config.node.domain == "bss1.cloudant.com",
-          node1Config.clouseau.dir_class == "TODO",
-          node1Config.clouseau.lock_class == "TODO",
-          node2Config.clouseau.dir == "TODO"
+          node2Config.clouseau.count_locks,
+          node2Config.clouseau.dir_class == "com.cloudant.ziose.store.NIOFSDirectory",
+          node2Config.clouseau.lock_class == "com.cloudant.ziose.store.NativeFSLockFactory",
+          node2Config.clouseau.dir == "ziose/src"
         )
       },
-      test("getConfig success: no cookie in the config file") {
+      test("getConfig success: config file without cookie") {
         for {
-          result <- AppCfg.fromHoconFilePath("src/test/resources/testNoCookieApp.conf").exit
-        } yield assert(result)(succeeds(isSubtype[AppCfg](anything)))
+          result <- AppCfg.fromHoconFile("src/test/resources/testNoCookieApp.conf")
+        } yield assertTrue(result.isRight)
       },
       test("getConfig failure: malformed config file") {
         for {
-          result <- AppCfg.fromHoconFilePath("src/test/resources/testMalformedApp.conf").exit
-        } yield assert(result)(fails(isSubtype[Config.Error](anything)))
+          result <- AppCfg.fromHoconFile("src/test/resources/testMalformedApp.conf")
+        } yield assertTrue(result.isLeft)
       },
       test("Can get logger config") {
         for {
-          appConfig <- AppCfg.fromHoconFilePath("src/test/resources/testApp.conf")
-        } yield assertTrue(appConfig.logger.level == zio.LogLevel.Debug)
+          appConfig <- AppCfg.fromHoconFile("src/test/resources/testApp.conf")
+        } yield assertTrue(appConfig.is(_.right).logger.level == zio.LogLevel.Debug)
       }
     )
   }
