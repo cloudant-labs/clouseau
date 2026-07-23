@@ -6,7 +6,7 @@ package com.cloudant.ziose.clouseau
 import com.cloudant.ziose.core.{ActorFactory, EngineWorker, Node}
 import com.cloudant.ziose.otp.OTPLayers
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
-import zio.{&, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault, Runtime, RuntimeFlag}
+import zio.{&, RIO, Scope, Task, ZIO, ZIOAppArgs, ZIOAppDefault, Runtime, RuntimeFlag}
 
 object Main extends ZIOAppDefault {
   override val bootstrap = Runtime.disableFlags(RuntimeFlag.FiberRoots)
@@ -57,12 +57,24 @@ object Main extends ZIOAppDefault {
     } yield ()
   }
 
+  private def patchConfig(config: Configuration): Task[Configuration] =
+    for {
+      parseResult <- AppCfg.patchClouseauConfig(config.clouseau)
+      patchResult <- parseResult.fold(
+        err =>
+          for {
+            _ <- ZIO.logDebug(s"Parse error while reading system properties: $err - ignoring system properties")
+          } yield config,
+        patchedClouseauConfig => ZIO.succeed(config.copy(clouseau = patchedClouseauConfig))
+      )
+    } yield patchResult
+
   override def run: RIO[ZIOAppArgs & Scope, Unit] = (
     for {
-      appCfg <- ZIO.service[AppCfg]
-      _      <- ZIO.logInfo(s"Resolved configuration: $appCfg")
-      workerCfg       = appCfg.config(appCfg.configIndex)
-      loggerCfg       = appCfg.logger
+      appCfg    <- ZIO.service[AppCfg]
+      workerCfg <- patchConfig(appCfg.config(appCfg.configIndex))
+      loggerCfg = appCfg.logger
+      _ <- ZIO.logInfo(s"Resolved configuration: ${appCfg.copy(config = List(workerCfg))}")
       metricsRegistry = ClouseauMetrics.makeRegistry
       metricsLayer    = ClouseauMetrics.makeLayer(metricsRegistry)
       _ <- ZIO
