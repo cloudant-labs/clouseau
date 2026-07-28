@@ -3,10 +3,14 @@ sbt 'clouseau/testOnly com.cloudant.ziose.clouseau.MainSpec'
  */
 package com.cloudant.ziose.clouseau
 
+import com.cloudant.ziose.test.helpers.TestRunner
 import org.junit.runner.RunWith
+import pureconfig.ConfigReader
+import zio.test.Assertion.{anything, isSubtype}
 import zio.test.TestSystem.Data
 import zio.test._
 import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
+import zio.{Chunk, Task, ZEnvironment, ZIO, ZIOAppArgs}
 
 @RunWith(classOf[ZTestJUnitRunner])
 class MainSpec extends JUnitRunnableSpec {
@@ -48,36 +52,101 @@ class MainSpec extends JUnitRunnableSpec {
     )
   }
 
-  val nodeIdxSuite: Spec[Any, Throwable] = {
-    suite("nodeIdx")(
-      test("default value should be 0") {
+  private val defaultClouseauConfig: ClouseauConfiguration = ClouseauConfiguration()
+
+  val expectedDir: String        = defaultClouseauConfig.dir * 2
+  val expectedCloseFlag: Boolean = !defaultClouseauConfig.close_if_idle
+  val expectedInterval: Int      = defaultClouseauConfig.idle_check_interval_secs - 1
+  val expectedTimeout: Long      = defaultClouseauConfig.search_allowed_timeout_msecs - 1
+
+  val patchClouseau: Task[ConfigReader.Result[ClouseauConfiguration]] =
+    AppCfg.patchClouseauConfig(defaultClouseauConfig)
+
+  val mergeConfigWithPropsSuite: Spec[Any, Throwable] = {
+    suite("Patch config file with system properties")(
+      test("Set a string property") {
         for {
-          prop <- System.property("node")
-          index = 0
-        } yield assertTrue(prop.isEmpty, index == 0)
-      }.provideLayer(TestSystem.live(DefaultData)),
-      test("nodeIdx should be 'node number - 1'") {
+          patchResult <- patchClouseau
+        } yield assertTrue(patchResult.is(_.right).dir == expectedDir) &&
+          assert(expectedDir)(isSubtype[String](anything))
+      },
+      test("Set a boolean property") {
         for {
-          prop <- System.property("node")
-          index = 2
-        } yield assertTrue(prop.contains("ziose3"), index == 2)
-      }.provideLayer(TestSystem.live(Data(properties = Map("node" -> "ziose3")))),
-      test("nodeIdx should be 0 when node number is not in [1 to 3]") {
+          patchResult <- patchClouseau
+        } yield assertTrue(patchResult.is(_.right).close_if_idle == expectedCloseFlag) &&
+          assert(expectedCloseFlag)(isSubtype[Boolean](anything))
+      },
+      test("Set an integer property") {
         for {
-          prop <- System.property("node")
-          index = 0
-        } yield assertTrue(prop.contains("n4"), index == 0)
-      }.provideLayer(TestSystem.live(Data(properties = Map("node" -> "n4")))),
-      test("nodeIdx should be 0 when node property don't contain number") {
+          patchResult <- patchClouseau
+        } yield assertTrue(patchResult.is(_.right).idle_check_interval_secs == expectedInterval) &&
+          assert(expectedInterval)(isSubtype[Int](anything))
+      },
+      test("Set a long property") {
         for {
-          prop <- System.property("node")
-          index = 0
-        } yield assertTrue(prop.contains("ziose"), index == 0)
-      }.provideLayer(TestSystem.live(Data(properties = Map("node" -> "ziose"))))
+          patchResult <- patchClouseau
+        } yield assertTrue(patchResult.is(_.right).search_allowed_timeout_msecs == expectedTimeout) &&
+          assert(expectedTimeout)(isSubtype[Long](anything))
+      },
+      test("Set multiple properties") {
+        for {
+          patchResult <- patchClouseau
+        } yield assertTrue(patchResult.is(_.right).dir == expectedDir) &&
+          assertTrue(patchResult.is(_.right).search_allowed_timeout_msecs == expectedTimeout)
+      }
+    ).provideLayer(
+      TestSystem.live(
+        Data(properties =
+          Map(
+            "clouseau.dir"                          -> expectedDir,
+            "clouseau.close_if_idle"                -> expectedCloseFlag.toString,
+            "clouseau.idle_check_interval_secs"     -> expectedInterval.toString,
+            "clouseau.search_allowed_timeout_msecs" -> expectedTimeout.toString
+          )
+        )
+      )
     )
   }
 
-  def spec: Spec[Any, Throwable] = suite("MainSpec")(getConfigSuite, nodeIdxSuite)
+  val boostrapSuite: Spec[Any, Throwable] =
+    suite("Clouseau bootstrap tests")(
+      test("Clouseau can start without arguments") {
+        assert(())(anything)
+      }.provideLayer(AppCfg.layer)
+        .provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk()))),
+      test("Clouseau can start when config file is set as argument") {
+        assert(())(anything)
+      }.provideLayer(AppCfg.layer)
+        .provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf")))),
+      test("Clouseau picks up node index from system properties") {
+        for {
+          config <- ZIO.service[AppCfg]
+        } yield assertTrue(config.configIndex == 1)
+      }.provideLayer(AppCfg.layer)
+        .provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf"))))
+        .provideLayer(TestSystem.live(Data(properties = Map("node" -> "2")))),
+      test("Node index defaults to 0 if not set in system properties") {
+        for {
+          config <- ZIO.service[AppCfg]
+        } yield assertTrue(config.configIndex == 0)
+      }.provideLayer(AppCfg.layer)
+        .provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf")))),
+      test("Clouseau can handle conflicting property keys") {
+        assert(())(anything)
+      }.provideLayer(AppCfg.layer)
+        .provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf"))))
+        .provideLayer(
+          TestSystem.live(Data(properties = Map("java.version.date" -> "2026.08.03", "java.version" -> "21.0.2")))
+        ),
+      test("Clouseau can handle nonexistent property key") {
+        assert(())(anything)
+      }.provideLayer(AppCfg.layer)
+        .provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf"))))
+        .provideLayer(TestSystem.live(Data(properties = Map("clouseau.magic" -> "0x1234"))))
+    )
+
+  def spec: Spec[Any, Throwable] =
+    suite("MainSpec")(getConfigSuite, mergeConfigWithPropsSuite, boostrapSuite)
 }
 
 /**
@@ -88,7 +157,6 @@ class MainSpec extends JUnitRunnableSpec {
  */
 object MainSpecMain {
   def main(args: Array[String]): Unit = {
-    // We cannot test getConfigSuite because it rely on resource files which we don't have when we run from jar
-    TestRunner.runSpec("MainSpec", zio.test.suite("MainSpec")(new MainSpec().nodeIdxSuite))
+    TestRunner.runSpec("MainSpec", zio.test.suite("MainSpec")(new MainSpec().spec))
   }
 }
