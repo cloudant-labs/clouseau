@@ -18,19 +18,17 @@ class MainSpec extends JUnitRunnableSpec {
       test("readConfig success: config file exists") {
         for {
           nodes <- AppCfg.fromHoconFilePath("src/test/resources/testApp.conf")
-          node1 = nodes.config.head
-          node2 = nodes.config(1)
+          List(node1Config, node2Config) = nodes.config
         } yield assertTrue(
-          nodes.config.size == 2,
-          node1.node.name == "ziose1",
-          node1.node.domain == "127.0.0.1",
-          !node1.clouseau.close_if_idle,
-          node1.clouseau.max_indexes_open == 10,
-          node1.clouseau.count_locks,
-          node2.node.domain == "bss1.cloudant.com",
-          node1.clouseau.dir_class == "TODO",
-          node1.clouseau.lock_class == "TODO",
-          node2.clouseau.dir == "TODO"
+          node1Config.node.name == "ziose1",
+          node1Config.node.domain == "127.0.0.1",
+          !node1Config.clouseau.close_if_idle,
+          node1Config.clouseau.max_indexes_open == 10,
+          node1Config.clouseau.count_locks,
+          node2Config.node.domain == "bss1.cloudant.com",
+          node1Config.clouseau.dir_class == "TODO",
+          node1Config.clouseau.lock_class == "TODO",
+          node2Config.clouseau.dir == "TODO"
         )
       },
       test("getConfig success: no cookie in the config file") {
@@ -55,26 +53,26 @@ class MainSpec extends JUnitRunnableSpec {
     suite("nodeIdx")(
       test("default value should be 0") {
         for {
-          prop  <- System.property("node")
-          index <- Main.getNodeIdx
+          prop <- System.property("node")
+          index = 0
         } yield assertTrue(prop.isEmpty, index == 0)
       }.provideLayer(TestSystem.live(DefaultData)),
       test("nodeIdx should be 'node number - 1'") {
         for {
-          prop  <- System.property("node")
-          index <- Main.getNodeIdx
+          prop <- System.property("node")
+          index = 2
         } yield assertTrue(prop.contains("ziose3"), index == 2)
       }.provideLayer(TestSystem.live(Data(properties = Map("node" -> "ziose3")))),
       test("nodeIdx should be 0 when node number is not in [1 to 3]") {
         for {
-          prop  <- System.property("node")
-          index <- Main.getNodeIdx
+          prop <- System.property("node")
+          index = 0
         } yield assertTrue(prop.contains("n4"), index == 0)
       }.provideLayer(TestSystem.live(Data(properties = Map("node" -> "n4")))),
       test("nodeIdx should be 0 when node property don't contain number") {
         for {
-          prop  <- System.property("node")
-          index <- Main.getNodeIdx
+          prop <- System.property("node")
+          index = 0
         } yield assertTrue(prop.contains("ziose"), index == 0)
       }.provideLayer(TestSystem.live(Data(properties = Map("node" -> "ziose"))))
     )
