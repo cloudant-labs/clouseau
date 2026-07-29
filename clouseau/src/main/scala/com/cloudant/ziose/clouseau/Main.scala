@@ -3,8 +3,9 @@ sbt 'clouseau/runMain com.cloudant.ziose.clouseau.Main'
  */
 package com.cloudant.ziose.clouseau
 
-import com.cloudant.ziose.core.{ActorFactory, AddressableActor, EngineWorker, Node}
-import com.cloudant.ziose.otp.{OTPLayers, OTPNodeConfig}
+import com.cloudant.ziose.core.{ActorFactory, EngineWorker, Node}
+import com.cloudant.ziose.macros.Version.getVersion
+import com.cloudant.ziose.otp.OTPLayers
 import com.cloudant.ziose.scalang.ScalangMeterRegistry
 import zio.{&, RIO, Scope, System, Task, ZIO, ZIOAppArgs, ZIOAppDefault, Runtime, RuntimeFlag}
 
@@ -14,8 +15,15 @@ object Main extends ZIOAppDefault {
   def getNodeIdx: Task[Int] = {
     for {
       prop <- System.property("node")
-      n    <- ZIO.attempt(prop.fold(1)(Integer.parseInt))
-    } yield (n - 1).min(2).max(0)
+      lastChar = prop.getOrElse("1").last
+      index    = {
+        if (('1' to '3').contains(lastChar)) {
+          lastChar - '1'
+        } else {
+          0
+        }
+      }
+    } yield index
   }
 
   private def main(
@@ -45,13 +53,13 @@ object Main extends ZIOAppDefault {
 
   def app(
     entryPoint: String,
-    workerCfg: Configuration,
+    nodeConfig: Configuration,
     metricsRegistry: ScalangMeterRegistry,
     loggerCfg: LogConfiguration
   ): Task[Unit] = {
-    val node        = workerCfg.node
-    val name        = s"${node.name}@${node.domain}"
-    val clouseauCfg = workerCfg.clouseau
+    val otpConfig   = nodeConfig.node
+    val name        = s"${otpConfig.name}@${otpConfig.domain}"
+    val clouseauCfg = nodeConfig.clouseau
     val closeIfIdle = clouseauCfg.close_if_idle
     for {
       _ <- ZIO.when(closeIfIdle) {
@@ -60,16 +68,17 @@ object Main extends ZIOAppDefault {
       }
       _ <- ZIO.logInfo(s"Clouseau running as ${name} from ${entryPoint}")
       _ <- ZIO
-        .scoped(main(workerCfg, metricsRegistry, loggerCfg))
-        .provide(OTPLayers.nodeLayers(engineId, workerId, node))
+        .scoped(main(nodeConfig, metricsRegistry, loggerCfg))
+        .provide(OTPLayers.nodeLayers(engineId, workerId, otpConfig))
     } yield ()
   }
 
   override def run: RIO[ZIOAppArgs & Scope, Unit] = (
     for {
-      appCfg  <- ZIO.service[AppCfg]
-      nodeIdx <- getNodeIdx
-      workerCfg       = appCfg.config(nodeIdx)
+      appCfg <- ZIO.service[AppCfg]
+      _      <- ZIO.logInfo(s"Resolved configuration: $appCfg")
+      idx    <- getNodeIdx
+      workerCfg       = appCfg.config(idx)
       loggerCfg       = appCfg.logger
       metricsRegistry = ClouseauMetrics.makeRegistry
       metricsLayer    = ClouseauMetrics.makeLayer(metricsRegistry)

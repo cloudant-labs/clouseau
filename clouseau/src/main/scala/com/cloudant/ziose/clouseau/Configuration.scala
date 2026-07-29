@@ -1,12 +1,13 @@
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.core.Exponent
-import com.cloudant.ziose.macros.CheckEnv
 import com.cloudant.ziose.otp.OTPNodeConfig
+import com.typesafe.config.ConfigFactory
+import pureconfig.error.ConfigReaderException
 import zio.Config.Error
 import zio.config.magnolia.{DeriveConfig, deriveConfig}
 import zio.config.typesafe.FromConfigSourceTypesafe
-import zio.{Config, ConfigProvider, IO, LogLevel, ZIOAppArgs, ZLayer}
+import zio.{Config, ConfigProvider, IO, LogLevel, ZIO, ZIOAppArgs, ZLayer}
 
 sealed abstract class LogOutput
 sealed abstract class LogFormat
@@ -69,7 +70,7 @@ final case class ClouseauConfiguration(
 )
 
 final case class Configuration(
-  node: OTPNodeConfig,
+  node: OTPNodeConfig = OTPNodeConfig(),
   clouseau: ClouseauConfiguration = ClouseauConfiguration(),
   capacity: CapacityConfiguration = CapacityConfiguration()
 )
@@ -113,13 +114,13 @@ final case class CapacityConfiguration(
 )
 
 object CapacityConfiguration {
-  def readExponent(value: Int): Either[Error, Exponent] =
+  def validateExponent(value: Int): Either[Error, Exponent] =
     if (1 <= value && value <= 16)
       Right(Exponent(value))
     else
       Left(
         Error.InvalidData(
-          message = s"Exponent must be greater than 0 and less than or equal to 16 (got '$value')"
+          message = s"Exponent must be between 1 and 16 inclusive, got '$value'"
         )
       )
 }
@@ -127,32 +128,60 @@ object CapacityConfiguration {
 final case class AppCfg(config: List[Configuration], logger: LogConfiguration)
 
 object AppCfg {
-  implicit val exponentDescriptor: DeriveConfig[Exponent] = {
-    DeriveConfig[Int].mapOrFail(CapacityConfiguration.readExponent)
-  }
+  import pureconfig._
+  import pureconfig.generic.semiauto._
 
-  implicit val logLevelDescriptor: DeriveConfig[LogLevel] = {
+  implicit val clouseauConfigurationReader: ConfigReader[ClouseauConfiguration] = deriveReader
+  implicit val otpNodeConfigReader: ConfigReader[OTPNodeConfig]                 = deriveReader
+  implicit val exponentReader: ConfigReader[Exponent]                           = deriveReader
+  implicit val capacityConfigurationReader: ConfigReader[CapacityConfiguration] = deriveReader
+  implicit val stdoutOutputReader: ConfigReader[LogOutput.Stdout.type]          = deriveReader
+  implicit val syslogOutputReader: ConfigReader[LogOutput.Syslog.type]          = deriveReader
+  implicit val logOutputReader: ConfigReader[LogOutput]                         = deriveReader
+  implicit val rawLogFormat: ConfigReader[LogFormat.Raw.type]                   = deriveReader
+  implicit val textLogFormat: ConfigReader[LogFormat.Text.type]                 = deriveReader
+  implicit val jsonLogFormat: ConfigReader[LogFormat.JSON.type]                 = deriveReader
+  implicit val formatReader: ConfigReader[LogFormat]                            = deriveReader
+  implicit val levelReader: ConfigReader[LogLevel]                              = deriveReader
+  implicit val tcpProtocolReader: ConfigReader[SyslogProtocol.TCP.type]         = deriveReader
+  implicit val udpProtocolReader: ConfigReader[SyslogProtocol.UDP.type]         = deriveReader
+  implicit val syslogProtocolReader: ConfigReader[SyslogProtocol]               = deriveReader
+  implicit val syslogReader: ConfigReader[SyslogConfiguration]                  = deriveReader
+  implicit val configurationReader: ConfigReader[Configuration]                 = deriveReader
+  implicit val logConfigurationReader: ConfigReader[LogConfiguration]           = deriveReader
+  implicit val appConfigReader: ConfigReader[AppCfg]                            = deriveReader
+
+  implicit val exponentDescriptor: DeriveConfig[Exponent] =
+    DeriveConfig[Int].mapOrFail(CapacityConfiguration.validateExponent)
+
+  implicit val logLevelDescriptor: DeriveConfig[LogLevel] =
     DeriveConfig[String].mapOrFail(LogConfiguration.readLogLevel)
-  }
 
-  val config: Config[AppCfg] = deriveConfig[AppCfg]
+  val config: Config[AppCfg]                        = deriveConfig[AppCfg]
+  val clouseauConfig: Config[ClouseauConfiguration] = deriveConfig[ClouseauConfiguration]
 
-  def fromHoconFilePath(pathToCfgFile: String): IO[Config.Error, AppCfg] = {
+  def fromHoconFilePath(pathToCfgFile: String): IO[Config.Error, AppCfg] =
     ConfigProvider.fromHoconFilePath(pathToCfgFile).load(config)
-  }
 
-  def fromHoconString(input: String): IO[Config.Error, AppCfg] = {
+  def fromHoconString(input: String): IO[Config.Error, AppCfg] =
     ConfigProvider.fromHoconString(input).load(config)
-  }
 
   private val DEFAULT_CFG: String = "app.conf"
 
-  def layer: ZLayer[ZIOAppArgs, Config.Error, AppCfg] = {
+  val conf: com.typesafe.config.Config = ConfigFactory.parseFile(new java.io.File(DEFAULT_CFG))
+
+  def layer: ZLayer[ZIOAppArgs, RuntimeException, AppCfg] = {
     ZLayer {
       for {
-        args   <- ZIOAppArgs.getArgs
-        config <- fromHoconFilePath(args.headOption.getOrElse(DEFAULT_CFG))
-      } yield config
+        args <- ZIOAppArgs.getArgs
+        configFile = new java.io.File(args.headOption.getOrElse(DEFAULT_CFG))
+        contents <- ZIO.attempt(ConfigFactory.parseFile(configFile)).refineToOrDie[com.typesafe.config.ConfigException]
+      } yield {
+        pureconfig.ConfigSource.fromConfig(contents).load[AppCfg] match {
+          case Left(err)                => throw ConfigReaderException(err)
+          case Right(appConfig: AppCfg) => appConfig
+        }
+      }
     }
   }
 }
