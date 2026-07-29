@@ -5,11 +5,11 @@ import zio.{Config, Duration, durationInt}
 import zio.config.magnolia.deriveConfig
 
 final case class OTPNodeConfig(
-  name: String,
-  domain: String,
-  cookie: Option[String],
-  ping_timeout: Option[Duration],
-  ping_interval: Option[Duration]
+  name: String = "clouseau1",
+  domain: String = "127.0.0.1",
+  cookie: Option[String] = None,
+  ping_timeout: Option[Duration] = None,
+  ping_interval: Option[Duration] = None
 ) {
   val DEFAULT_PING_TIMEOUT: Duration  = 1.seconds
   val DEFAULT_PING_INTERVAL: Duration = 60.seconds
