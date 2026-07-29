@@ -22,7 +22,7 @@ class ConfigSpec extends JUnitRunnableSpec {
        |      domain: 127.0.0.1
        |      cookie: cookie
        |    }
-       |    ${if (withCapacity) s"capacity: { $key: $value }".stripMargin else ""}
+       |    ${if (withCapacity) s"capacity: { $key: $value }" else ""}
        |  }
        |]
        |""".stripMargin
@@ -148,11 +148,11 @@ class ConfigSpec extends JUnitRunnableSpec {
 
   def spec = {
     suite("ConfigSpec")(
-      suiteForCapacity("analyzer_exponent", capacity => capacity.analyzer_exponent),
-      suiteForCapacity("cleanup_exponent", capacity => capacity.cleanup_exponent),
-      suiteForCapacity("index_exponent", capacity => capacity.index_exponent),
-      suiteForCapacity("init_exponent", capacity => capacity.init_exponent),
-      suiteForCapacity("main_exponent", capacity => capacity.main_exponent),
+      suiteForCapacity("analyzer_exponent", _.analyzer_exponent),
+      suiteForCapacity("cleanup_exponent", _.cleanup_exponent),
+      suiteForCapacity("index_exponent", _.index_exponent),
+      suiteForCapacity("init_exponent", _.init_exponent),
+      suiteForCapacity("main_exponent", _.main_exponent),
       suiteForLogLevel(LogLevel.All),
       suiteForLogLevel(LogLevel.Fatal),
       suiteForLogLevel(LogLevel.Error),
