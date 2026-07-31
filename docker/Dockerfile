@@ -16,12 +16,12 @@ ARG BUILD_MODE=release
 
 
 # Stage 1: Local build
-FROM eclipse-temurin:21-jre-ubi10-minimal AS local-builder
+FROM eclipse-temurin:21-jre-ubi10-minimal@sha256:9e16b6348a589d9a79d81643a7959a20e7c540e3f4443e9e6dd084959c8185e6 AS local-builder
 COPY artifacts/*.jar /usr/src/
 
 
 # Stage 2: Release build
-FROM eclipse-temurin:21-jre-ubi10-minimal AS release-builder
+FROM eclipse-temurin:21-jre-ubi10-minimal@sha256:9e16b6348a589d9a79d81643a7959a20e7c540e3f4443e9e6dd084959c8185e6 AS release-builder
 
 ARG CLOUSEAU_VERSION
 ARG CLOUSEAU_REPO
