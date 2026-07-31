@@ -1,0 +1,36 @@
+name: 'Docker Publish'
+description: 'Build and push Clouseau Docker image to ghcr.io'
+inputs:
+  version:
+    description: 'Clouseau version to build'
+    required: true
+  registry-token:
+    description: 'GitHub token for registry authentication'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ inputs.registry-token }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
+      with:
+        context: .
+        file: docker/Dockerfile
+        push: true
+        no-cache: true
+        build-args: |
+          BUILD_MODE=release
+          CLOUSEAU_VERSION=${{ inputs.version }}
+        tags: |
+          ghcr.io/cloudant-labs/clouseau:${{ inputs.version }}
+          ghcr.io/cloudant-labs/clouseau:latest
+        platforms: linux/amd64,linux/arm64
