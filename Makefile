@@ -403,11 +403,18 @@ define collect_and_compare
 	$(2)
 	echo "Comparing $(1) metrics with expectations:"
 	DIFF=$$(diff -u $(1)/metrics.out $(1)/metrics.expected); \
+	ERR=$$?; \
+	if [[ $$ERR -gt 1 ]]; then \
+		echo -e '\tFAILED: Diff failed to run!'; \
+		cli stop $@; \
+		exit 1; \
+	fi; \
 	if [[ -z $$DIFF ]]; then \
 		echo -e "\tEverything is in order"; \
 	else \
 		echo -e '\tFAILED: Metrics is different from "$(1)/metrics.expected"!'; \
 		echo "$$DIFF"; \
+		cli stop $@; \
 		exit 1; \
 	fi
 endef
@@ -418,7 +425,6 @@ test/collectd/clouseau.class: test/collectd/clouseau.java
 .PHONY: metrics-tests
 # target: metrics-tests - Run JMX metrics collection tests
 metrics-tests: $(JAR_ARTIFACTS) $(JMX_EXPORTER) test/collectd/clouseau.class epmd
-	@cli stop $@ > /dev/null 2>&1 || true
 	@chmod 600 jmxremote.password
 	@cli start $@ \
 		java \
@@ -432,14 +438,15 @@ metrics-tests: $(JAR_ARTIFACTS) $(JMX_EXPORTER) test/collectd/clouseau.class epm
 	@echo "Warming up Clouseau to expose all the metrics"
 	@$(TIMEOUT) $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
 	@$(call collect_and_compare,\
-			collectd,\
+			test/collectd,\
 			java -cp test/collectd clouseau "service:jmx:rmi:///jndi/rmi://localhost:9090/jmxrmi" monitorRole password | \
 			sort > test/collectd/metrics.out)
 	@$(call collect_and_compare,\
-			prometheus,\
+			test/prometheus,\
 			curl -Ss "http://localhost:$(JMX_EXPORTER_PORT)/custom_path" | \
 				sed -n 's/^\(_com_cloudant_clouseau.*\)[[:space:]].*/\1/p' | \
 				sort > test/prometheus/metrics.out)
+	@cli stop $@ || true
 
 sup-test: couchdb
 	@$(COUCHDB_DIR)/dev/run \
