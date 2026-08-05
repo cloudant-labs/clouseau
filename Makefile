@@ -177,7 +177,7 @@ jar: $(ARTIFACTS_DIR)/$(JAR_PROD)
 jartest: $(ARTIFACTS_DIR)/$(JAR_TEST)
 
 $(JMX_EXPORTER):
-	@curl -LSso $(JMX_EXPORTER) $(JMX_EXPORTER_URL)
+	@curl -fLSso $(JMX_EXPORTER) $(JMX_EXPORTER_URL)
 
 .PHONY: jmx-prometheus
 # target: jmx-prometheus - Export metrics to Prometheus
