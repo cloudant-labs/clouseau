@@ -251,7 +251,7 @@ help:
 clouseau-ctrl-smoke: bin/clouseau_ctrl epmd
 	@-cli stop clouseau1 >/dev/null 2>&1
 	@cli start clouseau1 sbt run -Dnode=clouseau1 $(_JAVA_COOKIE)
-	@cli await clouseau1 "$(ERLANG_COOKIE)"
+	@cli await clouseau1 "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@./clouseau-ctrl/_build/default/bin/clouseau_ctrl -config "$(BUILD_DIR)/clouseau-ctrl-config.erl" service list \
 		| tee tmp/clouseau-ctrl-smoke.out \
 		| grep -q analyzer \
@@ -277,7 +277,7 @@ FORCE: # https://www.gnu.org/software/make/manual/html_node/Force-Targets.html
 zeunit: $(ARTIFACTS_DIR)/$(JAR_TEST) epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@sleep 5
-	@cli await $(node_name) "$(ERLANG_COOKIE)"
+	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
 	@$(call to_artifacts,zeunit,test-reports)
 	@cli stop $@
@@ -285,7 +285,7 @@ zeunit: $(ARTIFACTS_DIR)/$(JAR_TEST) epmd FORCE
 concurrent-zeunit-tests: $(ARTIFACTS_DIR)/$(JAR_TEST) epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $< test/conf/concurrent.app.conf"
 	@sleep 5
-	@cli await $(node_name) "$(ERLANG_COOKIE)"
+	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
 	@cli stop $@
 
@@ -304,7 +304,7 @@ syslog-test: $(JAR_ARTIFACTS) epmd FORCE
 		-e "s/%%LEVEL%%/$(LEVEL)/" \
 		test/conf/syslog.app.conf.templ > test/conf/syslog.app.conf
 	@cli start $@ "java -jar $< test/conf/syslog.app.conf"
-	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) test-failed ID=$@
+	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@echo ">>> Waiting for Clouseau to generate logs (5 seconds)"
 	@sleep 5
 	@cli stop $@
@@ -379,6 +379,12 @@ elixir-search: couchdb
 	@#                                       v-this is a hack
 	@$(MAKE) -C $(COUCHDB_DIR) elixir-search _WITH_CLOUSEAU=-q ERLANG_COOKIE=$(ERLANG_COOKIE)
 
+.PHONY: await-failed
+await-failed:
+	@echo ">>>> FAILED: Startup failed. Below are the process logs:"
+	@cat $(shell cli logs $(ID))
+	@exit 1
+
 .PHONY: test-failed
 test-failed:
 	@echo "The thread dump before attempt to force the shutdown"
@@ -393,7 +399,7 @@ test-failed:
 # target: couchdb-tests - Run test suites from upstream CouchDB that use Clouseau
 couchdb-tests: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
-	@cli await $(node_name) "$(ERLANG_COOKIE)"
+	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@$(TIMEOUT) $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
 	@$(TIMEOUT) $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
 	@cli stop $@
@@ -435,7 +441,7 @@ metrics-tests: $(JAR_ARTIFACTS) $(JMX_EXPORTER) test/collectd/clouseau.class epm
 			$(_JAVA_COOKIE) \
 			-jar $(JAR_ARTIFACTS) test/conf/metrics.app.conf
 	@sleep 5
-	@cli await $(node_name) "$(ERLANG_COOKIE)"
+	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@echo "Warming up Clouseau to expose all the metrics"
 	@$(TIMEOUT) $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
 	@$(call collect_and_compare,\
@@ -462,7 +468,7 @@ echo \"Ref = make_ref(), {sup, 'clouseau1@127.0.0.1'} ! {ping, self(), Ref}, rec
 # target: compatibility-tests - Run Clouseau 2.x compatibility tests
 compatibility-tests: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
-	@cli await $(node_name) "$(ERLANG_COOKIE)"
+	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@$(MAKE) sup-test || $(MAKE) test-failed ID=$@
 	@cli stop $@
 
@@ -566,14 +572,14 @@ ci-mango: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli stop $@ || true
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $< test/conf/ci.app.conf"
 	@sleep 5
-	@cli await $(node_name) "$(ERLANG_COOKIE)"
+	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@$(TIMEOUT) $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
 	@cli stop $@
 
 ci-elixir: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli stop $@ || true
 	@cli start $@ "java $(_JAVA_COOKIE) -jar $< test/conf/ci.app.conf"
-	@cli await $(node_name) "$(ERLANG_COOKIE)"
+	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@$(TIMEOUT) $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
 	@cli stop $@
 
