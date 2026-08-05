@@ -432,7 +432,8 @@ metrics-tests: $(JAR_ARTIFACTS) $(JMX_EXPORTER) test/collectd/clouseau.class epm
 			-Dcom.sun.management.jmxremote.ssl=false \
 			-Dcom.sun.management.jmxremote.password.file=jmxremote.password \
 			-javaagent:$(JMX_EXPORTER)=$(JMX_EXPORTER_PORT):$(JMX_EXPORTER_CFG) \
-			-jar $(JAR_ARTIFACTS) test/conf/metrics.app.conf > /dev/null
+			$(_JAVA_COOKIE) \
+			-jar $(JAR_ARTIFACTS) test/conf/metrics.app.conf
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)"
 	@echo "Warming up Clouseau to expose all the metrics"
