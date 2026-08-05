@@ -55,3 +55,9 @@ jobs:
           timeout_minutes: 8
           max_attempts: 3
           command: mise exec -- make metrics-tests
+      - name: Clouseau Control tests
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 3
+          max_attempts: 3
+          command: mise exec -- make clouseau-ctrl-smoke
