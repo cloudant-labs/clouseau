@@ -1,6 +1,8 @@
 # Use bash to enable `read -d ''` option
 SHELL := /bin/bash
 
+export LC_ALL := C
+
 BUILD_DIR=$(shell pwd)
 ARTIFACTS_DIR=$(BUILD_DIR)/artifacts
 CI_ARTIFACTS_DIR=$(BUILD_DIR)/ci-artifacts
