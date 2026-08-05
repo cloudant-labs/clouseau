@@ -248,21 +248,21 @@ help:
 
 .PHONY: clouseau-ctrl-smoke
 # target: clouseau-ctrl-smoke - Start clouseau1 and verify `clouseau_ctrl service list`
-clouseau-ctrl-smoke: bin/clouseau_ctrl epmd
-	@-cli stop clouseau1 >/dev/null 2>&1
-	@cli start clouseau1 sbt run -Dnode=clouseau1 $(_JAVA_COOKIE)
+clouseau-ctrl-smoke: $(JAR_ARTIFACTS) bin/clouseau_ctrl epmd FORCE
+	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
 	@cli await clouseau1 "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@./clouseau-ctrl/_build/default/bin/clouseau_ctrl -config "$(BUILD_DIR)/clouseau-ctrl-config.erl" service list \
 		| tee tmp/clouseau-ctrl-smoke.out \
 		| grep -q analyzer \
-		|| ( echo '>>>>> clouseau_ctrl smoke test failed' ; exit 1 )
-	@-cli stop clouseau1 >/dev/null 2>&1
+		|| ( echo '>>>>> clouseau_ctrl smoke test FAILED' ; $(MAKE) test-failed ID=$@ )
+	@echo '>>>>> clouseau_ctrl smoke test PASSED'
+	@cli stop $@ || true
 
 ############### Tests ###############
 .PHONY: all-tests
 # target: all-tests - Run all test suites
 all-tests: test zeunit concurrent-zeunit-tests restart-test syslog-tests
-all-tests: couchdb-tests metrics-tests compatibility-tests
+all-tests: couchdb-tests metrics-tests compatibility-tests clouseau-ctrl-smoke
 
 .PHONY: test
 # target: test - Run all Scala tests
