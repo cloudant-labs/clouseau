@@ -3,7 +3,7 @@
   "remediateSettings": {
     "branchNameStrict": true,
     "branchPrefix": "renovate-",
-    "enabledManagers": ["sbt"],
+    "enabledManagers": ["sbt", "github-actions"],
     "enableRenovate": true,
     "extends": ["config:base", "mergeConfidence:all-badges"]
   }
