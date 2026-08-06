@@ -10,7 +10,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import zio._
 
-class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
+class EchoService(ctx: ServiceContext[Configuration])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   val isProduction = true
 
   val logger = LoggerFactory.getLogger("clouseau.EchoService")
@@ -63,7 +63,7 @@ private object EchoService extends ActorConstructor[EchoService] {
 
   private def make(
     node: SNode,
-    service_context: ServiceContext[ConfigurationArgs],
+    service_context: ServiceContext[Configuration],
     name: String
   ): ActorBuilder.Builder[EchoService, State.Spawnable] = {
     def maker[PContext <: ProcessContext](process_context: PContext): EchoService = {
@@ -79,12 +79,12 @@ private object EchoService extends ActorConstructor[EchoService] {
   }
 
   def start(node: SNode, name: String, config: Configuration)(implicit adapter: Adapter[_, _]): Any = {
-    val ctx: ServiceContext[ConfigurationArgs] = {
-      new ServiceContext[ConfigurationArgs] {
-        val args: ConfigurationArgs = ConfigurationArgs(config)
+    val ctx: ServiceContext[Configuration] = {
+      new ServiceContext[Configuration] {
+        val args: Configuration = config
       }
     }
-    node.spawnService[EchoService, ConfigurationArgs](make(node, ctx, name)) match {
+    node.spawnService[EchoService, Configuration](make(node, ctx, name)) match {
       case core.Success(actor) =>
         logger.debug(s"Started $name")
         (Symbol("ok"), Pid.toScala(actor.self.pid))
@@ -97,12 +97,12 @@ private object EchoService extends ActorConstructor[EchoService] {
     name: String,
     config: Configuration
   ): ZIO[core.EngineWorker & core.Node & core.ActorFactory, core.Node.Error, core.AddressableActor[_, _]] = {
-    val ctx: ServiceContext[ConfigurationArgs] = {
-      new ServiceContext[ConfigurationArgs] {
-        val args: ConfigurationArgs = ConfigurationArgs(config)
+    val ctx: ServiceContext[Configuration] = {
+      new ServiceContext[Configuration] {
+        val args: Configuration = config
       }
     }
-    node.spawnServiceZIO[EchoService, ConfigurationArgs](make(node, ctx, name))
+    node.spawnServiceZIO[EchoService, Configuration](make(node, ctx, name))
   }
 
 }

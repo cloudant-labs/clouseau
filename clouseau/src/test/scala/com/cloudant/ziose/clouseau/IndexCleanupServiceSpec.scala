@@ -42,8 +42,8 @@ class IndexCleanupServiceSpec extends JUnitRunnableSpec {
       node   <- Utils.clouseauNode
       worker <- ZIO.service[EngineWorker]
       cfg    <- Utils.defaultConfig
-      val ctx = new ServiceContext[ConfigurationArgs] { val args = ConfigurationArgs(cfg) }
-      cleanup <- node.spawnServiceZIO[IndexCleanupService, ConfigurationArgs](
+      val ctx = new ServiceContext[Configuration] { val args: Configuration = cfg }
+      cleanup <- node.spawnServiceZIO[IndexCleanupService, Configuration](
         IndexCleanupServiceBuilder.make(node, ctx)
       )
       _ <- cleanup.doTestCast(adapter.fromScala(msg))

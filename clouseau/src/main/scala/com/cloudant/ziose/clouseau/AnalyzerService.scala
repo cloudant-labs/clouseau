@@ -19,7 +19,7 @@ import org.apache.lucene.analysis.Analyzer
 import _root_.com.cloudant.ziose.scalang
 import scalang._
 
-class AnalyzerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
+class AnalyzerService(ctx: ServiceContext[Configuration])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
 
   val logger = LoggerFactory.getLogger("clouseau.analyzer")
 
