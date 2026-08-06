@@ -1,3 +1,10 @@
 {
-  "settingsInheritedFrom": "ibm-mend-config/mend-config@main"
+  "settingsInheritedFrom": "ibm-mend-config/mend-config@main",
+  "remediateSettings": {
+    "branchNameStrict": true,
+    "branchPrefix": "renovate-",
+    "enabledManagers": ["sbt"],
+    "enableRenovate": true,
+    "extends": ["config:base", "mergeConfidence:all-badges"]
+  }
 }
