@@ -24,7 +24,25 @@ clouseau_rpc_without_docs_test_() ->
 
             ?TDEF_FEX(gen_server, t_info),
             ?TDEF_FEX(gen_server, t_search),
-            ?TDEF_FEX(gen_server, t_group1)
+            ?TDEF_FEX(gen_server, t_group1),
+
+            ?TDEF_FEX({forwarded, ioq}, t_get_update_seq),
+            ?TDEF_FEX({forwarded, ioq}, t_set_get_purge_seq),
+            ?TDEF_FEX({forwarded, ioq}, t_delete),
+            ?TDEF_FEX({forwarded, ioq}, t_commit),
+
+            ?TDEF_FEX({forwarded, ioq}, t_info),
+            ?TDEF_FEX({forwarded, ioq}, t_search),
+            ?TDEF_FEX({forwarded, ioq}, t_group1),
+
+            ?TDEF_FEX({forwarded, gen_server}, t_get_update_seq),
+            ?TDEF_FEX({forwarded, gen_server}, t_set_get_purge_seq),
+            ?TDEF_FEX({forwarded, gen_server}, t_delete),
+            ?TDEF_FEX({forwarded, gen_server}, t_commit),
+
+            ?TDEF_FEX({forwarded, gen_server}, t_info),
+            ?TDEF_FEX({forwarded, gen_server}, t_search),
+            ?TDEF_FEX({forwarded, gen_server}, t_group1)
         ]}}.
 
 clouseau_rpc_simple_test_() ->
@@ -40,7 +58,19 @@ clouseau_rpc_simple_test_() ->
             ?TDEF_FEX(gen_server, t_get_root_dir),
             ?TDEF_FEX(gen_server, t_open_index),
             ?TDEF_FEX(gen_server, t_analyze),
-            ?TDEF_FEX(gen_server, t_version)
+            ?TDEF_FEX(gen_server, t_version),
+
+            ?TDEF_FEX({forwarded, ioq}, t_disk_size),
+            ?TDEF_FEX({forwarded, ioq}, t_get_root_dir),
+            ?TDEF_FEX({forwarded, ioq}, t_open_index),
+            ?TDEF_FEX({forwarded, ioq}, t_analyze),
+            ?TDEF_FEX({forwarded, ioq}, t_version),
+
+            ?TDEF_FEX({forwarded, gen_server}, t_disk_size),
+            ?TDEF_FEX({forwarded, gen_server}, t_get_root_dir),
+            ?TDEF_FEX({forwarded, gen_server}, t_open_index),
+            ?TDEF_FEX({forwarded, gen_server}, t_analyze),
+            ?TDEF_FEX({forwarded, gen_server}, t_version)
         ]}}.
 
 clouseau_rpc_gen_server_cast_test_() ->
@@ -52,44 +82,52 @@ clouseau_rpc_gen_server_cast_test_() ->
 
             ?TDEF_FEX(gen_server, t_cleanup_1),
             ?TDEF_FEX(gen_server, t_cleanup_2),
-            ?TDEF_FEX(gen_server, t_rename)
+            ?TDEF_FEX(gen_server, t_rename),
+
+            ?TDEF_FEX({forwarded, ioq}, t_cleanup_1),
+            ?TDEF_FEX({forwarded, ioq}, t_cleanup_2),
+            ?TDEF_FEX({forwarded, ioq}, t_rename),
+
+            ?TDEF_FEX({forwarded, gen_server}, t_cleanup_1),
+            ?TDEF_FEX({forwarded, gen_server}, t_cleanup_2),
+            ?TDEF_FEX({forwarded, gen_server}, t_rename)
         ]}}.
 
-t_get_update_seq(_, IndexPid) ->
-    {ok, Seq} = clouseau_rpc:get_update_seq(IndexPid),
+t_get_update_seq(_, IndexKey) ->
+    {ok, Seq} = clouseau_rpc:get_update_seq(IndexKey),
     ?assertEqual(0, Seq).
 
-t_set_get_purge_seq(_, IndexPid) ->
-    ?assertEqual(ok, clouseau_rpc:set_purge_seq(IndexPid, 0)),
-    ?assertEqual({ok, 0}, clouseau_rpc:get_purge_seq(IndexPid)),
+t_set_get_purge_seq(_, IndexKey) ->
+    ?assertEqual(ok, clouseau_rpc:set_purge_seq(IndexKey, 0)),
+    ?assertEqual({ok, 0}, clouseau_rpc:get_purge_seq(IndexKey)),
 
-    ?assertEqual(ok, clouseau_rpc:set_purge_seq(IndexPid, 1)),
-    ?assertEqual({ok, 1}, clouseau_rpc:get_purge_seq(IndexPid)),
+    ?assertEqual(ok, clouseau_rpc:set_purge_seq(IndexKey, 1)),
+    ?assertEqual({ok, 1}, clouseau_rpc:get_purge_seq(IndexKey)),
 
     % Set the same value
-    ?assertEqual(ok, clouseau_rpc:set_purge_seq(IndexPid, 1)),
-    ?assertEqual({ok, 1}, clouseau_rpc:get_purge_seq(IndexPid)),
+    ?assertEqual(ok, clouseau_rpc:set_purge_seq(IndexKey, 1)),
+    ?assertEqual({ok, 1}, clouseau_rpc:get_purge_seq(IndexKey)),
 
     % Try to regress the value
-    ?assertEqual(ok, clouseau_rpc:set_purge_seq(IndexPid, 0)),
-    ?assertEqual({ok, 1}, clouseau_rpc:get_purge_seq(IndexPid)),
+    ?assertEqual(ok, clouseau_rpc:set_purge_seq(IndexKey, 0)),
+    ?assertEqual({ok, 1}, clouseau_rpc:get_purge_seq(IndexKey)),
 
     % Try a long value
     LongVal = 1 bsl 60,
-    ?assertEqual(ok, clouseau_rpc:set_purge_seq(IndexPid, LongVal)),
-    ?assertEqual({ok, LongVal}, clouseau_rpc:get_purge_seq(IndexPid)).
+    ?assertEqual(ok, clouseau_rpc:set_purge_seq(IndexKey, LongVal)),
+    ?assertEqual({ok, LongVal}, clouseau_rpc:get_purge_seq(IndexKey)).
 
-t_delete(_, IndexPid) ->
-    Response = clouseau_rpc:delete(IndexPid, ?Ddoc),
+t_delete(_, IndexKey) ->
+    Response = clouseau_rpc:delete(IndexKey, ?Ddoc),
     ?assertEqual(ok, Response).
 
-t_commit(_, IndexPid) ->
+t_commit(_, IndexKey) ->
     NewCommitSeq = 1,
-    Response = clouseau_rpc:commit(IndexPid, NewCommitSeq),
+    Response = clouseau_rpc:commit(IndexKey, NewCommitSeq),
     ?assertEqual(ok, Response).
 
-t_info(_, IndexPid) ->
-    {ok, Info} = clouseau_rpc:info(IndexPid),
+t_info(_, IndexKey) ->
+    {ok, Info} = clouseau_rpc:info(IndexKey),
     Expected = [
         {disk_size, 0},
         {doc_count, 0},
@@ -100,7 +138,7 @@ t_info(_, IndexPid) ->
     ],
     ?assertEqual(Expected, Info).
 
-t_search(_, IndexPid) ->
+t_search(_, IndexKey) ->
     Args = [
         {query, <<"*:*">>},
         {partition, nil},
@@ -118,18 +156,18 @@ t_search(_, IndexPid) ->
         {highlight_number, 1},
         {highlight_size, 0}
     ],
-    {ok, Response} = clouseau_rpc:search(IndexPid, Args),
+    {ok, Response} = clouseau_rpc:search(IndexKey, Args),
     Expected = {top_docs, 0, 0, [], undefined, undefined},
     ?assertEqual(Expected, Response).
 
-t_group1(_, IndexPid) ->
+t_group1(_, IndexKey) ->
     Query = <<"*:*">>,
     GroupBy = <<"title">>,
     Refresh = true,
     Sort = relevance,
     Offset = 0,
     Limit = 10,
-    {ok, Response} = clouseau_rpc:group1(IndexPid, Query, GroupBy, Refresh, Sort, Offset, Limit),
+    {ok, Response} = clouseau_rpc:group1(IndexKey, Query, GroupBy, Refresh, Sort, Offset, Limit),
     ?assertEqual([], Response).
 
 t_disk_size(_, {_, _, Path}) ->
@@ -171,7 +209,12 @@ t_rename(_, {DbName, _, _}) ->
     ?assertEqual(ok, clouseau_rpc:rename(DbName)).
 
 %%%%%%%%%%%%%%% Utility Functions %%%%%%%%%%%%%%%
-setupDb(Kind) ->
+setupDb(Kind0) ->
+    Kind =
+        case Kind0 of
+            {forwarded, SubKind} -> SubKind;
+            Other -> Kind0
+        end,
     ?assert(test_util:wait_healthy(), "Init service is not ready"),
     DbName = test_util:tempdb(),
     ShardsDbName = <<"shards/00000000-ffffffff/", DbName/binary, ".1730151232">>,
@@ -183,12 +226,20 @@ setup(Kind) ->
     {_, _, Path} = setupDb(Kind),
     {ok, IndexPid} = clouseau_rpc:open_index(self(), Path, ?Analyzer),
     ?assert(is_pid(IndexPid)),
-    IndexPid.
+    case Kind of
+        {forwarded, _} -> {forwarded, Path, IndexPid};
+        _ -> IndexPid
+    end.
 
+stop_indexer(Pid) ->
+    unlink(Pid),
+    exit(Pid, normal),
+    ok.
+
+teardown(_, {forwarded, _Path, IndexPid}) when is_pid(IndexPid) ->
+    stop_indexer(IndexPid);
 teardown(_, IndexPid) when is_pid(IndexPid) ->
-    unlink(IndexPid),
-    exit(IndexPid, normal),
-    ok;
+    stop_indexer(IndexPid);
 teardown(_, _) ->
     ok.
 
