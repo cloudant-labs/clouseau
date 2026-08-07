@@ -32,3 +32,5 @@ zeunit/*.xml
 # vscode
 .metals
 .vscode
+
+docker/erlang.cookie

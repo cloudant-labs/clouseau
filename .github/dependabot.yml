@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # Set update schedule for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+
+  # Enable version updates for Docker
+  - package-ecosystem: "docker"
+    directory: "/docker"
+    open-pull-requests-limit: 1
+    schedule:
+      interval: "weekly"
+      day: "sunday"

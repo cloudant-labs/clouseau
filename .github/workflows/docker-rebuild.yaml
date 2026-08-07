@@ -1,0 +1,38 @@
+name: Docker Rebuild
+
+# Rebuilds and republishes the Docker image when the Dockerfile changes on main.
+# This is triggered by Dependabot PRs that update the base image SHA, ensuring
+# the published image stays up to date with upstream OS/JRE security patches.
+#
+# Note: Java library dependencies (Lucene, Netty, etc.) are bundled in the
+# Clouseau release artifact and are not updated here. Dependabot does not
+# support SBT, so those require a manual version bump and a new Clouseau release.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docker/Dockerfile'
+
+jobs:
+  docker-rebuild:
+    name: Rebuild and publish Docker image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: ./.github/actions/setup
+
+      - name: Get latest release version
+        id: version
+        run: |
+          VERSION=$(git describe --tags --abbrev=0)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build and publish
+        uses: ./.github/actions/docker-publish
+        with:
+          version: ${{ steps.version.outputs.version }}
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
