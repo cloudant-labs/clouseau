@@ -110,7 +110,7 @@ endef
 .PHONY: build
 # target: build - Build package, run tests and create distribution
 build: epmd
-	@echo PATH=$(PATH)
+	@java -version
 	@sbt --java-home $(JAVA_HOME) compile
 
 ERL_EPMD_ADDRESS?=127.0.0.1
