@@ -21,14 +21,22 @@ jobs:
       - name: Install mise & tools
         uses: jdx/mise-action@v4
 
+      - name: Get Java home
+        run: mise exec -- echo $JAVA_HOME
+
+      - name: Get Java version
+        run: mise exec -- java -version
+
       - name: Lint
         run: mise exec -- make ci-lint
+
       - name: Unit tests
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
           command: mise exec -- make test
+
       - name: Restart test
         run: mise exec -- make restart-test
       - name: RPC tests (zeunit)
