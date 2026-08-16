@@ -26,11 +26,8 @@ jobs:
           cache: true
           export_path: true
 
-      - name: Get SBT location
-        run: which sbt
-
-      - name: Get SBT home
-        run: echo $SBT_HOME
+      - name: Show PATH
+        run: echo $PATH
 
       - name: Get Java home
         run: echo $JAVA_HOME
