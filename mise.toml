@@ -16,7 +16,7 @@ jq = "1.8.1"
 python = "3.14.5"
 rebar = "3.27.0"
 # Sync version with "./project/build.properties"
-sbt = { version = "1.12.9", postinstall = """
+sbt = { version = "1.12.15", postinstall = """
 if [[ $OSTYPE == "darwin"* ]]; then
   sed -i "" "s/sbt.version=.*/sbt.version=$MISE_TOOL_VERSION/" ./project/build.properties
 else
