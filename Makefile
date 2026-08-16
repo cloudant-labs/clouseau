@@ -2,6 +2,7 @@
 SHELL := /bin/bash
 
 export LC_ALL := C
+export SBT_OPTS := --java-home $(JAVA_HOME)
 
 BUILD_DIR=$(shell pwd)
 ARTIFACTS_DIR=$(BUILD_DIR)/artifacts
@@ -110,8 +111,7 @@ endef
 .PHONY: build
 # target: build - Build package, run tests and create distribution
 build: epmd
-	@java -version
-	@sbt --java-home $(JAVA_HOME) compile
+	@sbt compile
 
 ERL_EPMD_ADDRESS?=127.0.0.1
 
