@@ -110,6 +110,7 @@ endef
 .PHONY: build
 # target: build - Build package, run tests and create distribution
 build: epmd
+	@sbt --debug --version
 	@sbt compile
 
 ERL_EPMD_ADDRESS?=127.0.0.1
