@@ -18,10 +18,19 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - run: git config advice.detachedHead false
+
       - name: Install mise & tools
         uses: jdx/mise-action@v4
         with:
           env: true
+          cache: true
+          export_path: true
+
+      - name: Get SBT location
+        run: which sbt
+
+      - name: Get SBT home
+        run: echo $SBT_HOME
 
       - name: Get Java home
         run: echo $JAVA_HOME
@@ -41,32 +50,38 @@ jobs:
 
       - name: Restart test
         run: make restart-test
+
       - name: RPC tests (zeunit)
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
           command: make zeunit
+
       - name: Concurrent RPC tests (zeunit)
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
           command: make concurrent-zeunit-tests
+
       - name: Syslog tests
         run: make syslog-tests
+
       - name: Elixir tests
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
           command: make ci-elixir
+
       - name: Metrics tests (mango)
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 8
           max_attempts: 3
           command: make metrics-tests
+
       - name: Clouseau Control tests
         uses: nick-fields/retry@v4
         with:
