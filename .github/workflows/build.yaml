@@ -20,19 +20,16 @@ jobs:
       - run: git config advice.detachedHead false
       - name: Install mise & tools
         uses: jdx/mise-action@v4
-
-      - name: Get default Java version
-        run: java -version
+        with:
+          env: true
 
       - name: Get Java home
-        run: mise exec -- echo $JAVA_HOME
+        run: echo $JAVA_HOME
 
       - name: Get Java version
-        uses: jdx/mise-action@v4
         run: java -version
 
       - name: Lint
-        uses: jdx/mise-action@v4
         run: make ci-lint
 
       - name: Unit tests
@@ -40,39 +37,39 @@ jobs:
         with:
           timeout_minutes: 5
           max_attempts: 3
-          command: mise exec -- make test
+          command: make test
 
       - name: Restart test
-        run: mise exec -- make restart-test
+        run: make restart-test
       - name: RPC tests (zeunit)
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
-          command: mise exec -- make zeunit
+          command: make zeunit
       - name: Concurrent RPC tests (zeunit)
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
-          command: mise exec -- make concurrent-zeunit-tests
+          command: make concurrent-zeunit-tests
       - name: Syslog tests
-        run: mise exec -- make syslog-tests
+        run: make syslog-tests
       - name: Elixir tests
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
-          command: mise exec -- make ci-elixir
+          command: make ci-elixir
       - name: Metrics tests (mango)
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 8
           max_attempts: 3
-          command: mise exec -- make metrics-tests
+          command: make metrics-tests
       - name: Clouseau Control tests
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 3
           max_attempts: 3
-          command: mise exec -- make clouseau-ctrl-smoke
+          command: make clouseau-ctrl-smoke
