@@ -1,4 +1,4 @@
-name: Release 3.x
+name: Release
 
 on:
   push:
@@ -10,25 +10,31 @@ permissions:
 
 jobs:
   release:
-    name: Release of clouseau-{version}
+    name: Prepare a Clouseau release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - run: git config advice.detachedHead false
+
       - name: Set ENV for github-release
         run: |
           echo "RELEASE_TAG=${GITHUB_REF:10}" >> $GITHUB_ENV
           echo "RELEASE_NAME=$GITHUB_WORKFLOW" >> $GITHUB_ENV
+
       - name: Install mise & tools
         uses: jdx/mise-action@v4
+        with:
+          env: true
+          cache: true
+          export_path: true
 
-      - name: Test
-        run: mise exec -- make test
       - name: Generate artifacts
-        run: mise exec -- make artifacts
+        run: make artifacts
+
       - name: List artifacts
         run: ls artifacts
+
       - name: Create release
-        run: mise exec -- make release
+        run: make release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
