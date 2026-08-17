@@ -25,6 +25,8 @@ TIMEOUT?=timeout --foreground
 TIMEOUT_MANGO_TEST?=20m
 TIMEOUT_ELIXIR_SEARCH?=20m
 
+SBT?=sbt --java-home $(JAVA_HOME)
+
 REBAR?=rebar3
 
 JVM_FLAGS= \
@@ -112,7 +114,7 @@ endef
 .PHONY: build
 # target: build - Build package, run tests and create distribution
 build: epmd
-	@sbt compile
+	@$(SBT) compile
 
 ERL_EPMD_ADDRESS?=127.0.0.1
 
@@ -125,7 +127,7 @@ epmd:
 # target: clouseau2 - Start local instance of clouseau2 node
 # target: clouseau3 - Start local instance of clouseau3 node
 clouseau1 clouseau2 clouseau3: epmd
-	@sbt run -Dnode=$@ $(JVM_FLAGS)
+	@$(SBT) run -Dnode=$@ $(JVM_FLAGS)
 
 $(ARTIFACTS_DIR):
 	@mkdir -p $@
@@ -159,7 +161,7 @@ format-code: erlfmt-format scalafmt-format
 .PHONY: check-deps
 # target: check-deps - Detect publicly disclosed vulnerabilities
 check-deps: build $(ARTIFACTS_DIR)
-	@sbt dependencyCheck \
+	@$(SBT) dependencyCheck \
 		-Dnvd_update=$(OWASP_NVD_UPDATE) \
 		-Dnvd_data_dir=$(OWASP_NVD_DATA_DIR) \
 		-Dlog4j2.level=info
@@ -199,14 +201,14 @@ clouseau-ctrl/_build/default/bin/clouseau_ctrl: clouseau-ctrl/src
 	@cd clouseau-ctrl/ && $(REBAR) escriptize
 
 $(ARTIFACTS_DIR)/$(JAR_PROD): $(ARTIFACTS_DIR)
-	@sbt assembly
+	@$(SBT) assembly
 	@cp clouseau/target/scala-$(SCALA_SHORT_VSN)/$(@F) $@
 	@javap -classpath $@ com.cloudant.ziose.clouseau.EchoService \
 		| grep -q 'public boolean isProduction' \
 		|| ( echo '>>>>> incorrect override EchoService' ; exit 1 )
 
 $(ARTIFACTS_DIR)/$(JAR_TEST): $(ARTIFACTS_DIR)
-	@sbt assembly -Djartest=true
+	@$(SBT) assembly -Djartest=true
 	@cp clouseau/target/scala-$(SCALA_SHORT_VSN)/$(@F) $@
 	@javap -classpath $@ com.cloudant.ziose.clouseau.EchoService \
 		| grep -q 'public boolean isTest' \
@@ -217,11 +219,11 @@ clean:
 	@rm -rf tmp $(ARTIFACTS_DIR)/*
 	@rm -f test/collectd/*.class test/collectd/*.out
 	@rm -rf bin/clouseau_ctrl ; cd clouseau-ctrl && $(REBAR) clean
-	@sbt clean
+	@$(SBT) clean
 
 # target: clean-all - Clean up the project to start afresh
 clean-all:
-	@sbt clean
+	@$(SBT) clean
 	@echo '==> keep in mind that some state is stored in ~/.ivy2/cache/ and ~/.sbt'
 	@echo '     and in  ~/Library/Caches/Coursier/v1/https/'
 	@echo '    to fully clean the cache use `make clean-user-cache`'
@@ -272,7 +274,7 @@ all-tests: couchdb-tests metrics-tests compatibility-tests clouseau-ctrl-smoke
 .PHONY: test
 # target: test - Run all Scala tests
 test: build $(ARTIFACTS_DIR)
-	@sbt clean test
+	@$(SBT) clean test
 	@$(call to_artifacts,$(ALL_SUBPROJECTS),test-reports)
 
 FORCE: # https://www.gnu.org/software/make/manual/html_node/Force-Targets.html
