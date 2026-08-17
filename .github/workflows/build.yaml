@@ -1,4 +1,4 @@
-name: Build 3.x
+name: Build & Test
 
 on:
   pull_request:
@@ -16,48 +16,61 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - run: git config advice.detachedHead false
+
       - name: Install mise & tools
         uses: jdx/mise-action@v4
+        with:
+          env: true
+          cache: true
+          export_path: true
 
       - name: Lint
-        run: mise exec -- make ci-lint
+        run: make ci-lint
+
       - name: Unit tests
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
-          command: mise exec -- make test
+          command: make test
+
       - name: Restart test
-        run: mise exec -- make restart-test
+        run: make restart-test
+
       - name: RPC tests (zeunit)
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
-          command: mise exec -- make zeunit
+          command: make zeunit
+
       - name: Concurrent RPC tests (zeunit)
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
-          command: mise exec -- make concurrent-zeunit-tests
+          command: make concurrent-zeunit-tests
+
       - name: Syslog tests
-        run: mise exec -- make syslog-tests
+        run: make syslog-tests
+
       - name: Elixir tests
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
-          command: mise exec -- make ci-elixir
+          command: make ci-elixir
+
       - name: Metrics tests (mango)
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 8
           max_attempts: 3
-          command: mise exec -- make metrics-tests
+          command: make metrics-tests
+
       - name: Clouseau Control tests
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 3
           max_attempts: 3
-          command: mise exec -- make clouseau-ctrl-smoke
+          command: make clouseau-ctrl-smoke
