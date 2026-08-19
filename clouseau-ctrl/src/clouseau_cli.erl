@@ -150,19 +150,35 @@ arguments(Mode) ->
     ].
 
 help(Services) ->
-    argparse:help(spec(Services, help), parser_options()).
+    help(Services, []).
+help(Services, Path) ->
+    try
+        io:format("~s~n", [
+            argparse:help(spec(Services, help), (parser_options())#{command => Path})
+        ])
+    catch
+        error:_ ->
+            io:format("Invalid argument '~s'~n", [lists:concat(lists:join(" ", Path))]),
+            argparse:help(spec(Services, help), (parser_options()))
+    end.
 
-run(["--help"], Services) ->
-    io:format("~s", [help(Services)]);
-run(["help"], Services) ->
-    io:format("~s", [help(Services)]);
+run(["--help" | Path], Services) ->
+    help(Services, Path);
+run(["help" | Path], Services) ->
+    help(Services, Path);
 run(Args, Services) ->
-    {ok, ParsedArgs, _Path, CommandSpec} = argparse:parse(Args, spec(Services), parser_options()),
-    clouseau_utils:dispatch(
-        normalize_args(
-            maps:merge(ParsedArgs, maps:with([handler], CommandSpec))
-        )
-    ).
+    case argparse:parse(Args, spec(Services), parser_options()) of
+        {ok, ParsedArgs, _Path, CommandSpec} ->
+            io:format("Parsed Args OK"),
+            clouseau_utils:dispatch(
+                normalize_args(
+                    maps:merge(ParsedArgs, maps:with([handler], CommandSpec))
+                )
+            );
+        {error, Error} ->
+            io:format("~s~n", [argparse:format_error(Error)]),
+            help(Services)
+    end.
 
 %%====================================================================
 %% Internal functions
