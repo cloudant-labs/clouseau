@@ -4,6 +4,8 @@ on:
   pull_request:
     branches:
       - clouseau-4.x
+    paths-ignore:
+      - 'docs/**'
   workflow_dispatch:
 
 permissions:
