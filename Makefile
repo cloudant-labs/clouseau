@@ -143,7 +143,7 @@ check-fmt: $(ARTIFACTS_DIR)
 .PHONY: erlfmt-format
 # target: erlfmt-format - Format Erlang code automatically
 erlfmt-format:
-	@erlfmt --write -- $(ERL_SRCS)
+	@rebar3 fmt --verbose --write -- $(ERL_SRCS)
 
 .PHONY: scalafmt-format
 # target: scalafmt-format - Format Scala code automatically
