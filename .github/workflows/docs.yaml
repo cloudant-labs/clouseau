@@ -1,0 +1,31 @@
+name: Build documentation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+      - 'mise.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - run: git config advice.detachedHead false
+      - name: Install mise & tools
+        uses: jdx/mise-action@v4
+        with:
+          env: true
+          cache: true
+          export_path: true
+
+      - name: Build documentation
+        run: make docs
