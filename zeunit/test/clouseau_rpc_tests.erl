@@ -154,11 +154,12 @@ t_analyze(_, _) ->
     ?assertEqual([Text], TokensKeyword).
 
 t_version(_, _) ->
+    ProjectVersion = list_to_binary(os:getenv("PROJECT_VSN")),
     {ok, Version} = clouseau_rpc:version(),
     ?assertEqual(
-        match,
-        re:run(Version, "^[0-9]+\\.[0-9]+\\.[0-9]+($|[-])", [{capture, none}]),
-        "Expected version to be in A.B.C format, where A, B and C are integers."
+        ProjectVersion,
+        Version,
+        "Expected version to be matching with that of the project."
     ).
 
 t_cleanup_1(_, {_, ShardsDbName, _}) ->
