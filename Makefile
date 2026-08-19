@@ -45,7 +45,7 @@ endif
 ifeq ($(PROJECT_VSN),)
 	# technically we could use 'sbt -Dsbt.supershell=false -error "print version"'
 	# but it takes 30 seconds to run it. So we go with direct access
-	PROJECT_VSN := $(shell cat $(BUILD_DIR)/version.sbt | sed -e \
+	export PROJECT_VSN := $(shell cat $(BUILD_DIR)/version.sbt | sed -e \
 		'/ThisBuild[[:space:]]*[/][[:space:]]*version[[:space:]]*[:]=[[:space:]]*/!d' \
 		-e "s///g" \
 		-e 's/\"//g')
