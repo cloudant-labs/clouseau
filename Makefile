@@ -79,7 +79,8 @@ JAR_TEST := clouseau_$(SCALA_VSN)_$(PROJECT_VSN)_test.jar
 
 RELEASE_FILES := $(JAR_PROD) \
 	clouseau-$(PROJECT_VSN)-dist.zip \
-	clouseau-$(PROJECT_VSN)-dist.tar.gz
+	clouseau-$(PROJECT_VSN)-dist.tar.gz \
+	book.pdf
 
 JAR_ARTIFACTS := $(addprefix $(ARTIFACTS_DIR)/, $(JAR_PROD))
 RELEASE_ARTIFACTS := $(addprefix $(ARTIFACTS_DIR)/, $(RELEASE_FILES))
