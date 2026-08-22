@@ -21,6 +21,26 @@ However, there are some notable changes to the deployment:
  * CouchDB 3.5.0 is required.
  * `clouseau.ini` is replaced by [app.conf](app.conf).
 
+## Running the application
+
+Each release ships a JAR file that could be run as follows.
+Note that this just an example, the actual file name may differ.
+There is more guidance available below on the important configuration
+options.
+
+```
+java \
+  -server \
+  -Xmx2G \
+  -Dsun.net.inetaddr.ttl=30 \
+  -Dsun.net.inetaddr.negative.ttl=30 \
+  -XX:OnOutOfMemoryError="kill -9 %p" \
+  -XX:+UseG1GC \
+  -XX:+ParallelRefProcEnabled \
+  -jar clouseau_2.13.16_3.3.0.jar \
+  app.conf
+```
+
 ## Dependency management
 
 This project uses [`mise`](https://github.com/jdx/mise) to manage dependencies and environment variables.
