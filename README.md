@@ -19,7 +19,27 @@ However, there are some notable changes to the deployment:
 
  * Java 21 is required.
  * CouchDB 3.5.0 is required.
- * `clouseau.ini` is replaced by [app.conf](app.conf).
+ * `clouseau.ini` is replaced by [`clouseau.conf`](clouseau.conf).
+
+## Running the application
+
+Each release ships a JAR file that could be run as follows.
+Note that this just an example, the actual file name may differ.
+There is more guidance available below on the important configuration
+options.
+
+```
+java \
+  -server \
+  -Xmx2G \
+  -Dsun.net.inetaddr.ttl=30 \
+  -Dsun.net.inetaddr.negative.ttl=30 \
+  -XX:OnOutOfMemoryError="kill -9 %p" \
+  -XX:+UseG1GC \
+  -XX:+ParallelRefProcEnabled \
+  -jar clouseau_2.13.16_3.3.0.jar \
+  clouseau.conf
+```
 
 ## Dependency management
 
@@ -74,7 +94,7 @@ You can find detailed documentation here [`scripts/cli.md`](scripts/cli.md).
 
 ## Configuration options
 
-Unlike previous versions, Clouseau 3.x is configured via a [HOCON](https://github.com/lightbend/config/blob/master/HOCON.md) formatted `app.conf` file, in addition to the numerous [JVM command line options](https://docs.oracle.com/en/java/javase/21/docs/specs/man/java.html#overview-of-java-options) available. The top level [app.conf](app.conf) file in this project briefly documents the various options, but those relevant to performance and scalability are discussed in more detail below.
+Unlike previous versions, Clouseau 3.x is configured via a [HOCON](https://github.com/lightbend/config/blob/master/HOCON.md) formatted `clouseau.conf` file, in addition to the numerous [JVM command line options](https://docs.oracle.com/en/java/javase/21/docs/specs/man/java.html#overview-of-java-options) available. The top level [clouseau.conf](clouseau.conf) file in this project briefly documents the various options, but those relevant to performance and scalability are discussed in more detail below.
 
 ### `max_indexes_open`
 
