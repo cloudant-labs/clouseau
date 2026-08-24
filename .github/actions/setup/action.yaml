@@ -1,0 +1,14 @@
+name: 'Setup Environment'
+description: 'Setup common environment'
+runs:
+  using: 'composite'
+  steps:
+    - run: git config advice.detachedHead false
+      shell: bash
+    - name: Install mise & tools
+      uses: jdx/mise-action@v4
+      with:
+        install: true
+        env: true
+        cache: true
+        export_path: true
