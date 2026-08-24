@@ -1,12 +1,12 @@
 name: Docker Rebuild
 
 # Rebuilds and republishes the Docker image when the Dockerfile changes on main.
-# This is triggered by Dependabot PRs that update the base image SHA, ensuring
+# This is triggered by Renovate PRs that update the base image SHA, ensuring
 # the published image stays up to date with upstream OS/JRE security patches.
 #
 # Note: Java library dependencies (Lucene, Netty, etc.) are bundled in the
-# Clouseau release artifact and are not updated here. Dependabot does not
-# support SBT, so those require a manual version bump and a new Clouseau release.
+# Clouseau release artifact and are not updated here. Renovate can update SBT
+# dependencies, but those require a new Clouseau release to take effect.
 on:
   push:
     branches:
