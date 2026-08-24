@@ -15,7 +15,7 @@
 -endif.
 
 parser_options() ->
-    #{progname => clouseau_cli}.
+    #{progname => clouseau_ctrl}.
 
 spec(Services) ->
     spec(Services, runtime).
