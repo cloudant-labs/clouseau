@@ -26,9 +26,8 @@ FROM eclipse-temurin:21-jre-ubi10-minimal@sha256:9e16b6348a589d9a79d81643a7959a2
 ARG CLOUSEAU_VERSION
 ARG CLOUSEAU_REPO
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends unzip && \
-    rm -rf /var/lib/apt/lists/*
+RUN microdnf install -y unzip && \
+    microdnf clean all
 
 ADD "${CLOUSEAU_REPO}/releases/download/${CLOUSEAU_VERSION}/clouseau-${CLOUSEAU_VERSION}-dist.zip" /clouseau.zip
 ADD "${CLOUSEAU_REPO}/releases/download/${CLOUSEAU_VERSION}/checksums.txt" /checksums.txt
