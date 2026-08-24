@@ -20,6 +20,17 @@ runs:
         username: ${{ github.repository_owner }}
         password: ${{ inputs.registry-token }}
 
+    - name: Docker metadata
+      id: meta
+      uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+      with:
+        images: ghcr.io/cloudant-labs/clouseau
+        tags: |
+          type=semver,pattern={{version}},value=${{ inputs.version }}
+          type=semver,pattern={{major}}.{{minor}},value=${{ inputs.version }}
+          type=semver,pattern={{major}},value=${{ inputs.version }}
+          type=raw,value=latest
+
     - name: Build and push Docker image
       uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
       with:
@@ -30,7 +41,6 @@ runs:
         build-args: |
           BUILD_MODE=release
           CLOUSEAU_VERSION=${{ inputs.version }}
-        tags: |
-          ghcr.io/cloudant-labs/clouseau:${{ inputs.version }}
-          ghcr.io/cloudant-labs/clouseau:latest
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
         platforms: linux/amd64,linux/arm64
