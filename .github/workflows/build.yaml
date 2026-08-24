@@ -80,7 +80,7 @@ jobs:
       - name: Generate erlang.cookie
         run: make generate-erlang-cookie
       - name: Build Clouseau Docker image (local mode)
-        run: mise exec -- make docker-build MODE=local
+        run: make docker-build MODE=local
       - name: Set up Docker Compose
         uses: docker/setup-compose-action@8cccb8c14b6500aaffebff1aa49c502c34d2e5e6 #v2
       - name: Run docker compose
@@ -91,21 +91,21 @@ jobs:
           timeout_minutes: 2
           max_attempts: 5
           retry_wait_seconds: 2
-          command: mise exec -- make docker-wait-couchdb
+          command: make docker-wait-couchdb
       - name: Test CouchDB and Clouseau integration
-        run: mise exec -- make docker-test-integration
+        run: make docker-test-integration
       - name: Mango tests on Docker
         uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4
         with:
           timeout_minutes: 5
           max_attempts: 3
-          command: mise exec -- make docker-mango-test
+          command: make docker-mango-test
       - name: Elixir tests on Docker
         uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4
         with:
           timeout_minutes: 5
           max_attempts: 3
-          command: mise exec -- make docker-elixir-test
+          command: make docker-elixir-test
       - name: Cleanup
         if: always()
         run: |
