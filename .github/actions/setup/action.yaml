@@ -12,3 +12,6 @@ runs:
       uses: jdx/mise-action@v4
       with:
         install: true
+        env: true
+        cache: true
+        export_path: true
