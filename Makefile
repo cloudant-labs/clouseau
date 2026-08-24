@@ -631,6 +631,9 @@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)-dist.tar.gz: $(JAR_ARTIFACTS) $(ARTIFAC
 $(ARTIFACTS_DIR)/%.chksum: $(ARTIFACTS_DIR)/%
 	@cd $(ARTIFACTS_DIR) && sha256sum $(<F) > $(@F)
 
+$(ARTIFACTS_DIR)/%.pdf.chksum: $(ARTIFACTS_DIR)/%.pdf
+	@cd $(ARTIFACTS_DIR) && sha256sum $(<F) > $(@F)
+
 $(ARTIFACTS_DIR)/checksums.txt: $(addprefix $(ARTIFACTS_DIR)/, $(CHECKSUM_FILES))
 	@cat $^ > $@
 	@cd $(ARTIFACTS_DIR)/ && sha256sum -c checksums.txt
