@@ -620,13 +620,7 @@ $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)-dist.tar.gz: $(JAR_ARTIFACTS) $(ARTIFAC
 	@cp $(ARTIFACTS_DIR)/clouseau_ctrl $(ARTIFACTS_DIR)/clouseau-$(PROJECT_VSN)
 	@cd $(ARTIFACTS_DIR) && tar --gzip -cf $@ clouseau-$(PROJECT_VSN)
 
-$(ARTIFACTS_DIR)/%.jar.chksum: $(ARTIFACTS_DIR)/%.jar
-	@cd $(ARTIFACTS_DIR) && sha256sum $(<F) > $(@F)
-
-$(ARTIFACTS_DIR)/%.zip.chksum: $(ARTIFACTS_DIR)/%.zip
-	@cd $(ARTIFACTS_DIR) && sha256sum $(<F) > $(@F)
-
-$(ARTIFACTS_DIR)/%.tar.gz.chksum: $(ARTIFACTS_DIR)/%.tar.gz
+$(ARTIFACTS_DIR)/%.chksum: $(ARTIFACTS_DIR)/%
 	@cd $(ARTIFACTS_DIR) && sha256sum $(<F) > $(@F)
 
 $(ARTIFACTS_DIR)/checksums.txt: $(addprefix $(ARTIFACTS_DIR)/, $(CHECKSUM_FILES))
