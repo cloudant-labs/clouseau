@@ -291,7 +291,7 @@ zeunit: $(ARTIFACTS_DIR)/$(JAR_TEST) epmd FORCE
 	@cli stop $@
 
 concurrent-zeunit-tests: $(ARTIFACTS_DIR)/$(JAR_TEST) epmd FORCE
-	@cli start $@ "java $(JVM_FLAGS) -jar $< test/conf/concurrent.app.conf"
+	@cli start $@ "java $(JVM_FLAGS) -jar $< test/conf/concurrent.clouseau.conf"
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
@@ -310,8 +310,8 @@ syslog-test: $(JAR_ARTIFACTS) epmd FORCE
 		-e "s/%%PORT%%/$(PORT)/" \
 		-e "s/%%FACILITY%%/$(FACILITY)/" \
 		-e "s/%%LEVEL%%/$(LEVEL)/" \
-		test/conf/syslog.app.conf.templ > test/conf/syslog.app.conf
-	@cli start $@ "java $(JVM_FLAGS) -jar $< test/conf/syslog.app.conf"
+		test/conf/syslog.clouseau.conf.templ > test/conf/syslog.clouseau.conf
+	@cli start $@ "java $(JVM_FLAGS) -jar $< test/conf/syslog.clouseau.conf"
 	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@echo ">>> Waiting for Clouseau to generate logs (5 seconds)"
 	@sleep 5
@@ -447,7 +447,7 @@ metrics-tests: $(JAR_ARTIFACTS) $(JMX_EXPORTER) test/collectd/clouseau.class epm
 			-Dcom.sun.management.jmxremote.password.file=jmxremote.password \
 			-javaagent:$(JMX_EXPORTER)=$(JMX_EXPORTER_PORT):$(JMX_EXPORTER_CFG) \
 			$(JVM_FLAGS) \
-			-jar $(JAR_ARTIFACTS) test/conf/metrics.app.conf
+			-jar $(JAR_ARTIFACTS) test/conf/metrics.clouseau.conf
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@echo "Warming up Clouseau to expose all the metrics"
@@ -578,7 +578,7 @@ ci-concurrent-zeunit: concurrent-zeunit-tests
 
 ci-mango: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli stop $@ || true
-	@cli start $@ "java $(JVM_FLAGS) -jar $< test/conf/ci.app.conf"
+	@cli start $@ "java $(JVM_FLAGS) -jar $< test/conf/ci.clouseau.conf"
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@$(TIMEOUT) $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
@@ -586,7 +586,7 @@ ci-mango: $(JAR_ARTIFACTS) couchdb epmd FORCE
 
 ci-elixir: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli stop $@ || true
-	@cli start $@ "java $(JVM_FLAGS) -jar $< test/conf/ci.app.conf"
+	@cli start $@ "java $(JVM_FLAGS) -jar $< test/conf/ci.clouseau.conf"
 	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@$(TIMEOUT) $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
 	@cli stop $@
