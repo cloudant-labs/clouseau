@@ -211,7 +211,7 @@ object AppCfg {
     ConfigProvider.fromHoconString(input).load(config)
   }
 
-  private val DEFAULT_CFG: String = "app.conf"
+  private val DEFAULT_CFG: String = "clouseau.conf"
 
   def layer: ZLayer[ZIOAppArgs, Config.Error, AppCfg] = {
     ZLayer {
