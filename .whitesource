@@ -8,6 +8,8 @@
     "labels": ["dependencies"],
     "recreateClosed": true,
 
+    "enabledManagers": ["mise", "custom.regex"],
+
     "customDatasources": {
       "mise-java-openjdk": {
         "defaultRegistryUrlTemplate": "https://mise-java.jdx.dev/jvm/ga/linux/x86_64.json",
@@ -90,99 +92,13 @@
         "depNameTemplate": "sbt",
         "datasourceTemplate": "custom.conda-forge-sbt",
         "versioningTemplate": "semver-coerced"
-      },
-      {
-        "description": "Update zio version in versions Map",
-        "customType": "regex",
-        "fileMatch": ["^build\\.sbt$"],
-        "matchStrings": ["\"zio\"\\s*->\\s*\"(?<currentValue>[^\"]+)\""],
-        "depNameTemplate": "dev.zio:zio_2.13",
-        "datasourceTemplate": "maven",
-        "versioningTemplate": "maven"
-      },
-      {
-        "description": "Update zio-config version in versions Map",
-        "customType": "regex",
-        "fileMatch": ["^build\\.sbt$"],
-        "matchStrings": ["\"zio\\.config\"\\s*->\\s*\"(?<currentValue>[^\"]+)\""],
-        "depNameTemplate": "dev.zio:zio-config_2.13",
-        "datasourceTemplate": "maven",
-        "versioningTemplate": "maven"
-      },
-      {
-        "description": "Update zio-logging version in versions Map",
-        "customType": "regex",
-        "fileMatch": ["^build\\.sbt$"],
-        "matchStrings": ["\"zio\\.logging\"\\s*->\\s*\"(?<currentValue>[^\"]+)\""],
-        "depNameTemplate": "dev.zio:zio-logging_2.13",
-        "datasourceTemplate": "maven",
-        "versioningTemplate": "maven"
-      },
-      {
-        "description": "Update zio-metrics version in versions Map",
-        "customType": "regex",
-        "fileMatch": ["^build\\.sbt$"],
-        "matchStrings": ["\"zio\\.metrics\"\\s*->\\s*\"(?<currentValue>[^\"]+)\""],
-        "depNameTemplate": "dev.zio:zio-metrics-connectors-micrometer_2.13",
-        "datasourceTemplate": "maven",
-        "versioningTemplate": "maven"
-      },
-      {
-        "description": "Update micrometer-jmx version in versions Map",
-        "customType": "regex",
-        "fileMatch": ["^build\\.sbt$"],
-        "matchStrings": ["\"jmx\"\\s*->\\s*\"(?<currentValue>[^\"]+)\""],
-        "depNameTemplate": "io.micrometer:micrometer-registry-jmx",
-        "datasourceTemplate": "maven",
-        "versioningTemplate": "maven"
-      },
-      {
-        "description": "Update scala-reflect version in versions Map",
-        "customType": "regex",
-        "fileMatch": ["^build\\.sbt$"],
-        "matchStrings": ["\"reflect\"\\s*->\\s*\"(?<currentValue>[^\"]+)\""],
-        "depNameTemplate": "org.scala-lang:scala-reflect",
-        "datasourceTemplate": "maven",
-        "versioningTemplate": "maven"
-      },
-      {
-        "description": "Update tinylog version in versions Map",
-        "customType": "regex",
-        "fileMatch": ["^build\\.sbt$"],
-        "matchStrings": ["\"tinylog\"\\s*->\\s*\"(?<currentValue>[^\"]+)\""],
-        "depNameTemplate": "org.tinylog:tinylog-api",
-        "datasourceTemplate": "maven",
-        "versioningTemplate": "maven"
-      },
-      {
-        "description": "Update junit-interface version in versions Map",
-        "customType": "regex",
-        "fileMatch": ["^build\\.sbt$"],
-        "matchStrings": ["\"junit\\.interface\"\\s*->\\s*\"(?<currentValue>[^\"]+)\""],
-        "depNameTemplate": "com.github.sbt:junit-interface",
-        "datasourceTemplate": "maven",
-        "versioningTemplate": "maven"
-      },
-      {
-        "description": "Update junit version in versions Map",
-        "customType": "regex",
-        "fileMatch": ["^build\\.sbt$"],
-        "matchStrings": ["\"junit\"\\s*->\\s*\"(?<currentValue>[^\"]+)\""],
-        "depNameTemplate": "junit:junit",
-        "datasourceTemplate": "maven",
-        "versioningTemplate": "maven"
       }
     ],
 
     "packageRules": [
       {
-        "description": "Pin scala to 2.13.x",
-        "matchPackageNames": ["scala"],
-        "allowedVersions": "/^2\\.13\\./"
-      },
-      {
         "description": "Pin sbt to 1.x",
-        "matchPackageNames": ["sbt", "sbt/sbt"],
+        "matchPackageNames": ["sbt"],
         "allowedVersions": "/^1\\./"
       },
       {
@@ -223,23 +139,6 @@
         "enabled": false
       },
       {
-        "description": "Disable sbt/sbt in project/build.properties from sbt manager (handled via regex instead)",
-        "matchPackageNames": ["sbt/sbt"],
-        "matchManagers": ["sbt"],
-        "matchFileNames": ["project/build.properties"],
-        "enabled": false
-      },
-      {
-        "description": "Disable scalafmt built-in manager (handled via regex customManagers)",
-        "matchManagers": ["scalafmt"],
-        "enabled": false
-      },
-      {
-        "description": "Disable typst dependencies (not part of the application)",
-        "matchManagers": ["typst"],
-        "enabled": false
-      },
-      {
         "description": "Group all mise tool updates into a single PR",
         "matchManagers": ["mise"],
         "groupName": "mise tools",
@@ -251,22 +150,6 @@
         "matchManagers": ["custom.regex"],
         "groupName": "mise tools",
         "groupSlug": "mise-tools"
-      },
-      {
-        "description": "Group sbt from mise.toml into dedicated sbt version PR",
-        "matchPackageNames": ["sbt"],
-        "matchManagers": ["regex"],
-        "matchFileNames": ["mise.toml"],
-        "groupName": "sbt version",
-        "groupSlug": "sbt-version"
-      },
-      {
-        "description": "Group sbt from project/build.properties into dedicated sbt version PR",
-        "matchPackageNames": ["sbt"],
-        "matchManagers": ["regex"],
-        "matchFileNames": ["project/build.properties"],
-        "groupName": "sbt version",
-        "groupSlug": "sbt-version"
       },
       {
         "description": "Group scalafmt from mise.toml and .scalafmt.conf into single PR",
@@ -281,51 +164,6 @@
         "matchManagers": ["custom.regex"],
         "groupName": "editorconfig-checker version",
         "groupSlug": "editorconfig-checker-version"
-      },
-      {
-        "description": "Group all sbt plugin updates from project/plugins.sbt into single PR",
-        "matchManagers": ["sbt"],
-        "matchFileNames": ["project/plugins.sbt"],
-        "groupName": "project/plugins.sbt dependencies",
-        "groupSlug": "sbt-plugins",
-        "prBodyNotes": ["❗ **Remember to keep `clouseau-ci/Dockerfile` in sync with these plugin version changes.**"]
-      },
-      {
-        "description": "Group inline sbt library dependencies from build.sbt",
-        "matchManagers": ["sbt"],
-        "matchFileNames": ["build.sbt"],
-        "groupName": "build.sbt dependencies",
-        "groupSlug": "sbt-dependencies"
-      },
-      {
-        "description": "Group versions Map dependencies (from build.sbt) with sbt dependencies PR",
-        "matchManagers": ["regex"],
-        "matchPackageNames": [
-          "dev.zio:zio_2.13",
-          "dev.zio:zio-config_2.13",
-          "dev.zio:zio-logging_2.13",
-          "dev.zio:zio-metrics-connectors-micrometer_2.13",
-          "io.micrometer:micrometer-registry-jmx",
-          "org.scala-lang:scala-reflect",
-          "org.tinylog:tinylog-api",
-          "com.github.sbt:junit-interface",
-          "junit:junit"
-        ],
-        "groupName": "build.sbt dependencies",
-        "groupSlug": "sbt-dependencies"
-      },
-      {
-        "description": "Block major java updates",
-        "matchPackageNames": ["openjdk"],
-        "matchManagers": ["custom.regex"],
-        "matchUpdateTypes": ["major"],
-        "enabled": false
-      },
-      {
-        "description": "Block major scala updates",
-        "matchPackageNames": ["scala", "org.scala-lang:scala-library"],
-        "matchUpdateTypes": ["major"],
-        "enabled": false
       }
     ]
   }
