@@ -1,0 +1,54 @@
+version: 2
+
+updates:
+  # sbt — covers build.sbt and project/plugins.sbt
+  - package-ecosystem: "sbt"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+    # Pin Scala to current major version; ignore sbt version updates (owned by renovate)
+    ignore:
+      - dependency-name: "org.scala-lang:scala-library"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.scala-lang:scala-reflect"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.scala-sbt:sbt"
+    groups:
+      sbt-plugins:
+        patterns:
+          - "com.eed3si9n:sbt-assembly"
+          - "com.eed3si9n:sbt-buildinfo"
+          - "io.github.siculo:sbt-bom"
+          - "net.nmoncho:sbt-dependency-check"
+          - "org.scalameta:sbt-scalafmt"
+      sbt-dependencies:
+        patterns:
+          - "dev.zio:*"
+          - "io.micrometer:micrometer-registry-jmx"
+          - "org.scala-lang:*"
+          - "org.tinylog:*"
+          - "com.github.sbt:junit-interface"
+          - "junit:junit"
+          - "org.apache.lucene:*"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # Docker
+  - package-ecosystem: "docker"
+    directory: "/docker"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
