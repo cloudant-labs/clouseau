@@ -77,8 +77,7 @@ EUNIT_OPTS := "$(_REBAR_COOKIE) --module=$(suites) --test=$(tests)"
 JAR_PROD := clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar
 JAR_TEST := clouseau_$(SCALA_VSN)_$(PROJECT_VSN)_test.jar
 
-RELEASE_FILES := $(JAR_PROD) \
-	clouseau-$(PROJECT_VSN)-dist.zip \
+RELEASE_FILES := $(CI_FILES) \
 	clouseau-$(PROJECT_VSN)-dist.tar.gz \
 	book.pdf
 
@@ -555,10 +554,17 @@ version:
 ci-lint: check-fmt $(CI_ARTIFACTS_DIR)
 	@cp $(ARTIFACTS_DIR)/*.log $(CI_ARTIFACTS_DIR)
 
-ci-build: artifacts $(CI_ARTIFACTS_DIR)
+CI_FILES := \
+	$(JAR_PROD) \
+	clouseau-$(PROJECT_VSN)-dist.zip
+
+CI_ARTIFACTS := $(addprefix $(ARTIFACTS_DIR)/, $(CI_FILES))
+
+ci-artifacts: $(ARTIFACTS_DIR) $(CI_ARTIFACTS)
+
+ci-build: ci-artifacts $(CI_ARTIFACTS_DIR)
 	@echo ci-build
-	@cp $(ARTIFACTS_DIR)/*.jar $(CI_ARTIFACTS_DIR)/
-	@cp $(ARTIFACTS_DIR)/*.zip $(CI_ARTIFACTS_DIR)/
+	@cp $(CI_ARTIFACTS) $(CI_ARTIFACTS_DIR)/
 	@find $(CI_ARTIFACTS_DIR)
 	@find . -name scala-2.13 -type d | xargs find
 
