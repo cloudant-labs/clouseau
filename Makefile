@@ -371,13 +371,13 @@ couchdb: $(COUCHDB_DIR)/.compiled
 couchdb-clean:
 	@rm -rf $(COUCHDB_DIR)
 
-$(COUCHDB_DIR)/src/mango/.venv: couchdb
+$(COUCHDB_DIR)/src/mango/.venv: $(COUCHDB_DIR)/.checked_out
 	@python3 -m venv $@
 	@$@/bin/pip3 install --upgrade pip wheel setuptools
 	@$@/bin/pip3 install -r $(COUCHDB_DIR)/src/mango/requirements.txt
 	@$@/bin/pip3 install nose-exclude
 
-mango-test: $(COUCHDB_DIR)/src/mango/.venv
+mango-test: $(COUCHDB_DIR)/src/mango/.venv couchdb
 	@$(MAKE) -C $(COUCHDB_DIR) all
 	@$(COUCHDB_DIR)/dev/run \
 		-n 1 \
@@ -661,16 +661,17 @@ changes:
 MODE ?= release
 
 .PHONY: generate-erlang-cookie
-# target: generate-erlang-cookie - Generate secure erlang.cookie file with permissions for Docker to read
+# Generate secure erlang.cookie file with permissions for Docker to read
 generate-erlang-cookie:
 	@umask 0133 && openssl rand -base64 16 > $(ERLANG_COOKIE_FILE)
 	@echo "Generated erlang.cookie at $(ERLANG_COOKIE_FILE)"
 
 .PHONY: docker-build
 # target: docker-build - Build Docker image (MODE=local|release, default: release)
-docker-build:
 ifeq ($(MODE),local)
-	@$(MAKE) $(ARTIFACTS_DIR)/$(JAR_PROD)
+docker-build: $(ARTIFACTS_DIR)/$(JAR_PROD)
+else
+docker-build:
 endif
 	@docker build \
 		--build-arg BUILD_MODE=$(MODE) \
@@ -679,11 +680,11 @@ endif
 		-t clouseau:latest \
 		-f docker/Dockerfile .
 
-.PHONY: docker-wait-couchdb
-# target: docker-wait-couchdb - Check if CouchDB is ready (COUCHDB_URL)
-docker-wait-couchdb:
+.PHONY: docker-couchdb-is-ready
+# Check if CouchDB is ready (COUCHDB_URL); retry is handled by the caller
+docker-couchdb-is-ready:
 	@echo "Checking CouchDB at $(COUCHDB_URL)..."
-	@curl -sf $(COUCHDB_URL)/ > /dev/null || (echo "ERROR: CouchDB not ready"; exit 1)
+	@curl -sSfS $(COUCHDB_URL)/ || (echo "ERROR: CouchDB not ready"; exit 1)
 
 .PHONY: docker-test-integration
 # target: docker-test-integration - Test CouchDB and Clouseau integration (COUCHDB_URL, COUCHDB_USER, COUCHDB_PASS)
@@ -705,25 +706,14 @@ docker-compose-up:
 	docker compose -f docker/compose.yaml up -d
 
 .PHONY: clean-erlang-cookie
-# target: clean-erlang-cookie - Remove erlang.cookie file
+# Remove erlang.cookie file
 clean-erlang-cookie:
 	@rm -f $(ERLANG_COOKIE_FILE)
 	@echo "Removed $(ERLANG_COOKIE_FILE)"
 
-.PHONY: mango-test-env
-# target: mango-test-env - Setup mango test environment without building CouchDB
-mango-test-env: $(COUCHDB_DIR)/.checked_out
-	@if [ ! -d $(COUCHDB_DIR)/src/mango/.venv ]; then \
-		echo "Creating Python venv for mango tests..."; \
-		python3 -m venv $(COUCHDB_DIR)/src/mango/.venv; \
-		$(COUCHDB_DIR)/src/mango/.venv/bin/pip3 install --upgrade pip wheel setuptools; \
-		$(COUCHDB_DIR)/src/mango/.venv/bin/pip3 install -r $(COUCHDB_DIR)/src/mango/requirements.txt; \
-		$(COUCHDB_DIR)/src/mango/.venv/bin/pip3 install nose-exclude; \
-	fi
-
 .PHONY: docker-mango-test
 # target: docker-mango-test - Run mango tests against dockerized CouchDB (COUCHDB_HOST, COUCHDB_PORT, COUCHDB_USER, COUCHDB_PASS)
-docker-mango-test: mango-test-env
+docker-mango-test: $(COUCHDB_DIR)/src/mango/.venv
 	@echo "Running mango tests against Docker CouchDB at $(COUCHDB_URL)..."
 	@PYTHONUNBUFFERED=1 \
 	COUCH_HOST=$(COUCHDB_URL) \
@@ -746,3 +736,22 @@ docker-elixir-test: $(COUCHDB_DIR)/.compiled
 		_WITH_CLOUSEAU=-q \
 		ERLANG_COOKIE=$$ERLANG_COOKIE \
 		EXUNIT_OPTS="--max-cases 1 test/elixir/test/search_test.exs"
+
+
+.PHONY: docker-test
+# target: docker-test - Run all Docker-based tests locally (build + compose + mango + elixir)
+# Use MODE=release PROJECT_VSN=x.y.z to test against a published release instead of local artifacts
+docker-test: MODE = local
+docker-test: RETRY ?= 5
+docker-test: generate-erlang-cookie
+	@$(MAKE) docker-build MODE=$(MODE)
+	@$(MAKE) docker-compose-up
+	@for i in $$(seq 1 $(RETRY)); do \
+		$(MAKE) docker-couchdb-is-ready && break; \
+		echo "Retrying in 2s... ($$i/$(RETRY))"; \
+		sleep 2; \
+	done
+	@$(MAKE) docker-mango-test && \
+	$(MAKE) docker-elixir-test && \
+	echo "All Docker-based tests passed!"; \
+	EXIT=$$?; $(MAKE) clean-erlang-cookie; exit $$EXIT
