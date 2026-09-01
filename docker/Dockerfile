@@ -74,7 +74,7 @@ RUN chown clouseau:clouseau . && \
     data
 
 COPY --from=builder --chown=clouseau:clouseau /usr/src/*.jar lib/
-COPY --chown=clouseau:clouseau app.conf etc/
+COPY --chown=clouseau:clouseau clouseau.conf etc/
 
 VOLUME /opt/couchdb-search/data
 
@@ -93,4 +93,4 @@ CMD ["sh", "-c", "\
     -Dcookie.file=/run/secrets/erlang.cookie \
     -classpath /opt/couchdb-search/lib/* \
     com.cloudant.ziose.clouseau.Main \
-    /opt/couchdb-search/etc/app.conf"]
+    /opt/couchdb-search/etc/clouseau.conf"]

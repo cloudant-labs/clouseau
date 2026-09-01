@@ -24,6 +24,6 @@ services:
     network_mode: "service:couchdb"
     volumes:
       - ./erlang.cookie:/run/secrets/erlang.cookie:ro
-      - ./app.conf:/opt/couchdb-search/etc/app.conf:ro
+      - ./clouseau.conf:/opt/couchdb-search/etc/clouseau.conf:ro
     depends_on:
       - couchdb
