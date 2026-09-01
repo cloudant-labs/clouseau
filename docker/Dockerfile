@@ -10,7 +10,6 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-ARG CLOUSEAU_VERSION=3.3.0
 ARG CLOUSEAU_REPO=https://github.com/cloudant-labs/clouseau
 ARG BUILD_MODE=release
 
@@ -44,7 +43,7 @@ FROM release-builder AS builder-release
 FROM builder-${BUILD_MODE} AS builder
 
 # Runner stage
-FROM eclipse-temurin:21-jre AS runner
+FROM eclipse-temurin:21-jre-ubi10-minimal@sha256:c7feea7f2dce5cf29e0ffa94e386b0a12ab44c029ad66bcb59eacc4da572ccf4 AS runner
 
 # Helpful for `docker inspect`
 ARG CLOUSEAU_VERSION
@@ -52,18 +51,11 @@ ENV CLOUSEAU_VERSION=${CLOUSEAU_VERSION}
 ENV JAVA_XMX=2G
 ENV JAVA_XMS=1600M
 
-LABEL maintainer="CouchDB Developers dev@couchdb.apache.org"
+LABEL org.opencontainers.image.authors="Cloudant Labs https://github.com/cloudant-labs/clouseau"
 
 # Create the user/group first
 RUN groupadd -g 5986 -r clouseau && \
     useradd -u 5986 -d /opt/couchdb-search -g clouseau clouseau
-
-# Install dependencies (Tini)
-RUN set -ex; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends tini; \
-    rm -rf /var/lib/apt/lists/*; \
-    tini --version
 
 # Set up directories with correct permissions to avoid chmod later
 WORKDIR /opt/couchdb-search
@@ -73,14 +65,13 @@ RUN chown clouseau:clouseau . && \
     lib \
     data
 
-COPY --from=jars --chown=clouseau:clouseau /usr/src/*.jar lib/
-COPY --chown=clouseau:clouseau clouseau.conf etc/
+COPY --from=builder --chown=clouseau:clouseau /usr/src/*.jar lib/
+COPY --chown=clouseau:clouseau docker/clouseau.conf etc/
 
 VOLUME /opt/couchdb-search/data
 
 USER clouseau
 
-ENTRYPOINT ["tini", "--"]
 CMD ["sh", "-c", "\
     exec java \
     -server \
@@ -91,6 +82,6 @@ CMD ["sh", "-c", "\
     -Dsun.net.inetaddr.ttl=30 \
     -Dsun.net.inetaddr.negative.ttl=30 \
     -Dcookie.file=/run/secrets/erlang.cookie \
-    -classpath /opt/couchdb-search/lib/* \
+    -classpath '/opt/couchdb-search/lib/*' \
     com.cloudant.ziose.clouseau.Main \
     /opt/couchdb-search/etc/clouseau.conf"]
