@@ -8,12 +8,12 @@ editorconfig-checker = { version = "3.7.0", postinstall = """
 jq --arg v "v$MISE_TOOL_VERSION" '.Version = $v' .editorconfig-checker.json >tmp.json &&
 mv tmp.json .editorconfig-checker.json
 """ }
-elixir = "1.19.5-otp-27"
+elixir = "1.20.4-otp-27"
 erlang = "27.3.4.11"
-github-cli = "2.92.0"
+github-cli = "2.99.0"
 java = "openjdk-21.0.2"
-jq = "1.8.1"
-python = "3.14.5"
+jq = "1.8.2"
+python = "3.14.7"
 rebar = "3.27.0"
 # Sync version with "./project/build.properties"
 sbt = { version = "1.13.0", postinstall = """
@@ -32,7 +32,7 @@ else
   sed -i "s/version = .*/version = $MISE_TOOL_VERSION/" .scalafmt.conf
 fi
 """ }
-typst = "0.14.2"
+typst = "0.15.1"
 
 [env]
 _.path = ["./bin", "./scripts"]
