@@ -45,11 +45,10 @@ object OTPNode {
       ctx = OTPProcessContext.builder(Symbol(name))
       queue <- Queue.unbounded[Envelope[Command[_], _, _]].withFinalizer(_.shutdown)
       accessKey = AccessKey.create()
-      cookie    = cfg.cookieResolved
       service <-
         for {
           _           <- ZIO.logDebug(s"Creating OtpNode($cfg)")
-          nodeProcess <- NodeProcess.make(name, cookie, queue, accessKey, cfg.pingTimeoutResolved)
+          nodeProcess <- NodeProcess.make(name, cfg.cookie, queue, accessKey, cfg.ping_timeout)
           fiber       <- nodeProcess.stream.runDrain.fork
           nodeScope   <- ZIO.scope
           service = unsafeMake(fiber, queue, nodeProcess, nodeScope, factory, ctx)
