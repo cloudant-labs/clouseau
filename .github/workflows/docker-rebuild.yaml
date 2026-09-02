@@ -28,7 +28,7 @@ jobs:
       - name: Get latest release version
         id: version
         run: |
-          VERSION=$(git describe --tags --abbrev=0)
+          VERSION=$(make version)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build and publish
