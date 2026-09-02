@@ -199,7 +199,8 @@ object AppCfg {
   import pureconfig.generic.semiauto._
 
   implicit val otpNodeConfigReader: ConfigReader[OTPNodeConfig] = deriveReader
-  implicit val otpNodeConfigWriter: ConfigWriter[OTPNodeConfig] = deriveWriter
+  implicit val otpNodeConfigWriter: ConfigWriter[OTPNodeConfig] =
+    deriveWriter[OTPNodeConfig].contramap(c => c.copy(cookie = "****"))
 
   implicit val exponentReader: ConfigReader[Exponent] = ConfigReader[Int].emap(CapacityConfiguration.validateExponent)
   implicit val exponentWriter: ConfigWriter[Exponent] = deriveWriter
