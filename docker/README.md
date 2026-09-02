@@ -1,8 +1,10 @@
 # Clouseau Docker Image
 
+This directory contains the sources to build and run container images for Clouseau.
+
 ## Quick Start
 
-Before you begin make sure you are in the the  root directory of this repository.
+Before you begin, make sure you are in the the root directory of this repository.
 ```sh
 cd /path/to/clouseau
 pwd  # Should show: /path/to/clouseau
