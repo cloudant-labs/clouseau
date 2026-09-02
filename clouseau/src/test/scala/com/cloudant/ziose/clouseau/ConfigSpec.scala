@@ -4,6 +4,7 @@ sbt 'clouseau/testOnly com.cloudant.ziose.clouseau.ConfigSpec'
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.core.Exponent
+import com.cloudant.ziose.otp.OTPNodeConfig
 import com.cloudant.ziose.test.helpers.TestRunner
 import org.junit.runner.RunWith
 import pureconfig.error.ConvertFailure
@@ -116,6 +117,16 @@ class ConfigSpec extends JUnitRunnableSpec {
               )
           ) ?? "Expect error message to contain hint of supported levels"
         )
+      ),
+      suite("configSuite for cookie")(
+        test("Cookie is hidden in toString") {
+          assertTrue(!OTPNodeConfig(cookie = "testcookie").toString.contains("testcookie"))
+        },
+        test("Cookie is hidden in JSON format") {
+          assertTrue(
+            !AppCfg.otpNodeConfigWriter.to(OTPNodeConfig(cookie = "testcookie")).render().contains("testcookie")
+          )
+        }
       )
     )
   }

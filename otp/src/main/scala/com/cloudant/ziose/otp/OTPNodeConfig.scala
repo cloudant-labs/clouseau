@@ -1,34 +1,22 @@
 package com.cloudant.ziose.otp
 
 import com.cloudant.ziose.macros.CheckEnv
-import zio.{Config, Duration, durationInt}
-import zio.config.magnolia.deriveConfig
+import zio.{Duration, durationInt}
 
 final case class OTPNodeConfig(
   name: String = "clouseau1",
   domain: String = "127.0.0.1",
-  cookie: Option[String] = None,
-  ping_timeout: Option[Duration] = None,
-  ping_interval: Option[Duration] = None
+  cookie: String = OTPCookie.findOrGenerateCookie,
+  ping_timeout: Duration = 1.seconds,
+  ping_interval: Duration = 60.seconds
 ) {
-  val DEFAULT_PING_TIMEOUT: Duration  = 1.seconds
-  val DEFAULT_PING_INTERVAL: Duration = 60.seconds
-
-  val cookieResolved: String         = cookie.getOrElse(OTPCookie.findOrGenerateCookie)
-  val pingTimeoutResolved: Duration  = ping_timeout.getOrElse(DEFAULT_PING_TIMEOUT)
-  val pingIntervalResolved: Duration = ping_interval.getOrElse(DEFAULT_PING_INTERVAL)
-
   @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
     s"name=$name",
     s"domain=$domain",
     s"cookie=****",
-    s"ping_timeout=$pingTimeoutResolved",
-    s"ping_interval=$pingIntervalResolved"
+    s"ping_timeout=$ping_timeout",
+    s"ping_interval=$ping_interval"
   )
-}
-
-object OTPNodeConfig {
-  val config: Config[OTPNodeConfig] = deriveConfig[OTPNodeConfig]
 }
