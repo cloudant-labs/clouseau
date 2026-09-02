@@ -73,7 +73,7 @@ RUN chown clouseau:clouseau . && \
     data
 
 COPY --from=builder --chown=clouseau:clouseau /usr/src/*.jar lib/
-COPY --chown=clouseau:clouseau clouseau.conf etc/
+COPY --chown=clouseau:clouseau docker/clouseau.conf etc/
 
 VOLUME /opt/couchdb-search/data
 
