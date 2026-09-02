@@ -25,7 +25,7 @@ fi
 """ }
 scala = "2.13.18"
 # Sync version with ".scalafmt.conf"
-scalafmt = { version = "3.11.1", postinstall = """
+scalafmt = { version = "3.11.5", postinstall = """
 if [[ $OSTYPE == "darwin"* ]]; then
   sed -i "" "s/version = .*/version = $MISE_TOOL_VERSION/" .scalafmt.conf
 else
