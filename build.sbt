@@ -140,21 +140,21 @@ lazy val commonSettings = Seq(
     // The single % is for java libraries
     // the %% appends the version of scala used, and should be used for scala libraries;
     // the %%% is for scala-js (and scala native).
-    "dev.zio"       %% "zio"                               % "2.1.16",
-    "dev.zio"       %% "zio-config"                        % "4.0.4",
-    "dev.zio"       %% "zio-config-magnolia"               % "4.0.4",
-    "dev.zio"       %% "zio-config-typesafe"               % "4.0.4",
-    "dev.zio"       %% "zio-logging"                       % "2.5.0",
+    "dev.zio"       %% "zio"                               % "2.1.26",
+    "dev.zio"       %% "zio-config"                        % "4.0.8",
+    "dev.zio"       %% "zio-config-magnolia"               % "4.0.8",
+    "dev.zio"       %% "zio-config-typesafe"               % "4.0.8",
+    "dev.zio"       %% "zio-logging"                       % "2.5.3",
     // This is needed because micrometer (see below) uses SLF4J
-    "dev.zio"       %% "zio-logging-slf4j-bridge"          % "2.5.0",
-    "dev.zio"       %% "zio-metrics-connectors-micrometer" % "2.3.1",
-    "dev.zio"       %% "zio-streams"                       % "2.1.16",
-    "io.micrometer"  % "micrometer-registry-jmx"           % "1.14.5",
-    "org.scala-lang" % "scala-reflect"                     % "2.13.16",
+    "dev.zio"       %% "zio-logging-slf4j-bridge"          % "2.5.3",
+    "dev.zio"       %% "zio-metrics-connectors-micrometer" % "2.5.8",
+    "dev.zio"       %% "zio-streams"                       % "2.1.26",
+    "io.micrometer"  % "micrometer-registry-jmx"           % "1.17.1",
+    "org.scala-lang" % "scala-reflect"                     % "2.13.18",
     "org.tinylog"    % "tinylog-api"                       % "2.7.0",
     "org.tinylog"    % "tinylog-impl"                      % "2.7.0",
-    "dev.zio"       %% "zio-test"                          % "2.1.16"    % Test,
-    "dev.zio"       %% "zio-test-junit"                    % "2.1.16"    % Test,
+    "dev.zio"       %% "zio-test"                          % "2.1.26"    % Test,
+    "dev.zio"       %% "zio-test-junit"                    % "2.1.26"    % Test,
     "com.github.sbt" % "junit-interface"                   % "0.13.3"    % Test,
     "junit"          % "junit"                             % "4.13.2"    % Test
   ),
