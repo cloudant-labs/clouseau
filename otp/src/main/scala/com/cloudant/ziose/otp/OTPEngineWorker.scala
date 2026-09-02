@@ -3,7 +3,6 @@ package com.cloudant.ziose.otp
 import com.cloudant.ziose.core.Engine
 import com.cloudant.ziose.core.EngineWorker
 import com.cloudant.ziose.core.ActorBuilder
-import java.util.concurrent.TimeUnit
 import com.cloudant.ziose.core.Actor
 import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.core.EngineWorkerExchange
@@ -11,7 +10,7 @@ import com.cloudant.ziose.core.MessageEnvelope
 import com.cloudant.ziose.core.AddressableActor
 import com.cloudant.ziose.core.ProcessContext
 import com.cloudant.ziose.macros.CheckEnv
-import zio.{&, ConfigProvider, Duration, Queue, UIO, ZIO, ZLayer}
+import zio.{&, Queue, UIO, ZIO, ZLayer}
 import com.cloudant.ziose.core.Exponent
 
 final class OTPEngineWorker private (
@@ -69,9 +68,5 @@ object OTPEngineWorker {
       _ <- ZIO.addFinalizer(service.release)
       _ <- ZIO.logDebug("Adding to the environment")
     } yield service
-  }
-
-  def config(provider: ConfigProvider) = {
-    provider.load(OTPNodeConfig.config).cached(Duration(3, TimeUnit.MINUTES))
   }
 }
