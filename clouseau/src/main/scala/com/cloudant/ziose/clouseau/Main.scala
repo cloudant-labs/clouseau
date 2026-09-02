@@ -22,8 +22,8 @@ object Main extends ZIOAppDefault {
       remote_node = s"node${workerCfg.node.name.last}@${workerCfg.node.domain}"
       _ <- otp_node.monitorRemoteNode(
         remote_node,
-        workerCfg.node.pingTimeoutResolved,
-        workerCfg.node.pingIntervalResolved
+        workerCfg.node.ping_timeout,
+        workerCfg.node.ping_interval
       )
       worker     <- ZIO.service[EngineWorker]
       node       <- ZIO.succeed(new ClouseauNode()(runtime, worker, metricsRegistry, loggerCfg.level))
