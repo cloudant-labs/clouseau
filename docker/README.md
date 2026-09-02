@@ -14,12 +14,14 @@ cd /path/to/clouseau   # your local git clone of this repository
 docker pull ghcr.io/cloudant-labs/clouseau:latest
 ```
 
-### Building from Source
+### Building from the Published Release
 
 ```sh
 make docker-build
 ```
-This downloads the official release from [releases](github.com/cloudant-labs/clouseau/releases).
+This downloads the official release artifact from [releases](https://github.com/cloudant-labs/clouseau/releases) — it does **not** use the source code in your local clone.
+
+To build an image from your local source instead (e.g. to test uncommitted changes), go to the [Building with Local Changes](#building-with-local-changes) section.
 
 ## For Contributors
 
