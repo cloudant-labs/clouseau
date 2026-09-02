@@ -4,10 +4,9 @@ This directory contains the sources to build and run container images for Clouse
 
 ## Quick Start
 
-Before you begin, make sure you are in the the root directory of this repository.
+Before you begin, make sure you are in the root directory of this repository (not the `docker/` subdirectory, or the `make` commands below will fail).
 ```sh
-cd /path/to/clouseau
-pwd  # Should show: /path/to/clouseau
+cd /path/to/clouseau   # your local git clone of this repository
 ```
 
 ### Using Pre-built Image (Recommended)
