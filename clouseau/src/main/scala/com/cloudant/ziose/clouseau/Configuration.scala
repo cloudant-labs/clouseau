@@ -6,7 +6,9 @@ import com.typesafe.config.{ConfigFactory, ConfigRenderOptions}
 import pureconfig.ConfigWriter
 import pureconfig.error.{ConfigReaderException, FailureReason}
 import pureconfig.generic.ProductHint
-import zio.{LogLevel, System, Task, UIO, ZIO, ZIOAppArgs, ZLayer}
+import zio.{LogLevel, System, Task, ZIO, ZIOAppArgs, ZLayer}
+
+import java.nio.file.Paths
 
 sealed abstract class LogOutput
 sealed abstract class LogFormat
@@ -15,7 +17,7 @@ object LogOutput {
   case object Stdout extends LogOutput
   case object Syslog extends LogOutput
 
-  def parseLogOutput(value: String): Either[FailureReason, LogOutput] =
+  def parse(value: String): Either[FailureReason, LogOutput] =
     value.trim().toUpperCase() match {
       case "STDOUT" => Right(Stdout)
       case "SYSLOG" => Right(Syslog)
@@ -28,6 +30,12 @@ object LogOutput {
           )
         )
     }
+
+  def prettyPrint(logOutput: LogOutput): String =
+    logOutput match {
+      case Stdout => "stdout"
+      case Syslog => "syslog"
+    }
 }
 
 object LogFormat {
@@ -35,7 +43,7 @@ object LogFormat {
   case object Text extends LogFormat
   case object JSON extends LogFormat
 
-  def parseLogFormat(value: String): Either[FailureReason, LogFormat] =
+  def parse(value: String): Either[FailureReason, LogFormat] =
     value.trim().toUpperCase() match {
       case "RAW"  => Right(Raw)
       case "TEXT" => Right(Text)
@@ -49,6 +57,13 @@ object LogFormat {
           )
         )
     }
+
+  def prettyPrint(format: LogFormat): String =
+    format match {
+      case Raw  => "raw"
+      case Text => "text"
+      case JSON => "json"
+    }
 }
 
 final case class LogConfiguration(
@@ -59,7 +74,7 @@ final case class LogConfiguration(
 )
 
 object LogConfiguration {
-  def parseLogLevel(value: String): Either[FailureReason, LogLevel] = {
+  def parse(value: String): Either[FailureReason, LogLevel] =
     value.trim().toUpperCase match {
       case "ALL"     => Right(LogLevel.All)
       case "FATAL"   => Right(LogLevel.Fatal)
@@ -78,7 +93,8 @@ object LogConfiguration {
           )
         )
     }
-  }
+
+  def prettyPrint(level: LogLevel): String = level.label
 }
 
 final case class ClouseauConfiguration(
@@ -118,7 +134,7 @@ object SyslogProtocol {
   case object TCP extends SyslogProtocol
   case object UDP extends SyslogProtocol
 
-  def parseSyslogProtocol(value: String): Either[FailureReason, SyslogProtocol] =
+  def parse(value: String): Either[FailureReason, SyslogProtocol] =
     value.trim().toUpperCase() match {
       case "TCP" => Right(TCP)
       case "UDP" => Right(UDP)
@@ -130,6 +146,12 @@ object SyslogProtocol {
             "SyslogProtocol must be one of (case insensitive) TCP|UDP"
           )
         )
+    }
+
+  def prettyPrint(protocol: SyslogProtocol): String =
+    protocol match {
+      case TCP => "tcp"
+      case UDP => "udp"
     }
 }
 
@@ -207,26 +229,20 @@ object AppCfg {
   implicit val capacityConfigurationReader: ConfigReader[CapacityConfiguration] = deriveReader
   implicit val capacityConfigurationWriter: ConfigWriter[CapacityConfiguration] = deriveWriter
 
-  implicit val logOutputReader: ConfigReader[LogOutput] = ConfigReader[String].emap(LogOutput.parseLogOutput)
-  implicit val stdoutOutputWriter: ConfigWriter[LogOutput.Stdout.type] = deriveWriter
-  implicit val syslogOutputWriter: ConfigWriter[LogOutput.Syslog.type] = deriveWriter
-  implicit val logOutputWriter: ConfigWriter[LogOutput]                = deriveWriter
+  implicit val logOutputReader: ConfigReader[LogOutput] = ConfigReader[String].emap(LogOutput.parse)
+  implicit val logOutputWriter: ConfigWriter[LogOutput] = ConfigWriter[String].contramap(LogOutput.prettyPrint)
 
-  implicit val formatReader: ConfigReader[LogFormat] = ConfigReader[String].emap(LogFormat.parseLogFormat)
-  implicit val levelReader: ConfigReader[LogLevel]   = ConfigReader[String].emap(LogConfiguration.parseLogLevel)
-  implicit val rawLogFormatWriter: ConfigWriter[LogFormat.Raw.type]   = deriveWriter
-  implicit val textLogFormatWriter: ConfigWriter[LogFormat.Text.type] = deriveWriter
-  implicit val jsonLogFormatWriter: ConfigWriter[LogFormat.JSON.type] = deriveWriter
-  implicit val formatWriter: ConfigWriter[LogFormat]                  = deriveWriter
-  implicit val levelWriter: ConfigWriter[LogLevel]                    = deriveWriter
+  implicit val formatReader: ConfigReader[LogFormat] = ConfigReader[String].emap(LogFormat.parse)
+  implicit val formatWriter: ConfigWriter[LogFormat] = ConfigWriter[String].contramap(LogFormat.prettyPrint)
+  implicit val levelReader: ConfigReader[LogLevel]   = ConfigReader[String].emap(LogConfiguration.parse)
+  implicit val levelWriter: ConfigWriter[LogLevel]   = ConfigWriter[String].contramap(LogConfiguration.prettyPrint)
 
-  implicit val tcpProtocolWriter: ConfigWriter[SyslogProtocol.TCP.type] = deriveWriter
-  implicit val udpProtocolWriter: ConfigWriter[SyslogProtocol.UDP.type] = deriveWriter
-  implicit val syslogProtocolReader: ConfigReader[SyslogProtocol]       =
-    ConfigReader[String].emap(SyslogProtocol.parseSyslogProtocol)
-  implicit val syslogProtocolWriter: ConfigWriter[SyslogProtocol] = deriveWriter
-  implicit val syslogReader: ConfigReader[SyslogConfiguration]    = deriveReader
-  implicit val syslogWriter: ConfigWriter[SyslogConfiguration]    = deriveWriter
+  implicit val syslogProtocolReader: ConfigReader[SyslogProtocol] =
+    ConfigReader[String].emap(SyslogProtocol.parse)
+  implicit val syslogProtocolWriter: ConfigWriter[SyslogProtocol] =
+    ConfigWriter[String].contramap(SyslogProtocol.prettyPrint)
+  implicit val syslogReader: ConfigReader[SyslogConfiguration] = deriveReader
+  implicit val syslogWriter: ConfigWriter[SyslogConfiguration] = deriveWriter
 
   implicit val logConfigurationReader: ConfigReader[LogConfiguration] = deriveReader
   implicit val logConfigurationWriter: ConfigWriter[LogConfiguration] = deriveWriter
@@ -291,11 +307,12 @@ object AppCfg {
 
   val formatOptions: ConfigRenderOptions = ConfigRenderOptions.concise().setFormatted(true)
 
-  def fromHoconFile(path: String): UIO[ConfigReader.Result[AppCfg]] =
+  def fromHoconFile(path: String): Task[ConfigReader.Result[AppCfg]] =
     ConfigSource.file(path).config() match {
       case Right(contents) =>
+        val absolutePath = Paths.get(path).toAbsolutePath.normalize()
         for {
-          _ <- ZIO.logInfo(s"Parsed configuration file $path: ${contents.root().render(formatOptions)}")
+          _ <- ZIO.logInfo(s"Parsed configuration file $absolutePath")
         } yield ConfigSource.fromConfig(contents).load
       case Left(err) => ZIO.succeed(Left(err))
     }
@@ -303,15 +320,13 @@ object AppCfg {
   def layer: ZLayer[ZIOAppArgs, Throwable, AppCfg] =
     ZLayer {
       for {
-        args      <- ZIOAppArgs.getArgs
-        appConfig <- args.headOption.fold(ZIO.succeed(AppCfg()))(s =>
-          for {
-            fileParseResult <- fromHoconFile(s)
-          } yield fileParseResult match {
-            case Right(appConfig) => appConfig
-            case Left(err)        => throw ConfigReaderException[AppCfg](err)
-          }
-        )
+        args <- ZIOAppArgs.getArgs
+        configFile = args.headOption.getOrElse("clouseau.conf")
+        fileParseResult <- fromHoconFile(configFile)
+        appConfig = fileParseResult match {
+          case Right(appConfig) => appConfig
+          case Left(err)        => throw ConfigReaderException[AppCfg](err)
+        }
         index <- getNodeIndex
       } yield appConfig.copy(configIndex = index)
     }
