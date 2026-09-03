@@ -3,14 +3,19 @@ sbt 'clouseau/testOnly com.cloudant.ziose.clouseau.MainSpec'
  */
 package com.cloudant.ziose.clouseau
 
+import com.cloudant.ziose.otp.OTPNodeConfig
 import com.cloudant.ziose.test.helpers.TestRunner
 import org.junit.runner.RunWith
 import pureconfig.ConfigReader
 import zio.test.Assertion.{anything, isSubtype}
 import zio.test.TestSystem.Data
-import zio.test._
+import zio.test.{assert, _}
 import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
 import zio.{Chunk, Task, ZEnvironment, ZIO, ZIOAppArgs}
+
+import java.io.{File, FileWriter, IOException}
+import java.nio.file.Paths
+import scala.util.Using
 
 @RunWith(classOf[ZTestJUnitRunner])
 class MainSpec extends JUnitRunnableSpec {
@@ -108,16 +113,56 @@ class MainSpec extends JUnitRunnableSpec {
     )
   }
 
+  val defaultConfigFile: File = Paths.get(".", "clouseau.conf").toFile
+  val testNodeName: String    = "TestNodeName"
+  val testConfig: AppCfg      = AppCfg().copy(config = List(Configuration(node = OTPNodeConfig("TestNodeName"))))
+
+  def ensureDefaultConfFile(conf: AppCfg): Unit = {
+    if (!defaultConfigFile.exists()) {
+      Using(new FileWriter(defaultConfigFile))(openFile =>
+        openFile.write(AppCfg.appConfigWriter.to(conf).render(AppCfg.formatOptions))
+      )
+    } else {
+      throw new IOException(s"${defaultConfigFile.getAbsolutePath} exists. Please remove before testing")
+    }
+  }
+
+  def ensureNoDefaultConfFile(): Unit = {
+    if (!defaultConfigFile.exists())
+      defaultConfigFile.delete()
+  }
+
+  def cleanUpConfigFile(): Unit = {
+    defaultConfigFile.delete()
+  }
+
   val boostrapSuite: Spec[Any, Throwable] =
     suite("Clouseau bootstrap tests")(
-      test("Clouseau can start without arguments") {
-        assert(())(anything)
+      test("Clouseau reads default config file if started without arguments") {
+        for {
+          config <- ZIO.service[AppCfg]
+        } yield assertTrue(config.config.headOption.is(_.some).node.name == testNodeName)
       }.provideLayer(AppCfg.layer)
-        .provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk()))),
-      test("Clouseau can start when config file is set as argument") {
-        assert(())(anything)
+        .provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk())))
+        @@ TestAspect.before(ZIO.attemptBlockingIO(ensureDefaultConfFile(testConfig)))
+        @@ TestAspect.afterSuccess(ZIO.attemptBlockingIO(cleanUpConfigFile())),
+      test("Clouseau reads config file set as argument") {
+        for {
+          config <- ZIO.service[AppCfg]
+        } yield assertTrue(config.config.headOption.is(_.some).node.name == "ziose1")
       }.provideLayer(AppCfg.layer)
         .provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf")))),
+      test("Clouseau fails to start when default config file is missing and no argument is set") {
+        for {
+          exitCode <- ZIO.scoped(AppCfg.layer.build).exit
+        } yield assertTrue(exitCode.isFailure)
+      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/nonexistent.conf"))))
+        @@ TestAspect.before(ZIO.attemptBlockingIO(ensureNoDefaultConfFile())),
+      test("Clouseau fails to start when nonexistent config file is set as argument") {
+        for {
+          exitCode <- ZIO.scoped(AppCfg.layer.build).exit
+        } yield assertTrue(exitCode.isFailure)
+      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/nonexistent.conf")))),
       test("Clouseau picks up node index from system properties") {
         for {
           config <- ZIO.service[AppCfg]

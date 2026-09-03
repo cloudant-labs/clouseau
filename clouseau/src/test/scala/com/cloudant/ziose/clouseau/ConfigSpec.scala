@@ -14,7 +14,7 @@ import zio.test._
 
 @RunWith(classOf[ZTestJUnitRunner])
 class ConfigSpec extends JUnitRunnableSpec {
-  def spec: Spec[Any, Nothing] = {
+  def spec: Spec[Any, Throwable] = {
     suite("ConfigSpec")(
       suite(s"configSuite for exponent type")(
         test(s"Ensure we can parse lower bound")(
