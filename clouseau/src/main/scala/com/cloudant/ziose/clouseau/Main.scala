@@ -69,9 +69,9 @@ object Main extends ZIOAppDefault {
       )
     } yield patchResult
 
-  override def run: RIO[ZIOAppArgs & Scope, Unit] = (
+  override def run: RIO[ZIOAppArgs & Scope, Unit] =
     for {
-      appCfg    <- ZIO.service[AppCfg]
+      appCfg    <- AppCfg.makeConfig()
       workerCfg <- patchConfig(appCfg.config(appCfg.configIndex))
       loggerCfg = appCfg.logger
       _ <- ZIO.logInfo(s"Resolved configuration: ${appCfg.copy(config = List(workerCfg))}")
@@ -84,5 +84,4 @@ object Main extends ZIOAppDefault {
           metricsLayer
         )
     } yield ()
-  ).provideSome[ZIOAppArgs](AppCfg.layer)
 }
