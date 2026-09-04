@@ -4,7 +4,7 @@
 [tools]
 bat = "0.26.1"
 # Sync version with ".editorconfig-checker.json"
-editorconfig-checker = { version = "3.7.0", postinstall = """
+editorconfig-checker = { version = "3.11.3", postinstall = """
 jq --arg v "v$MISE_TOOL_VERSION" '.Version = $v' .editorconfig-checker.json >tmp.json &&
 mv tmp.json .editorconfig-checker.json
 """ }
