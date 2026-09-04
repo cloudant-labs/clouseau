@@ -91,7 +91,7 @@ jobs:
           timeout_minutes: 2
           max_attempts: 5
           retry_wait_seconds: 2
-          command: make docker-check-couchdb-is-ready
+          command: make docker-couchdb-is-ready
       - name: Test CouchDB and Clouseau integration
         run: make docker-test-integration
       - name: Mango tests on Docker

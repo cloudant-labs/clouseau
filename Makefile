@@ -655,7 +655,7 @@ changes:
 MODE ?= release
 
 .PHONY: generate-erlang-cookie
-# target: generate-erlang-cookie - Generate secure erlang.cookie file with permissions for Docker to read
+# Generate secure erlang.cookie file with permissions for Docker to read
 generate-erlang-cookie:
 	@umask 0133 && openssl rand -base64 16 > $(ERLANG_COOKIE_FILE)
 	@echo "Generated erlang.cookie at $(ERLANG_COOKIE_FILE)"
@@ -674,11 +674,11 @@ endif
 		-t clouseau:latest \
 		-f docker/Dockerfile .
 
-.PHONY: docker-check-couchdb-is-ready
-# target: docker-check-couchdb-is-ready - Check if CouchDB is ready (COUCHDB_URL); retry is handled by the caller
-docker-check-couchdb-is-ready:
+.PHONY: docker-couchdb-is-ready
+# Check if CouchDB is ready (COUCHDB_URL); retry is handled by the caller
+docker-couchdb-is-ready:
 	@echo "Checking CouchDB at $(COUCHDB_URL)..."
-	@curl -sf $(COUCHDB_URL)/ > /dev/null || (echo "ERROR: CouchDB not ready"; exit 1)
+	@curl -sSf $(COUCHDB_URL)/ > /dev/null || (echo "ERROR: CouchDB not ready"; exit 1)
 
 .PHONY: docker-test-integration
 # target: docker-test-integration - Test CouchDB and Clouseau integration (COUCHDB_URL, COUCHDB_USER, COUCHDB_PASS)
@@ -700,7 +700,7 @@ docker-compose-up:
 	docker compose -f docker/compose.yaml up -d
 
 .PHONY: clean-erlang-cookie
-# target: clean-erlang-cookie - Remove erlang.cookie file
+# Remove erlang.cookie file
 clean-erlang-cookie:
 	@rm -f $(ERLANG_COOKIE_FILE)
 	@echo "Removed $(ERLANG_COOKIE_FILE)"
