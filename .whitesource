@@ -7,6 +7,8 @@
     "extends": ["config:base", "mergeConfidence:all-badges"],
     "labels": ["dependencies"],
     "recreateClosed": true,
+    "schedule": ["0 0 1 * *"],
+    "prConcurrentLimit": 20,
 
     "enabledManagers": ["mise", "custom.regex"],
 
