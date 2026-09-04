@@ -6,7 +6,7 @@ import com.typesafe.config.{ConfigFactory, ConfigRenderOptions}
 import pureconfig.ConfigWriter
 import pureconfig.error.{ConfigReaderException, FailureReason}
 import pureconfig.generic.ProductHint
-import zio.{LogLevel, System, Task, ZIO, ZIOAppArgs, ZLayer}
+import zio.{LogLevel, System, Task, ZIO, ZIOAppArgs}
 
 import java.nio.file.Paths
 
@@ -317,17 +317,15 @@ object AppCfg {
       case Left(err) => ZIO.succeed(Left(err))
     }
 
-  def layer: ZLayer[ZIOAppArgs, Throwable, AppCfg] =
-    ZLayer {
-      for {
-        args <- ZIOAppArgs.getArgs
-        configFile = args.headOption.getOrElse("clouseau.conf")
-        fileParseResult <- fromHoconFile(configFile)
-        appConfig = fileParseResult match {
-          case Right(appConfig) => appConfig
-          case Left(err)        => throw ConfigReaderException[AppCfg](err)
-        }
-        index <- getNodeIndex
-      } yield appConfig.copy(configIndex = index)
-    }
+  def makeConfig(): ZIO[ZIOAppArgs, Throwable, AppCfg] =
+    for {
+      args <- ZIOAppArgs.getArgs
+      configFile = args.headOption.getOrElse("clouseau.conf")
+      fileParseResult <- fromHoconFile(configFile)
+      appConfig = fileParseResult match {
+        case Right(appConfig) => appConfig
+        case Left(err)        => throw ConfigReaderException[AppCfg](err)
+      }
+      index <- getNodeIndex
+    } yield appConfig.copy(configIndex = index)
 }
