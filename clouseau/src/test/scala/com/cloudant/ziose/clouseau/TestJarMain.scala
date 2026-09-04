@@ -6,9 +6,9 @@ package com.cloudant.ziose.clouseau
 import zio.{&, RIO, Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 object TestJarMain extends ZIOAppDefault {
-  override def run: RIO[ZIOAppArgs & Scope, Unit] = (
+  override def run: RIO[ZIOAppArgs & Scope, Unit] =
     for {
-      appCfg <- ZIO.service[AppCfg]
+      appCfg <- AppCfg.makeConfig()
       nodeIdx         = 0
       workerCfg       = appCfg.config(nodeIdx)
       loggerCfg       = appCfg.logger
@@ -21,5 +21,4 @@ object TestJarMain extends ZIOAppDefault {
           metricsLayer
         )
     } yield ()
-  ).provideSome[ZIOAppArgs](AppCfg.layer)
 }
