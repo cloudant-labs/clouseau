@@ -1,0 +1,38 @@
+name: Docker Rebuild
+
+# Rebuilds and republishes the Docker image when the Dockerfile changes on main.
+# This is triggered by Renovate PRs that update the base image SHA, ensuring
+# the published image stays up to date with upstream OS/JRE security patches.
+#
+# Note: Java library dependencies are bundled in the Clouseau release artifact
+# and are not updated here. Renovate can update SBT dependencies, but those
+# require a new Clouseau release to take effect.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docker/Dockerfile'
+
+jobs:
+  docker-rebuild:
+    name: Rebuild and publish Docker image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
+      - name: Get latest release version
+        id: version
+        run: |
+          VERSION=$(make version)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build and publish
+        uses: ./.github/actions/docker-publish
+        with:
+          version: ${{ steps.version.outputs.version }}
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
