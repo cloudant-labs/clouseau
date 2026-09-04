@@ -15,7 +15,7 @@ object TestMain {
         "ClouseauNodeSpec"        -> new ClouseauNodeSpec().spec,
         "ClouseauAdapterSpec"     -> new ClouseauAdapterSpec().spec,
         "SendEverySpec"           -> new SendEverySpec().spec,
-        "MainSpec"                -> zio.test.suite("MainSpec")(new MainSpec().nodeIdxSuite),
+        "MainSpec"                -> zio.test.suite("MainSpec")(new MainSpec().spec),
         "ClouseauTypeFactorySpec" -> new ClouseauTypeFactorySpec().spec,
         "ClouseauSupervisorSpec"  -> new ClouseauSupervisorSpec().spec,
         "ServiceSpec"             -> new ServiceSpec().spec,
