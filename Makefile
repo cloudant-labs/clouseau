@@ -1,7 +1,7 @@
 # Use bash to enable `read -d ''` option
 SHELL := /bin/bash
 
-export LC_ALL := C
+export LC_ALL := en_US.UTF-8
 
 BUILD_DIR=$(shell pwd)
 ARTIFACTS_DIR=$(BUILD_DIR)/artifacts
