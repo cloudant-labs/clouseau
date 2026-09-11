@@ -85,6 +85,10 @@ EUNIT_OPTS := "$(_REBAR_COOKIE) --module=$(suites) --test=$(tests)"
 JAR_PROD := clouseau_$(SCALA_VSN)_$(PROJECT_VSN).jar
 JAR_TEST := clouseau_$(SCALA_VSN)_$(PROJECT_VSN)_test.jar
 
+CI_FILES := \
+	$(JAR_PROD) \
+	clouseau-$(PROJECT_VSN)-dist.zip
+
 RELEASE_FILES := $(CI_FILES) \
 	clouseau-$(PROJECT_VSN)-dist.tar.gz \
 	book.pdf
@@ -561,10 +565,6 @@ version:
 
 ci-lint: check-fmt $(CI_ARTIFACTS_DIR)
 	@cp $(ARTIFACTS_DIR)/*.log $(CI_ARTIFACTS_DIR)
-
-CI_FILES := \
-	$(JAR_PROD) \
-	clouseau-$(PROJECT_VSN)-dist.zip
 
 CI_ARTIFACTS := $(addprefix $(ARTIFACTS_DIR)/, $(CI_FILES))
 
