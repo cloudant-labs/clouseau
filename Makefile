@@ -153,7 +153,7 @@ ERL_SRCS?=$(shell git ls-files -- "*/rebar.config" "*.[e,h]rl" "*.app.src" "*.es
 # target: check-fmt - Check mis-formatted code
 check-fmt: $(ARTIFACTS_DIR)
 	@set -o pipefail; scalafmt --test | tee $(ARTIFACTS_DIR)/scalafmt.log
-	@set -o pipefail; ec | tee $(ARTIFACTS_DIR)/editor-config.log
+	@set -o pipefail; editorconfig-checker | tee $(ARTIFACTS_DIR)/editor-config.log
 	@set -o pipefail; rebar3 fmt --verbose --check -- $(ERL_SRCS) | tee $(ARTIFACTS_DIR)/erlfmt.log
 
 .PHONY: erlfmt-format
