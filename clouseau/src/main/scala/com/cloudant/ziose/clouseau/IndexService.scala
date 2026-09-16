@@ -13,6 +13,7 @@
 package com.cloudant.ziose.clouseau
 
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -327,6 +328,9 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
           case e: AlreadyClosedException =>
             logger.error(prefix_name("Commit failed to closed writer"), e)
             index ! ('commit_failed, newUpdateSeq, newPurgeSeq)
+          case e: FileNotFoundException =>
+            logger.error(prefix_name("Index is corrupted and will be rebuilt"), e)
+            index ! 'deleted
           case e: IOException =>
             logger.error(prefix_name("Failed to commit changes"), e)
             index ! ('commit_failed, newUpdateSeq, newPurgeSeq)
