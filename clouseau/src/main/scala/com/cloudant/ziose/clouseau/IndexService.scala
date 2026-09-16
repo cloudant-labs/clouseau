@@ -13,6 +13,8 @@
 package com.cloudant.ziose.clouseau
 
 import java.io.File
+import java.io.FileNotFoundException
+import java.io.EOFException
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -260,10 +262,8 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       self ! 'maybe_commit
     case ('commit_failed, failedUpdateSeq: Number, failedPurgeSeq: Number) =>
       committing = false
-      val(failed, waiting) = commitWaiters.partition(w => w.min_purge_seq <= failedPurgeSeq.longValue)
-      failed.foreach(w => Service.reply(w.tag, ('error, 'commit_failed)))
-      commitWaiters = waiting
-      self ! 'maybe_commit
+      commitWaiters.foreach(w => Service.reply(w.tag, ('error, 'commit_failed)))
+      exit('commit_failed)
   }
 
   def countFields() = {
@@ -677,6 +677,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
       ('error, ('bad_request, "Malformed query syntax"))
     case e: ParseException =>
       ('error, ('bad_request, e.getMessage))
+    case e: RuntimeException =>
+      var cause = e.getCause
+      if (cause.isInstanceOf[FileNotFoundException] || cause.isInstanceOf[EOFException]) {
+        exit('index_corrupted)
+      }
+      ('error, e.getMessage)
     case e: Throwable =>
       ('error, e.getMessage)
   }
@@ -932,7 +938,24 @@ object IndexService {
     val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
     val dir = newDirectory(config.clouseau, new File(rootDir, path))
     try {
-      SupportedAnalyzers.createAnalyzer(options) match {
+      init(node, config, path, options, dir)
+    } catch {
+      case e: IllegalArgumentException => ('error, e.getMessage)
+      case _: FileNotFoundException | _: EOFException => {
+        logger.error(s"Index ${path} is corrupted and will be rebuilt")
+        for (file <- dir.listAll) {
+          dir.deleteFile(file)
+        }
+        init(node, config, path, options, dir)
+      }
+      case e: IOException => {
+        ('error, e.getMessage)
+      }
+    }
+  }
+
+  private def init(node: SNode, config: Configuration, path: String, options: AnalyzerOptions, dir: FSDirectory)(implicit adapter: Adapter[_, _]): Any = {
+    SupportedAnalyzers.createAnalyzer(options) match {
         case Some(analyzer) =>
           val queryParser = new ClouseauQueryParser(version, "default", analyzer)
           val writerConfig = new IndexWriterConfig(version, analyzer)
@@ -942,10 +965,6 @@ object IndexService {
         case None =>
           ('error, 'no_such_analyzer)
       }
-    } catch {
-      case e: IllegalArgumentException => ('error, e.getMessage)
-      case e: IOException => ('error, e.getMessage)
-    }
   }
 
   private def newDirectory(config: ClouseauConfiguration, path: File): FSDirectory = {
