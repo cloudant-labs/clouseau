@@ -21,6 +21,8 @@ services:
 
   clouseau:
     image: clouseau:latest
+    # For remote image pull use:
+    # image: ghcr.io/cloudant-labs/clouseau:latest
     network_mode: "service:couchdb"
     volumes:
       - ./erlang.cookie:/run/secrets/erlang.cookie:ro
