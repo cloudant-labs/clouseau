@@ -273,7 +273,10 @@ class OTPMailbox private (
   }
 
   def start(scope: Scope.Closeable) = for {
-    _                    <- scope.addFinalizerExit(onExit)
+    _ <- scope.addFinalizerExit(onExit)
+    // Make sure subscribe happens before the actor's
+    // own Init/handleInit self-sends.
+    _                    <- ZIO.succeed(mbox.subscribe(this))
     internalMailboxFiber <- ZStream
       .fromQueueWithShutdown(internalMailbox)
       .mapZIO(
@@ -296,7 +299,6 @@ class OTPMailbox private (
       // Make sure we terminate the scope on Interruption
       .onTermination(cause => scope.close(Exit.failCause(cause)))
       .forkIn(scope)
-    _ <- ZIO.succeed(mbox.subscribe(this))
   } yield Map(
     Symbol("internalMailboxConsumerFiber") -> internalMailboxFiber,
     Symbol("externalMailboxConsumerFiber") -> externalMailboxFiber
