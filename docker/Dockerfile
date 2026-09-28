@@ -16,7 +16,7 @@ ARG BUILD_MODE=release
 
 # Stage 1: Local build
 FROM eclipse-temurin:21-jre-ubi10-minimal@sha256:c7feea7f2dce5cf29e0ffa94e386b0a12ab44c029ad66bcb59eacc4da572ccf4 AS local-builder
-COPY artifacts/*.jar /usr/src/
+COPY artifacts/*.jar /build/
 
 
 # Stage 2: Release build
@@ -25,16 +25,13 @@ FROM eclipse-temurin:21-jre-ubi10-minimal@sha256:c7feea7f2dce5cf29e0ffa94e386b0a
 ARG CLOUSEAU_VERSION
 ARG CLOUSEAU_REPO
 
-RUN microdnf install -y unzip && \
-    microdnf clean all
-
-ADD "${CLOUSEAU_REPO}/releases/download/${CLOUSEAU_VERSION}/clouseau-${CLOUSEAU_VERSION}-dist.zip" /clouseau.zip
+ADD "${CLOUSEAU_REPO}/releases/download/${CLOUSEAU_VERSION}/clouseau-${CLOUSEAU_VERSION}-dist.tar.gz" /clouseau-${CLOUSEAU_VERSION}-dist.tar.gz
 ADD "${CLOUSEAU_REPO}/releases/download/${CLOUSEAU_VERSION}/checksums.txt" /checksums.txt
 
-RUN grep "clouseau-${CLOUSEAU_VERSION}-dist.zip" checksums.txt | sha256sum -c - || \
-        (echo "ERROR: Checksum verification failed" && exit 1); \
-    unzip clouseau.zip -d /usr/src; \
-    rm clouseau.zip checksums.txt
+RUN grep "clouseau-${CLOUSEAU_VERSION}-dist.tar.gz" /checksums.txt | sha256sum -c - || \
+        { echo "ERROR: Checksum verification failed"; exit 1; }; \
+    mkdir /build && tar -xzf /clouseau-${CLOUSEAU_VERSION}-dist.tar.gz -C /build --strip-components=1; \
+    rm /clouseau-${CLOUSEAU_VERSION}-dist.tar.gz /checksums.txt
 
 
 # Stage 3: Select builder based on BUILD_MODE
@@ -65,7 +62,7 @@ RUN chown clouseau:clouseau . && \
     lib \
     data
 
-COPY --from=builder --chown=clouseau:clouseau /usr/src/*.jar lib/
+COPY --from=builder --chown=clouseau:clouseau /build/*.jar lib/
 COPY --chown=clouseau:clouseau docker/clouseau.conf etc/
 
 VOLUME /opt/couchdb-search/data
