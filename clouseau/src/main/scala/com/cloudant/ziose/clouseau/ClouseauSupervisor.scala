@@ -159,8 +159,9 @@ case class ClouseauSupervisor(
 
   def waitTermination[PContext <: ProcessContext](pid: Pid, ctx: PContext) = {
     val address = ctx.addressFromEPid(pid.fromScala)
-    (ctx.worker.exchange.isKnown(address) <* ZIO.sleep(25.millis))
-      .repeatWhile(_ == true)
+    ctx.worker.exchange
+      .isKnown(address)
+      .repeat(Schedule.recurWhile[Boolean](_ == true) && Schedule.spaced(25.millis))
       .timeout(TERMINATION_TIMEOUT)
       .unit
   }
