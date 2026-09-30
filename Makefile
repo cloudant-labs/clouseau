@@ -651,6 +651,14 @@ $(ARTIFACTS_DIR)/clouseau_ctrl: bin/clouseau_ctrl
 ci-release:
 	@make release
 
+.PHONY: bump-snapshot
+# target: bump-snapshot - Bump version.sbt to the next patch SNAPSHOT (e.g. 3.4.0-SNAPSHOT -> 3.4.1-SNAPSHOT)
+bump-snapshot:
+	@$(SBT) "\
+		set releaseProcess := Seq(ReleaseTransformations.inquireVersions, ReleaseTransformations.setNextVersion); \
+		set releaseVersionBump := sbtrelease.Version.Bump.Bugfix; \
+		release with-defaults"
+
 .PHONY: changes
 # target: changes - List PRs since last release (to paste in the github.com comment)
 changes:
