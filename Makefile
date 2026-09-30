@@ -648,6 +648,17 @@ $(ARTIFACTS_DIR)/clouseau_ctrl: bin/clouseau_ctrl
 ci-release:
 	@make release
 
+.PHONY: bump-snapshot
+# target: bump-snapshot - Bump version.sbt to the next patch SNAPSHOT (e.g. 3.4.0-SNAPSHOT -> 3.4.1-SNAPSHOT)
+bump-snapshot:
+	@BASE=$$(echo "$(PROJECT_VSN)" | sed 's/-SNAPSHOT//') ; \
+	MAJOR=$$(echo "$$BASE" | cut -d. -f1) ; \
+	MINOR=$$(echo "$$BASE" | cut -d. -f2) ; \
+	PATCH=$$(echo "$$BASE" | cut -d. -f3) ; \
+	NEXT="$$MAJOR.$$MINOR.$$((PATCH + 1))-SNAPSHOT" ; \
+	perl -i -pe "s|ThisBuild / version := \".*\"|ThisBuild / version := \"$$NEXT\"|" version.sbt ; \
+	echo "Bumped version.sbt to $$NEXT"
+
 .PHONY: changes
 # target: changes - List PRs since last release (to paste in the github.com comment)
 changes:
