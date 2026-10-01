@@ -10,7 +10,7 @@ console::infoLn " but don't)"
 
 scalafmt --reportError
 formatted1=$?
-ec
+editorconfig-checker
 formatted2=$?
 rebar3 fmt --check -- \
   $(git ls-files -- "*/rebar.config" "*.app.src" "*.erl" "*.hrl" "*.escript")
