@@ -735,7 +735,8 @@ docker-elixir-test: $(COUCHDB_DIR)/.compiled
 	$(MAKE) elixir-search \
 		_WITH_CLOUSEAU=-q \
 		ERLANG_COOKIE=$$ERLANG_COOKIE \
-		EXUNIT_OPTS="--max-cases 1 test/elixir/test/search_test.exs"
+		EXUNIT_OPTS="--max-cases 1 test/elixir/test/search_test.exs" \
+	|| (echo "=== Dev logs on failure ==="; tail -n 100 dev/logs/*.log 2>/dev/null; exit 1)
 
 
 .PHONY: docker-test
