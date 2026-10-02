@@ -110,10 +110,10 @@ class IndexManagerServiceSpec extends JUnitRunnableSpec {
     })
   }
 
-  val startPeer = {
+  def startPeer(name: String = "dummy") = {
     for {
       node <- Utils.clouseauNode
-      peer <- TestService.start(node, "dummy")
+      peer <- TestService.start(node, name)
     } yield peer.actor
   }
 
@@ -129,7 +129,7 @@ class IndexManagerServiceSpec extends JUnitRunnableSpec {
     suite("index manager")(
       test("open an index when asked")(
         for {
-          peer    <- startPeer
+          peer    <- startPeer("peer_open")
           manager <- startIndexManager
           pid     <- openIndex(manager, peer, "foo", analyzerOptions)
           _       <- stopActor(peer)
@@ -138,7 +138,7 @@ class IndexManagerServiceSpec extends JUnitRunnableSpec {
       ),
       test("return the same index if it's already open")(
         for {
-          peer    <- startPeer
+          peer    <- startPeer("peer_same")
           manager <- startIndexManager
           pid1    <- openIndex(manager, peer, "foo", analyzerOptions)
           pid2    <- openIndex(manager, peer, "foo", analyzerOptions)
@@ -148,6 +148,43 @@ class IndexManagerServiceSpec extends JUnitRunnableSpec {
           pid1.isDefined,
           pid2.isDefined,
           pid1.get == pid2.get
+        )
+      ),
+      test("concurrent openers should all be linked to the index process and receive same pid")(
+        for {
+          peer1   <- startPeer("peer1_conc")
+          peer2   <- startPeer("peer2_conc")
+          manager <- startIndexManager
+          fiber1  <- openIndex(manager, peer1, "concurrent_foo", analyzerOptions).fork
+          fiber2  <- openIndex(manager, peer2, "concurrent_foo", analyzerOptions).fork
+          pid1Opt <- fiber1.join
+          pid2Opt <- fiber2.join
+          _       <- stopActor(peer1)
+          _       <- stopActor(peer2)
+          _       <- stopIndexManager(manager)
+        } yield assertTrue(
+          pid1Opt.isDefined,
+          pid2Opt.isDefined,
+          pid1Opt.get == pid2Opt.get
+        )
+      ),
+      test("reopen after actor killed should eagerly evict stale PID and return fresh index")(
+        for {
+          peer1   <- startPeer("peer1_stale")
+          peer2   <- startPeer("peer2_stale")
+          manager <- startIndexManager
+          pid1Opt <- openIndex(manager, peer1, "stale_race_foo", analyzerOptions)
+          _       <- assertTrue(pid1Opt.isDefined)
+          pid1 = pid1Opt.get
+          // Terminate pid1 by deleting the doc/closing index actor directly
+          _ <- callIndexManager(manager, ('delete, "stale_race_foo"))
+          // Immediately open same index from peer2 before monitor cleanup trap runs
+          pid2Opt <- openIndex(manager, peer2, "stale_race_foo", analyzerOptions)
+          _       <- stopActor(peer2)
+          _       <- stopIndexManager(manager)
+        } yield assertTrue(
+          pid2Opt.isDefined,
+          pid2Opt.get != pid1
         )
       )
     ).provideLayer(environment) @@ TestAspect.withLiveClock @@ TestAspect.sequential
