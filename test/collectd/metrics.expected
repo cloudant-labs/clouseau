@@ -1,4 +1,3 @@
-"com.cloudant.clouseau":name="NativeFSLock.count",type="IndexManagerService"
 "com.cloudant.clouseau":name="commits",type="IndexService"
 "com.cloudant.clouseau":name="deletes",type="IndexService"
 "com.cloudant.clouseau":name="indexes.seen.1d",type="IndexManagerService"
@@ -7,6 +6,7 @@
 "com.cloudant.clouseau":name="indexes.seen.1w",type="IndexManagerService"
 "com.cloudant.clouseau":name="lru.evictions",type="IndexManagerService"
 "com.cloudant.clouseau":name="lru.misses",type="IndexManagerService"
+"com.cloudant.clouseau":name="NativeFSLock.count",type="IndexManagerService"
 "com.cloudant.clouseau":name="opens",type="IndexManagerService"
 "com.cloudant.clouseau":name="partition_search.timeout.count",type="IndexService"
 "com.cloudant.clouseau":name="searches",type="IndexService"

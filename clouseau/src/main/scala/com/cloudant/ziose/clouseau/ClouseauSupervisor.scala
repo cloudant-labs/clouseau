@@ -33,7 +33,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 case class ClouseauSupervisor(
-    ctx: ServiceContext[ConfigurationArgs],
+    ctx: ServiceContext[Configuration],
     var manager: Option[Pid] = None,
     var cleanup: Option[Pid] = None,
     var analyzer: Option[Pid] = None,
@@ -45,10 +45,10 @@ case class ClouseauSupervisor(
   val logger = LoggerFactory.getLogger("clouseau.supervisor")
 
   override def onInit[P <: ProcessContext](_ctx: P): ZIO[Any, Throwable, _ <: ActorResult] = for {
-    _ <- ZIO.succeed(spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args))
-    _ <- ZIO.succeed(spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args))
-    _ <- ZIO.succeed(spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args))
-    _ <- ZIO.succeed(spawnAndMonitorService[InitService, ConfigurationArgs](Symbol("init"), ctx.args))
+    _ <- ZIO.succeed(spawnAndMonitorService[IndexManagerService, Configuration](Symbol("main"), ctx.args))
+    _ <- ZIO.succeed(spawnAndMonitorService[IndexCleanupService, Configuration](Symbol("cleanup"), ctx.args))
+    _ <- ZIO.succeed(spawnAndMonitorService[AnalyzerService, Configuration](Symbol("analyzer"), ctx.args))
+    _ <- ZIO.succeed(spawnAndMonitorService[InitService, Configuration](Symbol("init"), ctx.args))
     _ <- ZIO.succeed(spawnAndMonitorService[RexService, None.type](Symbol("rex"), None))
   } yield ActorResult.Continue()
 
@@ -122,22 +122,22 @@ case class ClouseauSupervisor(
     if (manager.contains(pid)) {
       logger.warn(s"manager crashed with reason: ${reason}")
       manager = None
-      spawnAndMonitorService[IndexManagerService, ConfigurationArgs](Symbol("main"), ctx.args)
+      spawnAndMonitorService[IndexManagerService, Configuration](Symbol("main"), ctx.args)
     }
     if (cleanup.contains(pid)) {
       logger.warn(s"cleanup crashed with reason: ${reason}")
       cleanup = None
-      spawnAndMonitorService[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), ctx.args)
+      spawnAndMonitorService[IndexCleanupService, Configuration](Symbol("cleanup"), ctx.args)
     }
     if (analyzer.contains(pid)) {
       logger.warn(s"analyzer crashed with reason: ${reason}")
       analyzer = None
-      spawnAndMonitorService[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), ctx.args)
+      spawnAndMonitorService[AnalyzerService, Configuration](Symbol("analyzer"), ctx.args)
     }
     if (init.contains(pid)) {
       logger.warn(s"init crashed with reason: ${reason}")
       init = None
-      spawnAndMonitorService[EchoService, ConfigurationArgs](Symbol("init"), ctx.args)
+      spawnAndMonitorService[EchoService, Configuration](Symbol("init"), ctx.args)
     }
     if (rex.contains(pid)) {
       logger.warn(s"rex crashed with reason: ${reason}")
@@ -176,16 +176,16 @@ case class ClouseauSupervisor(
 
   private def spawnAndMonitorService[TS <: Service[A] with Actor: Tag, A <: Product](regName: Symbol, args: A)(implicit
     adapter: Adapter[_, _]
-  ) = {
+  ): Unit = {
     val beginTs = Instant.now()
 
     val result = (regName, args) match {
       // case (Symbol("IndexService"), args: IndexServiceArgs) => IndexServiceBuilder.start(adapter.node, args)
-      case (Symbol("cleanup"), ConfigurationArgs(args))  => IndexCleanupServiceBuilder.start(adapter.node, args)
-      case (Symbol("analyzer"), ConfigurationArgs(args)) => AnalyzerServiceBuilder.start(adapter.node, args)
-      case (Symbol("main"), ConfigurationArgs(args))     => IndexManagerServiceBuilder.start(adapter.node, args)
-      case (Symbol("init"), ConfigurationArgs(args))     => InitService.start(adapter.node, "init", args)
-      case (Symbol("rex"), None)                         => RexService.start(adapter.node)
+      case (Symbol("cleanup"), args : Configuration)  => IndexCleanupServiceBuilder.start(adapter.node, args)
+      case (Symbol("analyzer"), args : Configuration) => AnalyzerServiceBuilder.start(adapter.node, args)
+      case (Symbol("main"), args : Configuration)     => IndexManagerServiceBuilder.start(adapter.node, args)
+      case (Symbol("init"), args : Configuration)     => InitService.start(adapter.node, "init", args)
+      case (Symbol("rex"), None)                      => RexService.start(adapter.node)
     }
     val timeSpentInMs = ChronoUnit.MILLIS.between(beginTs, Instant.now)
     val pid = result match {
@@ -208,7 +208,7 @@ case class ClouseauSupervisor(
 }
 
 object ClouseauSupervisor extends ActorConstructor[ClouseauSupervisor] {
-  def make(node: SNode, service_ctx: ServiceContext[ConfigurationArgs]) = {
+  def make(node: SNode, service_ctx: ServiceContext[Configuration]) = {
     def maker[PContext <: ProcessContext](process_context: PContext): ClouseauSupervisor = {
       ClouseauSupervisor(service_ctx)(Adapter(process_context, node, ClouseauTypeFactory))
     }
@@ -225,7 +225,7 @@ object ClouseauSupervisor extends ActorConstructor[ClouseauSupervisor] {
     node: SNode,
     config: Configuration
   ): ZIO[EngineWorker & Node & ActorFactory, Throwable, AddressableActor[_, _]] = {
-    val ctx = new ServiceContext[ConfigurationArgs] { val args = ConfigurationArgs(config) }
-    node.spawnServiceZIO[ClouseauSupervisor, ConfigurationArgs](make(node, ctx))
+    val ctx = new ServiceContext[Configuration] { val args = config }
+    node.spawnServiceZIO[ClouseauSupervisor, Configuration](make(node, ctx))
   }
 }

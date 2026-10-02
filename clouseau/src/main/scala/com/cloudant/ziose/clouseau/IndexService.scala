@@ -103,18 +103,17 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   val parSearchTimeOutCount = metrics.counter("partition_search.timeout.count")
 
   // Start committer heartbeat
-  val commitInterval = ctx.args.config.getInt("commit_interval_secs", 30)
-  val timeAllowed = ctx.args.config.getLong("clouseau.search_allowed_timeout_msecs", 5000)
-  val countFieldsEnabled = ctx.args.config.getBoolean("clouseau.count_fields", false)
+  val commitInterval = ctx.args.config.clouseau.commit_interval_secs
+  val timeAllowed = ctx.args.config.clouseau.search_allowed_timeout_msecs
+  val countFieldsEnabled = ctx.args.config.clouseau.count_fields
 
-  val concurrentSearchEnabled = ctx.args.config.getBoolean("clouseau.concurrent_search_enabled", false)
-  val concurrentSearchLimit = ctx.args.config.getInt("clouseau.concurrent_search_limit", 1000)
-
+  val concurrentSearchEnabled = ctx.args.config.clouseau.concurrent_search_enabled
+  val concurrentSearchLimit = ctx.args.config.clouseau.concurrent_search_limit
   // Check if the index is idle and optionally close it if there is no activity between
   //Two consecutive idle status checks.
-  val closeIfIdleEnabled = ctx.args.config.getBoolean("clouseau.close_if_idle", false)
-  val idleTimeout = ctx.args.config.getInt("clouseau.idle_check_interval_secs", 300)
-  val lruUpdateInterval = ctx.args.config.getInt("clouseau.lru_update_interval_msecs", 1000)
+  val closeIfIdleEnabled = ctx.args.config.clouseau.close_if_idle
+  val idleTimeout = ctx.args.config.clouseau.idle_check_interval_secs
+  val lruUpdateInterval = ctx.args.config.clouseau.lru_update_interval_msecs
   // Set initial default to be in the past so we don't miss first LRU update
   var lastLRUUpdate = Instant.now().minus(Duration.fromMillis(lruUpdateInterval * 2))
 
@@ -269,8 +268,7 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   def countFields() = {
     if (countFieldsEnabled) {
       val leaves = reader.leaves().iterator()
-      val warningThreshold = ctx.args.config.
-        getInt("clouseau.field_count_warn_threshold", 5000)
+      val warningThreshold = ctx.args.config.clouseau.field_count_warn_threshold
       val fields = new HashSet[String]()
       while (leaves.hasNext() && fields.size <= warningThreshold) {
         val fieldInfoIter = leaves.next.reader().getFieldInfos().iterator()
@@ -929,7 +927,7 @@ object IndexService {
   val DISTANCE_RE = "^([-+])?<distance,([\\.\\w]+),([\\.\\w]+),%s,%s,(mi|km)>$".format(FP, FP).r
 
   def start(node: SNode, config: Configuration, path: String, options: AnalyzerOptions)(implicit adapter: Adapter[_, _]): Any = {
-    val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
+    val rootDir = new File(config.clouseau.dir)
     val dir = newDirectory(config.clouseau, new File(rootDir, path))
     try {
       SupportedAnalyzers.createAnalyzer(options) match {
@@ -949,13 +947,11 @@ object IndexService {
   }
 
   private def newDirectory(config: ClouseauConfiguration, path: File): FSDirectory = {
-    val lockClassName = config.getString("clouseau.lock_class",
-      "org.apache.lucene.store.NativeFSLockFactory")
+    val lockClassName = config.lock_class
     val lockClass = Class.forName(lockClassName)
     val lockFactory = lockClass.newInstance().asInstanceOf[LockFactory]
 
-    val dirClassName = config.getString("clouseau.dir_class",
-      "org.apache.lucene.store.NIOFSDirectory")
+    val dirClassName = config.dir_class
     val dirClass = Class.forName(dirClassName)
     val dirCtor = dirClass.getConstructor(classOf[File], classOf[LockFactory])
     dirCtor.newInstance(path, lockFactory).asInstanceOf[FSDirectory]

@@ -52,8 +52,8 @@ class IndexManagerServiceSpec extends JUnitRunnableSpec {
       node   <- Utils.clouseauNode
       worker <- ZIO.service[EngineWorker]
       cfg    <- Utils.defaultConfig
-      val ctx = new ServiceContext[ConfigurationArgs] { val args = ConfigurationArgs(cfg) }
-      service <- node.spawnServiceZIO[IndexManagerService, ConfigurationArgs](
+      val ctx = new ServiceContext[Configuration] { val args: Configuration = cfg }
+      service <- node.spawnServiceZIO[IndexManagerService, Configuration](
         IndexManagerServiceBuilder.make(node, ctx)
       )
     } yield service
