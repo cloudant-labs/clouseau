@@ -23,6 +23,7 @@ updates:
           - "io.github.siculo:sbt-bom"
           - "net.nmoncho:sbt-dependency-check"
           - "org.scalameta:sbt-scalafmt"
+          - "com.github.sbt:sbt-release"
       sbt-dependencies:
         patterns:
           - "dev.zio:*"
