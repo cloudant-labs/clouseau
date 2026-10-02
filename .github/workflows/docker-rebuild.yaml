@@ -25,14 +25,22 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
 
-      - name: Get latest release version
+      - name: Build JAR artifact
+        run: make jar
+
+      - name: Get version
         id: version
         run: |
-          VERSION=$(make version)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          FULL=$(make version)
+          SHORT=$(echo $FULL | sed 's/-.*//')
+          echo "full=$FULL" >> $GITHUB_OUTPUT
+          echo "short=$SHORT" >> $GITHUB_OUTPUT
 
       - name: Build and publish
         uses: ./.github/actions/docker-publish
         with:
-          version: ${{ steps.version.outputs.version }}
+          version: ${{ steps.version.outputs.short }}
+          full-version: ${{ steps.version.outputs.full }}
           registry-token: ${{ secrets.GITHUB_TOKEN }}
+          build-mode: 'local'
+          include-patch-tag: 'false'

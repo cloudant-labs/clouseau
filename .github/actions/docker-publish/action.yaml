@@ -7,6 +7,17 @@ inputs:
   registry-token:
     description: 'GitHub token for registry authentication'
     required: true
+  build-mode:
+    description: 'Docker build mode (local or release)'
+    required: false
+    default: 'release'
+  include-patch-tag:
+    description: 'Whether to include the <major>.<minor>.<patch> image tag (set to false for rebuilds)'
+    required: false
+    default: 'true'
+  full-version:
+    description: 'Full Clouseau version (e.g. 3.4.1-SNAPSHOT) to set as CLOUSEAU_VERSION inside the image'
+    required: false
 runs:
   using: 'composite'
   steps:
@@ -26,7 +37,7 @@ runs:
       with:
         images: ghcr.io/cloudant-labs/clouseau
         tags: |
-          type=semver,pattern={{version}},value=${{ inputs.version }}
+          type=semver,pattern={{version}},value=${{ inputs.version }},enable=${{ inputs.include-patch-tag }}
           type=semver,pattern={{major}}.{{minor}},value=${{ inputs.version }}
           type=semver,pattern={{major}},value=${{ inputs.version }}
           type=raw,value=latest
@@ -39,8 +50,8 @@ runs:
         push: true
         no-cache: true
         build-args: |
-          BUILD_MODE=release
-          CLOUSEAU_VERSION=${{ inputs.version }}
+          BUILD_MODE=${{ inputs.build-mode }}
+          CLOUSEAU_VERSION=${{ inputs.full-version || inputs.version }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         platforms: linux/amd64,linux/arm64

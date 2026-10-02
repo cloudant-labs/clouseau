@@ -25,16 +25,13 @@ FROM eclipse-temurin:21-jre-ubi10-minimal@sha256:c7feea7f2dce5cf29e0ffa94e386b0a
 ARG CLOUSEAU_VERSION
 ARG CLOUSEAU_REPO
 
-RUN microdnf install -y unzip && \
-    microdnf clean all
-
-ADD "${CLOUSEAU_REPO}/releases/download/${CLOUSEAU_VERSION}/clouseau-${CLOUSEAU_VERSION}-dist.zip" /clouseau.zip
+ADD "${CLOUSEAU_REPO}/releases/download/${CLOUSEAU_VERSION}/clouseau-${CLOUSEAU_VERSION}-dist.tar.gz" /clouseau-${CLOUSEAU_VERSION}-dist.tar.gz
 ADD "${CLOUSEAU_REPO}/releases/download/${CLOUSEAU_VERSION}/checksums.txt" /checksums.txt
 
-RUN grep "clouseau-${CLOUSEAU_VERSION}-dist.zip" checksums.txt | sha256sum -c - || \
-        (echo "ERROR: Checksum verification failed" && exit 1); \
-    unzip clouseau.zip -d /usr/src; \
-    rm clouseau.zip checksums.txt
+RUN grep "clouseau-${CLOUSEAU_VERSION}-dist.tar.gz" /checksums.txt | sha256sum -c - || \
+        { echo "ERROR: Checksum verification failed"; exit 1; }; \
+    tar -xzf /clouseau-${CLOUSEAU_VERSION}-dist.tar.gz -C /usr/src --strip-components=1; \
+    rm /clouseau-${CLOUSEAU_VERSION}-dist.tar.gz /checksums.txt
 
 
 # Stage 3: Select builder based on BUILD_MODE
