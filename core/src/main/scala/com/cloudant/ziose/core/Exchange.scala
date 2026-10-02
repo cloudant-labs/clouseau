@@ -56,7 +56,11 @@ class Exchange[K, M, E <: ForwardWithId[K, M]](registry: Registry[K, M, E], val 
     }
   }
   def shutdown(implicit trace: Trace): UIO[Unit] = {
-    ZIO.unless(isFinalized.getAndSet(true))(foreach(_.shutdown.unsafeRun)).unit
+    ZIO
+      .unless(isFinalized.getAndSet(true))(
+        foreachZIO(entity => entity.shutdown.catchAllCause(c => ZIO.logErrorCause("entity shutdown failed", c)))
+      )
+      .unit
   }
 
   def forward(msg: M)(implicit trace: Trace): UIO[Boolean] = for {
