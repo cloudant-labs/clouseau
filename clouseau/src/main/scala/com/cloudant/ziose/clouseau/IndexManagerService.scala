@@ -34,12 +34,12 @@ import zio.ZIO
 class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
 
   private def isProcessAlive(pid: Pid): Boolean = {
-    try {
-      val worker = adapter.ctx.asInstanceOf[OTPProcessContext].worker
-      val address = Address.fromPid(pid.fromScala, adapter.workerId, adapter.workerNodeName)
-      worker.processInfo(address).isDefined
-    } catch {
-      case _: Throwable => ping(pid)
+    adapter.ctx match {
+      case otpCtx: OTPProcessContext =>
+        val address = Address.fromPid(pid.fromScala, adapter.workerId, adapter.workerNodeName)
+        otpCtx.worker.processInfo(address).isDefined
+      case _ =>
+        ping(pid)
     }
   }
 
