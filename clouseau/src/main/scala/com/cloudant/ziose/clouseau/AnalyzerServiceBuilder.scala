@@ -34,15 +34,4 @@ object AnalyzerServiceBuilder extends ActorConstructor[AnalyzerService] {
       .withMaker(maker)
       .build(this)
   }
-  /*
-    This function is called from ClouseauSupervisor and return
-        `{ok, Pid}` or `error`
-   */
-  def start(node: SNode, config: Configuration)(implicit adapter: Adapter[_, _]): Any = {
-    val ctx = new ServiceContext[ConfigurationArgs] { val args = ConfigurationArgs(config) }
-    node.spawnService[AnalyzerService, ConfigurationArgs](make(node, ctx)) match {
-      case core.Success(actor)  => (Symbol("ok"), Pid.toScala(actor.self.pid))
-      case core.Failure(reason) => reason
-    }
-  }
 }

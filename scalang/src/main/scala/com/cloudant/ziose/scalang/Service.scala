@@ -313,6 +313,13 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
    */
   def trapMonitorExit(monitored: Any, ref: Reference, reason: Any) = ()
 
+  /**
+   * Effectful variant of handleMonitorExit. Subclasses wishing to spawn or monitor in response to a monitor exit should
+   * override this method.
+   */
+  def handleMonitorExitZIO(monitored: Any, ref: Reference, reason: Any): ZIO[Any, Throwable, Unit] =
+    ZIO.attempt(handleMonitorExit(monitored, ref, reason))
+
   @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
     s"${getClass.getSimpleName}",
@@ -422,15 +429,8 @@ class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_,
           }
         }
       case msg: MessageEnvelope.MonitorExit =>
-        try {
-          ZIO
-            .succeed(handleMonitorExit(monitoredToScala(msg.from.get), Reference.toScala(msg.ref), msg.reason))
-            .as(ActorResult.Continue())
-        } catch {
-          case err: Throwable => {
-            ZIO.fail(HandleCastCBError("onMessage[DOWN]", err))
-          }
-        }
+        handleMonitorExitZIO(monitoredToScala(msg.from.get), Reference.toScala(msg.ref), msg.reason)
+          .as(ActorResult.Continue())
       case msg: MessageEnvelope.Send =>
         event.getPayload match {
           case Some(ETuple(EAtom("ping"), from: EPid, ref: ERef)) => {

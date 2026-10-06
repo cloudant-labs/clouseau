@@ -13,7 +13,7 @@
 package com.cloudant.ziose.clouseau
 
 import _root_.com.cloudant.ziose.scalang
-import scalang.{ServiceContext, SNode, Adapter, Pid}
+import scalang.{ServiceContext, SNode, Adapter}
 
 import _root_.com.cloudant.ziose.core
 import core.ProcessContext
@@ -33,16 +33,5 @@ object IndexManagerServiceBuilder extends ActorConstructor[IndexManagerService] 
       .withName("main")
       .withMaker(maker)
       .build(this)
-  }
-  /*
-    This function is called from ClouseauSupervisor and return
-        `{ok, Pid}` or `error`
-   */
-  def start(node: SNode, config: Configuration)(implicit adapter: Adapter[_, _]): Any = {
-    val ctx = new ServiceContext[ConfigurationArgs] { val args = ConfigurationArgs(config) }
-    node.spawnService[IndexManagerService, ConfigurationArgs](make(node, ctx)) match {
-      case core.Success(actor)  => (Symbol("ok"), Pid.toScala(actor.self.pid))
-      case core.Failure(reason) => reason
-    }
   }
 }
