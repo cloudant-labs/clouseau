@@ -6,6 +6,7 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    open-pull-requests-limit: 10
     labels:
       - "dependencies"
     # Pin Scala to current major version; ignore sbt version updates (owned by renovate)
@@ -41,6 +42,7 @@ updates:
       - "/.github/actions/*"
     schedule:
       interval: "monthly"
+    open-pull-requests-limit: 10
     labels:
       - "dependencies"
     groups:
@@ -53,5 +55,6 @@ updates:
     directory: "/docker"
     schedule:
       interval: "monthly"
+    open-pull-requests-limit: 10
     labels:
       - "dependencies"
