@@ -17,7 +17,7 @@ import zio.logging.{
   loggerName
 }
 import zio.ZIO.{logDebug, logError, logErrorCause, logInfo, logWarning, logWarningCause}
-import zio.{Cause, Duration, Fiber, LogLevel, Runtime, TaskLayer, Trace, UIO, ULayer, ZIO, ZLayer, ZLogger}
+import zio.{Cause, Duration, LogLevel, Runtime, TaskLayer, Trace, UIO, ULayer, ZIO, ZLayer, ZLogger}
 
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -117,8 +117,8 @@ object LoggerFactory {
       }
     }
 
-    def log(event: UIO[Unit])(implicit adapter: Adapter[_, _]): UIO[Fiber.Runtime[Nothing, Option[Unit]]] = {
-      event.timeout(Duration.fromSeconds(10)).unsafeRunWith(adapter.runtime).forkDaemon
+    def log(event: UIO[Unit])(implicit adapter: Adapter[_, _]): Unit = {
+      event.timeout(Duration.fromSeconds(10)).forkDaemon.unsafeRunWith(adapter.runtime)
     }
   }
 
