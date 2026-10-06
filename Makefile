@@ -719,7 +719,8 @@ docker-mango-test: $(COUCHDB_DIR)/src/mango/.venv
 	COUCH_HOST=$(COUCHDB_URL) \
 	COUCH_USER=$(COUCHDB_USER) \
 	COUCH_PASS=$(COUCHDB_PASS) \
-	$(COUCHDB_DIR)/src/mango/.venv/bin/nose2 -v -F -s $(COUCHDB_DIR)/src/mango/test -c test/mango/unittest.cfg
+	$(COUCHDB_DIR)/src/mango/.venv/bin/nose2 -v -F -s $(COUCHDB_DIR)/src/mango/test -c test/mango/unittest.cfg \
+	|| (echo "=== Docker Compose Logs on failure ==="; docker compose -f docker/compose.yaml logs --no-color 2>/dev/null; exit 1)
 
 
 .PHONY: docker-elixir-test

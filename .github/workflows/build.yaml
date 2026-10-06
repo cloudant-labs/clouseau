@@ -70,6 +70,17 @@ jobs:
           max_attempts: 3
           command: make clouseau-ctrl-smoke
 
+      - name: Dump CouchDB logs on failure
+        if: failure()
+        run: |
+          echo "=== CouchDB Dev Logs ==="
+          for log in deps/couchdb.*/dev/logs/*.log; do
+            if [ -f "$log" ]; then
+              echo "--- $log ---"
+              cat "$log"
+            fi
+          done
+
   docker-integration:
     name: Docker integration tests
     runs-on: ubuntu-latest
@@ -127,7 +138,6 @@ jobs:
           name: docker-integration-logs
           path: |
             deps/couchdb.*/dev/logs/
-            artifacts/
           if-no-files-found: ignore
 
       - name: Cleanup
