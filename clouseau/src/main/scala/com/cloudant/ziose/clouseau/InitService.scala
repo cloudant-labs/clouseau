@@ -100,7 +100,7 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
 private object InitService extends ActorConstructor[InitService] {
   val logger = LoggerFactory.getLogger("clouseau.InitServiceBuilder")
 
-  private def make(
+  def make(
     node: SNode,
     service_context: ServiceContext[ConfigurationArgs],
     name: String
@@ -118,23 +118,4 @@ private object InitService extends ActorConstructor[InitService] {
       .build(this)
   }
 
-  def start(
-    node: SNode,
-    name: String,
-    config: Configuration
-  )(implicit
-    adapter: Adapter[_, _]
-  ): Any = {
-    val ctx: ServiceContext[ConfigurationArgs] = {
-      new ServiceContext[ConfigurationArgs] {
-        val args: ConfigurationArgs = ConfigurationArgs(config)
-      }
-    }
-    node.spawnService[InitService, ConfigurationArgs](make(node, ctx, name)) match {
-      case core.Success(actor) =>
-        logger.debug(s"Started $name")
-        (Symbol("ok"), Pid.toScala(actor.self.pid))
-      case core.Failure(reason) => reason
-    }
-  }
 }
