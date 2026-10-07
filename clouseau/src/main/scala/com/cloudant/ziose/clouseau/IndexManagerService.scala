@@ -31,13 +31,13 @@ import com.cloudant.ziose.core.ProcessContext
 import com.cloudant.ziose.core.Codec
 import zio.ZIO
 
-class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
+class IndexManagerService(ctx: ServiceContext[Configuration])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
 
   class LRU(initialCapacity: Int = 100, loadFactor: Float = 0.75f, trackIndexAccesses: Boolean = false) {
 
     class InnerLRU(initialCapacity: Int, loadFactor: Float) extends LinkedHashMap[String, Pid](initialCapacity, loadFactor, true)
 
-    val capacity = ctx.args.config.getInt("clouseau.max_indexes_open", 100)
+    val capacity = ctx.args.clouseau.max_indexes_open
     val lruMisses = metrics.counter("lru.misses")
     val lruEvictions = metrics.counter("lru.evictions")
 
@@ -128,12 +128,12 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
   }
 
   val logger = LoggerFactory.getLogger("clouseau.main")
-  val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
+  val rootDir = new File(ctx.args.clouseau.dir)
   val openTimer = metrics.timer("opens")
-  val trackIndexATimes = ctx.args.config.getBoolean("clouseau.track_index_atimes", false)
+  val trackIndexATimes = ctx.args.clouseau.track_index_atimes
   val lru = new LRU(trackIndexAccesses = trackIndexATimes)
   val waiters = Map[String, List[(Pid, Any)]]()
-  val countLocksEnabled = ctx.args.config.getBoolean("clouseau.count_locks", false)
+  val countLocksEnabled = ctx.args.clouseau.count_locks
   if (countLocksEnabled) {
     val lockClass = Class.forName("org.apache.lucene.store.NativeFSLock")
     val field = lockClass.getDeclaredField("LOCK_HELD")
@@ -176,7 +176,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
               val manager = self
               node.spawn(_ => {
                 openTimer.time {
-                  IndexService.start(node, ctx.args.config, path, options) match {
+                  IndexService.start(node, ctx.args, path, options) match {
                     case ('ok, pid: Pid) =>
                       manager ! ('open_ok, path, peer, pid)
                     case error =>

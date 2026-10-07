@@ -21,12 +21,12 @@ import core.ActorConstructor
 import core.ActorBuilder
 
 object IndexCleanupServiceBuilder extends ActorConstructor[IndexCleanupService] {
-  def make(node: SNode, service_ctx: ServiceContext[ConfigurationArgs]) = {
+  def make(node: SNode, service_ctx: ServiceContext[Configuration]) = {
     def maker[PContext <: ProcessContext](process_context: PContext): IndexCleanupService = {
       new IndexCleanupService(service_ctx)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
-    val capacityExponent = service_ctx.args.config.capacity.cleanup_exponent
+    val capacityExponent = service_ctx.args.capacity.cleanup_exponent
 
     ActorBuilder()
       .withOptionalCapacityExponent(capacityExponent)
@@ -39,8 +39,8 @@ object IndexCleanupServiceBuilder extends ActorConstructor[IndexCleanupService] 
         `{ok, Pid}` or `error`
    */
   def start(node: SNode, config: Configuration)(implicit adapter: Adapter[_, _]): Any = {
-    val ctx = new ServiceContext[ConfigurationArgs] { val args = ConfigurationArgs(config) }
-    node.spawnService[IndexCleanupService, ConfigurationArgs](make(node, ctx)) match {
+    val ctx = new ServiceContext[Configuration] { val args: Configuration = config }
+    node.spawnService[IndexCleanupService, Configuration](make(node, ctx)) match {
       case core.Success(actor)  => (Symbol("ok"), Pid.toScala(actor.self.pid))
       case core.Failure(reason) => reason
     }
