@@ -70,16 +70,9 @@ jobs:
           max_attempts: 3
           command: make clouseau-ctrl-smoke
 
-      - name: Dump CouchDB logs on failure
+      - name: Dump logs on failure
         if: failure()
-        run: |
-          echo "=== CouchDB Dev Logs ==="
-          for log in deps/couchdb.*/dev/logs/*.log; do
-            if [ -f "$log" ]; then
-              echo "--- $log ---"
-              cat "$log"
-            fi
-          done
+        uses: ./.github/actions/dump-logs
 
   docker-integration:
     name: Docker integration tests
@@ -119,20 +112,12 @@ jobs:
           command: make docker-elixir-test
       - name: Dump logs on failure
         if: failure()
-        run: |
-          echo "=== Docker Compose Logs ==="
-          docker compose -f docker/compose.yaml logs --no-color || true
-
-          echo "=== CouchDB Dev Logs ==="
-          for log in deps/couchdb.*/dev/logs/*.log; do
-            if [ -f "$log" ]; then
-              echo "--- $log ---"
-              cat "$log"
-            fi
-          done
+        uses: ./.github/actions/dump-logs
+        with:
+          include-compose-logs: 'true'
 
       - name: Upload logs artifact
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
           name: docker-integration-logs
