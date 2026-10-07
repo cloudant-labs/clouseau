@@ -14,6 +14,7 @@ package com.cloudant.ziose.clouseau
 
 import java.io.File
 import java.util.regex.Pattern
+import java.util.UUID
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.TimeZone
@@ -25,16 +26,19 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
 
   val logger = LoggerFactory.getLogger("clouseau.cleanup")
   val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
+  val deleteDir = new File(rootDir, ".delete")
 
   override def handleInit(): Unit = {
     logger.debug(s"handleInit(capacity = ${adapter.capacity})")
+    deleteDir.mkdir()
+    recursivelyDelete(deleteDir, false)
   }
 
   override def handleCast(msg: Any) = msg match {
     case CleanupPathMsg(path: String) =>
       val dir = new File(rootDir, path)
       logger.info("Removing %s".format(path))
-      recursivelyDelete(dir, true)
+      recursivelyDelete(moveToDeleteDir(dir), true)
     case RenamePathMsg(dbName: String) =>
       val srcDir = new File(rootDir, dbName)
       val sdf = new SimpleDateFormat("yyyyMMdd'.'HHmmss")
@@ -68,10 +72,19 @@ class IndexCleanupService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
         case 'ok =>
           'ok
         case ('error, 'not_found) =>
-          recursivelyDelete(fileOrDir, false)
+          recursivelyDelete(moveToDeleteDir(fileOrDir), false)
           fileOrDir.delete
       }
     }
+  }
+
+  private def moveToDeleteDir(fileOrDir: File): File = {
+    val tempFile = new File(deleteDir, UUID.randomUUID.toString)
+    if (fileOrDir.renameTo(tempFile)) {
+      return tempFile
+    }
+    logger.error("Failed to rename '%s' to '%s'".format(fileOrDir, tempFile))
+    fileOrDir
   }
 
   private def recursivelyDelete(fileOrDir: File, deleteDir: Boolean): Unit = {
