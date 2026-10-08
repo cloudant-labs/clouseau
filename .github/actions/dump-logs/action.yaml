@@ -1,0 +1,24 @@
+name: 'Dump logs'
+description: 'Dump CouchDB dev logs (and optionally Docker Compose logs) to the console'
+inputs:
+  include-compose-logs:
+    description: 'Also dump Docker Compose logs'
+    required: false
+    default: 'false'
+runs:
+  using: 'composite'
+  steps:
+    - name: Dump Docker Compose logs
+      if: inputs.include-compose-logs == 'true'
+      run: docker compose -f docker/compose.yaml logs --no-color || true
+      shell: bash
+    - name: Dump CouchDB dev logs
+      run: |
+        echo "=== CouchDB Dev Logs ==="
+        for log in deps/couchdb.*/dev/logs/*.log; do
+          if [ -f "$log" ]; then
+            echo "--- $log ---"
+            cat "$log"
+          fi
+        done
+      shell: bash
