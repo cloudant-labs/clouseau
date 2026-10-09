@@ -70,9 +70,11 @@ case class ClouseauSupervisor(
     builder: ActorBuilder.Sealed[TS]
   ): ZIO[Node with EngineWorker, Throwable, Unit] =
     for {
+      begin <- Clock.instant
       actor <- cnode.spawnServiceZIO[TS, A](builder).mapError(e => new Throwable(s"cannot start ${regName.name}: $e"))
+      end   <- Clock.instant
       pid = Pid.toScala(actor.self.pid)
-      _ <- ZIO.succeed(logger.debug(s"${regName.name} is started"))
+      _ <- ZIO.succeed(logger.debug(s"${regName.name} is started after ${end.toEpochMilli - begin.toEpochMilli} ms"))
       _ <- monitorZIO(pid).mapError(e => new Throwable(s"cannot monitor ${regName.name}: $e"))
       _ <- ZIO.succeed(setChild(regName, pid))
     } yield ()
@@ -168,34 +170,28 @@ case class ClouseauSupervisor(
       regName: Symbol,
       builder: ActorBuilder.Sealed[TS]
     ): ZIO[Node with EngineWorker, Throwable, Unit] =
-      ZIO.succeed(logger.warn(s"${regName.name} crashed with reason: ${reason}")) *>
-        ZIO.succeed(clearChild(regName)) *>
-        spawnMonitorZIO[TS, A](cnode, regName, builder)
-    (ZIO.when(manager.contains(pid))(
-      respawn[IndexManagerService, ConfigurationArgs](
-        Symbol("main"), IndexManagerServiceBuilder.make(cnode, ctx)
+      for {
+        _ <- ZIO.succeed(logger.warn(s"${regName.name} crashed with reason: ${reason}"))
+        _ <- ZIO.succeed(clearChild(regName))
+        _ <- spawnMonitorZIO[TS, A](cnode, regName, builder)
+      } yield ()
+    (for {
+      _ <- ZIO.when(manager.contains(pid))(
+        respawn[IndexManagerService, ConfigurationArgs](Symbol("main"), IndexManagerServiceBuilder.make(cnode, ctx))
       )
-    ) *>
-      ZIO.when(cleanup.contains(pid))(
-        respawn[IndexCleanupService, ConfigurationArgs](
-          Symbol("cleanup"), IndexCleanupServiceBuilder.make(cnode, ctx)
-        )
-      ) *>
-      ZIO.when(analyzer.contains(pid))(
-        respawn[AnalyzerService, ConfigurationArgs](
-          Symbol("analyzer"), AnalyzerServiceBuilder.make(cnode, ctx)
-        )
-      ) *>
-      ZIO.when(init.contains(pid))(
-        respawn[InitService, ConfigurationArgs](
-          Symbol("init"), InitService.make(cnode, ctx, "init")
-        )
-      ) *>
-      ZIO.when(rex.contains(pid))(
-        respawn[RexService, None.type](
-          Symbol("rex"), RexService.make(cnode, noneCtx)
-        )
-      )).unit.provideEnvironment(cnode.runtime.environment)
+      _ <- ZIO.when(cleanup.contains(pid))(
+        respawn[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), IndexCleanupServiceBuilder.make(cnode, ctx))
+      )
+      _ <- ZIO.when(analyzer.contains(pid))(
+        respawn[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), AnalyzerServiceBuilder.make(cnode, ctx))
+      )
+      _ <- ZIO.when(init.contains(pid))(
+        respawn[InitService, ConfigurationArgs](Symbol("init"), InitService.make(cnode, ctx, "init"))
+      )
+      _ <- ZIO.when(rex.contains(pid))(
+        respawn[RexService, None.type](Symbol("rex"), RexService.make(cnode, noneCtx))
+      )
+    } yield ()).provideEnvironment(cnode.runtime.environment)
   }
 
   def getChild(name: Symbol): Option[Pid] = {
