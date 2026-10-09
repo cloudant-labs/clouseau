@@ -27,11 +27,21 @@ import scalang._
 
 import scala.collection.JavaConverters._
 import java.util.HashSet
-import com.cloudant.ziose.core.ProcessContext
-import com.cloudant.ziose.core.Codec
+import com.cloudant.ziose.core.{Address, ProcessContext, Codec}
+import com.cloudant.ziose.otp.OTPProcessContext
 import zio.ZIO
 
 class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
+
+  private def isProcessAlive(pid: Pid): Boolean = {
+    adapter.ctx match {
+      case otpCtx: OTPProcessContext =>
+        val address = Address.fromPid(pid.fromScala, adapter.workerId, adapter.workerNodeName)
+        otpCtx.worker.processInfo(address).isDefined
+      case _ =>
+        ping(pid)
+    }
+  }
 
   class LRU(initialCapacity: Int = 100, loadFactor: Float = 0.75f, trackIndexAccesses: Boolean = false) {
 
@@ -132,7 +142,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
   val openTimer = metrics.timer("opens")
   val trackIndexATimes = ctx.args.config.getBoolean("clouseau.track_index_atimes", false)
   val lru = new LRU(trackIndexAccesses = trackIndexATimes)
-  val waiters = Map[String, List[(Pid, Any)]]()
+  val waiters = Map[String, List[((Pid, Any), Pid)]]()
   val countLocksEnabled = ctx.args.config.getBoolean("clouseau.count_locks", false)
   if (countLocksEnabled) {
     val lockClass = Class.forName("org.apache.lucene.store.NativeFSLock")
@@ -169,28 +179,32 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
 
   override def handleCall(tag: (Pid, Any), msg: Any): Any = msg match {
     case OpenIndexMsg(peer: Pid, path: String, options: AnalyzerOptions) =>
-      lru.get(path) match {
-        case null =>
-          waiters.get(path) match {
-            case None =>
-              val manager = self
-              node.spawn(_ => {
-                openTimer.time {
-                  IndexService.start(node, ctx.args.config, path, options) match {
-                    case ('ok, pid: Pid) =>
-                      manager ! ('open_ok, path, peer, pid)
-                    case error =>
-                      manager ! ('open_error, path, error)
-                  }
+      val cachedPid = lru.get(path)
+      if (cachedPid != null && isProcessAlive(cachedPid)) {
+        node.link(peer, cachedPid)
+        ('ok, cachedPid)
+      } else {
+        if (cachedPid != null) {
+          lru.remove(cachedPid)
+        }
+        waiters.get(path) match {
+          case None =>
+            val manager = self
+            node.spawn(_ => {
+              openTimer.time {
+                IndexService.start(node, ctx.args.config, path, options) match {
+                  case ('ok, pid: Pid) =>
+                    manager ! ('open_ok, path, pid)
+                  case error =>
+                    manager ! ('open_error, path, error)
                 }
-              })
-              waiters.put(path, List(tag))
-            case Some(list) =>
-              waiters.put(path, tag :: list)
-          }
-          'noreply
-        case pid =>
-          ('ok, pid)
+              }
+            })
+            waiters.put(path, List((tag, peer)))
+          case Some(list) =>
+            waiters.put(path, (tag, peer) :: list)
+        }
+        'noreply
       }
     case ('get_root_dir) =>
       ('ok, rootDir.getAbsolutePath())
@@ -222,11 +236,17 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
   }
 
   override def handleInfo(msg: Any) = msg match {
-    case ('open_ok, path: String, peer: Pid, pid: Pid) =>
+    case ('open_ok, path: String, pid: Pid) =>
       lru.put(path, pid)
       monitor(pid)
-      node.link(peer, pid)
-      replyAll(path, ('ok, pid))
+      waiters.remove(path) match {
+        case Some(list) =>
+          for ((tag, peer) <- list) {
+            node.link(peer, pid)
+            Service.reply(tag, ('ok, pid))
+          }
+        case None => ()
+      }
       'noreply
     case ('open_error, path: String, error: Any) =>
       replyAll(path, error)
@@ -273,7 +293,7 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
   private def replyAll(path: String, msg: Any) = {
     waiters.remove(path) match {
       case Some(list) =>
-        for (tag <- list) {
+        for ((tag, _) <- list) {
           Service.reply(tag, msg)
         }
       case None =>

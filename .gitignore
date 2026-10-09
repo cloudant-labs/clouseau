@@ -34,3 +34,9 @@ zeunit/*.xml
 .vscode
 
 docker/erlang.cookie
+
+# TLA+ models and state traces
+*.bin
+states
+*.bak
+*TTrace*
