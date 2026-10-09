@@ -16,9 +16,9 @@ import com.cloudant.ziose.core.PID
 import com.cloudant.ziose.core.MessageEnvelope
 import com.cloudant.ziose.core.Address
 import com.cloudant.ziose.core.Metrics
-
 import com.cloudant.ziose.core.Node
 import com.cloudant.ziose.core.ActorResult
+
 import scala.collection.mutable.ListBuffer
 import com.cloudant.ziose.core.Name
 

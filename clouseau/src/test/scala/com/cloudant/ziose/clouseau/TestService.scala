@@ -3,18 +3,20 @@ package com.cloudant.ziose.clouseau
 import com.cloudant.ziose.macros.CheckEnv
 import com.cloudant.ziose.{core, scalang}
 import core.ActorBuilder.State
-import core.{ActorBuilder, ActorConstructor, Codec, ProcessContext}
+import core.{ActorBuilder, ActorConstructor, Address, Codec, ForwardWithId, MessageEnvelope, Node, ProcessContext}
 import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import scala.collection.mutable
 import zio._
+
 import java.util.concurrent.TimeoutException
 
 case class TestServiceArgs(terminate: Queue[Unit])
 
 case class TestServiceHandle(
-  actor: core.AddressableActor[TestService, _],
+  actor: core.AddressableActor[TestService, ProcessContext],
   terminate: Queue[Unit]
 ) {
   val TERMINATION_TIMEOUT                                        = 2.seconds
@@ -49,7 +51,7 @@ case class TestServiceHandle(
         .unit
   }
 
-  def history = actor
+  def history: ZIO[Node, Throwable, List[Any]] = actor
     .doTestCallTimeout(Codec.EAtom("history"), 3.seconds)
     .delay(100.millis)
     .repeatUntil(_.isSuccess)
@@ -78,6 +80,7 @@ class TestService(ctx: ServiceContext[TestServiceArgs])(implicit adapter: Adapte
   }
 
   override def handleCall(tag: (Pid, Any), request: Any): Any = {
+    println(s"TestService: Responding to request $request")
     calledArgs = ("handleCall", request) :: calledArgs
     request match {
       case (Symbol("echo"), request) =>
@@ -167,7 +170,18 @@ private object TestService extends ActorConstructor[TestService] {
     for {
       terminateChannel <- Queue.bounded[Unit](1)
       actor            <- node.spawnServiceZIO[TestService, TestServiceArgs](make(node, ctx(terminateChannel), name))
-    } yield TestServiceHandle(actor.asInstanceOf[core.AddressableActor[TestService, _]], terminateChannel)
+    } yield TestServiceHandle(actor.asInstanceOf[core.AddressableActor[TestService, ProcessContext]], terminateChannel)
+  }
+}
+
+class MessageCollector(addr: Address) extends ForwardWithId[Address, MessageEnvelope] {
+  val capturedMessages: mutable.Buffer[MessageEnvelope] = mutable.ListBuffer()
+  override val id: Address                              = addr
+
+  override def forward(a: MessageEnvelope)(implicit trace: Trace): UIO[Boolean] = {
+    capturedMessages.append(a)
+    ZIO.succeed(true)
   }
 
+  override def shutdown(implicit trace: Trace): UIO[Unit] = ZIO.succeed(())
 }

@@ -3,17 +3,21 @@ sbt 'clouseau/testOnly com.cloudant.ziose.clouseau.IndexManagerServiceSpec'
  */
 package com.cloudant.ziose.clouseau
 
+import com.cloudant.ziose.core.Codec.{EAtom, ETuple}
+import com.cloudant.ziose.core.MessageEnvelope.makeCall
 import org.junit.runner.RunWith
 import zio._
 import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
 
 import java.io.File
-
 import com.cloudant.ziose.core._
-import com.cloudant.ziose.scalang.{Adapter, ServiceContext}
+import com.cloudant.ziose.otp.OTPNodeConfig
+import com.cloudant.ziose.scalang.ProcessLike.NodeName
+import com.cloudant.ziose.scalang.{Adapter, Pid, ServiceContext}
 import zio.test._
 import zio.test.TestAspect
 import com.cloudant.ziose.test.helpers.TestRunner
+import zio.test.Assertion.{anything, equalTo, forall, hasSameElements, isSome, isSubtype}
 
 @RunWith(classOf[ZTestJUnitRunner])
 class IndexManagerServiceSpec extends JUnitRunnableSpec {
@@ -47,7 +51,9 @@ class IndexManagerServiceSpec extends JUnitRunnableSpec {
     foo2indexDir.mkdirs
   }
 
-  val startIndexManager = {
+  type TestContext = EngineWorker & Node & ActorFactory & OTPNodeConfig
+
+  val startIndexManager: ZIO[TestContext, Throwable, AddressableActor[IndexManagerService, _ <: ProcessContext]] = {
     for {
       node   <- Utils.clouseauNode
       worker <- ZIO.service[EngineWorker]
@@ -59,18 +65,48 @@ class IndexManagerServiceSpec extends JUnitRunnableSpec {
     } yield service
   }
 
-  def callIndexManager(manager: AddressableActor[_, _], msg: Any) = {
+  def callIndexManager(manager: AddressableActor[_, _], msg: Any): ZIO[Node, Node.Error, Option[Unit]] = {
+    val getFirstResponse = (_: MessageEnvelope.Response) => Some(())
+    callIndexManager(manager, msg, getFirstResponse)
+  }
+
+  def callIndexManager[A](
+    manager: AddressableActor[_, _],
+    msg: Any,
+    selector: MessageEnvelope.Response => Option[A]
+  ): ZIO[Node, Node.Error, Option[A]] = {
     for {
       result <- manager
         .doTestCallTimeout(adapter.fromScala(msg), 3.seconds)
         .delay(100.millis)
-        .repeatUntil(_.isSuccess)
-        .map(result => result.payload.get)
+        .map(selector)
+        .repeatUntil(_.isDefined)
+        .map(_.get)
         .timeout(3.seconds)
     } yield result
   }
 
-  def stopIndexManager(manager: AddressableActor[_, _]) = {
+  def parseOpenIndexResponse(response: MessageEnvelope.Response): Option[Pid] = {
+    for {
+      payload <- response.payload
+      pid     <- adapter.toScala(payload) match {
+        case (Symbol("ok"), pid: Pid) => Some(pid)
+        case _                        => None
+      }
+    } yield pid
+  }
+
+  def parseDeleteIndexResponse(response: MessageEnvelope.Response): Option[Symbol] = {
+    for {
+      payload <- response.payload
+      result  <- adapter.toScala(payload) match {
+        case sym @ Symbol("ok") => Some(sym)
+        case _                  => None
+      }
+    } yield result
+  }
+
+  def stopIndexManager(manager: AddressableActor[_, _]): ZIO[Node, Node.Error, Unit] = {
     for {
       _ <- callIndexManager(manager, 'close_lru)
       _ <- manager.exit(adapter.fromScala('normal))
@@ -82,32 +118,22 @@ class IndexManagerServiceSpec extends JUnitRunnableSpec {
     peer: AddressableActor[_, _],
     path: String,
     options: AnalyzerOptions
-  ) = {
-    for {
-      result <- callIndexManager(manager, ('open, peer.self.pid, path, options.toMap))
-    } yield (result match {
-      case Some(value) =>
-        adapter.toScala(value) match {
-          case ('ok, pid) => Some(pid)
-          case _          => None
-        }
-      case _ => None
-    })
-  }
+  ): ZIO[Node, Node.Error, Option[Pid]] =
+    callIndexManager(manager, ('open, peer.self.pid, path, options.toMap), parseOpenIndexResponse)
 
-  def diskSize(path: String) = {
+  def diskSize(
+    path: String
+  ): ZIO[EngineWorker & Node & ActorFactory & OTPNodeConfig, Throwable, Option[List[(NodeName, Long)]]] = {
+    def parseSizeInfo(response: MessageEnvelope.Response): Option[List[(Symbol, Long)]] =
+      adapter.toScala(response.payload.get) match {
+        case ('ok, sizeInfo: List[_]) => Some(sizeInfo.asInstanceOf[List[(NodeName, Long)]])
+        case _                        => None
+      }
     for {
       manager <- startIndexManager
-      result  <- callIndexManager(manager, ('disk_size, path))
+      result  <- callIndexManager(manager, ('disk_size, path), parseSizeInfo)
       _       <- stopIndexManager(manager)
-    } yield (result match {
-      case Some(value) =>
-        adapter.toScala(value) match {
-          case ('ok, sizeInfo) => Some(sizeInfo)
-          case _               => None
-        }
-      case _ => None
-    })
+    } yield result
   }
 
   val startPeer = {
@@ -123,11 +149,14 @@ class IndexManagerServiceSpec extends JUnitRunnableSpec {
     } yield ()
   }
 
+  def openMessage(sender: PID): Codec.ETerm =
+    ETuple(EAtom("open"), sender.pid, Codec.fromScala("SOMEPATH"), Codec.fromScala("standard"))
+
   val analyzerOptions = AnalyzerOptions.fromAnalyzerName("standard")
 
   val indexManagerSuite: Spec[Any, Throwable] = {
     suite("index manager")(
-      test("open an index when asked")(
+      test("opens an index when asked")(
         for {
           peer    <- startPeer
           manager <- startIndexManager
@@ -136,7 +165,35 @@ class IndexManagerServiceSpec extends JUnitRunnableSpec {
           _       <- stopIndexManager(manager)
         } yield assertTrue(pid.isDefined)
       ),
-      test("return the same index if it's already open")(
+      test("opens an index atomically")(
+        for {
+          peer   <- startPeer
+          node   <- ZIO.service[Node]
+          engine <- ZIO.service[EngineWorker]
+          _      <- engine.unregister(peer.self)
+          collector = new MessageCollector(peer.self)
+          _       <- engine.register(collector)
+          manager <- startIndexManager
+          newRef  <- node.makeRef()
+          Some(openCall) = makeCall(
+            manager.self,
+            ETuple(peer.self.pid, newRef),
+            openMessage(peer.self),
+            None
+          )
+          _ <- manager.onMessage(openCall)
+          _ <- manager.onMessage(openCall)
+          _ <- stopActor(peer)
+          _ <- stopIndexManager(manager)
+        } yield {
+          val messages = collector.capturedMessages
+          assertTrue(messages.size == 2) &&
+          assert(messages)(forall(isSubtype[MessageEnvelope.Response](anything))) &&
+          assert(messages.map(m => parseOpenIndexResponse(m.asInstanceOf[MessageEnvelope.Response])))(forall(isSome)) &&
+          assert(messages.tail)(forall(equalTo(messages.head)))
+        }
+      ),
+      test("returns the same index if it's already open")(
         for {
           peer    <- startPeer
           manager <- startIndexManager
@@ -144,12 +201,46 @@ class IndexManagerServiceSpec extends JUnitRunnableSpec {
           pid2    <- openIndex(manager, peer, "foo", analyzerOptions)
           _       <- stopActor(peer)
           _       <- stopIndexManager(manager)
-        } yield assertTrue(
-          pid1.isDefined,
-          pid2.isDefined,
-          pid1.get == pid2.get
-        )
-      )
+        } yield assertTrue(pid1.isDefined, pid2.isDefined) &&
+          assert(pid1)(equalTo(pid2))
+      ),
+      test("correctly reports index is open when asked to delete it") {
+        def pidOrOk(resp: MessageEnvelope.Response): Option[String] =
+          parseOpenIndexResponse(resp).map(_ => "pid").orElse(parseDeleteIndexResponse(resp).map(_ => "ok"))
+        for {
+          peer   <- startPeer
+          node   <- ZIO.service[Node]
+          engine <- ZIO.service[EngineWorker]
+          _      <- engine.unregister(peer.self)
+          collector = new MessageCollector(peer.self)
+          _       <- engine.register(collector)
+          manager <- startIndexManager
+          newRef  <- node.makeRef()
+          Some(openCall) = makeCall(
+            manager.self,
+            ETuple(peer.self.pid, newRef),
+            openMessage(peer.self),
+            None
+          )
+          _ <- manager.onMessage(openCall)
+          Some(deleteCall) = makeCall(
+            manager.self,
+            ETuple(peer.self.pid, newRef),
+            ETuple(EAtom("delete"), Codec.fromScala("SOMEPATH")),
+            None
+          )
+          _ <- manager.onMessage(deleteCall)
+          _ <- stopActor(peer)
+          _ <- stopIndexManager(manager)
+        } yield {
+          val messages = collector.capturedMessages
+          assertTrue(messages.size == 2) &&
+          assert(messages)(forall(isSubtype[MessageEnvelope.Response](anything))) &&
+          assert(messages.map(m => pidOrOk(m.asInstanceOf[MessageEnvelope.Response])))(
+            hasSameElements(List(Some("pid"), Some("ok")))
+          )
+        }
+      }
     ).provideLayer(environment) @@ TestAspect.withLiveClock @@ TestAspect.sequential
   }
 
@@ -160,7 +251,7 @@ class IndexManagerServiceSpec extends JUnitRunnableSpec {
           result <- diskSize("foo.1234567890")
         } yield assertTrue(
           result.isDefined,
-          result.get.equals(List(('disk_size, 0)))
+          result.get.equals(List(('disk_size, 0L)))
         )
       ),
       test("return 0 for (db/index) when index directory is missing")(
