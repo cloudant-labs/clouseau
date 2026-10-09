@@ -19,7 +19,7 @@ ThisBuild / version := s"${readVersion}"
 
 updateOptions := updateOptions.value.withCachedResolution(true)
 
-val vLucene       = "10.4.0"
+val vLucene       = "10.5.2"
 
 lazy val luceneComponents = Seq(
   // The single % is for java libraries
