@@ -311,7 +311,7 @@ class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_
   /**
    * Subclasses wishing to trap monitor exits should override this method.
    */
-  def trapMonitorExit(monitored: Any, ref: Reference, reason: Any) = ()
+  def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Any = ()
 
   @CheckEnv(System.getProperty("env"))
   def toStringMacro: List[String] = List(
