@@ -1,4 +1,4 @@
-# clouseau
+# Clouseau
 
 Expose Lucene features to CouchDB via Erlang RPC.
 
@@ -8,7 +8,7 @@ Expose Lucene features to CouchDB via Erlang RPC.
 
 ## Clouseau 3.x
 
-Version `3.x` replaces the foundation of [`clouseau`](https://github.com/cloudant-labs/clouseau/tree/master) with
+Version `3.x` replaces the foundation of [`clouseau`](https://github.com/cloudant-labs/clouseau/tree/clouseau-2.x) with
 a [`ZIO`](https://github.com/zio/zio) as an asynchronous scheduler. This improves the stability and performance,
 enables Clouseau to run on modern JVMs and brings all non-Lucene dependencies up-to-date.
 
