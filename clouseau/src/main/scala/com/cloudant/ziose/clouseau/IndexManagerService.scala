@@ -20,7 +20,6 @@ import java.util.HashMap
 import java.util.LinkedHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.{ Map => JMap }
-import scala.collection.mutable.Map
 import _root_.com.cloudant.ziose.scalang
 
 import scalang._
@@ -47,25 +46,25 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
       if (trackIndexAccesses) Some(new ConcurrentHashMap(initialCapacity, loadFactor))
       else None
 
-    def get(path: String): Pid = {
+    def get(path: String): Option[Pid] = {
       assert(pathToPid.size == pidToPath.size)
-      val pid: Pid = pathToPid.get(path)
-      if (!Option(pid).isDefined) {
+      val pid: Option[Pid] = Option(pathToPid.get(path))
+      if (pid.isEmpty) {
         lruMisses += 1
       }
       pid
     }
 
-    def put(path: String, pid: Pid) = {
+    def put(path: String, pid: Pid): Option[Long] = {
       assert(pathToPid.size == pidToPath.size)
-      enforceCapacity
+      enforceCapacity()
       val prev = pathToPid.put(path, pid)
       pidToPath.remove(prev)
       pidToPath.put(pid, path)
       trackIndexesSeen(path)
     }
 
-    def remove(pid: Pid) = {
+    def remove(pid: Pid): Unit = {
       assert(pathToPid.size == pidToPath.size)
       val path = pidToPath.remove(pid)
       pathToPid.remove(path)
@@ -129,10 +128,8 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
 
   val logger = LoggerFactory.getLogger("clouseau.main")
   val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
-  val openTimer = metrics.timer("opens")
   val trackIndexATimes = ctx.args.config.getBoolean("clouseau.track_index_atimes", false)
   val lru = new LRU(trackIndexAccesses = trackIndexATimes)
-  val waiters = Map[String, List[(Pid, Any)]]()
   val countLocksEnabled = ctx.args.config.getBoolean("clouseau.count_locks", false)
   if (countLocksEnabled) {
     val lockClass = Class.forName("org.apache.lucene.store.NativeFSLock")
@@ -167,83 +164,65 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
     ZIO.logTrace("onTermination")
   }
 
-  override def handleCall(tag: (Pid, Any), msg: Any): Any = msg match {
-    case OpenIndexMsg(peer: Pid, path: String, options: AnalyzerOptions) =>
-      lru.get(path) match {
-        case null =>
-          waiters.get(path) match {
-            case None =>
-              val manager = self
-              node.spawn(_ => {
-                openTimer.time {
-                  IndexService.start(node, ctx.args.config, path, options) match {
-                    case ('ok, pid: Pid) =>
-                      manager ! ('open_ok, path, peer, pid)
-                    case error =>
-                      manager ! ('open_error, path, error)
-                  }
-                }
-              })
-              waiters.put(path, List(tag))
-            case Some(list) =>
-              waiters.put(path, tag :: list)
-          }
-          'noreply
-        case pid =>
-          ('ok, pid)
-      }
-    case ('get_root_dir) =>
-      ('ok, rootDir.getAbsolutePath())
-    case DeleteDocMsg(path: String) =>
-      lru.get(path) match {
-        case null =>
-          ('error, 'not_found)
-        case pid: Pid =>
-          pid ! 'delete
-          'ok
-      }
-    case DiskSizeMsg(path: String) =>
-      getDiskSize(path)
-    case 'close_lru =>
-      lru.close()
-      'ok
-    case CloseLRUByPathMsg(path: String) =>
-      lru.closeByPath(path)
-      'ok
-    case 'version =>
-      ('ok, getClass.getPackage.getImplementationVersion)
-    case ('create_snapshot, indexName: String, snapshotDir: String) =>
-      lru.get(indexName) match {
-        case null =>
-          createSnapshot(indexName, snapshotDir)
-        case pid: Pid =>
-          call(pid, ('create_snapshot, snapshotDir))
-      }
+  override def handleCall(tag: (Pid, Any), msg: Any): Any = {
+    msg match {
+      case OpenIndexMsg(peer: Pid, path: String, options: AnalyzerOptions) =>
+        lru.get(path) match {
+          case None =>
+            IndexService.start(node, ctx.args.config, path, options) match {
+              case ('ok, pid: Pid) =>
+                lru.put(path, pid)
+                ('ok, pid)
+              case error =>
+                (path, error)
+            }
+          case Some(pid) =>
+            ('ok, pid)
+        }
+      case ('get_root_dir) =>
+        ('ok, rootDir.getAbsolutePath())
+      case DeleteDocMsg(path: String) =>
+        lru.get(path) match {
+          case None =>
+            ('error, 'not_found)
+          case Some(pid) =>
+            pid ! 'delete
+            'ok
+        }
+      case DiskSizeMsg(path: String) =>
+        getDiskSize(path)
+      case 'close_lru =>
+        lru.close()
+        'ok
+      case CloseLRUByPathMsg(path: String) =>
+        lru.closeByPath(path)
+        'ok
+      case 'version =>
+        ('ok, getClass.getPackage.getImplementationVersion)
+      case ('create_snapshot, indexName: String, snapshotDir: String) =>
+        lru.get(indexName) match {
+          case None =>
+            createSnapshot(indexName, snapshotDir)
+          case Some(pid) =>
+            call(pid, ('create_snapshot, snapshotDir))
+        }
+    }
   }
 
   override def handleInfo(msg: Any) = msg match {
-    case ('open_ok, path: String, peer: Pid, pid: Pid) =>
-      lru.put(path, pid)
-      monitor(pid)
-      node.link(peer, pid)
-      replyAll(path, ('ok, pid))
-      'noreply
-    case ('open_error, path: String, error: Any) =>
-      replyAll(path, error)
-      'noreply
     case ('touch_lru, path: String) =>
       lru.get(path)
       'noreply
   }
 
-  override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any) = monitored match {
+  override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Any = monitored match {
     case pid: Pid =>
       lru.remove(pid)
     case _ =>
       'ignored
   }
 
-  private def getDiskSize(path: String) = {
+  private def getDiskSize(path: String): (NodeName, List[(NodeName, Long)]) = {
     val indexDir = new File(rootDir, path)
     val files = indexDir.list()
     if (files != null) {
@@ -269,16 +248,4 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
         ('error, e.getMessage)
     }
   }
-
-  private def replyAll(path: String, msg: Any) = {
-    waiters.remove(path) match {
-      case Some(list) =>
-        for (tag <- list) {
-          Service.reply(tag, msg)
-        }
-      case None =>
-        'ok
-    }
-  }
-
 }
