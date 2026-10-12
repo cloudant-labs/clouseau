@@ -29,6 +29,8 @@ SBT?=sbt --java-home $(JAVA_HOME)
 
 REBAR?=rebar3
 
+JVM_FLAGS= #
+
 ERLANG_COOKIE_FILE ?= docker/erlang.cookie
 
 COUCHDB_HOST ?= 127.0.0.1
@@ -41,12 +43,11 @@ ERLANG_COOKIE?= #
 ifneq ($(ERLANG_COOKIE),)
 	_DEVRUN_COOKIE=--erlang-cookie=$(ERLANG_COOKIE)
 	_ERLCALL_COOKIE=-c $(ERLANG_COOKIE)
-	_JAVA_COOKIE=-Dcookie=$(ERLANG_COOKIE)
+	JVM_FLAGS+=-Dcookie=$(ERLANG_COOKIE)
 	_REBAR_COOKIE=--setcookie=$(ERLANG_COOKIE)
 else
 	_DEVRUN_COOKIE=
 	_ERLCALL_COOKIE=
-	_JAVA_COOKIE=
 	_REBAR_COOKIE=
 endif
 
@@ -137,7 +138,7 @@ epmd:
 # target: clouseau2 - Start local instance of clouseau2 node
 # target: clouseau3 - Start local instance of clouseau3 node
 clouseau1 clouseau2 clouseau3: epmd
-	@$(SBT) run -Dnode=$@ $(_JAVA_COOKIE)
+	@$(SBT) run -Dnode=$@ $(JVM_FLAGS)
 
 $(ARTIFACTS_DIR):
 	@mkdir -p $@
@@ -199,6 +200,7 @@ $(JMX_EXPORTER):
 # target: jmx-prometheus - Export metrics to Prometheus
 jmx-prometheus: $(JAR_ARTIFACTS) $(JMX_EXPORTER) epmd
 	@java -javaagent:$(JMX_EXPORTER)=$(JMX_EXPORTER_PORT):$(JMX_EXPORTER_CFG) \
+		$(JVM_FLAGS) \
 		-jar $(JAR_ARTIFACTS)
 
 .PHONY: bin/clouseau_ctrl
@@ -291,7 +293,7 @@ FORCE: # https://www.gnu.org/software/make/manual/html_node/Force-Targets.html
 .PHONY: zeunit
 # target: zeunit - Run integration tests: `<ERLANG_COOKIE=cookie> make zeunit`
 zeunit: $(ARTIFACTS_DIR)/$(JAR_TEST) epmd FORCE
-	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
+	@cli start $@ "java $(JVM_FLAGS) -jar $<"
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
@@ -299,7 +301,7 @@ zeunit: $(ARTIFACTS_DIR)/$(JAR_TEST) epmd FORCE
 	@cli stop $@
 
 concurrent-zeunit-tests: $(ARTIFACTS_DIR)/$(JAR_TEST) epmd FORCE
-	@cli start $@ "java $(_JAVA_COOKIE) -jar $< test/conf/concurrent.clouseau.conf"
+	@cli start $@ "java $(JVM_FLAGS) -jar $< test/conf/concurrent.clouseau.conf"
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@cli zeunit $(node_name) "$(EUNIT_OPTS)" || $(MAKE) test-failed ID=$@
@@ -319,7 +321,7 @@ syslog-test: $(JAR_ARTIFACTS) epmd FORCE
 		-e "s/%%FACILITY%%/$(FACILITY)/" \
 		-e "s/%%LEVEL%%/$(LEVEL)/" \
 		test/conf/syslog.clouseau.conf.templ > test/conf/syslog.clouseau.conf
-	@cli start $@ "java -jar $< test/conf/syslog.clouseau.conf"
+	@cli start $@ "java $(JVM_FLAGS) -jar $< test/conf/syslog.clouseau.conf"
 	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@echo ">>> Waiting for Clouseau to generate logs (5 seconds)"
 	@sleep 5
@@ -414,7 +416,7 @@ test-failed:
 .PHONY: couchdb-tests
 # target: couchdb-tests - Run test suites from upstream CouchDB that use Clouseau
 couchdb-tests: $(JAR_ARTIFACTS) couchdb epmd FORCE
-	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
+	@cli start $@ "java $(JVM_FLAGS) -jar $<"
 	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@$(TIMEOUT) $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
 	@$(TIMEOUT) $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
@@ -454,7 +456,7 @@ metrics-tests: $(JAR_ARTIFACTS) $(JMX_EXPORTER) test/collectd/clouseau.class epm
 			-Dcom.sun.management.jmxremote.ssl=false \
 			-Dcom.sun.management.jmxremote.password.file=jmxremote.password \
 			-javaagent:$(JMX_EXPORTER)=$(JMX_EXPORTER_PORT):$(JMX_EXPORTER_CFG) \
-			$(_JAVA_COOKIE) \
+			$(JVM_FLAGS) \
 			-jar $(JAR_ARTIFACTS) test/conf/metrics.clouseau.conf
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
@@ -483,7 +485,7 @@ echo \"Ref = make_ref(), {sup, 'clouseau1@127.0.0.1'} ! {ping, self(), Ref}, rec
 .PHONY: compatibility-tests
 # target: compatibility-tests - Run Clouseau 2.x compatibility tests
 compatibility-tests: $(JAR_ARTIFACTS) couchdb epmd FORCE
-	@cli start $@ "java $(_JAVA_COOKIE) -jar $<"
+	@cli start $@ "java $(JVM_FLAGS) -jar $<"
 	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@$(MAKE) sup-test || $(MAKE) test-failed ID=$@
 	@cli stop $@
@@ -525,7 +527,7 @@ jstack:
 # target: tdump - Capture thread dumps
 tdump: CLOUSEAU_PID := $(shell $(clouseauPid))
 tdump: $(ARTIFACTS_DIR)/$(JAR_TEST)
-	@cli start $(node_name) "java -jar $<"
+	@cli start $(node_name) "java $(JVM_FLAGS) -jar $<"
 	@echo "Generate thread dumps..."
 	@rm -f tmp/thread_dump*.log
 	@for i in {1..3}; do \
@@ -589,7 +591,7 @@ ci-concurrent-zeunit: concurrent-zeunit-tests
 
 ci-mango: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli stop $@ || true
-	@cli start $@ "java $(_JAVA_COOKIE) -jar $< test/conf/ci.clouseau.conf"
+	@cli start $@ "java $(JVM_FLAGS) -jar $< test/conf/ci.clouseau.conf"
 	@sleep 5
 	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@$(TIMEOUT) $(TIMEOUT_MANGO_TEST) $(MAKE) mango-test || $(MAKE) test-failed ID=$@
@@ -597,7 +599,7 @@ ci-mango: $(JAR_ARTIFACTS) couchdb epmd FORCE
 
 ci-elixir: $(JAR_ARTIFACTS) couchdb epmd FORCE
 	@cli stop $@ || true
-	@cli start $@ "java $(_JAVA_COOKIE) -jar $< test/conf/ci.clouseau.conf"
+	@cli start $@ "java $(JVM_FLAGS) -jar $< test/conf/ci.clouseau.conf"
 	@cli await $(node_name) "$(ERLANG_COOKIE)" || $(MAKE) await-failed ID=$@
 	@$(TIMEOUT) $(TIMEOUT_ELIXIR_SEARCH) $(MAKE) elixir-search || $(MAKE) test-failed ID=$@
 	@cli stop $@
