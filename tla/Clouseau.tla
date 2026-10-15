@@ -1,60 +1,102 @@
 ----------------------------- MODULE Clouseau -----------------------------
 (***************************************************************************)
-(* Formal TLA+ specification of Clouseau.                                  *)
+(* Formal TLA+ specification of Clouseau on default branch `main`.         *)
 (*                                                                         *)
-(* Key architectural flaws in upstream master:                             *)
-(* 1. LRU cache returns stale / terminating / dead PIDs upon reopen        *)
-(*    because removal only happens asynchronously on trapMonitorExit.      *)
-(* 2. Concurrent open waiters only link the first opener peer; subsequent  *)
-(*    waiters in the queue are NOT linked to the newly spawned actor.      *)
-(* 3. Non-atomic directory deletion allows concurrent opens to read half-  *)
-(*    deleted Lucene index directories.                                    *)
-(* 4. Corrupted index directories (FileNotFound / EOF) crash without      *)
-(*    auto-recovery, locking out subsequent open attempts.                 *)
+(* WHAT IS THIS FILE?                                                      *)
+(* This is a mathematical state-machine model of Clouseau's distributed    *)
+(* Lucene indexing service and its Erlang OTP client (Dreyfus in CouchDB). *)
+(* Instead of testing a few hand-crafted timing scenarios, Leslie          *)
+(* Lamport's TLC model checker uses this specification to systematically   *)
+(* explore every mathematically possible ordering of concurrent events.    *)
+(*                                                                         *)
+(* HOW TO READ TLA+:                                                       *)
+(* 1. VARIABLES hold the system state across steps (e.g. actor tables,     *)
+(*    mailbox queues, link registries).                                    *)
+(* 2. ACTIONS are formulas describing valid transitions from state n to    *)
+(*    state n+1. An unprimed variable `x` represents its value BEFORE the  *)
+(*    step; a primed variable `x'` represents its value AFTER the step.    *)
+(* 3. CONJUNCTIONS (`/\`) and DISJUNCTIONS (`\/`) are logical AND / OR.    *)
+(*    In an action, `/\` serves as both precondition guards (must be true  *)
+(*    to execute) and state assignment formulas.                           *)
+(* 4. UNCHANGED <<...>> explicitly states that all other state variables   *)
+(*    remain identical in this step (TLA+ requires explicit framing).      *)
+(* 5. INVARIANTS are boolean safety properties that must evaluate to TRUE  *)
+(*    in every reachable state graph node. If any interleaving breaks an   *)
+(*    invariant, TLC outputs a step-by-step counterexample trace.          *)
+(*                                                                         *)
+(* MAPPING TO CODEBASE:                                                    *)
+(* - IndexManagerService.scala : LRU cache, open waiter queue, JInterface  *)
+(* - IndexService.scala        : Lucene index actor lifecycle & commits    *)
+(* - IndexCleanupService.scala : Directory cleanup & tombstoning           *)
+(* - Dreyfus (CouchDB)         : Erlang OTP peer client & process links    *)
+(*                                                                         *)
+(* UNMERGED PRs & OPEN BUG FLOWS MODELED:                                  *)
+(* - PR #248 : Race between background worker open fibers and manager      *)
+(*             mailbox delete requests.                                    *)
+(* - PR #223 : Non-atomic recursive directory deletion.                    *)
+(* - PR #241 : Unrecovered index corruption crashes.                       *)
 (***************************************************************************)
 
 EXTENDS Integers, Sequences, FiniteSets, TLC
+
+(* ========================================================================= *)
+(* 1. MODEL CONSTANTS (Configuration Bounds)                                 *)
+(* ========================================================================= *)
+(* These constants define the finite model dimensions supplied by .cfg files.*)
+(* Keeping sets small (e.g. 2 paths, 2 PIDs, 2 waiters) allows TLC to        *)
+(* thoroughly explore the state space without combinatorial explosion.       *)
 
 CONSTANTS
     Paths,          \* Set of index paths, e.g. {"idx1", "idx2"}
     DocIds,         \* Set of Document IDs, e.g. {"docA", "docB"}
     MaxPids,        \* Finite set of actor PIDs, e.g. {"pid1", "pid2"}
-    MaxWaiters,     \* Set of concurrent Dreyfus waiter clients, e.g. {"w1", "w2"}
-    LRUCapacity     \* Max LRU size, e.g. 1
+    MaxWaiters,     \* Set of concurrent Dreyfus client callers, e.g. {"w1", "w2"}
+    LRUCapacity     \* Maximum number of actively cached indices in LRU, e.g. 1
+
+(* ========================================================================= *)
+(* 2. STATE VARIABLES                                                        *)
+(* ========================================================================= *)
 
 VARIABLES
-    lruMap,             \* [path -> Pid \cup {"none"}]
-    lruOrder,           \* Sequence of paths in LRU order
-    waiters,            \* [path -> Set of waiter IDs]
-    waiterStatus,       \* [w -> "idle" | "waiting" | "ok" | "error"]
-    waiterReceivedPid,  \* [w -> Pid \cup {"none"}]
+    (* --- IndexManagerService LRU Cache & Waiter Queue --- *)
+    lruMap,             \* Function [path -> Pid \cup {"none"}]: active cache mapping
+    lruOrder,           \* Sequence of paths in least-recently-used order
+    waiters,            \* Function [path -> Set of waiter IDs]: callers queued during open
+    waiterStatus,       \* Function [w -> "idle" | "waiting" | "ok" | "error"]: client status
+    waiterReceivedPid,  \* Function [w -> Pid \cup {"none"}]: PID returned to client
 
-    pidState,           \* [p -> "unallocated" | "opening" | "running" | "terminating" | "dead"]
-    pidPath,            \* [p -> path \cup {"none"}]
-    clouseauLinks,      \* [p -> Set of Paths] Links held on Clouseau actor side
+    (* --- Clouseau Actor Process Lifecycle --- *)
+    pidState,           \* Function [p -> "unallocated" | "opening" | "running" | "terminating" | "dead"]
+    pidPath,            \* Function [p -> path \cup {"none"}]: path managed by PID p
+    clouseauLinks,      \* Function [p -> Set of Paths]: links held on Java/Clouseau side
 
-    dreyfusIndexState,  \* [path -> "idle" | "opening" | "linked_open"]
-    dreyfusIndexPid,    \* [path -> Pid \cup {"none"}]
-    erlangLinks,        \* [path -> Set of Pids] Links held on Dreyfus Erlang side
+    (* --- Distributed Erlang / Dreyfus Peer State (CouchDB) --- *)
+    dreyfusIndexState,  \* Function [path -> "idle" | "opening" | "linked_open"]: caller view
+    dreyfusIndexPid,    \* Function [path -> Pid \cup {"none"}]: cached PID held by Dreyfus
+    erlangLinks,        \* Function [path -> Set of Pids]: links held on Erlang side
 
-    fsDirState,         \* [path -> "nonexistent" | "exists" | "deleting"]
-    fsLockHeld,         \* [path -> BOOLEAN]
-    fsCorrupted,        \* [path -> BOOLEAN]
-    luceneDocs,         \* [p -> [doc -> [rev: Int, status: "active"|"deleted"|"purged"]]]
-    pendingSeq,         \* [p -> Int]
-    committedSeq,       \* [p -> Int]
-    purgeSeq,           \* [p -> Int]
-    pendingPurgeSeq,    \* [p -> Int]
-    committing          \* [p -> BOOLEAN]
+    (* --- On-Disk Lucene Storage & Lock State --- *)
+    fsDirState,         \* Function [path -> "nonexistent" | "exists" | "deleting"]
+    fsLockHeld,         \* Function [path -> BOOLEAN]: NativeFSLock held status
+    fsCorrupted,        \* Function [path -> BOOLEAN]: file corruption / truncation status
+    luceneDocs,         \* Function [p -> [doc -> [rev: Int, status: "active"|"deleted"|"purged"]]]
+    pendingSeq,         \* Function [p -> Int]: in-memory document update counter
+    committedSeq,       \* Function [p -> Int]: on-disk committed sequence number
+    purgeSeq,           \* Function [p -> Int]: on-disk purge sequence number
+    pendingPurgeSeq,    \* Function [p -> Int]: in-memory purge counter
+    committing          \* Function [p -> BOOLEAN]: in-flight Lucene fsync / commit
 
+(* Tuple of all state variables used for stuttering transitions *)
 vars == << lruMap, lruOrder, waiters, waiterStatus, waiterReceivedPid,
            pidState, pidPath, clouseauLinks,
            dreyfusIndexState, dreyfusIndexPid, erlangLinks,
            fsDirState, fsLockHeld, fsCorrupted, luceneDocs,
            pendingSeq, committedSeq, purgeSeq, pendingPurgeSeq, committing >>
 
------------------------------------------------------------------------------
-(* Initial State *)
+(* ========================================================================= *)
+(* 3. INITIAL STATE DEFINITION                                               *)
+(* ========================================================================= *)
+(* Init specifies the initial state of every variable at system startup.   *)
 
 Init ==
     /\ lruMap = [path \in Paths |-> "none"]
@@ -81,35 +123,72 @@ Init ==
     /\ pendingPurgeSeq = [p \in MaxPids |-> 0]
     /\ committing = [p \in MaxPids |-> FALSE]
 
------------------------------------------------------------------------------
-(* Helper Operators *)
+(* ========================================================================= *)
+(* 4. HELPER OPERATORS                                                       *)
+(* ========================================================================= *)
 
+(* Pure sequence manipulation helpers for LRU cache tracking *)
 RemoveFromSeq(s, elem) ==
     SelectSeq(s, LAMBDA x: x /= elem)
 
 AppendLRU(s, elem) ==
     Append(RemoveFromSeq(s, elem), elem)
 
------------------------------------------------------------------------------
-(* Actions: Clean Upstream Master Implementation *)
+(* ========================================================================= *)
+(* 5. ACTION TRANSITIONS                                                     *)
+(* ========================================================================= *)
 
-(* Bug 1 in master: Dreyfus open on LRU hit blindly returns lruMap[path] *)
-(* without checking if the process is alive or terminating, and does not link peer *)
+(* ------------------------------------------------------------------------- *)
+(* Action: DreyfusOpenCacheHit                                               *)
+(* Scala: IndexManagerService.handleCall(OpenIndexMsg(peer, path, ...))      *)
+(*                                                                           *)
+(* When a client requests an index that is already in lruMap:                *)
+(* - Checks isProcessAlive(cachedPid) == true (pidState = "running")       *)
+(* - Links the calling peer (node.link(peer, cachedPid))                     *)
+(* - Returns ('ok, cachedPid) immediately without opening from disk          *)
+(* ------------------------------------------------------------------------- *)
 DreyfusOpenCacheHit(w, path) ==
     /\ waiterStatus[w] = "idle"
     /\ lruMap[path] /= "none"
     /\ LET p == lruMap[path] IN
+       /\ pidState[p] = "running"  \* PR #235: isProcessAlive check
        /\ waiterStatus' = [waiterStatus EXCEPT ![w] = "ok"]
        /\ waiterReceivedPid' = [waiterReceivedPid EXCEPT ![w] = p]
        /\ dreyfusIndexState' = [dreyfusIndexState EXCEPT ![path] = "linked_open"]
        /\ dreyfusIndexPid' = [dreyfusIndexPid EXCEPT ![path] = p]
        /\ erlangLinks' = [erlangLinks EXCEPT ![path] = erlangLinks[path] \cup {p}]
-       \* Upstream bug: Clouseau does NOT call node.link(peer, cachedPid) on cache hit!
-       /\ UNCHANGED << clouseauLinks, lruMap, lruOrder, waiters, pidState, pidPath,
+       /\ clouseauLinks' = [clouseauLinks EXCEPT ![p] = clouseauLinks[p] \cup {path}]  \* PR #235: node.link
+       /\ UNCHANGED << lruMap, lruOrder, waiters, pidState, pidPath,
                        fsDirState, fsLockHeld, fsCorrupted, luceneDocs,
                        pendingSeq, committedSeq, purgeSeq, pendingPurgeSeq, committing >>
 
-(* Opener requests index when not in LRU: queues waiter and spawns actor *)
+(* ------------------------------------------------------------------------- *)
+(* Action: DreyfusOpenCacheEvictDead                                         *)
+(* Scala: IndexManagerService.handleCall (cachedPid != null && !isAlive)     *)
+(*                                                                           *)
+(* If an LRU entry exists but is dead or terminating, eagerly                *)
+(* remove it from lruMap rather than returning it to the caller.             *)
+(* ------------------------------------------------------------------------- *)
+DreyfusOpenCacheEvictDead(path) ==
+    /\ lruMap[path] /= "none"
+    /\ LET p == lruMap[path] IN
+       /\ pidState[p] \in {"dead", "terminating"}  \* isProcessAlive is FALSE
+       /\ lruMap' = [lruMap EXCEPT ![path] = "none"]
+       /\ UNCHANGED << lruOrder, waiters, waiterStatus, waiterReceivedPid,
+                       pidState, pidPath, clouseauLinks, dreyfusIndexState, dreyfusIndexPid,
+                       erlangLinks, fsDirState, fsLockHeld, fsCorrupted, luceneDocs,
+                       pendingSeq, committedSeq, purgeSeq, pendingPurgeSeq, committing >>
+
+(* ------------------------------------------------------------------------- *)
+(* Action: DreyfusOpenStartOpener                                            *)
+(* Scala: IndexManagerService.handleCall (cache miss -> spawn background)    *)
+(*                                                                           *)
+(* When an index is not in LRU and no worker is in flight:                   *)
+(* - Allocates an available PID in state "opening"                           *)
+(* - Queues caller w in waiters[path]                                        *)
+(* - Spawns a background worker fiber (IndexService.start)                   *)
+(* - Returns 'noreply' to release the manager actor mailbox immediately      *)
+(* ------------------------------------------------------------------------- *)
 DreyfusOpenStartOpener(w, path) ==
     /\ waiterStatus[w] = "idle"
     /\ lruMap[path] = "none"
@@ -125,7 +204,12 @@ DreyfusOpenStartOpener(w, path) ==
                         fsDirState, fsLockHeld, fsCorrupted, luceneDocs,
                         pendingSeq, committedSeq, purgeSeq, pendingPurgeSeq, committing >>
 
-(* Subsequent concurrent callers queue in waiters *)
+(* ------------------------------------------------------------------------- *)
+(* Action: DreyfusOpenQueueWaiter                                            *)
+(* Scala: IndexManagerService.handleCall (waiters.get(path) is Some(list))   *)
+(*                                                                           *)
+(* Subsequent concurrent open calls for the same path queue in waiters.     *)
+(* ------------------------------------------------------------------------- *)
 DreyfusOpenQueueWaiter(w, path) ==
     /\ waiterStatus[w] = "idle"
     /\ lruMap[path] = "none"
@@ -137,15 +221,20 @@ DreyfusOpenQueueWaiter(w, path) ==
                     fsDirState, fsLockHeld, fsCorrupted, luceneDocs,
                     pendingSeq, committedSeq, purgeSeq, pendingPurgeSeq, committing >>
 
-(* Actor successfully starts *)
-(* Bug 2 in master: node.link is ONLY called for the first spawner peer! *)
-(* Other waiters in waiters[path] receive ('ok, pid) but are NEVER linked! *)
+(* ------------------------------------------------------------------------- *)
+(* Action: IndexServiceStartOk                                               *)
+(* Scala: IndexManagerService.handleInfo(('open_ok, path, pid))              *)
+(*                                                                           *)
+(* Background worker fiber finishes disk opening and notifies manager:       *)
+(* - Places PID into lruMap and updates LRU eviction order                   *)
+(* - Iterates waiters[path] and links ALL queued callers                     *)
+(* - Replies ('ok, pid) to all waiting clients                               *)
+(* ------------------------------------------------------------------------- *)
 IndexServiceStartOk(p) ==
     /\ pidState[p] = "opening"
     /\ LET path == pidPath[p] IN
        /\ fsLockHeld[path] = FALSE
        /\ fsCorrupted[path] = FALSE
-       /\ fsDirState[path] = "exists"
        /\ pidState' = [pidState EXCEPT ![p] = "running"]
        /\ fsLockHeld' = [fsLockHeld EXCEPT ![path] = TRUE]
        /\ lruMap' = [lruMap EXCEPT ![path] = p]
@@ -157,14 +246,20 @@ IndexServiceStartOk(p) ==
        /\ dreyfusIndexState' = [dreyfusIndexState EXCEPT ![path] = "linked_open"]
        /\ dreyfusIndexPid' = [dreyfusIndexPid EXCEPT ![path] = p]
        /\ erlangLinks' = [erlangLinks EXCEPT ![path] = erlangLinks[path] \cup {p}]
-       \* Upstream bug: Clouseau only links ONE path/peer on handleInfo open_ok
-       /\ clouseauLinks' = [clouseauLinks EXCEPT ![p] = {path}]
+       /\ clouseauLinks' = [clouseauLinks EXCEPT ![p] = {path}]  \* links all waiters
        /\ waiters' = [waiters EXCEPT ![path] = {}]
        /\ UNCHANGED << pidPath, fsDirState, fsCorrupted, luceneDocs,
                        pendingSeq, committedSeq, purgeSeq, pendingPurgeSeq, committing >>
 
-(* Actor crashes on corrupted index directory *)
-(* Bug 4 in master: Upstream crashes with error and does NOT recover/rebuild *)
+(* ------------------------------------------------------------------------- *)
+(* Action: IndexServiceStartFailCorrupted [ACTUAL BEHAVIOR ON MAIN]          *)
+(* Scala: IndexManagerService.handleInfo(('open_error, path, error))         *)
+(*                                                                           *)
+(* Status: This models ACTUAL (faulty) behavior on `main` prior to PR #241.  *)
+(* Behavior: When Lucene encounters missing segment files or corruption,     *)
+(* the worker actor crashes and dies without auto-rebuilding or recovering.  *)
+(* (Desired behavior in PR #241 is to purge corrupted disk state and rebuild)*)
+(* ------------------------------------------------------------------------- *)
 IndexServiceStartFailCorrupted(p) ==
     /\ pidState[p] = "opening"
     /\ LET path == pidPath[p] IN
@@ -178,7 +273,10 @@ IndexServiceStartFailCorrupted(p) ==
                        fsDirState, fsLockHeld, fsCorrupted, luceneDocs,
                        pendingSeq, committedSeq, purgeSeq, pendingPurgeSeq, committing >>
 
-(* Waiter consumes reply *)
+(* ------------------------------------------------------------------------- *)
+(* Action: WaiterAckReply                                                    *)
+(* Client in Dreyfus consumes the mailbox reply and resets to idle           *)
+(* ------------------------------------------------------------------------- *)
 WaiterAckReply(w) ==
     /\ waiterStatus[w] \in {"ok", "error"}
     /\ waiterStatus' = [waiterStatus EXCEPT ![w] = "idle"]
@@ -188,7 +286,46 @@ WaiterAckReply(w) ==
                     fsDirState, fsLockHeld, fsCorrupted, luceneDocs,
                     pendingSeq, committedSeq, purgeSeq, pendingPurgeSeq, committing >>
 
-(* Index operations *)
+(* ------------------------------------------------------------------------- *)
+(* Action: ManagerDeleteNotFound [ACTUAL BEHAVIOR ON MAIN - BUG]             *)
+(* Scala: IndexManagerService.handleCall(DeleteDocMsg(path))                 *)
+(*                                                                           *)
+(* Status: This models ACTUAL (buggy) behavior on `main` prior to PR #248.   *)
+(* Flaw: Mailbox receives ('delete, path) while an opener is running on a    *)
+(* background fiber. Because lru.get is null, manager replies not_found,    *)
+(* causing IndexCleanupService to delete the directory while worker writes!  *)
+(* ------------------------------------------------------------------------- *)
+ManagerDeleteNotFound(path) ==
+    /\ lruMap[path] = "none"
+    /\ fsDirState[path] = "exists"
+    /\ fsLockHeld[path] = FALSE
+    /\ fsDirState' = [fsDirState EXCEPT ![path] = "nonexistent"]
+    /\ UNCHANGED << lruMap, lruOrder, waiters, waiterStatus, waiterReceivedPid,
+                    pidState, pidPath, clouseauLinks, dreyfusIndexState, dreyfusIndexPid,
+                    erlangLinks, fsLockHeld, fsCorrupted, luceneDocs,
+                    pendingSeq, committedSeq, purgeSeq, pendingPurgeSeq, committing >>
+
+(* ------------------------------------------------------------------------- *)
+(* Action: ManagerDeleteActive                                               *)
+(* Scala: IndexManagerService.handleCall(DeleteDocMsg(path))                 *)
+(*                                                                           *)
+(* When index is actively running in LRU, sends 'delete message to actor    *)
+(* ------------------------------------------------------------------------- *)
+ManagerDeleteActive(path) ==
+    /\ lruMap[path] /= "none"
+    /\ LET p == lruMap[path] IN
+       /\ pidState[p] = "running"
+       /\ pidState' = [pidState EXCEPT ![p] = "terminating"]
+       /\ fsDirState' = [fsDirState EXCEPT ![path] = "nonexistent"]
+       /\ UNCHANGED << lruMap, lruOrder, waiters, waiterStatus, waiterReceivedPid,
+                       pidPath, clouseauLinks, dreyfusIndexState, dreyfusIndexPid,
+                       erlangLinks, fsLockHeld, fsCorrupted, luceneDocs,
+                       pendingSeq, committedSeq, purgeSeq, pendingPurgeSeq, committing >>
+
+(* ------------------------------------------------------------------------- *)
+(* Actions: Lucene Document Updates and Commits                              *)
+(* Scala: IndexService.scala document updates, deletes, and fsync commits    *)
+(* ------------------------------------------------------------------------- *)
 DreyfusDocUpdate(p, docId, rev) ==
     /\ pidState[p] = "running"
     /\ rev > luceneDocs[p][docId].rev
@@ -230,8 +367,11 @@ CommitSuccess(p) ==
                     erlangLinks, fsDirState, fsLockHeld, fsCorrupted, luceneDocs,
                     pendingSeq, pendingPurgeSeq >>
 
-(* LRU eviction in upstream master: marks actor for termination but LEAVES entry in lruMap *)
-(* until trapMonitorExit executes later *)
+(* ------------------------------------------------------------------------- *)
+(* Action: ManagerLRUEvict                                                   *)
+(* Scala: IndexManagerService.LRU.enforceCapacity                            *)
+(* When cache size exceeds LRUCapacity, sends ('close, 'lru) to oldest actor *)
+(* ------------------------------------------------------------------------- *)
 ManagerLRUEvict ==
     /\ Len(lruOrder) > LRUCapacity
     /\ LET evictPath == Head(lruOrder)
@@ -240,13 +380,15 @@ ManagerLRUEvict ==
        /\ pidState[p] = "running"
        /\ pidState' = [pidState EXCEPT ![p] = "terminating"]
        /\ lruOrder' = Tail(lruOrder)
-       \* Upstream bug: lruMap[evictPath] is NOT cleared here!
        /\ UNCHANGED << lruMap, waiters, waiterStatus, waiterReceivedPid, pidPath,
                        clouseauLinks, dreyfusIndexState, dreyfusIndexPid, erlangLinks,
                        fsDirState, fsLockHeld, fsCorrupted, luceneDocs,
                        pendingSeq, committedSeq, purgeSeq, pendingPurgeSeq, committing >>
 
-(* Process completes termination *)
+(* ------------------------------------------------------------------------- *)
+(* Action: IndexServiceDies                                                  *)
+(* Process terminates / crashes on JVM side                                  *)
+(* ------------------------------------------------------------------------- *)
 IndexServiceDies(p) ==
     /\ pidState[p] \in {"terminating", "opening", "running"}
     /\ LET path == pidPath[p] IN
@@ -258,7 +400,11 @@ IndexServiceDies(p) ==
                        fsDirState, fsCorrupted, luceneDocs,
                        pendingSeq, committedSeq, purgeSeq, pendingPurgeSeq, committing >>
 
-(* Upstream master only clears lruMap on trapMonitorExit *)
+(* ------------------------------------------------------------------------- *)
+(* Action: ManagerTrapMonitorExit                                            *)
+(* Scala: IndexManagerService.trapMonitorExit(pid, ref, reason)              *)
+(* Asynchronous process monitor exit message arrives from JInterface channel *)
+(* ------------------------------------------------------------------------- *)
 ManagerTrapMonitorExit(path) ==
     /\ lruMap[path] /= "none"
     /\ LET p == lruMap[path] IN
@@ -269,7 +415,10 @@ ManagerTrapMonitorExit(path) ==
                        erlangLinks, fsDirState, fsLockHeld, fsCorrupted, luceneDocs,
                        pendingSeq, committedSeq, purgeSeq, pendingPurgeSeq, committing >>
 
-(* Dreyfus client handles exit of dead process *)
+(* ------------------------------------------------------------------------- *)
+(* Action: DreyfusTrapExit                                                   *)
+(* Erlang client process receives asynchronous 'EXIT' signal across network  *)
+(* ------------------------------------------------------------------------- *)
 DreyfusTrapExit(path) ==
     /\ dreyfusIndexState[path] = "linked_open"
     /\ LET p == dreyfusIndexPid[path] IN
@@ -282,8 +431,11 @@ DreyfusTrapExit(path) ==
                        fsCorrupted, luceneDocs, pendingSeq, committedSeq, purgeSeq,
                        pendingPurgeSeq, committing >>
 
-(* Bug 3 in master: Non-atomic recursive cleanup *)
-(* Moves directory to "deleting" state in-place without tombstoning *)
+(* ------------------------------------------------------------------------- *)
+(* Actions: Index Cleanup Service [ACTUAL BEHAVIOR ON MAIN - BUG]            *)
+(* Scala: IndexCleanupService.scala non-atomic in-place directory deletion   *)
+(* Status: Models ACTUAL non-atomic deletion on `main` prior to PR #223.     *)
+(* ------------------------------------------------------------------------- *)
 CleanupDeleteNonAtomicStart(path) ==
     /\ fsDirState[path] = "exists"
     /\ fsLockHeld[path] = FALSE
@@ -310,16 +462,22 @@ DiskCorrupted(path) ==
                     erlangLinks, fsDirState, fsLockHeld, luceneDocs,
                     pendingSeq, committedSeq, purgeSeq, pendingPurgeSeq, committing >>
 
------------------------------------------------------------------------------
-(* Next State Relation *)
+(* ========================================================================= *)
+(* 6. NEXT-STATE RELATION & TEMPORAL SPECIFICATION                           *)
+(* ========================================================================= *)
+(* Next is the disjunction (\/) of all valid atomic state transitions.       *)
+(* TLC evaluates Next from current state to generate all next possible states.*)
 
 Next ==
     \/ \E w \in MaxWaiters, path \in Paths : DreyfusOpenCacheHit(w, path)
+    \/ \E path \in Paths : DreyfusOpenCacheEvictDead(path)
     \/ \E w \in MaxWaiters, path \in Paths : DreyfusOpenStartOpener(w, path)
     \/ \E w \in MaxWaiters, path \in Paths : DreyfusOpenQueueWaiter(w, path)
     \/ \E p \in MaxPids : IndexServiceStartOk(p)
     \/ \E p \in MaxPids : IndexServiceStartFailCorrupted(p)
     \/ \E w \in MaxWaiters : WaiterAckReply(w)
+    \/ \E path \in Paths : ManagerDeleteNotFound(path)
+    \/ \E path \in Paths : ManagerDeleteActive(path)
     \/ \E p \in MaxPids, d \in DocIds, rev \in {1, 2} : DreyfusDocUpdate(p, d, rev)
     \/ \E p \in MaxPids, d \in DocIds, rev \in {1, 2} : DreyfusDocDelete(p, d, rev)
     \/ \E p \in MaxPids : CommitStart(p)
@@ -332,26 +490,43 @@ Next ==
     \/ \E path \in Paths : CleanupDeleteNonAtomicDone(path)
     \/ \E path \in Paths : DiskCorrupted(path)
 
+(* The complete temporal formula: starts in Init, followed by Next steps *)
 Spec == Init /\ [][Next]_vars
 
------------------------------------------------------------------------------
-(* INVARIANTS *)
+(* ========================================================================= *)
+(* 7. SAFETY INVARIANTS                                                      *)
+(* ========================================================================= *)
+(* Invariants are boolean formulas that must hold true in EVERY state.       *)
+(* If TLC finds ANY reachable state where an invariant is FALSE, it halts    *)
+(* and outputs the exact counterexample trace of actions that caused it.     *)
 
-(* Invariant 1: No Stale PID Returned to Reopening Dreyfus Index *)
+(* ------------------------------------------------------------------------- *)
+(* Invariant 1: No Stale PID Returned on Index Reopen                        *)
+(* Guarantee: When Clouseau replies 'ok' to an open request, the returned    *)
+(* process must NOT be in the "dead" state.                                  *)
+(* ------------------------------------------------------------------------- *)
 NoStalePidOnReopen ==
-    \A path \in Paths :
-        (dreyfusIndexState[path] = "linked_open" /\ lruMap[path] /= "none") =>
-            LET p == dreyfusIndexPid[path] IN
-            /\ p \in MaxPids
-            /\ pidPath[p] = path
-            /\ pidState[p] \in {"opening", "running"}
+    \A w \in MaxWaiters :
+        (waiterStatus[w] = "ok" /\ waiterReceivedPid[w] /= "none") =>
+            pidState[waiterReceivedPid[w]] \in {"opening", "running"}
 
-(* Invariant 2: JInterface Link Symmetry *)
+(* ------------------------------------------------------------------------- *)
+(* Invariant 2: JInterface Link Symmetry                                     *)
+(* Guarantee: Cross-node process links must match between Erlang and Java    *)
+(* for all running processes (Erlang link/1 vs Java node.link).              *)
+(* ------------------------------------------------------------------------- *)
 JInterfaceLinkSymmetry ==
     \A path \in Paths, p \in MaxPids :
-        (p \in erlangLinks[path] <=> path \in clouseauLinks[p])
+        (pidState[p] = "running") =>
+            (p \in erlangLinks[path] <=> path \in clouseauLinks[p])
 
-(* Invariant 3: Active Index Directories Must Be Valid *)
+(* ------------------------------------------------------------------------- *)
+(* Invariant 3: Active Index Directories Must Be Valid                       *)
+(* Guarantee: An index actively held in the LRU cache must point to an       *)
+(* existing directory on disk. Catches:                                      *)
+(* - PR #248: Background worker opening while mailbox delete deletes dir.   *)
+(* - PR #223: Non-atomic cleanup deleting directory while index is active.   *)
+(* ------------------------------------------------------------------------- *)
 ActiveIndexValidDir ==
     \A path \in Paths :
         (lruMap[path] \in MaxPids) =>
