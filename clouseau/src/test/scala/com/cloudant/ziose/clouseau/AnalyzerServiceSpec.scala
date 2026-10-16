@@ -24,8 +24,8 @@ class AnalyzerServiceSpec extends JUnitRunnableSpec {
       node   <- Utils.clouseauNode
       worker <- ZIO.service[EngineWorker]
       cfg    <- Utils.defaultConfig
-      val ctx = new ServiceContext[ConfigurationArgs] { val args = ConfigurationArgs(cfg) }
-      analyzer <- node.spawnServiceZIO[AnalyzerService, ConfigurationArgs](AnalyzerServiceBuilder.make(node, ctx))
+      val ctx = new ServiceContext[Configuration] { val args: Configuration = cfg }
+      analyzer <- node.spawnServiceZIO[AnalyzerService, Configuration](AnalyzerServiceBuilder.make(node, ctx))
       result   <- analyzer
         .doTestCallTimeout(adapter.fromScala('analyze, tokenizer, input), 3.seconds)
         .delay(100.millis)

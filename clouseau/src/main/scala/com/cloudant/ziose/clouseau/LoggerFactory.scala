@@ -26,14 +26,14 @@ import java.time.format.DateTimeFormatter
 object LoggerLayers {
   def syslogLogger(
     config: ConsoleLoggerConfig,
-    syslogConfig: Option[SyslogConfiguration]
+    syslogConfig: SyslogConfiguration
   ): ULayer[Unit] = {
     makeZLayer(config.format.toLogger, config.toFilter, syslogConfig)
   }
 
   def syslogJsonLogger(
     config: ConsoleLoggerConfig,
-    syslogConfig: Option[SyslogConfiguration]
+    syslogConfig: SyslogConfiguration
   ): ULayer[Unit] = {
     makeZLayer(config.format.toJsonLogger, config.toFilter, syslogConfig)
   }
@@ -41,7 +41,7 @@ object LoggerLayers {
   private def makeZLayer(
     logger: ZLogger[String, String],
     filter: LogFilter[String],
-    config: Option[SyslogConfiguration]
+    config: SyslogConfiguration
   ): ULayer[Unit] = {
     ZLayer.scoped {
       ZIO
@@ -53,22 +53,15 @@ object LoggerLayers {
 
   private def syslogLogger(
     logger: ZLogger[String, String],
-    config: Option[SyslogConfiguration]
+    config: SyslogConfiguration
   ): ZLogger[String, Any] = {
-    val protocol = config.flatMap(_.protocol).getOrElse(SyslogProtocol.UDP)
-    val host     = config.flatMap(_.host).getOrElse("localhost")
-    val port     = config.flatMap(_.port).getOrElse(514)
-    val facility = config.flatMap(_.facility).getOrElse("CONSOLE")
-    val level    = config.flatMap(_.level).getOrElse("debug")
-    val tag      = config.flatMap(_.tag).getOrElse("")
-
     Configuration.set("writer", "syslog")
-    Configuration.set("writer.format", s"${tag}{message}")
-    Configuration.set("writer.protocol", protocol.toString)
-    Configuration.set("writer.host", host)
-    Configuration.set("writer.port", port.toString)
-    Configuration.set("writer.facility", facility)
-    Configuration.set("writer.level", level)
+    Configuration.set("writer.format", s"${config.tag}{message}")
+    Configuration.set("writer.protocol", config.protocol.toString)
+    Configuration.set("writer.host", config.host)
+    Configuration.set("writer.port", config.port.toString)
+    Configuration.set("writer.facility", config.facility)
+    Configuration.set("writer.level", config.level)
 
     val syslogLogger = logger.map { line =>
       try Logger.info(line.asInstanceOf[Object])
@@ -174,16 +167,13 @@ object LoggerFactory {
   }
 
   private def loggerForOutput(cfg: LogConfiguration): TaskLayer[Unit] = {
-    val output: LogOutput = cfg.output.getOrElse(LogOutput.Stdout)
-    val format: LogFormat = cfg.format.getOrElse(LogFormat.Raw)
-    val level: LogLevel   = cfg.level.getOrElse(LogLevel.Debug)
-    val formatSpecifier   = format match {
+    val formatSpecifier = cfg.format match {
       case LogFormat.Raw  => logFormatRaw
       case LogFormat.Text => logFormatText
       case LogFormat.JSON => logFormatJSON
     }
-    val config = ConsoleLoggerConfig(formatSpecifier, logFilterConfig(level))
-    val logger = (output, format) match {
+    val config = ConsoleLoggerConfig(formatSpecifier, logFilterConfig(cfg.level))
+    val logger = (cfg.output, cfg.format) match {
       case (LogOutput.Stdout, LogFormat.JSON) => consoleJsonLogger(config)
       case (LogOutput.Stdout, _)              => consoleLogger(config)
       case (LogOutput.Syslog, LogFormat.JSON) => LoggerLayers.syslogJsonLogger(config, cfg.syslog)

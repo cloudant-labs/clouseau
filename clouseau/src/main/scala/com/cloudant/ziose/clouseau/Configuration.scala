@@ -1,12 +1,14 @@
 package com.cloudant.ziose.clouseau
 
 import com.cloudant.ziose.core.Exponent
-import com.cloudant.ziose.macros.CheckEnv
 import com.cloudant.ziose.otp.OTPNodeConfig
-import zio.Config.Error
-import zio.config.magnolia.{DeriveConfig, deriveConfig}
-import zio.config.typesafe.FromConfigSourceTypesafe
-import zio.{Config, ConfigProvider, IO, LogLevel, ZIOAppArgs, ZLayer}
+import com.typesafe.config.{ConfigFactory, ConfigRenderOptions}
+import pureconfig.ConfigWriter
+import pureconfig.error.{ConfigReaderException, FailureReason}
+import pureconfig.generic.ProductHint
+import zio.{LogLevel, System, Task, ZIO, ZIOAppArgs}
+
+import java.nio.file.Paths
 
 sealed abstract class LogOutput
 sealed abstract class LogFormat
@@ -14,23 +16,65 @@ sealed abstract class LogFormat
 object LogOutput {
   case object Stdout extends LogOutput
   case object Syslog extends LogOutput
+
+  def parse(value: String): Either[FailureReason, LogOutput] =
+    value.trim().toUpperCase() match {
+      case "STDOUT" => Right(Stdout)
+      case "SYSLOG" => Right(Syslog)
+      case _        =>
+        Left(
+          pureconfig.error.CannotConvert(
+            value,
+            "LogOutput",
+            "LogOutput must be one of (case insensitive) STDOUT|SYSLOG"
+          )
+        )
+    }
+
+  def prettyPrint(logOutput: LogOutput): String =
+    logOutput match {
+      case Stdout => "stdout"
+      case Syslog => "syslog"
+    }
 }
 
 object LogFormat {
   case object Raw  extends LogFormat
   case object Text extends LogFormat
   case object JSON extends LogFormat
+
+  def parse(value: String): Either[FailureReason, LogFormat] =
+    value.trim().toUpperCase() match {
+      case "RAW"  => Right(Raw)
+      case "TEXT" => Right(Text)
+      case "JSON" => Right(JSON)
+      case _      =>
+        Left(
+          pureconfig.error.CannotConvert(
+            value,
+            "LogFormat",
+            "LogFormat must be one of (case insensitive) RAW|TEXT|JSON"
+          )
+        )
+    }
+
+  def prettyPrint(format: LogFormat): String =
+    format match {
+      case Raw  => "raw"
+      case Text => "text"
+      case JSON => "json"
+    }
 }
 
 final case class LogConfiguration(
-  output: Option[LogOutput],
-  format: Option[LogFormat],
-  level: Option[LogLevel],
-  syslog: Option[SyslogConfiguration]
+  output: LogOutput = LogOutput.Stdout,
+  format: LogFormat = LogFormat.Raw,
+  level: LogLevel = LogLevel.Debug,
+  syslog: SyslogConfiguration = SyslogConfiguration()
 )
 
 object LogConfiguration {
-  def readLogLevel(value: String): Either[Error, LogLevel] = {
+  def parse(value: String): Either[FailureReason, LogLevel] =
     value.trim().toUpperCase match {
       case "ALL"     => Right(LogLevel.All)
       case "FATAL"   => Right(LogLevel.Fatal)
@@ -42,116 +86,85 @@ object LogConfiguration {
       case "NONE"    => Right(LogLevel.None)
       case _         =>
         Left(
-          Error.InvalidData(message = {
-            s"LogLevel must be one of (case insensitive) ALL|FATAL|ERROR|WARNING|INFO|DEBUG|TRACE|NONE (got '${value}')"
-          })
+          pureconfig.error.CannotConvert(
+            value,
+            "LogLevel",
+            "LogLevel must be one of (case insensitive) ALL|FATAL|ERROR|WARNING|INFO|DEBUG|TRACE|NONE"
+          )
         )
     }
-  }
+
+  def prettyPrint(level: LogLevel): String = level.label
 }
-
-final case class WorkerConfiguration(
-  node: OTPNodeConfig,
-  clouseau: Option[ClouseauConfiguration],
-  capacity: Option[CapacityConfiguration]
-)
-
-final case class RootDir(value: String) extends AnyVal
 
 final case class ClouseauConfiguration(
-  dir: Option[RootDir] = None,
-  search_allowed_timeout_msecs: Option[Long] = None,
-  count_fields: Option[Boolean] = None,
-  count_locks: Option[Boolean] = None,
-  close_if_idle: Option[Boolean] = None,
-  idle_check_interval_secs: Option[Int] = None,
-  lru_update_interval_msecs: Option[Int] = None,
-  max_indexes_open: Option[Int] = None,
-  field_count_warn_threshold: Option[Int] = None,
-  commit_interval_secs: Option[Int] = None,
-  lock_class: Option[String] = None,
-  dir_class: Option[String] = None,
-  concurrent_search_enabled: Option[Boolean] = None,
-  concurrent_search_limit: Option[Int] = None,
-  track_index_atimes: Option[Boolean] = None
+  dir: String = "target/indexes",
+  search_allowed_timeout_msecs: Long = 5000,
+  count_fields: Boolean = false,
+  count_locks: Boolean = false,
+  close_if_idle: Boolean = false,
+  idle_check_interval_secs: Int = 300,
+  lru_update_interval_msecs: Int = 1000,
+  max_indexes_open: Int = 100,
+  field_count_warn_threshold: Int = 5000,
+  commit_interval_secs: Int = 30,
+  lock_class: String = "org.apache.lucene.store.NativeFSLockFactory",
+  dir_class: String = "org.apache.lucene.store.NIOFSDirectory",
+  concurrent_search_enabled: Boolean = false,
+  concurrent_search_limit: Int = 1000,
+  track_index_atimes: Boolean = false
+)
+
+final case class Configuration(
+  node: OTPNodeConfig = OTPNodeConfig(),
+  clouseau: ClouseauConfiguration = ClouseauConfiguration(),
+  capacity: CapacityConfiguration = CapacityConfiguration()
 ) {
-  def getString(key: String, default: String) = key match {
-    case "clouseau.dir" =>
-      dir match {
-        case Some(RootDir(value)) => value
-        case None                 => default
-      }
-    case "clouseau.lock_class" => lock_class.getOrElse(default)
-    case "clouseau.dir_class"  => dir_class.getOrElse(default)
-    case _                     => throw new Exception(s"Unexpected String key '$key'")
-  }
-  def getInt(key: String, default: Int) = key match {
-    case "clouseau.idle_check_interval_secs"   => idle_check_interval_secs.getOrElse(default)
-    case "clouseau.lru_update_interval_msecs"  => lru_update_interval_msecs.getOrElse(default)
-    case "clouseau.max_indexes_open"           => max_indexes_open.getOrElse(default)
-    case "commit_interval_secs"                => commit_interval_secs.getOrElse(default)
-    case "clouseau.concurrent_search_limit"    => concurrent_search_limit.getOrElse(default)
-    case "clouseau.field_count_warn_threshold" => field_count_warn_threshold.getOrElse(default)
-    case _                                     => throw new Exception(s"Unexpected Int key '$key'")
-  }
-  def getLong(key: String, default: Long) = key match {
-    case "clouseau.search_allowed_timeout_msecs" => search_allowed_timeout_msecs.getOrElse(default)
-    case _                                       => throw new Exception(s"Unexpected Long key '$key'")
-  }
-  def getBoolean(key: String, default: Boolean) = key match {
-    case "clouseau.count_fields"              => count_fields.getOrElse(default)
-    case "clouseau.count_locks"               => count_locks.getOrElse(default)
-    case "clouseau.close_if_idle"             => close_if_idle.getOrElse(default)
-    case "clouseau.concurrent_search_enabled" => concurrent_search_enabled.getOrElse(default)
-    case "clouseau.track_index_atimes"        => track_index_atimes.getOrElse(default)
-    case _                                    => throw new Exception(s"Unexpected Boolean key '$key'")
-  }
-
-  @CheckEnv(System.getProperty("env"))
-  def toStringMacro: List[String] = List(
-    s"${getClass.getSimpleName}",
-    s"dir=$dir",
-    s"search_allowed_timeout_msecs=$search_allowed_timeout_msecs",
-    s"count_fields=$count_fields",
-    s"count_locks=$count_locks",
-    s"close_if_idle=$close_if_idle",
-    s"idle_check_interval_secs=$idle_check_interval_secs",
-    s"lru_update_interval_msecs=$lru_update_interval_msecs",
-    s"max_indexes_open=$max_indexes_open",
-    s"commit_interval_secs=$commit_interval_secs",
-    s"lock_class=$lock_class",
-    s"dir_class=$dir_class",
-    s"concurrent_search_enabled=$concurrent_search_enabled",
-    s"concurrent_search_limit=$concurrent_search_limit",
-    s"track_index_atimes=$track_index_atimes"
-  )
+  import AppCfg.configurationWriter
+  override def toString: String = ConfigWriter[Configuration].to(this).render(AppCfg.formatOptions)
 }
 
-case class Configuration(clouseau: ClouseauConfiguration, workers: OTPNodeConfig, capacity: CapacityConfiguration) {
-  // these getters are only for compatibility with old clouseau and shouldn't be used in new code
-  def getString(key: String, default: String)   = clouseau.getString(key, default)
-  def getInt(key: String, default: Int)         = clouseau.getInt(key, default)
-  def getLong(key: String, default: Long)       = clouseau.getLong(key, default)
-  def getBoolean(key: String, default: Boolean) = clouseau.getBoolean(key, default)
-}
-
-final case class ConfigurationArgs(config: Configuration)
+final case class PropertyConfiguration(
+  clouseau: ClouseauConfiguration = ClouseauConfiguration()
+)
 
 sealed abstract class SyslogProtocol
 
 object SyslogProtocol {
   case object TCP extends SyslogProtocol
   case object UDP extends SyslogProtocol
+
+  def parse(value: String): Either[FailureReason, SyslogProtocol] =
+    value.trim().toUpperCase() match {
+      case "TCP" => Right(TCP)
+      case "UDP" => Right(UDP)
+      case _     =>
+        Left(
+          pureconfig.error.CannotConvert(
+            value,
+            "SyslogProtocol",
+            "SyslogProtocol must be one of (case insensitive) TCP|UDP"
+          )
+        )
+    }
+
+  def prettyPrint(protocol: SyslogProtocol): String =
+    protocol match {
+      case TCP => "tcp"
+      case UDP => "udp"
+    }
 }
 
 final case class SyslogConfiguration(
-  protocol: Option[SyslogProtocol] = None,
-  host: Option[String] = None,
-  port: Option[Int] = None,
-  facility: Option[String] = None,
-  level: Option[String] = None,
-  tag: Option[String] = None
+  protocol: SyslogProtocol = SyslogProtocol.UDP,
+  host: String = "localhost",
+  port: Int = 514,
+  facility: String = "CONSOLE",
+  level: String = "debug",
+  tag: String = ""
 )
+
+final case class NodeIndexProperty(node: String)
 
 /**
  * A data type to hold configured capacity exponent values. Exponent must be greater than 0. If not specified
@@ -176,51 +189,143 @@ final case class CapacityConfiguration(
 )
 
 object CapacityConfiguration {
-  def readExponent(value: Int): Either[Error, Exponent] = {
-    value match {
-      case v if (1 to 16).contains(v) =>
-        Right(Exponent(value))
-      case _ =>
-        Left(
-          Error.InvalidData(
-            message = s"Exponent must be greater than 0 and less than or equal to 16 (got '${value}')"
-          )
+  def validateExponent(value: Int): Either[FailureReason, Exponent] =
+    if (1 <= value && value <= 16)
+      Right(Exponent(value))
+    else
+      Left(
+        pureconfig.error.CannotConvert(
+          value.toString,
+          "Exponent",
+          "Exponent must be between 1 and 16 inclusive"
         )
-    }
-  }
+      )
 }
 
-final case class AppCfg(config: List[WorkerConfiguration], logger: LogConfiguration)
+final case class AppCfg(
+  config: List[Configuration] = List(Configuration()),
+  configIndex: Int = 0,
+  logger: LogConfiguration = LogConfiguration()
+) {
+  override def toString: String = ConfigWriter[AppCfg].to(this).render(AppCfg.formatOptions)
+
+  if (config.isEmpty)
+    throw new IllegalArgumentException("'config' list in configuration file must not be empty")
+
+  if (configIndex < 0 || configIndex >= config.length)
+    throw new IllegalArgumentException(s"Node index ${configIndex + 1} must be a valid index: 1 to ${config.length}")
+}
 
 object AppCfg {
-  implicit val exponentDescriptor: DeriveConfig[Exponent] = {
-    DeriveConfig[Int].mapOrFail(CapacityConfiguration.readExponent)
-  }
+  import pureconfig._
+  import pureconfig.generic.semiauto._
 
-  implicit val logLevelDescriptor: DeriveConfig[LogLevel] = {
-    DeriveConfig[String].mapOrFail(LogConfiguration.readLogLevel)
-  }
+  implicit val otpNodeConfigReader: ConfigReader[OTPNodeConfig] = deriveReader
+  implicit val otpNodeConfigWriter: ConfigWriter[OTPNodeConfig] =
+    deriveWriter[OTPNodeConfig].contramap(c => c.copy(cookie = "****"))
 
-  val config: Config[AppCfg] = deriveConfig[AppCfg]
+  implicit val exponentReader: ConfigReader[Exponent] = ConfigReader[Int].emap(CapacityConfiguration.validateExponent)
+  implicit val exponentWriter: ConfigWriter[Exponent] = deriveWriter
+  implicit val capacityConfigurationReader: ConfigReader[CapacityConfiguration] = deriveReader
+  implicit val capacityConfigurationWriter: ConfigWriter[CapacityConfiguration] = deriveWriter
 
-  def fromHoconFilePath(pathToCfgFile: String): IO[Config.Error, AppCfg] = {
-    ConfigProvider.fromHoconFilePath(pathToCfgFile).load(config)
-  }
+  implicit val logOutputReader: ConfigReader[LogOutput] = ConfigReader[String].emap(LogOutput.parse)
+  implicit val logOutputWriter: ConfigWriter[LogOutput] = ConfigWriter[String].contramap(LogOutput.prettyPrint)
 
-  def fromHoconString(input: String): IO[Config.Error, AppCfg] = {
-    ConfigProvider.fromHoconString(input).load(config)
-  }
+  implicit val formatReader: ConfigReader[LogFormat] = ConfigReader[String].emap(LogFormat.parse)
+  implicit val formatWriter: ConfigWriter[LogFormat] = ConfigWriter[String].contramap(LogFormat.prettyPrint)
+  implicit val levelReader: ConfigReader[LogLevel]   = ConfigReader[String].emap(LogConfiguration.parse)
+  implicit val levelWriter: ConfigWriter[LogLevel]   = ConfigWriter[String].contramap(LogConfiguration.prettyPrint)
 
-  private val DEFAULT_CFG: String = "clouseau.conf"
+  implicit val syslogProtocolReader: ConfigReader[SyslogProtocol] =
+    ConfigReader[String].emap(SyslogProtocol.parse)
+  implicit val syslogProtocolWriter: ConfigWriter[SyslogProtocol] =
+    ConfigWriter[String].contramap(SyslogProtocol.prettyPrint)
+  implicit val syslogReader: ConfigReader[SyslogConfiguration] = deriveReader
+  implicit val syslogWriter: ConfigWriter[SyslogConfiguration] = deriveWriter
 
-  def layer: ZLayer[ZIOAppArgs, Config.Error, AppCfg] = {
-    ZLayer {
-      for {
-        config <- ZIOAppArgs.getArgs
-          .map(_.headOption.getOrElse(DEFAULT_CFG))
-          .map(fromHoconFilePath)
-        cfg <- config
-      } yield cfg
+  implicit val logConfigurationReader: ConfigReader[LogConfiguration] = deriveReader
+  implicit val logConfigurationWriter: ConfigWriter[LogConfiguration] = deriveWriter
+
+  implicit val configurationReader: ConfigReader[Configuration] = deriveReader
+  implicit val configurationWriter: ConfigWriter[Configuration] = deriveWriter
+
+  implicit val appConfigReader: ConfigReader[AppCfg]                            = deriveReader
+  implicit val appConfigWriter: ConfigWriter[AppCfg]                            = deriveWriter
+  implicit val nodeIndexPropertyReader: ConfigReader[NodeIndexProperty]         = deriveReader
+  implicit val propertyConfigurationReader: ConfigReader[PropertyConfiguration] = deriveReader
+
+  implicit val clouseauConfigurationReader: ConfigReader[ClouseauConfiguration] = deriveReader
+  implicit val clouseauConfigurationWriter: ConfigWriter[ClouseauConfiguration] = deriveWriter
+
+  implicit val propertyConfigurationWriter: ConfigWriter[PropertyConfiguration] = deriveWriter
+
+  private val fieldCase: ConfigFieldMapping = ConfigFieldMapping(SnakeCase, SnakeCase)
+  implicit val capacityConfigurationSyntaxOptions: ProductHint[CapacityConfiguration] = ProductHint(fieldCase)
+  implicit val propertyConfigurationSyntaxOptions: ProductHint[PropertyConfiguration] = ProductHint(fieldCase)
+  implicit val clouseauConfigurationSyntaxOptions: ProductHint[ClouseauConfiguration] = ProductHint(fieldCase)
+  implicit val appCfgSyntaxOptions: ProductHint[AppCfg]                               = ProductHint(fieldCase)
+
+  private val getProperties: ZIO[Any, Throwable, Map[String, String]] = for {
+    properties <- System.properties
+  } yield {
+    val whitelist = List("node", "clouseau")
+    properties.filter { case (k, _) =>
+      k.split('.').headOption.exists(s => whitelist.contains(s))
     }
   }
+
+  private def getNodeIndex: Task[Int] = {
+    import scala.jdk.CollectionConverters._
+    for {
+      properties <- getProperties
+      parseResult = ConfigSource.fromConfig(ConfigFactory.parseMap(properties.asJava)).load[NodeIndexProperty]
+    } yield parseResult.fold(
+      _ => 0,
+      {
+        case NodeIndexProperty(nodeName) if nodeName.nonEmpty =>
+          val last = nodeName.last
+          if ('1' <= last && last <= '3')
+            last - '1'
+          else
+            0
+        case _ =>
+          0
+      }
+    )
+  }
+
+  def patchClouseauConfig(config: ClouseauConfiguration): Task[ConfigReader.Result[ClouseauConfiguration]] = {
+    import scala.jdk.CollectionConverters._
+    for {
+      properties <- getProperties
+      base    = ConfigWriter[PropertyConfiguration].to(PropertyConfiguration(config))
+      patch   = ConfigFactory.parseMap(properties.asJava)
+      patched = patch.withFallback(base)
+    } yield ConfigSource.fromConfig(patched).load[PropertyConfiguration].map(_.clouseau)
+  }
+
+  val formatOptions: ConfigRenderOptions = ConfigRenderOptions.concise().setFormatted(true)
+
+  def fromHoconFile(path: String): Task[ConfigReader.Result[AppCfg]] =
+    ConfigSource.file(path).config() match {
+      case Right(contents) =>
+        val absolutePath = Paths.get(path).toAbsolutePath.normalize()
+        for {
+          _ <- ZIO.logInfo(s"Parsed configuration file $absolutePath")
+        } yield ConfigSource.fromConfig(contents).load
+      case Left(err) => ZIO.succeed(Left(err))
+    }
+
+  def makeConfig(): ZIO[ZIOAppArgs, Throwable, AppCfg] =
+    for {
+      args <- ZIOAppArgs.getArgs
+      configFile = args.headOption.getOrElse("clouseau.conf")
+      fileParseResult <- fromHoconFile(configFile)
+      appConfig = fileParseResult match {
+        case Right(appConfig) => appConfig
+        case Left(err)        => throw ConfigReaderException[AppCfg](err)
+      }
+      index <- getNodeIndex
+    } yield appConfig.copy(configIndex = index)
 }
