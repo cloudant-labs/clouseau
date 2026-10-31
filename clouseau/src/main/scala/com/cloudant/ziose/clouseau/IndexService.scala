@@ -64,7 +64,11 @@ import Utils.ensureElementsType
 import java.lang.Throwable
 import com.cloudant.ziose.core.ProcessContext
 import com.cloudant.ziose.core.Codec
+import com.cloudant.ziose.core.EngineWorker
+import com.cloudant.ziose.core.Node
+import zio.Cause
 import zio.ZIO
+import zio.&
 import java.time.temporal.ChronoUnit
 import java.time.Instant
 import zio.Duration
@@ -934,37 +938,76 @@ object IndexService {
   val FP = """([-+]?[0-9]+(?:\.[0-9]+)?)"""
   val DISTANCE_RE = "^([-+])?<distance,([\\.\\w]+),([\\.\\w]+),%s,%s,(mi|km)>$".format(FP, FP).r
 
-  def start(node: SNode, config: Configuration, path: String, options: AnalyzerOptions)(implicit adapter: Adapter[_, _]): Any = {
+  private def buildArgs(config: Configuration, path: String, options: AnalyzerOptions)(implicit
+    adapter: Adapter[_, _]
+  ): Either[Any, IndexServiceArgs] = {
     val rootDir = new File(config.getString("clouseau.dir", "target/indexes"))
     val dir = newDirectory(config.clouseau, new File(rootDir, path))
     try {
-      init(node, config, path, options, dir)
+      initArgs(config, path, options, dir)
     } catch {
-      case e: IllegalArgumentException => ('error, e.getMessage)
+      case e: IllegalArgumentException => Left(('error, Option(e.getMessage).getOrElse(e.toString)))
       case _: FileNotFoundException | _: EOFException => {
         logger.error(s"Index ${path} is corrupted and will be rebuilt")
         for (file <- dir.listAll) {
           dir.deleteFile(file)
         }
-        init(node, config, path, options, dir)
+        initArgs(config, path, options, dir)
       }
       case e: IOException => {
-        ('error, e.getMessage)
+        Left(('error, Option(e.getMessage).getOrElse(e.toString)))
       }
     }
   }
 
-  private def init(node: SNode, config: Configuration, path: String, options: AnalyzerOptions, dir: FSDirectory)(implicit adapter: Adapter[_, _]): Any = {
+  private def initArgs(config: Configuration, path: String, options: AnalyzerOptions, dir: FSDirectory): Either[Any, IndexServiceArgs] = {
     SupportedAnalyzers.createAnalyzer(options) match {
-        case Some(analyzer) =>
-          val queryParser = new ClouseauQueryParser(version, "default", analyzer)
-          val writerConfig = new IndexWriterConfig(version, analyzer)
-          writerConfig.setIndexDeletionPolicy(new ExternalSnapshotDeletionPolicy(dir))
-          val writer = new IndexWriter(dir, writerConfig)
-          IndexServiceBuilder.start(node, IndexServiceArgs(config, path, queryParser, writer))
-        case None =>
-          ('error, 'no_such_analyzer)
+      case Some(analyzer) =>
+        val queryParser = new ClouseauQueryParser(version, "default", analyzer)
+        val writerConfig = new IndexWriterConfig(version, analyzer)
+        writerConfig.setIndexDeletionPolicy(new ExternalSnapshotDeletionPolicy(dir))
+        val writer = new IndexWriter(dir, writerConfig)
+        Right(IndexServiceArgs(config, path, queryParser, writer))
+      case None =>
+        Left(('error, 'no_such_analyzer))
+    }
+  }
+
+  def openZIO(
+    node: ClouseauNode,
+    config: Configuration,
+    path: String,
+    options: AnalyzerOptions
+  )(implicit adapter: Adapter[_, _]): ZIO[Node & EngineWorker, Nothing, Any] = {
+    val spawnOrError: ZIO[Node & EngineWorker, Throwable, Any] =
+      ZIO.uninterruptibleMask { restore =>
+        for {
+          built <- ZIO.attemptBlocking(buildArgs(config, path, options))
+          result <- built match {
+            case Right(serviceArgs) =>
+              val serviceCtx = new ServiceContext[IndexServiceArgs] { val args = serviceArgs }
+              val spawned = node
+                .spawnServiceZIO[IndexService, IndexServiceArgs](IndexServiceBuilder.make(node, serviceCtx))
+                .map(actor => ('ok, Pid.toScala(actor.self.pid)))
+              restore(spawned)
+                .catchAll { error =>
+                  ZIO.attempt(serviceArgs.writer.rollback()).ignore.as(('error, error.toString))
+                }
+                .onInterrupt(ZIO.attempt(serviceArgs.writer.rollback()).ignore)
+            case Left(errorTerm) =>
+              ZIO.succeed(errorTerm)
+          }
+        } yield result
       }
+    spawnOrError.catchAllCause { cause =>
+      if (cause.isInterrupted) ZIO.failCause(cause.stripFailures)
+      else ZIO.succeed(('error, causeMessage(cause)))
+    }
+  }
+
+  private def causeMessage(cause: Cause[Throwable]): String = {
+    val t = cause.squash
+    Option(t.getMessage).getOrElse(t.toString)
   }
 
   private def newDirectory(config: ClouseauConfiguration, path: File): FSDirectory = {

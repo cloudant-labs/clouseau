@@ -33,15 +33,4 @@ object IndexServiceBuilder extends ActorConstructor[IndexService] {
       .withMaker(maker)
       .build(this)
   }
-  /*
-    This function is called from Clouseau and return
-        `{ok, Pid}` or `error`
-   */
-  def start(node: SNode, config: IndexServiceArgs)(implicit adapter: Adapter[_, _]): Any = {
-    val ctx = new ServiceContext[IndexServiceArgs] { val args = config }
-    node.spawnService[IndexService, IndexServiceArgs](make(node, ctx)) match {
-      case core.Success(actor)  => (Symbol("ok"), Pid.toScala(actor.self.pid))
-      case core.Failure(reason) => reason
-    }
-  }
 }
