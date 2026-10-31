@@ -186,7 +186,7 @@ class RexService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]
 }
 
 private object RexService extends ActorConstructor[RexService] {
-  private def make(
+  def make(
     node: SNode,
     service_context: ServiceContext[None.type]
   ): ActorBuilder.Builder[RexService, State.Spawnable] = {
@@ -200,18 +200,4 @@ private object RexService extends ActorConstructor[RexService] {
       .build(this)
   }
 
-  def start(
-    node: SNode
-  )(implicit
-    adapter: Adapter[_, _]
-  ): Any = {
-    val ctx: ServiceContext[None.type] = {
-      new ServiceContext[None.type] { val args: None.type = None }
-    }
-    node.spawnService[RexService, None.type](make(node, ctx)) match {
-      case core.Success(actor) =>
-        (Symbol("ok"), Pid.toScala(actor.self.pid))
-      case core.Failure(reason) => reason
-    }
-  }
 }
