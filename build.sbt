@@ -140,7 +140,7 @@ lazy val commonSettings = Seq(
     // The single % is for java libraries
     // the %% appends the version of scala used, and should be used for scala libraries;
     // the %%% is for scala-js (and scala native).
-    "dev.zio"       %% "zio"                               % "2.1.26",
+    "dev.zio"       %% "zio"                               % "2.1.27",
     "dev.zio"       %% "zio-config"                        % "4.1.0",
     "dev.zio"       %% "zio-config-magnolia"               % "4.1.0",
     "dev.zio"       %% "zio-config-typesafe"               % "4.1.0",
@@ -148,13 +148,13 @@ lazy val commonSettings = Seq(
     // This is needed because micrometer (see below) uses SLF4J
     "dev.zio"       %% "zio-logging-slf4j-bridge"          % "2.5.3",
     "dev.zio"       %% "zio-metrics-connectors-micrometer" % "2.6.0",
-    "dev.zio"       %% "zio-streams"                       % "2.1.26",
-    "io.micrometer"  % "micrometer-registry-jmx"           % "1.17.1",
+    "dev.zio"       %% "zio-streams"                       % "2.1.27",
+    "io.micrometer"  % "micrometer-registry-jmx"           % "1.17.2",
     "org.scala-lang" % "scala-reflect"                     % "2.13.18",
     "org.tinylog"    % "tinylog-api"                       % "2.8.1",
     "org.tinylog"    % "tinylog-impl"                      % "2.8.1",
-    "dev.zio"       %% "zio-test"                          % "2.1.26"    % Test,
-    "dev.zio"       %% "zio-test-junit"                    % "2.1.26"    % Test,
+    "dev.zio"       %% "zio-test"                          % "2.1.27"    % Test,
+    "dev.zio"       %% "zio-test-junit"                    % "2.1.27"    % Test,
     "com.github.sbt" % "junit-interface"                   % "0.13.3"    % Test,
     "junit"          % "junit"                             % "4.13.2"    % Test
   ),
