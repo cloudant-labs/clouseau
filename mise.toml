@@ -8,13 +8,13 @@ editorconfig-checker = { version = "4.0.2", postinstall = """
 jq --arg v "v$MISE_TOOL_VERSION" '.Version = $v' .editorconfig-checker.json >tmp.json &&
 mv tmp.json .editorconfig-checker.json
 """ }
-elixir = "1.20.4-otp-27"
+elixir = "1.20.5-otp-27"
 erlang = "27.3.4.11"
-github-cli = "2.102.0"
+github-cli = "2.103.3"
 java = "openjdk-21.0.2"
 jq = "1.8.2"
-python = "3.14.8"
-rebar = "3.27.1"
+python = "3.15.2"
+rebar = "3.28.0"
 # Sync version with "./project/build.properties"
 sbt = { version = "1.13.0", postinstall = """
 if [[ $OSTYPE == "darwin"* ]]; then
