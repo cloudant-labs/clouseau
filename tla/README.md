@@ -1,14 +1,14 @@
 # Formal Verification of Clouseau with TLA+
 
-This directory contains formal specifications and TLC model configurations for Clouseau's core concurrency, lifecycle, and storage protocols.
+This directory contains formal specifications and TLC model configurations for Clouseau's core concurrency, actor lifecycles, Lucene storage, directory cleanup, and Erlang/OTP distribution protocols.
 
-It serves as an executable architecture model and verification harness designed to be inspected, run, and evolved—especially when working alongside AI coding agents to diagnose distributed race conditions and verify bug fixes.
+It serves as an executable architecture model and verification harness designed to be inspected, run, and evolved to diagnose distributed race conditions, evaluate PRs, and verify bug fixes.
 
 ---
 
 ## 1. Directory Contents
 
-* **[`Clouseau.tla`](Clouseau.tla)**: The canonical formal specification of Clouseau's current upstream codebase. It models actor lifecycles, LRU cache behavior, open waiter queues, and JInterface links. Running TLC against this model detects the known race conditions and invariant violations.
+* **[`Clouseau.tla`](Clouseau.tla)**: The canonical formal specification modeling actor lifecycles, LRU cache behavior, open waiter queues, Lucene commits, directory cleanup, and JInterface links.
 * **Configurations**:
   * [`Clouseau.cfg`](Clouseau.cfg): Base configuration (2 PIDs, 2 Paths, 2 Waiters, LRUCapacity = 1).
   * [`Clouseau_Stress.cfg`](Clouseau_Stress.cfg): High-concurrency profile with deep waiter queues and larger LRU capacity.
@@ -18,19 +18,19 @@ It serves as an executable architecture model and verification harness designed 
 
 ## 2. System Model & State Mapping
 
-The TLA+ model maps directly to Clouseau's Scala/ZIO implementation and its Erlang OTP client (Dreyfus):
+The TLA+ model maps directly to Clouseau's Scala/ZIO actors and its Erlang/OTP client (Dreyfus in CouchDB):
 
-| Component / Subsystem | Scala/Erlang Source | TLA+ Model Entities |
+| Subsystem | Scala / Erlang Source | TLA+ Model Entities |
 | :--- | :--- | :--- |
 | **LRU Cache & Lifecycles** | `IndexManagerService.scala` | `lruMap`, `lruOrder`, `pidState` (`opening`, `running`, `terminating`, `dead`) |
 | **Concurrent Open Queue** | `IndexManagerService.scala` (`waiters`) | `waiters`, `waiterStatus`, `waiterReceivedPid` |
-| **JInterface Link Registry** | `node.link(peer, pid)` / Erlang monitors | `erlangLinks`, `clouseauLinks` |
+| **Erlang Links & Monitors** | `node.link(peer, pid)` / process monitors | `erlangLinks`, `clouseauLinks` |
 | **Lucene Commits & Purges** | `IndexService.scala` | `luceneDocs`, `pendingSeq`, `committedSeq`, `purgeSeq`, `pendingPurgeSeq` |
-| **Storage & Locking** | `NativeFSLock`, `IndexCleanupService.scala` | `fsLockHeld`, `fsDirState` (`exists`, `deleting`) |
+| **Storage & Directory Cleanup**| `NativeFSLock`, `IndexCleanupService.scala` | `fsLockHeld`, `fsDirState` (`exists`, `deleting`), `fsCorrupted` |
 
 ---
 
-## 3. Key Invariants
+## 3. Key Invariants Checked
 
 The specification checks domain-level safety properties across all reachable states:
 
@@ -40,30 +40,19 @@ The specification checks domain-level safety properties across all reachable sta
 
 ---
 
-## 4. Running Model Checking and Simulation
+## 4. Running Model Checking
 
-TLC can explore the state space either via breadth-first exhaustive model checking or via randomized simulation. For deep, concurrent actor models, **randomized simulation** (`-simulate`) explores multi-step traces rapidly without state explosion.
-
-### Prerequisites
-
-TLC tools jar (`tla2tools.jar`) available on PATH or via a runner script:
+Model checking can be run directly using Leslie Lamport's `tla2tools.jar`:
 
 ```bash
-# Set alias or invoke java directly:
-alias tlc="java -XX:+UseParallelGC -cp /path/to/tla2tools.jar tlc2.TLC"
-```
-
-### Simulation Commands
-
-```bash
-# 1. Run simulation on base profile (detects stale PID race condition quickly)
-tlc Clouseau.tla -config Clouseau.cfg -simulate num=10000
+# 1. Base concurrency profile (rapidly detects race conditions and link asymmetry)
+java -cp tla2tools.jar tlc2.TLC tla/Clouseau.tla -config tla/Clouseau.cfg -simulate num=10000
 
 # 2. High-concurrency stress profile
-tlc Clouseau.tla -config Clouseau_Stress.cfg -simulate num=10000
+java -cp tla2tools.jar tlc2.TLC tla/Clouseau.tla -config tla/Clouseau_Stress.cfg -simulate num=10000
 
-# 3. Resource starvation profile
-tlc Clouseau.tla -config Clouseau_Starvation.cfg -simulate num=10000
+# 3. Resource starvation & fairness profile
+java -cp tla2tools.jar tlc2.TLC tla/Clouseau.tla -config tla/Clouseau_Starvation.cfg -simulate num=10000
 ```
 
 ---
