@@ -1,5 +1,14 @@
 version: 2
 
+# One PR per month for all GitHub Actions, regardless of how many directories are scanned
+multi-ecosystem-groups:
+  github-actions:
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+
 updates:
   # sbt — covers build.sbt and project/plugins.sbt
   - package-ecosystem: "sbt"
@@ -39,16 +48,10 @@ updates:
   - package-ecosystem: "github-actions"
     directories:
       - "/"
-      - "/.github/actions"
-    schedule:
-      interval: "monthly"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-    groups:
-      github-actions:
-        patterns:
-          - "*"
+      - "/.github/actions/*"
+    patterns:
+      - "*"
+    multi-ecosystem-group: "github-actions"
 
   # Docker
   - package-ecosystem: "docker"
