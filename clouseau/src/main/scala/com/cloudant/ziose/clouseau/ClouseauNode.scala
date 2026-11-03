@@ -13,32 +13,6 @@ class ClouseauNode(implicit
   metricsRegistry: ScalangMeterRegistry,
   logLevel: LogLevel
 ) extends SNode(metricsRegistry, logLevel)(runtime) {
-  /*
-   * Each service would need to implement a constructor in the following form
-   *
-   * ```scala
-   * import com.cloudant.ziose.scalang.{Node => SNode}
-   *
-   * object ClouseauSupervisor extends ActorConstructor[ClouseauSupervisor] {
-   *   def make(node: SNode, service_ctx: ServiceContext[Configuration]) = {
-   *     def maker[PContext <: ProcessContext](process_context: PContext): ClouseauSupervisor =
-   *       ClouseauSupervisor(service_ctx)(Adapter(process_context, node))
-   *
-   *     ActorBuilder()
-   *       .withCapacity(16)
-   *       .withName("ClouseauSupervisor")
-   *       .withMaker(maker)
-   *       .build(this)
-   *     }
-   *
-   *   def start(node: SNode, config: Configuration) = {
-   *     val ctx = new ServiceContext[Configuration] {val args = ConfigurationArgs(config)}
-   *     node.spawnServiceZIO[ClouseauSupervisor, Configuration](make(node, ctx))
-   *   }
-   * }
-   * ```
-   */
-
   val workerId = worker.id
 
   override def spawn(fun: Process => Unit): Pid = {
