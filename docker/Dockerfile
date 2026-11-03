@@ -15,12 +15,12 @@ ARG BUILD_MODE=release
 
 
 # Stage 1: Local build
-FROM eclipse-temurin:21-jre-ubi10-minimal@sha256:adb74b81dc69e9700e5b741207208a86f8e46cc79c65998ed534c050cac2c8f5 AS local-builder
+FROM eclipse-temurin:21-jre-ubi10-minimal@sha256:981554315ec8b9d55b35307d3e514e22a409277ae932a5c73ba5605bfeb71eef AS local-builder
 COPY artifacts/*.jar /build/
 
 
 # Stage 2: Release build
-FROM eclipse-temurin:21-jre-ubi10-minimal@sha256:adb74b81dc69e9700e5b741207208a86f8e46cc79c65998ed534c050cac2c8f5 AS release-builder
+FROM eclipse-temurin:21-jre-ubi10-minimal@sha256:981554315ec8b9d55b35307d3e514e22a409277ae932a5c73ba5605bfeb71eef AS release-builder
 
 ARG CLOUSEAU_VERSION
 ARG CLOUSEAU_REPO
@@ -40,7 +40,7 @@ FROM release-builder AS builder-release
 FROM builder-${BUILD_MODE} AS builder
 
 # Runner stage
-FROM eclipse-temurin:21-jre-ubi10-minimal@sha256:adb74b81dc69e9700e5b741207208a86f8e46cc79c65998ed534c050cac2c8f5 AS runner
+FROM eclipse-temurin:21-jre-ubi10-minimal@sha256:981554315ec8b9d55b35307d3e514e22a409277ae932a5c73ba5605bfeb71eef AS runner
 
 # Helpful for `docker inspect`
 ARG CLOUSEAU_VERSION
