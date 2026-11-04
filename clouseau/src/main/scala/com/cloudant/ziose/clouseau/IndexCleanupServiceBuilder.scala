@@ -21,12 +21,12 @@ import core.ActorConstructor
 import core.ActorBuilder
 
 object IndexCleanupServiceBuilder extends ActorConstructor[IndexCleanupService] {
-  def make(node: SNode, service_ctx: ServiceContext[ConfigurationArgs]) = {
+  def make(node: SNode, service_ctx: ServiceContext[Configuration]) = {
     def maker[PContext <: ProcessContext](process_context: PContext): IndexCleanupService = {
       new IndexCleanupService(service_ctx)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
-    val capacityExponent = service_ctx.args.config.capacity.cleanup_exponent
+    val capacityExponent = service_ctx.args.capacity.cleanup_exponent
 
     ActorBuilder()
       .withOptionalCapacityExponent(capacityExponent)

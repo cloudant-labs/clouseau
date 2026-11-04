@@ -393,31 +393,31 @@ class IndexServiceSpec extends JUnitRunnableSpec {
       test("not be closed if idle_check_interval_secs set and close_if_idle set to false") {
         indexNotClosedAfterTimeout(
           ClouseauConfiguration(
-            close_if_idle = Some(false),
-            idle_check_interval_secs = Some(2)
+            close_if_idle = false,
+            idle_check_interval_secs = 2
           )
         )
       },
       test("not be closed if close_if_idle set to false") {
         indexNotClosedAfterTimeout(
           ClouseauConfiguration(
-            idle_check_interval_secs = Some(2)
+            idle_check_interval_secs = 2
           )
         )
       },
       test("be closed after idle timeout") {
         indexClosedAfterTimeout(
           ClouseauConfiguration(
-            close_if_idle = Some(true),
-            idle_check_interval_secs = Some(2)
+            close_if_idle = true,
+            idle_check_interval_secs = 2
           )
         )
       },
       test("not be closed if there is any activity before two consecutive idle checks") {
         indexNotClosedAfterActivityBetweenTwoIdleChecks(
           ClouseauConfiguration(
-            close_if_idle = Some(true),
-            idle_check_interval_secs = Some(2)
+            close_if_idle = true,
+            idle_check_interval_secs = 2
           )
         )
       },
