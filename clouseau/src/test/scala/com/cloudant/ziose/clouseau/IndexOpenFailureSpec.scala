@@ -19,15 +19,15 @@ class IndexOpenFailureSpec extends JUnitRunnableSpec {
   val adapter     = Adapter.mockAdapterWithFactory(ClouseauTypeFactory)
 
   val badDirClassConfig = Utils.mkConfig(
-    ClouseauConfiguration(dir_class = Some("com.cloudant.ziose.clouseau.NoSuchDirectoryClassForRepro"))
+    ClouseauConfiguration(dir_class = "com.cloudant.ziose.clouseau.NoSuchDirectoryClassForRepro")
   )
 
   def startManager(cfg: Configuration) = {
     for {
       node <- Utils.clouseauNode
       _    <- ZIO.service[EngineWorker]
-      ctx = new ServiceContext[ConfigurationArgs] { val args = ConfigurationArgs(cfg) }
-      manager <- node.spawnServiceZIO[IndexManagerService, ConfigurationArgs](
+      ctx = new ServiceContext[Configuration] { val args: Configuration = cfg }
+      manager <- node.spawnServiceZIO[IndexManagerService, Configuration](
         IndexManagerServiceBuilder.make(node, ctx)
       )
       peer <- TestService.start(node, "peer_open_failure")

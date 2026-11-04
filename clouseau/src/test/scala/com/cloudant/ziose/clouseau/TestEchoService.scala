@@ -16,12 +16,12 @@ import java.util.stream.Collectors
 import scala.collection.JavaConverters._
 import zio._
 
-class TestEchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
+class TestEchoService(ctx: ServiceContext[Configuration])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   val isTest                                    = true
   var throwFromTerminate: Option[(Pid, String)] = None
   var exitFromTerminate: Option[(Pid, Any)]     = None
 
-  val rootDir = new File(ctx.args.config.getString("clouseau.dir", "target/indexes"))
+  val rootDir = new File(ctx.args.clouseau.dir)
 
   val logger = LoggerFactory.getLogger("clouseau.EchoService")
   logger.debug("Created")
@@ -206,7 +206,7 @@ private object EchoService extends ActorConstructor[TestEchoService] {
 
   private def make(
     node: SNode,
-    service_context: ServiceContext[ConfigurationArgs],
+    service_context: ServiceContext[Configuration],
     name: String
   ): ActorBuilder.Builder[TestEchoService, State.Spawnable] = {
     def maker[PContext <: ProcessContext](process_context: PContext): TestEchoService = {
@@ -220,12 +220,12 @@ private object EchoService extends ActorConstructor[TestEchoService] {
   }
 
   def start(node: SNode, name: String, config: Configuration)(implicit adapter: Adapter[_, _]): Any = {
-    val ctx: ServiceContext[ConfigurationArgs] = {
-      new ServiceContext[ConfigurationArgs] {
-        val args: ConfigurationArgs = ConfigurationArgs(config)
+    val ctx: ServiceContext[Configuration] = {
+      new ServiceContext[Configuration] {
+        val args: Configuration = config
       }
     }
-    node.spawnService[TestEchoService, ConfigurationArgs](make(node, ctx, name)) match {
+    node.spawnService[TestEchoService, Configuration](make(node, ctx, name)) match {
       case core.Success(actor) =>
         logger.debug(s"Started $name")
         (Symbol("ok"), Pid.toScala(actor.self.pid))
@@ -238,12 +238,12 @@ private object EchoService extends ActorConstructor[TestEchoService] {
     name: String,
     config: Configuration
   ): ZIO[core.EngineWorker & core.Node & core.ActorFactory, core.Node.Error, core.AddressableActor[_, _]] = {
-    val ctx: ServiceContext[ConfigurationArgs] = {
-      new ServiceContext[ConfigurationArgs] {
-        val args: ConfigurationArgs = ConfigurationArgs(config)
+    val ctx: ServiceContext[Configuration] = {
+      new ServiceContext[Configuration] {
+        val args: Configuration = config
       }
     }
-    node.spawnServiceZIO[TestEchoService, ConfigurationArgs](make(node, ctx, name))
+    node.spawnServiceZIO[TestEchoService, Configuration](make(node, ctx, name))
   }
 
 }

@@ -31,7 +31,7 @@ import com.cloudant.ziose.core.ActorResult
 import com.cloudant.ziose.core.Codec
 
 case class ClouseauSupervisor(
-    ctx: ServiceContext[ConfigurationArgs],
+    ctx: ServiceContext[Configuration],
     var manager: Option[Pid] = None,
     var cleanup: Option[Pid] = None,
     var analyzer: Option[Pid] = None,
@@ -46,16 +46,16 @@ case class ClouseauSupervisor(
     val cnode   = adapter.node.asInstanceOf[ClouseauNode]
     val noneCtx = new ServiceContext[None.type] { val args = None }
     (for {
-      _ <- spawnMonitorZIO[IndexManagerService, ConfigurationArgs](
+      _ <- spawnMonitorZIO[IndexManagerService, Configuration](
         cnode, Symbol("main"), IndexManagerServiceBuilder.make(cnode, ctx)
       )
-      _ <- spawnMonitorZIO[IndexCleanupService, ConfigurationArgs](
+      _ <- spawnMonitorZIO[IndexCleanupService, Configuration](
         cnode, Symbol("cleanup"), IndexCleanupServiceBuilder.make(cnode, ctx)
       )
-      _ <- spawnMonitorZIO[AnalyzerService, ConfigurationArgs](
+      _ <- spawnMonitorZIO[AnalyzerService, Configuration](
         cnode, Symbol("analyzer"), AnalyzerServiceBuilder.make(cnode, ctx)
       )
-      _ <- spawnMonitorZIO[InitService, ConfigurationArgs](
+      _ <- spawnMonitorZIO[InitService, Configuration](
         cnode, Symbol("init"), InitService.make(cnode, ctx, "init")
       )
       _ <- spawnMonitorZIO[RexService, None.type](
@@ -177,16 +177,16 @@ case class ClouseauSupervisor(
       } yield ()
     (for {
       _ <- ZIO.when(manager.contains(pid))(
-        respawn[IndexManagerService, ConfigurationArgs](Symbol("main"), IndexManagerServiceBuilder.make(cnode, ctx))
+        respawn[IndexManagerService, Configuration](Symbol("main"), IndexManagerServiceBuilder.make(cnode, ctx))
       )
       _ <- ZIO.when(cleanup.contains(pid))(
-        respawn[IndexCleanupService, ConfigurationArgs](Symbol("cleanup"), IndexCleanupServiceBuilder.make(cnode, ctx))
+        respawn[IndexCleanupService, Configuration](Symbol("cleanup"), IndexCleanupServiceBuilder.make(cnode, ctx))
       )
       _ <- ZIO.when(analyzer.contains(pid))(
-        respawn[AnalyzerService, ConfigurationArgs](Symbol("analyzer"), AnalyzerServiceBuilder.make(cnode, ctx))
+        respawn[AnalyzerService, Configuration](Symbol("analyzer"), AnalyzerServiceBuilder.make(cnode, ctx))
       )
       _ <- ZIO.when(init.contains(pid))(
-        respawn[InitService, ConfigurationArgs](Symbol("init"), InitService.make(cnode, ctx, "init"))
+        respawn[InitService, Configuration](Symbol("init"), InitService.make(cnode, ctx, "init"))
       )
       _ <- ZIO.when(rex.contains(pid))(
         respawn[RexService, None.type](Symbol("rex"), RexService.make(cnode, noneCtx))
@@ -229,7 +229,7 @@ case class ClouseauSupervisor(
 }
 
 object ClouseauSupervisor extends ActorConstructor[ClouseauSupervisor] {
-  def make(node: SNode, service_ctx: ServiceContext[ConfigurationArgs]) = {
+  def make(node: SNode, service_ctx: ServiceContext[Configuration]) = {
     def maker[PContext <: ProcessContext](process_context: PContext): ClouseauSupervisor = {
       ClouseauSupervisor(service_ctx)(Adapter(process_context, node, ClouseauTypeFactory))
     }
@@ -246,7 +246,7 @@ object ClouseauSupervisor extends ActorConstructor[ClouseauSupervisor] {
     node: SNode,
     config: Configuration
   ): ZIO[EngineWorker & Node & ActorFactory, Throwable, AddressableActor[_, _]] = {
-    val ctx = new ServiceContext[ConfigurationArgs] { val args = ConfigurationArgs(config) }
-    node.spawnServiceZIO[ClouseauSupervisor, ConfigurationArgs](make(node, ctx))
+    val ctx = new ServiceContext[Configuration] { val args = config }
+    node.spawnServiceZIO[ClouseauSupervisor, Configuration](make(node, ctx))
   }
 }

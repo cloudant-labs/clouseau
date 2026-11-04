@@ -30,7 +30,7 @@ class ConfigSpec extends JUnitRunnableSpec {
 
   def suiteForCapacity(key: String, getter: CapacityConfiguration => Option[Exponent]) = {
     def getCapacity(appConfig: AppCfg): Option[Exponent] = {
-      getter(appConfig.config.head.capacity.get)
+      getter(appConfig.config.head.capacity)
     }
 
     val validTests = (1 to 16).map(idx => {
@@ -119,7 +119,7 @@ class ConfigSpec extends JUnitRunnableSpec {
       test(s"Ensure we can parse log levels - $name")(
         for {
           config <- AppCfg.fromHoconString(logLevelFixture(testCase))
-        } yield assertTrue(config.logger.level.get == level) ?? s"Expected Some(${expectedLogLevel})"
+        } yield assertTrue(config.logger.level == level) ?? s"Expected Some(${expectedLogLevel})"
       )
     }
 
