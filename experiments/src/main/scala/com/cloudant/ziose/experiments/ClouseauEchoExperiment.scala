@@ -139,7 +139,7 @@ object Main extends ZIOAppDefault {
     )
   )
 
-  class EchoService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_])
+  class EchoService(ctx: ServiceContext[Configuration])(implicit adapter: Adapter[_])
       extends Service(ctx)
       with Actor {
     override def handleInfo(request: Any) = {
@@ -168,7 +168,7 @@ object Main extends ZIOAppDefault {
     }
 
     def spawnProcess(name: String) = {
-      val process = node.spawnService[EchoService, ConfigurationArgs](EchoService.make(node, ctx, name))
+      val process = node.spawnService[EchoService, Configuration](EchoService.make(node, ctx, name))
       process
     }
 
@@ -178,7 +178,7 @@ object Main extends ZIOAppDefault {
   }
 
   object EchoService extends ActorConstructor[EchoService] {
-    def make(node: SNode, service_context: ServiceContext[ConfigurationArgs], name: String) = {
+    def make(node: SNode, service_context: ServiceContext[Configuration], name: String) = {
       def maker[PContext <: ProcessContext](process_context: PContext): EchoService = {
         new EchoService(service_context)(Adapter(process_context, node))
       }
@@ -196,8 +196,8 @@ object Main extends ZIOAppDefault {
       name: String,
       config: Configuration
     ): ZIO[EngineWorker & Node & ActorFactory, Throwable, AddressableActor[_, _]] = {
-      val ctx = new ServiceContext[ConfigurationArgs] { val args = ConfigurationArgs(config) }
-      node.spawnServiceZIO[EchoService, ConfigurationArgs](make(node, ctx, name))
+      val ctx = new ServiceContext[Configuration] { val args = ConfigurationArgs(config) }
+      node.spawnServiceZIO[EchoService, Configuration](make(node, ctx, name))
     }
   }
 
