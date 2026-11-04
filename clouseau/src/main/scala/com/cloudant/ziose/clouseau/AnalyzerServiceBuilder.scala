@@ -21,12 +21,12 @@ import core.ActorConstructor
 import core.ActorBuilder
 
 object AnalyzerServiceBuilder extends ActorConstructor[AnalyzerService] {
-  def make(node: SNode, service_ctx: ServiceContext[ConfigurationArgs]) = {
+  def make(node: SNode, service_ctx: ServiceContext[Configuration]) = {
     def maker[PContext <: ProcessContext](process_context: PContext): AnalyzerService = {
       new AnalyzerService(service_ctx)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
-    val capacityExponent = service_ctx.args.config.capacity.analyzer_exponent
+    val capacityExponent = service_ctx.args.capacity.analyzer_exponent
 
     ActorBuilder()
       .withOptionalCapacityExponent(capacityExponent)

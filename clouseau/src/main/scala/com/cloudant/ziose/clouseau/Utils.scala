@@ -98,7 +98,7 @@ object Utils {
 
   def mkConfig(config: ClouseauConfiguration): ZIO[OTPNodeConfig, Throwable, Configuration] = for {
     nodeCfg <- ZIO.service[OTPNodeConfig]
-  } yield Configuration(config, nodeCfg, CapacityConfiguration())
+  } yield Configuration(nodeCfg, config, CapacityConfiguration())
 
   def defaultConfig: ZIO[OTPNodeConfig, Throwable, Configuration] = mkConfig(ClouseauConfiguration())
 
