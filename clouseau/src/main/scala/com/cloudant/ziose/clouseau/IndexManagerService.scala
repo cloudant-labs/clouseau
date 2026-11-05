@@ -189,17 +189,20 @@ class IndexManagerService(ctx: ServiceContext[ConfigurationArgs])(implicit adapt
         }
         waiters.get(path) match {
           case None =>
-            val manager = self
-            node.spawn(_ => {
-              openTimer.time {
-                IndexService.start(node, ctx.args.config, path, options) match {
-                  case ('ok, pid: Pid) =>
-                    manager ! ('open_ok, path, pid)
-                  case error =>
-                    manager ! ('open_error, path, error)
-                }
+            val cnode = node.asInstanceOf[ClouseauNode]
+            val managerPid = Pid.toScala(self.pid)
+            val effect = for {
+              timed <- IndexService.openZIO(cnode, ctx.args.config, path, options).timed
+              (timeSpent, result) = timed
+              _     <- ZIO.succeed(openTimer.update(timeSpent))
+              _ <- result match {
+                case ('ok, pid: Pid) =>
+                  sendZIO(managerPid, ('open_ok, path, pid))
+                case error =>
+                  sendZIO(managerPid, ('open_error, path, error))
               }
-            })
+            } yield ()
+            adapter.forkScoped(effect).unsafeRunWith(cnode.runtime)
             waiters.put(path, List((tag, peer)))
           case Some(list) =>
             waiters.put(path, (tag, peer) :: list)
