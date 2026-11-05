@@ -21,12 +21,12 @@ import core.ActorConstructor
 import core.ActorBuilder
 
 object IndexManagerServiceBuilder extends ActorConstructor[IndexManagerService] {
-  def make(node: SNode, service_ctx: ServiceContext[ConfigurationArgs]) = {
+  def make(node: SNode, service_ctx: ServiceContext[Configuration]) = {
     def maker[PContext <: ProcessContext](process_context: PContext): IndexManagerService = {
       new IndexManagerService(service_ctx)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
-    val capacityExponent = service_ctx.args.config.capacity.main_exponent
+    val capacityExponent = service_ctx.args.capacity.main_exponent
 
     ActorBuilder()
       .withOptionalCapacityExponent(capacityExponent)
