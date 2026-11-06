@@ -79,5 +79,10 @@ version() ->
 clouseau() ->
     ?NodeZ.
 
-rpc(Ref, Msg) ->
+rpc(Key, Message) ->
+    {Ref, Msg} =
+        case Key of
+            {forwarded, Path, _Pid} -> {{main, clouseau()}, {forward, Path, Message}};
+            Pid -> {Pid, Message}
+        end,
     util:call(Ref, Msg).
