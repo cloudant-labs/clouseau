@@ -1185,6 +1185,18 @@ class IndexServiceSpec extends JUnitRunnableSpec {
           snapshotDirExistsAfter,
           snapshotDirContents.sameElements(Array("_0.cfe", "_0.cfs", "_0.si", "segments_1"))
         )
+      },
+      test("names the index in the error logged when an index callback fails") {
+        for {
+          index  <- startIndex(defaultConfig, standardAnalyzer)
+          _      <- updateD(index, "log-context-1", List(("timeStamp", "2024-01-01", List())))
+          _      <- updateD(index, "log-context-2", List(("timeStamp", 1700000000000L, List())))
+          _      <- assertNotAlive(index.id)
+          output <- ZTestLogger.logOutput
+          errors = output.filter(_.logLevel == LogLevel.Error).map(_.message())
+        } yield assertTrue(
+          errors.exists(_.startsWith("OnMessage None [" + indexDir.getPath + "]: StopWithCause"))
+        )
       }
     ).provideLayer(environment) @@ TestAspect.withLiveClock @@ TestAspect.sequential
   }

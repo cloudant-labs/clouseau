@@ -215,6 +215,12 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
     }
   }
 
+  // e.g. the index path for an IndexService, which has no registered name
+  private def tagsSuffix: String = {
+    val tags = ctx.getTags
+    if (tags.isEmpty) "" else tags.mkString(" [", ", ", "]")
+  }
+
   private def callHandler(
     onFunc: => ZIO[Any, _ <: Throwable, ActorResult],
     callback: ActorCallback
@@ -234,7 +240,7 @@ class AddressableActor[A <: Actor, C <: ProcessContext](actor: A, context: C)
       }) @@ AddressableActor.actorCallbackLogAnnotation(callback)
       _ <- res match {
         case result: ActorResult.StopWithCause =>
-          ZIO.logError(s"${callback.name} ${ctx.name}: ${result}") @@
+          ZIO.logError(s"${callback.name} ${ctx.name}${tagsSuffix}: ${result}") @@
             AddressableActor.actorCallbackLogAnnotation(callback) @@
             AddressableActor.actorTypeLogAnnotation(actor.getClass.getSimpleName)
         case _ => ZIO.unit
