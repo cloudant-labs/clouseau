@@ -16,6 +16,7 @@ import java.io.File
 import java.io.FileNotFoundException
 import java.io.EOFException
 import java.io.IOException
+import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 
 import org.apache.lucene.document.Document
@@ -961,7 +962,11 @@ object IndexService {
   }
 
   private def newDirectory(config: ClouseauConfiguration, path: File): FSDirectory = {
-    FSDirectory.open(path.toPath())
+    val dirClassName = config.getString("clouseau.dir_class",
+      "org.apache.lucene.store.NIOFSDirectory")
+    val dirClass = Class.forName(dirClassName)
+    val dirCtor = dirClass.getConstructor(classOf[Path])
+    dirCtor.newInstance(path.toPath()).asInstanceOf[FSDirectory]
   }
 
   /**
