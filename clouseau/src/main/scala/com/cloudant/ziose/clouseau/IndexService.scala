@@ -179,7 +179,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     case UpdateDocMsg(id: String, doc: Document) =>
       logger.debug(prefix_name("Updating %s".format(id)))
       updateTimer.time {
-        ctx.args.writer.updateDocument(new Term("_id", id), doc)
+        try {
+          ctx.args.writer.updateDocument(new Term("_id", id), doc)
+        } catch {
+          case e: IllegalArgumentException =>
+            exit(e.getMessage())
+        }
       }
       'ok
     case DeleteDocMsg(id: String) =>
