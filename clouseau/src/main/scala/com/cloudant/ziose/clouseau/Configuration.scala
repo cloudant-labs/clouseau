@@ -208,12 +208,6 @@ final case class AppCfg(
   logger: LogConfiguration = LogConfiguration()
 ) {
   override def toString: String = ConfigWriter[AppCfg].to(this).render(AppCfg.formatOptions)
-
-  if (config.isEmpty)
-    throw new IllegalArgumentException("'config' list in configuration file must not be empty")
-
-  if (configIndex < 0 || configIndex >= config.length)
-    throw new IllegalArgumentException(s"Node index ${configIndex + 1} must be a valid index: 1 to ${config.length}")
 }
 
 object AppCfg {
@@ -307,25 +301,33 @@ object AppCfg {
 
   val formatOptions: ConfigRenderOptions = ConfigRenderOptions.concise().setFormatted(true)
 
-  def fromHoconFile(path: String): Task[ConfigReader.Result[AppCfg]] =
+  def fromHoconFile(path: String): Task[AppCfg] =
     ConfigSource.file(path).config() match {
       case Right(contents) =>
         val absolutePath = Paths.get(path).toAbsolutePath.normalize()
         for {
-          _ <- ZIO.logInfo(s"Parsed configuration file $absolutePath")
-        } yield ConfigSource.fromConfig(contents).load
-      case Left(err) => ZIO.succeed(Left(err))
+          _      <- ZIO.logInfo(s"Parsed configuration file $absolutePath")
+          appCfg <- ZIO.attempt(ConfigSource.fromConfig(contents).loadOrThrow[AppCfg])
+        } yield appCfg
+      case Left(err) => ZIO.attempt(throw ConfigReaderException[AppCfg](err))
     }
+
+  private def validate(cfg: AppCfg): Task[Unit] =
+    ZIO.whenDiscard(cfg.configIndex < 0 || cfg.configIndex >= cfg.config.size)(
+      ZIO.fail(
+        new IllegalArgumentException(
+          s"Invalid index ${cfg.configIndex + 1}, must be between 1 and ${cfg.config.size} inclusive"
+        )
+      )
+    )
 
   def makeConfig(): ZIO[ZIOAppArgs, Throwable, AppCfg] =
     for {
       args <- ZIOAppArgs.getArgs
       configFile = args.headOption.getOrElse("clouseau.conf")
-      fileParseResult <- fromHoconFile(configFile)
-      appConfig = fileParseResult match {
-        case Right(appConfig) => appConfig
-        case Left(err)        => throw ConfigReaderException[AppCfg](err)
-      }
-      index <- getNodeIndex
-    } yield appConfig.copy(configIndex = index)
+      parsedConfig <- fromHoconFile(configFile)
+      index        <- getNodeIndex
+      appConfig = parsedConfig.copy(configIndex = index)
+      _ <- validate(appConfig)
+    } yield appConfig
 }

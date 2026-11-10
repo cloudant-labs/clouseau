@@ -23,9 +23,8 @@ class MainSpec extends JUnitRunnableSpec {
     suite("readConfig")(
       test("readConfig success: config file exists") {
         for {
-          parseResult <- AppCfg.fromHoconFile("src/test/resources/testApp.conf")
-          Right(nodes)                   = parseResult
-          List(node1Config, node2Config) = nodes.config
+          cfg <- AppCfg.makeConfig()
+          List(node1Config, node2Config) = cfg.config
         } yield assertTrue(
           node1Config.node.name == "ziose1",
           node1Config.node.domain == "127.0.0.1",
@@ -38,22 +37,32 @@ class MainSpec extends JUnitRunnableSpec {
           node2Config.clouseau.lock_class == "com.cloudant.ziose.store.NativeFSLockFactory",
           node2Config.clouseau.dir == "ziose/src"
         )
-      },
+      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf")))),
       test("getConfig success: config file without cookie") {
         for {
-          result <- AppCfg.fromHoconFile("src/test/resources/testNoCookieApp.conf")
-        } yield assertTrue(result.isRight)
-      },
-      test("getConfig failure: malformed config file") {
-        for {
-          result <- AppCfg.fromHoconFile("src/test/resources/testMalformedApp.conf")
-        } yield assertTrue(result.isLeft)
-      },
+          exitCode <- AppCfg.makeConfig().exit
+        } yield assertTrue(exitCode.isSuccess)
+      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testNoCookieApp.conf")))),
       test("Can get logger config") {
         for {
-          appConfig <- AppCfg.fromHoconFile("src/test/resources/testApp.conf")
-        } yield assertTrue(appConfig.is(_.right).logger.level == zio.LogLevel.Debug)
-      }
+          appCfg <- AppCfg.makeConfig()
+        } yield assertTrue(appCfg.logger.level == zio.LogLevel.Debug)
+      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf")))),
+      test("getConfig success: config file is empty") {
+        for {
+          exitCode <- AppCfg.makeConfig().exit
+        } yield assertTrue(exitCode.isSuccess)
+      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testEmpty.conf")))),
+      test("getConfig failure: config file where config is an empty list") {
+        for {
+          exitCode <- AppCfg.makeConfig().exit
+        } yield assertTrue(exitCode.isFailure)
+      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testConfigIsEmptyList.conf")))),
+      test("getConfig failure: malformed config file") {
+        for {
+          exitCode <- AppCfg.makeConfig.exit
+        } yield assertTrue(exitCode.isFailure)
+      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testMalformedApp.conf"))))
     )
   }
 
