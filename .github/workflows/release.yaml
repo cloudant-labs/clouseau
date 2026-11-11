@@ -72,10 +72,10 @@ jobs:
       - name: Bump version.sbt to next snapshot
         id: bump
         run: |
-          git fetch origin main
-          git branch -r --contains "${{ github.sha }}" | grep -q "origin/main" \
-            || { echo "Tag is not on main, skipping bump."; exit 0; }
-          git checkout origin/main -- version.sbt
+          git fetch origin clouseau-4.x
+          git branch -r --contains "${{ github.sha }}" | grep -q "origin/clouseau-4.x" \
+            || { echo "Tag is not on clouseau-4.x, skipping bump."; exit 0; }
+          git checkout origin/clouseau-4.x -- version.sbt
           make bump-snapshot
           echo "NEXT_VSN=$(make version)" >> $GITHUB_ENV
           echo "bumped=true" >> $GITHUB_OUTPUT
@@ -88,4 +88,4 @@ jobs:
           branch: bump-snapshot-${{ github.ref_name }}
           title: "Bump version to ${{ env.NEXT_VSN }}"
           body: "Automated snapshot bump after release ${{ github.ref_name }}."
-          base: main
+          base: clouseau-4.x
