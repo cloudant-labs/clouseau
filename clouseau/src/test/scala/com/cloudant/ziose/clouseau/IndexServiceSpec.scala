@@ -1186,16 +1186,21 @@ class IndexServiceSpec extends JUnitRunnableSpec {
           snapshotDirContents.sameElements(Array("_0.cfe", "_0.cfs", "_0.si", "segments_1"))
         )
       },
-      test("names the index in the error logged when an index callback fails") {
+      test("the error logged when an index callback fails names the index") {
+        // An index actor has no registered name, so its path is the only thing in the
+        // log line that says which index failed. The log line should look like
+        //
+        //   OnMessage None [<index path>]: StopWithCause(...)
         for {
-          index  <- startIndex(defaultConfig, standardAnalyzer)
-          _      <- updateD(index, "log-context-1", List(("timeStamp", "2024-01-01", List())))
-          _      <- updateD(index, "log-context-2", List(("timeStamp", 1700000000000L, List())))
-          _      <- assertNotAlive(index.id)
-          output <- ZTestLogger.logOutput
-          errors = output.filter(_.logLevel == LogLevel.Error).map(_.message())
+          index <- startIndex(defaultConfig, standardAnalyzer)
+          // IndexService has no case for this message, so handling it throws a MatchError.
+          // We don't wait for a reply because the index dies without sending one.
+          _    <- index.doTestCallTimeout(adapter.fromScala('message_with_no_handler), 3.seconds)
+          _    <- assertNotAlive(index.id)
+          logs <- ZTestLogger.logOutput
+          errorMessages = logs.filter(_.logLevel == LogLevel.Error).map(_.message())
         } yield assertTrue(
-          errors.exists(_.startsWith("OnMessage None [" + indexDir.getPath + "]: StopWithCause"))
+          errorMessages.exists(_.startsWith(s"OnMessage None [${indexDir.getPath}]: StopWithCause"))
         )
       }
     ).provideLayer(environment) @@ TestAspect.withLiveClock @@ TestAspect.sequential
