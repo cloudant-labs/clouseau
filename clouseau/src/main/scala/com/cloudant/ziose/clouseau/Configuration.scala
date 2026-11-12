@@ -164,7 +164,7 @@ final case class SyslogConfiguration(
   tag: String = ""
 )
 
-final case class NodeIndexProperty(node: String)
+final case class NodeIndexProperty(node: String = "node1")
 
 /**
  * A data type to hold configured capacity exponent values. Exponent must be greater than 0. If not specified
@@ -272,21 +272,19 @@ object AppCfg {
   private def getNodeIndex: Task[Int] = {
     import scala.jdk.CollectionConverters._
     for {
-      properties <- getProperties
-      parseResult = ConfigSource.fromConfig(ConfigFactory.parseMap(properties.asJava)).load[NodeIndexProperty]
-    } yield parseResult.fold(
-      _ => 0,
-      {
-        case NodeIndexProperty(nodeName) if nodeName.nonEmpty =>
-          val last = nodeName.last
-          if ('1' <= last && last <= '3')
-            last - '1'
-          else
-            0
+      properties        <- getProperties
+      nodeIndexProperty <- ZIO.attempt(
+        ConfigSource.fromConfig(ConfigFactory.parseMap(properties.asJava)).loadOrThrow[NodeIndexProperty]
+      )
+    } yield {
+      val NodeIndexProperty(nodeName) = nodeIndexProperty
+      nodeName match {
+        case _ if nodeName.nonEmpty && nodeName.last.isDigit =>
+          nodeName.last - '1'
         case _ =>
-          0
+          throw new IllegalArgumentException(s"Invalid node property value '$nodeName'. Usage: -Dnode=node<digit>")
       }
-    )
+    }
   }
 
   def patchClouseauConfig(config: ClouseauConfiguration): Task[ConfigReader.Result[ClouseauConfiguration]] = {
