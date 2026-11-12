@@ -136,66 +136,74 @@ class MainSpec extends JUnitRunnableSpec {
     }
   }
 
-  def ensureNoDefaultConfFile(): Unit = {
-    if (!defaultConfigFile.exists())
+  def ensureNoDefaultConfFile(): Unit =
+    if (defaultConfigFile.exists())
       defaultConfigFile.delete()
-  }
 
-  def cleanUpConfigFile(): Unit = {
+  def cleanUpConfigFile(): Unit =
     defaultConfigFile.delete()
-  }
 
   val boostrapSuite: Spec[Any, Throwable] =
     suite("Clouseau bootstrap tests")(
-      test("Clouseau reads default config file if started without arguments") {
-        for {
-          config <- AppCfg.makeConfig()
-        } yield assertTrue(config.config.headOption.is(_.some).node.name == testNodeName)
-      }
-        .provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk())))
-        @@ TestAspect.before(ZIO.attemptBlockingIO(ensureDefaultConfFile(testConfig)))
-        @@ TestAspect.afterSuccess(ZIO.attemptBlockingIO(cleanUpConfigFile())),
-      test("Clouseau reads config file set as argument") {
-        for {
-          config <- AppCfg.makeConfig()
-        } yield assertTrue(config.config.headOption.is(_.some).node.name == "ziose1")
-      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf")))),
-      test("Clouseau fails to start when default config file is missing and no argument is set") {
-        for {
-          exitCode <- AppCfg.makeConfig().exit
-        } yield assertTrue(exitCode.isFailure)
-      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/nonexistent.conf"))))
-        @@ TestAspect.before(ZIO.attemptBlockingIO(ensureNoDefaultConfFile())),
-      test("Clouseau fails to start when nonexistent config file is set as argument") {
-        for {
-          exitCode <- AppCfg.makeConfig().exit
-        } yield assertTrue(exitCode.isFailure)
-      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/nonexistent.conf")))),
-      test("Clouseau picks up node index from system properties") {
-        for {
-          config <- AppCfg.makeConfig()
-        } yield assertTrue(config.configIndex == 1)
-      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf"))))
-        .provideLayer(TestSystem.live(Data(properties = Map("node" -> "2")))),
-      test("Node index defaults to 0 if not set in system properties") {
-        for {
-          config <- AppCfg.makeConfig()
-        } yield assertTrue(config.configIndex == 0)
-      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf")))),
-      test("Clouseau can handle conflicting property keys") {
-        for {
-          exitCode <- AppCfg.makeConfig().exit
-        } yield assertTrue(exitCode.isSuccess)
-      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf"))))
-        .provideLayer(
-          TestSystem.live(Data(properties = Map("java.version.date" -> "2026.08.03", "java.version" -> "21.0.2")))
-        ),
-      test("Clouseau can handle nonexistent property key") {
-        for {
-          exitCode <- AppCfg.makeConfig().exit
-        } yield assertTrue(exitCode.isSuccess)
-      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf"))))
-        .provideLayer(TestSystem.live(Data(properties = Map("clouseau.magic" -> "0x1234"))))
+      suite("Config file tests")(
+        test("Clouseau reads default config file if started without arguments") {
+          for {
+            config <- AppCfg.makeConfig()
+          } yield assertTrue(config.config.headOption.is(_.some).node.name == testNodeName)
+        }
+          .provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk())))
+          @@ TestAspect.before(ZIO.attemptBlockingIO(ensureDefaultConfFile(testConfig)))
+          @@ TestAspect.afterSuccess(ZIO.attemptBlockingIO(cleanUpConfigFile())),
+        test("Clouseau reads config file set as argument") {
+          for {
+            config <- AppCfg.makeConfig()
+          } yield assertTrue(config.config.headOption.is(_.some).node.name == "ziose1")
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf")))),
+        test("Clouseau fails to start when default config file is missing and no argument is set") {
+          for {
+            exitCode <- AppCfg.makeConfig().exit
+          } yield assertTrue(exitCode.isFailure)
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk())))
+          @@ TestAspect.before(ZIO.attemptBlockingIO(ensureNoDefaultConfFile())),
+        test("Clouseau fails to start when nonexistent config file is set as argument") {
+          for {
+            exitCode <- AppCfg.makeConfig().exit
+          } yield assertTrue(exitCode.isFailure)
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/nonexistent.conf"))))
+      ) @@ TestAspect.sequential,
+      suite("System property tests")(
+        test("Clouseau picks up node index from system properties") {
+          for {
+            config <- AppCfg.makeConfig()
+          } yield assertTrue(config.configIndex == 1)
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf"))))
+          .provideLayer(TestSystem.live(Data(properties = Map("node" -> "2")))),
+        test("Clouseau fails to start when node index is out of bounds") {
+          for {
+            exitCode <- AppCfg.makeConfig().exit
+          } yield assertTrue(exitCode.isFailure)
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf"))))
+          .provideLayer(TestSystem.live(Data(properties = Map("node" -> "3")))),
+        test("Node index defaults to 0 if not set in system properties") {
+          for {
+            config <- AppCfg.makeConfig()
+          } yield assertTrue(config.configIndex == 0)
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf")))),
+        test("Clouseau can handle conflicting property keys") {
+          for {
+            exitCode <- AppCfg.makeConfig().exit
+          } yield assertTrue(exitCode.isSuccess)
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf"))))
+          .provideLayer(
+            TestSystem.live(Data(properties = Map("java.version.date" -> "2026.08.03", "java.version" -> "21.0.2")))
+          ),
+        test("Clouseau can handle nonexistent property key") {
+          for {
+            exitCode <- AppCfg.makeConfig().exit
+          } yield assertTrue(exitCode.isSuccess)
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf"))))
+          .provideLayer(TestSystem.live(Data(properties = Map("clouseau.magic" -> "0x1234"))))
+      )
     )
 
   def spec: Spec[Any, Throwable] =
