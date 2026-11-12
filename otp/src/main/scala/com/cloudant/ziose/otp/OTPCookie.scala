@@ -42,9 +42,7 @@ object OTPCookie {
     }
   }
 
-  private def randomCookie: String = {
-    (1 to 20).map(_ => Random.alphanumeric.filter(_.isUpper).head).mkString
-  }
+  private def randomCookie: String = Random.alphanumeric.take(20).mkString
 
   private def writeCookie(file: File, cookie: String): Unit = {
     val out = new FileWriter(file, StandardCharsets.UTF_8)

@@ -20,7 +20,7 @@ import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
 import java.nio.charset.StandardCharsets
 import scala.collection.immutable.HashMap
 
-class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
+class InitService(ctx: ServiceContext[Configuration])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
   val logger = LoggerFactory.getLogger("clouseau.InitService")
   logger.debug("Created")
 
@@ -33,8 +33,7 @@ class InitService(ctx: ServiceContext[ConfigurationArgs])(implicit adapter: Adap
   }
 
   private def spawnEcho(id: Symbol): Either[Any, Codec.EPid] = {
-    val ConfigurationArgs(args) = ctx.args
-    spawnedTimer.time(EchoService.start(adapter.node, id.name, args)) match {
+    spawnedTimer.time(EchoService.start(adapter.node, id.name, ctx.args)) match {
       case (Symbol("ok"), pidUntyped) => {
         spawnedSuccess += 1
         Right(pidUntyped.asInstanceOf[Pid].fromScala)
@@ -102,14 +101,14 @@ private object InitService extends ActorConstructor[InitService] {
 
   def make(
     node: SNode,
-    service_context: ServiceContext[ConfigurationArgs],
+    service_context: ServiceContext[Configuration],
     name: String
   ): ActorBuilder.Builder[InitService, State.Spawnable] = {
     def maker[PContext <: ProcessContext](process_context: PContext): InitService = {
       new InitService(service_context)(Adapter(process_context, node, ClouseauTypeFactory))
     }
 
-    val capacityExponent = service_context.args.config.capacity.init_exponent
+    val capacityExponent = service_context.args.capacity.init_exponent
 
     ActorBuilder()
       .withOptionalCapacityExponent(capacityExponent)

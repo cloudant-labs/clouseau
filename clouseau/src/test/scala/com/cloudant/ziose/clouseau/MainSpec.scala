@@ -3,90 +3,211 @@ sbt 'clouseau/testOnly com.cloudant.ziose.clouseau.MainSpec'
  */
 package com.cloudant.ziose.clouseau
 
-import org.junit.runner.RunWith
-import zio.{Config, System}
-import zio.test.Assertion.{anything, fails, isSubtype, succeeds}
-import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
-import zio.test.TestSystem.{Data, DefaultData}
-import zio.test.{Spec, TestSystem, assert, assertTrue}
+import com.cloudant.ziose.otp.OTPNodeConfig
 import com.cloudant.ziose.test.helpers.TestRunner
+import org.junit.runner.RunWith
+import pureconfig.ConfigReader
+import zio.test.Assertion.{anything, isSubtype}
+import zio.test.TestSystem.Data
+import zio.test.{assert, _}
+import zio.test.junit.{JUnitRunnableSpec, ZTestJUnitRunner}
+import zio.{Chunk, Task, ZEnvironment, ZIO, ZIOAppArgs}
+
+import java.io.{File, FileWriter, IOException}
+import java.nio.file.Paths
+import scala.util.Using
 
 @RunWith(classOf[ZTestJUnitRunner])
 class MainSpec extends JUnitRunnableSpec {
-  val getConfigSuite: Spec[Any, Config.Error] = {
+  val getConfigSuite: Spec[Any, Throwable] = {
     suite("readConfig")(
       test("readConfig success: config file exists") {
         for {
-          nodes <- AppCfg.fromHoconFilePath("src/test/resources/testApp.conf")
-          node1 = nodes.config.head
-          node2 = nodes.config(1)
+          cfg <- AppCfg.makeConfig()
+          List(node1Config, node2Config) = cfg.config
         } yield assertTrue(
-          nodes.config.size == 2,
-          node1.node.name == "ziose1",
-          node1.node.domain == "127.0.0.1",
-          node1.clouseau.get.close_if_idle.contains(false),
-          node1.clouseau.get.max_indexes_open.contains(10),
-          !node1.clouseau.get.getBoolean("clouseau.count_locks", false),
-          node2.node.domain == "bss1.cloudant.com",
-          node2.clouseau.get.dir.contains(RootDir("ziose/src")),
-          node1.clouseau.get.getString("clouseau.dir", "defaultDir") == "defaultDir",
-          node1.clouseau.get.getString("clouseau.dir_class", "defaultDirClass") == "defaultDirClass",
-          node1.clouseau.get.getString("clouseau.lock_class", "defaultLockClass") == "defaultLockClass",
-          node2.clouseau.get.getString("clouseau.dir", "default") == "ziose/src",
-          node2.clouseau.get.getString("clouseau.dir_class", "default") == "com.cloudant.ziose.store.NIOFSDirectory",
-          node2.clouseau.get
-            .getString("clouseau.lock_class", "default") == "com.cloudant.ziose.store.NativeFSLockFactory",
-          node2.clouseau.get.getBoolean("clouseau.count_locks", false)
+          node1Config.node.name == "ziose1",
+          node1Config.node.domain == "127.0.0.1",
+          !node1Config.clouseau.close_if_idle,
+          node1Config.clouseau.max_indexes_open == 10,
+          node2Config.node.name == "ziose2",
+          node2Config.node.domain == "bss1.cloudant.com",
+          node2Config.clouseau.count_locks,
+          node2Config.clouseau.dir_class == "com.cloudant.ziose.store.NIOFSDirectory",
+          node2Config.clouseau.lock_class == "com.cloudant.ziose.store.NativeFSLockFactory",
+          node2Config.clouseau.dir == "ziose/src"
         )
-      },
-      test("getConfig success: no cookie in the config file") {
+      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf")))),
+      test("getConfig success: config file without cookie") {
         for {
-          result <- AppCfg.fromHoconFilePath("src/test/resources/testNoCookieApp.conf").exit
-        } yield assert(result)(succeeds(isSubtype[AppCfg](anything)))
-      },
-      test("getConfig failure: malformed config file") {
-        for {
-          result <- AppCfg.fromHoconFilePath("src/test/resources/testMalformedApp.conf").exit
-        } yield assert(result)(fails(isSubtype[Config.Error](anything)))
-      },
+          exitCode <- AppCfg.makeConfig().exit
+        } yield assertTrue(exitCode.isSuccess)
+      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testNoCookieApp.conf")))),
       test("Can get logger config") {
         for {
-          appConfig <- AppCfg.fromHoconFilePath("src/test/resources/testApp.conf")
-        } yield assertTrue(appConfig.logger.level == Some(zio.LogLevel.Debug))
+          appCfg <- AppCfg.makeConfig()
+        } yield assertTrue(appCfg.logger.level == zio.LogLevel.Debug)
+      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf")))),
+      test("getConfig success: config file is empty") {
+        for {
+          exitCode <- AppCfg.makeConfig().exit
+        } yield assertTrue(exitCode.isSuccess)
+      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testEmpty.conf")))),
+      test("getConfig failure: config file where config is an empty list") {
+        for {
+          exitCode <- AppCfg.makeConfig().exit
+        } yield assertTrue(exitCode.isFailure)
+      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testConfigIsEmptyList.conf")))),
+      test("getConfig failure: malformed config file") {
+        for {
+          exitCode <- AppCfg.makeConfig.exit
+        } yield assertTrue(exitCode.isFailure)
+      }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testMalformedApp.conf"))))
+    )
+  }
+
+  private val defaultClouseauConfig: ClouseauConfiguration = ClouseauConfiguration()
+
+  val expectedDir: String        = defaultClouseauConfig.dir * 2
+  val expectedCloseFlag: Boolean = !defaultClouseauConfig.close_if_idle
+  val expectedInterval: Int      = defaultClouseauConfig.idle_check_interval_secs - 1
+  val expectedTimeout: Long      = defaultClouseauConfig.search_allowed_timeout_msecs - 1
+
+  val patchClouseau: Task[ConfigReader.Result[ClouseauConfiguration]] =
+    AppCfg.patchClouseauConfig(defaultClouseauConfig)
+
+  val mergeConfigWithPropsSuite: Spec[Any, Throwable] = {
+    suite("Patch config file with system properties")(
+      test("Set a string property") {
+        for {
+          patchResult <- patchClouseau
+        } yield assertTrue(patchResult.is(_.right).dir == expectedDir) &&
+          assert(expectedDir)(isSubtype[String](anything))
+      },
+      test("Set a Boolean property") {
+        for {
+          patchResult <- patchClouseau
+        } yield assertTrue(patchResult.is(_.right).close_if_idle == expectedCloseFlag) &&
+          assert(expectedCloseFlag)(isSubtype[Boolean](anything))
+      },
+      test("Set an integer property") {
+        for {
+          patchResult <- patchClouseau
+        } yield assertTrue(patchResult.is(_.right).idle_check_interval_secs == expectedInterval) &&
+          assert(expectedInterval)(isSubtype[Int](anything))
+      },
+      test("Set a long property") {
+        for {
+          patchResult <- patchClouseau
+        } yield assertTrue(patchResult.is(_.right).search_allowed_timeout_msecs == expectedTimeout) &&
+          assert(expectedTimeout)(isSubtype[Long](anything))
+      },
+      test("Set multiple properties") {
+        for {
+          patchResult <- patchClouseau
+        } yield assertTrue(patchResult.is(_.right).dir == expectedDir) &&
+          assertTrue(patchResult.is(_.right).search_allowed_timeout_msecs == expectedTimeout)
       }
+    ).provideLayer(
+      TestSystem.live(
+        Data(properties =
+          Map(
+            "clouseau.dir"                          -> expectedDir,
+            "clouseau.close_if_idle"                -> expectedCloseFlag.toString,
+            "clouseau.idle_check_interval_secs"     -> expectedInterval.toString,
+            "clouseau.search_allowed_timeout_msecs" -> expectedTimeout.toString
+          )
+        )
+      )
     )
   }
 
-  val nodeIdxSuite: Spec[Any, Throwable] = {
-    suite("nodeIdx")(
-      test("default value should be 0") {
-        for {
-          prop  <- System.property("node")
-          index <- Main.getNodeIdx
-        } yield assertTrue(prop.isEmpty, index == 0)
-      }.provideLayer(TestSystem.live(DefaultData)),
-      test("nodeIdx should be 'node number - 1'") {
-        for {
-          prop  <- System.property("node")
-          index <- Main.getNodeIdx
-        } yield assertTrue(prop.contains("ziose3"), index == 2)
-      }.provideLayer(TestSystem.live(Data(properties = Map("node" -> "ziose3")))),
-      test("nodeIdx should be 0 when node number is not in [1 to 3]") {
-        for {
-          prop  <- System.property("node")
-          index <- Main.getNodeIdx
-        } yield assertTrue(prop.contains("n4"), index == 0)
-      }.provideLayer(TestSystem.live(Data(properties = Map("node" -> "n4")))),
-      test("nodeIdx should be 0 when node property don't contain number") {
-        for {
-          prop  <- System.property("node")
-          index <- Main.getNodeIdx
-        } yield assertTrue(prop.contains("ziose"), index == 0)
-      }.provideLayer(TestSystem.live(Data(properties = Map("node" -> "ziose"))))
-    )
+  val defaultConfigFile: File = Paths.get(".", "clouseau.conf").toFile
+  val testNodeName: String    = "TestNodeName"
+  val testConfig: AppCfg      = AppCfg().copy(config = List(Configuration(node = OTPNodeConfig("TestNodeName"))))
+
+  def ensureDefaultConfFile(conf: AppCfg): Unit = {
+    if (!defaultConfigFile.exists()) {
+      Using(new FileWriter(defaultConfigFile))(openFile =>
+        openFile.write(AppCfg.appConfigWriter.to(conf).render(AppCfg.formatOptions))
+      )
+    } else {
+      throw new IOException(s"${defaultConfigFile.getAbsolutePath} exists. Please remove before testing")
+    }
   }
 
-  def spec: Spec[Any, Throwable] = suite("MainSpec")(getConfigSuite, nodeIdxSuite)
+  def ensureNoDefaultConfFile(): Unit =
+    if (defaultConfigFile.exists())
+      defaultConfigFile.delete()
+
+  def cleanUpConfigFile(): Unit =
+    defaultConfigFile.delete()
+
+  val boostrapSuite: Spec[Any, Throwable] =
+    suite("Clouseau bootstrap tests")(
+      suite("Config file tests")(
+        test("Clouseau reads default config file if started without arguments") {
+          for {
+            config <- AppCfg.makeConfig()
+          } yield assertTrue(config.config.headOption.is(_.some).node.name == testNodeName)
+        }
+          .provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk())))
+          @@ TestAspect.before(ZIO.attemptBlockingIO(ensureDefaultConfFile(testConfig)))
+          @@ TestAspect.afterSuccess(ZIO.attemptBlockingIO(cleanUpConfigFile())),
+        test("Clouseau reads config file set as argument") {
+          for {
+            config <- AppCfg.makeConfig()
+          } yield assertTrue(config.config.headOption.is(_.some).node.name == "ziose1")
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf")))),
+        test("Clouseau fails to start when default config file is missing and no argument is set") {
+          for {
+            exitCode <- AppCfg.makeConfig().exit
+          } yield assertTrue(exitCode.isFailure)
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk())))
+          @@ TestAspect.before(ZIO.attemptBlockingIO(ensureNoDefaultConfFile())),
+        test("Clouseau fails to start when nonexistent config file is set as argument") {
+          for {
+            exitCode <- AppCfg.makeConfig().exit
+          } yield assertTrue(exitCode.isFailure)
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/nonexistent.conf"))))
+      ) @@ TestAspect.sequential,
+      suite("System property tests")(
+        test("Clouseau picks up node index from system properties") {
+          for {
+            config <- AppCfg.makeConfig()
+          } yield assertTrue(config.configIndex == 1)
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf"))))
+          .provideLayer(TestSystem.live(Data(properties = Map("node" -> "2")))),
+        test("Clouseau fails to start when node index is out of bounds") {
+          for {
+            exitCode <- AppCfg.makeConfig().exit
+          } yield assertTrue(exitCode.isFailure)
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf"))))
+          .provideLayer(TestSystem.live(Data(properties = Map("node" -> "3")))),
+        test("Node index defaults to 0 if not set in system properties") {
+          for {
+            config <- AppCfg.makeConfig()
+          } yield assertTrue(config.configIndex == 0)
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf")))),
+        test("Clouseau can handle conflicting property keys") {
+          for {
+            exitCode <- AppCfg.makeConfig().exit
+          } yield assertTrue(exitCode.isSuccess)
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf"))))
+          .provideLayer(
+            TestSystem.live(Data(properties = Map("java.version.date" -> "2026.08.03", "java.version" -> "21.0.2")))
+          ),
+        test("Clouseau can handle nonexistent property key") {
+          for {
+            exitCode <- AppCfg.makeConfig().exit
+          } yield assertTrue(exitCode.isSuccess)
+        }.provideEnvironment(ZEnvironment(ZIOAppArgs(Chunk("src/test/resources/testApp.conf"))))
+          .provideLayer(TestSystem.live(Data(properties = Map("clouseau.magic" -> "0x1234"))))
+      )
+    )
+
+  def spec: Spec[Any, Throwable] =
+    suite("MainSpec")(getConfigSuite, mergeConfigWithPropsSuite, boostrapSuite)
 }
 
 /**
@@ -97,7 +218,6 @@ class MainSpec extends JUnitRunnableSpec {
  */
 object MainSpecMain {
   def main(args: Array[String]): Unit = {
-    // We cannot test getConfigSuite because it rely on resource files which we don't have when we run from jar
-    TestRunner.runSpec("MainSpec", zio.test.suite("MainSpec")(new MainSpec().nodeIdxSuite))
+    TestRunner.runSpec("MainSpec", zio.test.suite("MainSpec")(new MainSpec().spec))
   }
 }
