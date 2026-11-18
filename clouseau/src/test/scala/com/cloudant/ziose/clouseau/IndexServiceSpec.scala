@@ -1186,16 +1186,40 @@ class IndexServiceSpec extends JUnitRunnableSpec {
           snapshotDirContents.sameElements(Array("_0.cfe", "_0.cfs", "_0.si", "segments_1"))
         )
       },
-      test("names the index in the error logged when an index callback fails") {
+      test("clear error raised when indexing multiple data types in same field (string then number)") {
         for {
-          index  <- startIndex(defaultConfig, standardAnalyzer)
-          _      <- updateD(index, "log-context-1", List(("timeStamp", "2024-01-01", List())))
-          _      <- updateD(index, "log-context-2", List(("timeStamp", 1700000000000L, List())))
-          _      <- assertNotAlive(index.id)
-          output <- ZTestLogger.logOutput
-          errors = output.filter(_.logLevel == LogLevel.Error).map(_.message())
+          index <- startIndex(defaultConfig, standardAnalyzer)
+          val doc1 = List(
+            ("field1", "bar", List(("store", true)))
+          )
+          result1 <- updateD(index, "foo", List(("field1", "bar", List())))
+          result2 <- updateD(index, "bar", List(("field1", 12, List())))
         } yield assertTrue(
-          errors.exists(_.startsWith("OnMessage None [" + indexDir.getPath + "]: StopWithCause"))
+          result1.isDefined,
+          adapter.toScala(result1.get) == 'ok,
+          result2.isDefined,
+          adapter.toScala(result2.get) == (
+            'error,
+            ('bad_request, "Inconsistent data types used for the following fields: field1")
+          )
+        )
+      },
+      test("clear error raised when indexing multiple data types in same field (number then string)") {
+        for {
+          index <- startIndex(defaultConfig, standardAnalyzer)
+          val doc1 = List(
+            ("field1", "bar", List(("store", true)))
+          )
+          result1 <- updateD(index, "bar", List(("field1", 12, List())))
+          result2 <- updateD(index, "foo", List(("field1", "bar", List())))
+        } yield assertTrue(
+          result1.isDefined,
+          adapter.toScala(result1.get) == 'ok,
+          result2.isDefined,
+          adapter.toScala(result2.get) == (
+            'error,
+            ('bad_request, "Inconsistent data types used for the following fields: field1")
+          )
         )
       }
     ).provideLayer(environment) @@ TestAspect.withLiveClock @@ TestAspect.sequential
