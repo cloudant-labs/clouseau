@@ -186,6 +186,36 @@ class IndexManagerServiceSpec extends JUnitRunnableSpec {
           pid2Opt.isDefined,
           pid2Opt.get != pid1
         )
+      ),
+      test("delete of an unopened index removes its directory and replies ok")(
+        for {
+          manager <- startIndexManager
+          sigPath = "delete_me.1234567890/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          sigDir  = new File(indexDir, sigPath)
+          _       = sigDir.mkdirs()
+          _       = new File(sigDir, "segments_1").createNewFile()
+          reply <- callIndexManager(manager, ('delete, sigPath))
+          _     <- stopIndexManager(manager)
+        } yield assertTrue(
+          reply.isDefined,
+          adapter.toScala(reply.get) == 'ok,
+          !sigDir.exists
+        )
+      ),
+      test("delete racing an in-flight open replies ok, not not_found")(
+        for {
+          peer     <- startPeer("peer_race_del")
+          manager  <- startIndexManager
+          openF    <- openIndex(manager, peer, "race_del_foo", analyzerOptions).fork
+          delReply <- callIndexManager(manager, ('delete, "race_del_foo"))
+          openPid  <- openF.join
+          _        <- stopActor(peer)
+          _        <- stopIndexManager(manager)
+        } yield assertTrue(
+          openPid.isDefined,
+          delReply.isDefined,
+          adapter.toScala(delReply.get) == 'ok
+        )
       )
     ).provideLayer(environment) @@ TestAspect.withLiveClock @@ TestAspect.sequential
   }
