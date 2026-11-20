@@ -65,6 +65,7 @@ import org.apache.lucene.facet.Facets
 import scala.collection.mutable.ListBuffer
 import org.apache.lucene.facet.sortedset.DefaultSortedSetDocValuesReaderState
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetCounts
+import scala.collection.mutable.{Set => MSet}
 
 case class IndexServiceArgs(config: Configuration, name: String, queryParser: ClouseauQueryParser, writer: IndexWriter)
 case class HighlightParameters(highlighter: Highlighter, highlightFields: List[String], highlightNumber: Int, analyzers: List[Analyzer])
@@ -75,6 +76,8 @@ case class TopDocs(updateSeq: Long, totalHits: Long, hits: List[Hit])
 case class Hit(order: List[Any], fields: List[Any])
 
 case object InvalidReader extends Exception
+
+case class FieldSchema(docValuesType: DocValuesType, pointDimensionCount: Int, indexOptions: IndexOptions)
 
 class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
   import IndexService._
@@ -117,9 +120,13 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
   // Set initial default to be in the past so we don't miss first LRU update
   var lastLRUUpdate = Instant.now().minus(Duration.fromMillis(lruUpdateInterval * 2))
 
+  val fieldSchemaCache = scala.collection.mutable.Map[String, FieldSchema]()
+
   override def handleInit(): Unit = {
     logger.debug(s"handleInit(capacity = ${adapter.capacity})")
-    setReader(DirectoryReader.open(ctx.args.writer))
+    val reader = DirectoryReader.open(ctx.args.writer)
+    readFieldSchema(reader)
+    setReader(reader)
     sendEvery(self.pid, 'maybe_commit, commitInterval * 1000)
     send(self.pid, 'count_fields)
     adapter.setTag(ctx.args.name)
@@ -129,6 +136,12 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     }
 
     logger.debug(prefix_name("Opened at update_seq %d".format(updateSeq)))
+  }
+
+  private def readFieldSchema(reader: DirectoryReader) {
+    for (fi <- FieldInfos.getMergedFieldInfos(reader).asScala) {
+      fieldSchemaCache.put(fi.name, FieldSchema(fi.getDocValuesType(), fi.getPointDimensionCount(), fi.getIndexOptions))
+    }
   }
 
   override def onTermination[PContext <: ProcessContext](reason: Codec.ETerm, ctx: PContext) = {
@@ -178,11 +191,16 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
     case 'get_purge_seq =>
       ('ok, purgeSeq)
     case UpdateDocMsg(id: String, doc: Document) =>
-      logger.debug(prefix_name("Updating %s".format(id)))
-      updateTimer.time {
-        ctx.args.writer.updateDocument(new Term("_id", id), doc)
+      val schemaFailures = updateAndVerifyFieldSchema(doc)
+      if (schemaFailures.isEmpty) {
+        logger.debug(prefix_name("Updating %s".format(id)))
+        updateTimer.time {
+          ctx.args.writer.updateDocument(new Term("_id", id), doc)
+        }
+        'ok
+      } else {
+        ('error, ('bad_request, "Inconsistent data types used for the following fields: %s".format(schemaFailures.mkString(","))))
       }
-      'ok
     case DeleteDocMsg(id: String) =>
       logger.debug(prefix_name("Deleting %s".format(id)))
       deleteTimer.time {
@@ -327,6 +345,52 @@ class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adap
         }
       })
     }
+  }
+
+  private def updateAndVerifyFieldSchema(doc: Document): MSet[String] = {
+    val result = MSet.empty[String]
+    val newFields = scala.collection.mutable.Map[String, FieldSchema]()
+
+    for (field <- doc.iterator().asScala) {
+      val fieldName = field.name()
+      val newIndexOptions = field.fieldType.indexOptions()
+      val newDocValuesType = field.fieldType.docValuesType()
+      val newPointDimensionCount = field.fieldType.pointDimensionCount()
+      if (newIndexOptions != IndexOptions.NONE || newDocValuesType != DocValuesType.NONE || newPointDimensionCount > 0) {
+        newFields.get(fieldName).orElse(fieldSchemaCache.get(fieldName)) match {
+          case Some(existing) =>
+            var mismatch = false
+            if (newIndexOptions != IndexOptions.NONE &&
+              existing.indexOptions != IndexOptions.NONE &&
+              newIndexOptions != existing.indexOptions) {
+              mismatch = true
+            }
+            if (newDocValuesType != DocValuesType.NONE &&
+             existing.docValuesType != DocValuesType.NONE &&
+             newDocValuesType != existing.docValuesType) {
+              mismatch = true
+            }
+            if (newPointDimensionCount > 0 && existing.pointDimensionCount > 0 &&
+              newPointDimensionCount != existing.pointDimensionCount) {
+              mismatch = true;
+            }
+            if (mismatch) {
+              result += field.name()
+            } else if (!mismatch) {
+              val mergedDv = if (existing.docValuesType != DocValuesType.NONE) existing.docValuesType else newDocValuesType
+              val mergedDim = if (existing.pointDimensionCount > 0) existing.pointDimensionCount else newPointDimensionCount
+              val mergedOpts = if (existing.indexOptions != IndexOptions.NONE) existing.indexOptions else newIndexOptions
+              newFields.put(fieldName, FieldSchema(mergedDv, mergedDim, mergedOpts))
+            }
+          case None =>
+            newFields.put(fieldName, FieldSchema(newDocValuesType, newPointDimensionCount, newIndexOptions))
+        }
+      }
+    }
+    if (result.isEmpty) {
+      fieldSchemaCache ++= newFields
+    }
+    result
   }
 
   private def search(request: SearchRequest): Any = {
