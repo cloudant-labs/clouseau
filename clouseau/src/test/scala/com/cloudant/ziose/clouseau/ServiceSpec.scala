@@ -17,7 +17,7 @@ import com.cloudant.ziose.scalang.Reference
 
 import com.cloudant.ziose.test.helpers.TestRunner
 
-class SupervisorService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
+class SupervisorService(ctx: ServiceContext[None.type])(implicit adapter: Adapter) extends Service(ctx) {
   var calledArgs: List[Product2[String, Any]] = List()
 
   override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Unit = {

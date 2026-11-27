@@ -45,7 +45,7 @@ import core.{ActorBuilder, ActorConstructor, ProcessContext}
 import core.Codec._
 import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
 
-class RexService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
+class RexService(ctx: ServiceContext[None.type])(implicit adapter: Adapter) extends Service(ctx) {
   var ctrl: Option[ClouseauControl[_]] = None
 
   override def handleInit(): Unit = {

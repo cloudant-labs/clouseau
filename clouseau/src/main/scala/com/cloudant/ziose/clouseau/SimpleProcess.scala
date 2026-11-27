@@ -4,7 +4,7 @@ import com.cloudant.ziose.core
 import com.cloudant.ziose.scalang
 import zio._
 
-class SimpleProcess(fun: scalang.Process => Unit)(implicit adapter: scalang.Adapter[_, _])
+class SimpleProcess(fun: scalang.Process => Unit)(implicit adapter: scalang.Adapter)
     extends scalang.Process()(adapter) {
   override def onInit[PContext <: core.ProcessContext](ctx: PContext): ZIO[Any, Throwable, _ <: core.ActorResult] = {
     ZIO.succeedBlocking {

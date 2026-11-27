@@ -1,22 +1,22 @@
 package com.cloudant.ziose.scalang
 
-import com.cloudant.ziose.core.{Address, Codec, Engine, MessageEnvelope, PID, ProcessContext, Adapter => CoreAdapter}
+import com.cloudant.ziose.core.{Address, Codec, Engine, MessageEnvelope, PID, ProcessContext}
 import com.cloudant.ziose.macros.CheckEnv
 import zio.{Fiber, LogLevel, Runtime, URIO, ZIO}
 
 case object InvalidAdapter extends Exception
 
-class Adapter[C <: ProcessContext, F <: TypeFactory] private (
-  process_ctx: Option[C],
+class Adapter private (
+  process_ctx: Option[ProcessContext],
   snode: Option[SNode],
-  type_factory: Option[F],
+  type_factory: Option[TypeFactory],
   val workerId: Engine.WorkerId,
   val workerNodeName: Symbol
-) extends CoreAdapter[C, F] {
-  def ctx: C             = process_ctx.getOrElse(throw InvalidAdapter)
-  def node: SNode        = snode.getOrElse(throw InvalidAdapter)
-  def logLevel: LogLevel = node.logLevel
-  def factory: F         = type_factory.getOrElse(throw InvalidAdapter)
+) {
+  def ctx: ProcessContext  = process_ctx.getOrElse(throw InvalidAdapter)
+  def node: SNode          = snode.getOrElse(throw InvalidAdapter)
+  def logLevel: LogLevel   = node.logLevel
+  def factory: TypeFactory = type_factory.getOrElse(throw InvalidAdapter)
 
   def runtime: Runtime[Any] = snode match {
     case Some(node) => node.runtime
@@ -71,12 +71,12 @@ class Adapter[C <: ProcessContext, F <: TypeFactory] private (
 }
 
 object Adapter {
-  def apply[C <: ProcessContext, F <: TypeFactory](ctx: C, node: SNode, factory: F): Adapter[C, F] = {
+  def apply[C <: ProcessContext, F <: TypeFactory](ctx: ProcessContext, node: SNode, factory: TypeFactory): Adapter = {
     new Adapter(Some(ctx), Some(node), Some(factory), ctx.id.workerId, ctx.id.workerNodeName)
   }
 
-  val mockAdapter: Adapter[_, _] = new Adapter(None, None, None, 1, Symbol("mock-node"))
-  def mockAdapterWithFactory[F <: TypeFactory](factory: F): Adapter[_, _] = {
+  val mockAdapter: Adapter                                  = new Adapter(None, None, None, 1, Symbol("mock-node"))
+  def mockAdapterWithFactory(factory: TypeFactory): Adapter = {
     new Adapter(None, None, Some(factory), 1, Symbol("mock-node")) {
       override def toString: String = s"MockOf[Adapter]"
     }

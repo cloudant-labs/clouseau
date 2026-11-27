@@ -83,7 +83,7 @@ case class Hit(order: List[Any], fields: List[Any])
 
 case object InvalidReader extends Exception
 
-class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
+class IndexService(ctx: ServiceContext[IndexServiceArgs])(implicit adapter: Adapter) extends Service(ctx) with Instrumented {
   import IndexService._
 
   var lazyReader: Option[DirectoryReader] = None
@@ -937,7 +937,7 @@ object IndexService {
   val DISTANCE_RE = "^([-+])?<distance,([\\.\\w]+),([\\.\\w]+),%s,%s,(mi|km)>$".format(FP, FP).r
 
   private def buildArgs(config: Configuration, path: String, options: AnalyzerOptions)(implicit
-    adapter: Adapter[_, _]
+    adapter: Adapter
   ): Either[Any, IndexServiceArgs] = {
     val rootDir = new File(config.clouseau.dir)
     val dir = newDirectory(config.clouseau, new File(rootDir, path))
@@ -976,7 +976,7 @@ object IndexService {
     config: Configuration,
     path: String,
     options: AnalyzerOptions
-  )(implicit adapter: Adapter[_, _]): ZIO[Node & EngineWorker, Nothing, Any] = {
+  )(implicit adapter: Adapter): ZIO[Node & EngineWorker, Nothing, Any] = {
     val spawnOrError: ZIO[Node & EngineWorker, Throwable, Any] =
       ZIO.uninterruptibleMask { restore =>
         for {

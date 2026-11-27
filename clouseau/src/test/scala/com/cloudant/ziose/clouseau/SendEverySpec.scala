@@ -15,7 +15,7 @@ import zio.test.TestAspect
 import com.cloudant.ziose.test.helpers.Asserts.containsShapeOption
 import com.cloudant.ziose.test.helpers.TestRunner
 
-class SendEveryService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
+class SendEveryService(ctx: ServiceContext[None.type])(implicit adapter: Adapter) extends Service(ctx) {
   var calledArgs: List[Product2[String, Any]] = List()
   var counter: Int                            = 0
 

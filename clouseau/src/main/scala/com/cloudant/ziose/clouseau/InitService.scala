@@ -20,7 +20,7 @@ import scalang.{Adapter, Pid, SNode, Service, ServiceContext}
 import java.nio.charset.StandardCharsets
 import scala.collection.immutable.HashMap
 
-class InitService(ctx: ServiceContext[Configuration])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
+class InitService(ctx: ServiceContext[Configuration])(implicit adapter: Adapter) extends Service(ctx) {
   val logger = LoggerFactory.getLogger("clouseau.InitService")
   logger.debug("Created")
 

@@ -9,14 +9,14 @@ import com.cloudant.ziose.scalang.Service
 class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F) {
   import ClouseauControl.Error
 
-  def getServiceInfo(pid: Pid)(implicit adapter: Adapter[_, _]): Either[Error, Option[ProcessInfo]] = {
+  def getServiceInfo(pid: Pid)(implicit adapter: Adapter): Either[Error, Option[ProcessInfo]] = {
     val worker                   = adapter.ctx.asInstanceOf[OTPProcessContext].worker
     val address                  = Address.fromPid(pid.fromScala, adapter.workerId, adapter.workerNodeName)
     val res: Option[ProcessInfo] = worker.processInfo(address)
     Right(res)
   }
 
-  def getServiceInfo(name: Symbol)(implicit adapter: Adapter[_, _]): Either[Error, Option[ProcessInfo]] = {
+  def getServiceInfo(name: Symbol)(implicit adapter: Adapter): Either[Error, Option[ProcessInfo]] = {
     getService(name) match {
       case Right(Some(pid)) => getServiceInfo(pid)
       case Right(None)      => Right(None)
@@ -24,14 +24,14 @@ class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F
     }
   }
 
-  def getActorMeters(pid: Pid)(implicit adapter: Adapter[_, _]): Either[Error, Option[List[ActorMeterInfo]]] = {
+  def getActorMeters(pid: Pid)(implicit adapter: Adapter): Either[Error, Option[List[ActorMeterInfo]]] = {
     val worker  = adapter.ctx.asInstanceOf[OTPProcessContext].worker
     val address = Address.fromPid(pid.fromScala, adapter.workerId, adapter.workerNodeName)
     val res     = worker.actorMeters(address)
     Right(res)
   }
 
-  def getActorMeters(name: Symbol)(implicit adapter: Adapter[_, _]): Either[Error, Option[List[ActorMeterInfo]]] = {
+  def getActorMeters(name: Symbol)(implicit adapter: Adapter): Either[Error, Option[List[ActorMeterInfo]]] = {
     getService(name) match {
       case Right(Some(pid)) => getActorMeters(pid)
       case Right(None)      => Right(None)
@@ -39,7 +39,7 @@ class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F
     }
   }
 
-  def listServices()(implicit adapter: Adapter[_, _]): Either[Error, Map[Symbol, Any]] = {
+  def listServices()(implicit adapter: Adapter): Either[Error, Map[Symbol, Any]] = {
     Service.call(Symbol("sup"), Symbol("listChildren")) match {
       case result: Map[_, _] => Right(result.asInstanceOf[Map[Symbol, Any]])
       case error             => Left(Error.InternalError(error))
@@ -48,7 +48,7 @@ class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F
 
   def handleServiceInfoCommand(
     id: Any
-  )(implicit adapter: Adapter[_, _]): Either[Error, Option[ProcessInfo]] = {
+  )(implicit adapter: Adapter): Either[Error, Option[ProcessInfo]] = {
     id match {
       case id: Pid             => getServiceInfo(id)
       case serviceName: Symbol => getServiceInfo(serviceName)
@@ -58,7 +58,7 @@ class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F
 
   def handleServiceMetersCommand(
     id: Any
-  )(implicit adapter: Adapter[_, _]): Either[Error, Option[List[ActorMeterInfo]]] = {
+  )(implicit adapter: Adapter): Either[Error, Option[List[ActorMeterInfo]]] = {
     id match {
       case id: Pid             => getActorMeters(id)
       case serviceName: Symbol => getActorMeters(serviceName)
@@ -66,7 +66,7 @@ class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F
     }
   }
 
-  def handleTop(args: List[_])(implicit adapter: Adapter[_, _]): Either[Error, List[ProcessInfo]] = args match {
+  def handleTop(args: List[_])(implicit adapter: Adapter): Either[Error, List[ProcessInfo]] = args match {
     case List(key: Symbol) =>
       collectInfo(key)
     case List(other) =>
@@ -75,7 +75,7 @@ class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F
       Left(Error.InvalidNumerOfArguments(1, args.size))
   }
 
-  def handleTopMeters(args: List[_])(implicit adapter: Adapter[_, _]): Either[Error, List[ActorMeterInfo]] = {
+  def handleTopMeters(args: List[_])(implicit adapter: Adapter): Either[Error, List[ActorMeterInfo]] = {
     args match {
       case List((klass: Symbol, meterName: Symbol)) =>
         collectMeters(klass, meterName)
@@ -86,7 +86,7 @@ class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F
     }
   }
 
-  def collectInfo(valueKey: Symbol)(implicit adapter: Adapter[_, _]): Either[Error, List[ProcessInfo]] = {
+  def collectInfo(valueKey: Symbol)(implicit adapter: Adapter): Either[Error, List[ProcessInfo]] = {
     val worker = adapter.ctx.asInstanceOf[OTPProcessContext].worker
     core.ProcessInfo.valueFun(valueKey) match {
       case Some(valueFun) =>
@@ -99,7 +99,7 @@ class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F
   def collectMeters(
     klass: Symbol,
     meterName: Symbol
-  )(implicit adapter: Adapter[_, _]): Either[Error, List[ActorMeterInfo]] = {
+  )(implicit adapter: Adapter): Either[Error, List[ActorMeterInfo]] = {
     val worker = adapter.ctx.asInstanceOf[OTPProcessContext].worker
     core.ActorMeterInfo.select(klass, meterName) match {
       case Right(query) =>
@@ -109,7 +109,7 @@ class ClouseauControl[F <: scalang.TypeFactory](worker: EngineWorker, factory: F
     }
   }
 
-  private def getService(name: Symbol)(implicit adapter: Adapter[_, _]): Either[Error, Option[Pid]] = {
+  private def getService(name: Symbol)(implicit adapter: Adapter): Either[Error, Option[Pid]] = {
     Service.call(Symbol("sup"), (Symbol("getChild"), name)) match {
       case pid: Pid           => Right(Some(pid))
       case Symbol("undefine") => Right(None)

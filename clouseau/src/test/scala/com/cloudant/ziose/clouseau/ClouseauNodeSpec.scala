@@ -16,7 +16,7 @@ import com.cloudant.ziose.test.helpers.Asserts._
 import com.cloudant.ziose.test.helpers.LogHistory
 import com.cloudant.ziose.test.helpers.TestRunner
 
-class MonitorService(ctx: ServiceContext[None.type])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
+class MonitorService(ctx: ServiceContext[None.type])(implicit adapter: Adapter) extends Service(ctx) {
   var downPids: List[Product3[Pid, Reference, Any]] = List()
 
   override def trapMonitorExit(monitored: Any, ref: Reference, reason: Any): Unit = {
