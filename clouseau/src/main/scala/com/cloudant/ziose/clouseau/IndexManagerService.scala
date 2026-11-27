@@ -31,7 +31,7 @@ import com.cloudant.ziose.core.{Address, ProcessContext, Codec}
 import com.cloudant.ziose.otp.OTPProcessContext
 import zio.ZIO
 
-class IndexManagerService(ctx: ServiceContext[Configuration])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
+class IndexManagerService(ctx: ServiceContext[Configuration])(implicit adapter: Adapter) extends Service(ctx) with Instrumented {
 
   private def isProcessAlive(pid: Pid): Boolean = {
     adapter.ctx match {

@@ -21,7 +21,7 @@ import _root_.com.cloudant.ziose.scalang
 
 import scalang._
 
-class IndexCleanupService(ctx: ServiceContext[Configuration])(implicit adapter: Adapter[_, _]) extends Service(ctx) with Instrumented {
+class IndexCleanupService(ctx: ServiceContext[Configuration])(implicit adapter: Adapter) extends Service(ctx) with Instrumented {
 
   val logger = LoggerFactory.getLogger("clouseau.cleanup")
   val rootDir = new File(ctx.args.clouseau.dir)

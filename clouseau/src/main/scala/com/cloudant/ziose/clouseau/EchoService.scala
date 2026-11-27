@@ -10,7 +10,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import zio._
 
-class EchoService(ctx: ServiceContext[Configuration])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
+class EchoService(ctx: ServiceContext[Configuration])(implicit adapter: Adapter) extends Service(ctx) {
   val isProduction = true
 
   val logger = LoggerFactory.getLogger("clouseau.EchoService")
@@ -78,7 +78,7 @@ private object EchoService extends ActorConstructor[EchoService] {
       .build(this)
   }
 
-  def start(node: SNode, name: String, config: Configuration)(implicit adapter: Adapter[_, _]): Any = {
+  def start(node: SNode, name: String, config: Configuration)(implicit adapter: Adapter): Any = {
     val ctx: ServiceContext[Configuration] = {
       new ServiceContext[Configuration] {
         val args: Configuration = config

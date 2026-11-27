@@ -40,7 +40,7 @@ object ClouseauTypeFactory extends TypeFactory {
    * The parse function try to match the events for which we have dedicated ClouseauMessages.
    * If there is no match, it returns None, so we can continue matching elsewhere.
    */
-  def parse(term: ETerm)(implicit adapter: Adapter[_, _]): Option[ClouseauMessage] = {
+  def parse(term: ETerm)(implicit adapter: Adapter): Option[ClouseauMessage] = {
     term match {
       case ETuple(EAtom("cleanup"), dbName: EBinary, activeSigs: EList) =>
         val sigs = activeSigs.collect { case sig: EBinary => sig.asString }.toList
@@ -157,7 +157,7 @@ object ClouseauTypeFactory extends TypeFactory {
   }
 
   private def constructField(name: String, value: String, store: Store, index: Index, tv: TermVector)(implicit
-    adapter: Adapter[_, _]
+    adapter: Adapter
   ): Option[Field] = {
     try {
       Some(new Field(name, value, store, index, tv))

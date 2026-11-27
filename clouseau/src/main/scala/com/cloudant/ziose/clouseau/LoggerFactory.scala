@@ -76,41 +76,41 @@ object LoggerLayers {
 
 object LoggerFactory {
   case class NamedLogger(id: String) extends ZioSupport {
-    def debug(msg: => String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
+    def debug(msg: => String)(implicit adapter: Adapter, trace: Trace): Unit = {
       if (LogLevel.Debug >= adapter.logLevel) {
         log(logDebug(msg) @@ loggerName(id))
       }
     }
 
-    def info(msg: => String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
+    def info(msg: => String)(implicit adapter: Adapter, trace: Trace): Unit = {
       if (LogLevel.Info >= adapter.logLevel) {
         log(logInfo(msg) @@ loggerName(id))
       }
     }
 
-    def warn(msg: => String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
+    def warn(msg: => String)(implicit adapter: Adapter, trace: Trace): Unit = {
       if (LogLevel.Warning >= adapter.logLevel) {
         log(logWarning(msg) @@ loggerName(id))
       }
     }
-    def warn(msg: => String, e: Throwable)(implicit adapter: Adapter[_, _]): Unit = {
+    def warn(msg: => String, e: Throwable)(implicit adapter: Adapter): Unit = {
       if (LogLevel.Warning >= adapter.logLevel) {
         log(logWarningCause(msg, Cause.die(e)) @@ loggerName(id))
       }
     }
 
-    def error(msg: => String)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
+    def error(msg: => String)(implicit adapter: Adapter, trace: Trace): Unit = {
       if (LogLevel.Error >= adapter.logLevel) {
         log(logError(msg) @@ loggerName(id))
       }
     }
-    def error(msg: => String, e: Throwable)(implicit adapter: Adapter[_, _], trace: Trace): Unit = {
+    def error(msg: => String, e: Throwable)(implicit adapter: Adapter, trace: Trace): Unit = {
       if (LogLevel.Error >= adapter.logLevel) {
         log(logErrorCause(msg, Cause.die(e)) @@ loggerName(id))
       }
     }
 
-    def log(event: UIO[Unit])(implicit adapter: Adapter[_, _]): Unit = {
+    def log(event: UIO[Unit])(implicit adapter: Adapter): Unit = {
       event.timeout(Duration.fromSeconds(10)).forkDaemon.unsafeRunWith(adapter.runtime)
     }
   }

@@ -26,7 +26,7 @@ class ClouseauNode(implicit
 
   override def spawnService[TS <: Service[A] & Actor: Tag, A <: Product](
     builder: ActorBuilder.Sealed[TS]
-  )(implicit adapter: Adapter[_, _]): Result[Node.Error, AddressableActor[TS, ProcessContext]] = {
+  )(implicit adapter: Adapter): Result[Node.Error, AddressableActor[TS, ProcessContext]] = {
     val result = spawnServiceZIO[TS, A](builder).unsafeRunWith(runtime) // TODO: kill the caller
     result match {
       case Failure(cause) if cause.isFailure     => core.Failure(cause.failureOption.get)
@@ -41,7 +41,7 @@ class ClouseauNode(implicit
   override def spawnService[TS <: Service[A] & Actor: Tag, A <: Product](
     builder: ActorBuilder.Sealed[TS],
     reentrant: Boolean
-  )(implicit adapter: Adapter[_, _]): Result[Node.Error, AddressableActor[TS, ProcessContext]] = {
+  )(implicit adapter: Adapter): Result[Node.Error, AddressableActor[TS, ProcessContext]] = {
     // TODO Handle reentrant argument
     val result = spawnServiceZIO[TS, A](builder, reentrant).unsafeRunWith(runtime) // TODO: kill the caller
     result match {

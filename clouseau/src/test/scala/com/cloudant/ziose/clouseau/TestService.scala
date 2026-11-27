@@ -58,7 +58,7 @@ case class TestServiceHandle(
     .someOrFail(new TimeoutException(s"Getting history for $id timed out"))
 }
 
-class TestService(ctx: ServiceContext[TestServiceArgs])(implicit adapter: Adapter[_, _]) extends Service(ctx) {
+class TestService(ctx: ServiceContext[TestServiceArgs])(implicit adapter: Adapter) extends Service(ctx) {
   val logger = LoggerFactory.getLogger("clouseau.TestService")
 
   val echoTimer: metrics.Timer                = metrics.timer("echo.response_time")

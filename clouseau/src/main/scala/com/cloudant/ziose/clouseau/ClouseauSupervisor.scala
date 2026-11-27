@@ -37,7 +37,7 @@ case class ClouseauSupervisor(
     var analyzer: Option[Pid] = None,
     var init: Option[Pid] = None,
     var rex: Option[Pid] = None
-  )(implicit adapter: Adapter[_, _])
+  )(implicit adapter: Adapter)
     extends Service(ctx) {
   val TERMINATION_TIMEOUT = Duration.fromSeconds(3)
   val logger = LoggerFactory.getLogger("clouseau.supervisor")

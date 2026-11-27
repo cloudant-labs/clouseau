@@ -77,7 +77,7 @@ object ProcessLike {
   type NodeName = Symbol
 }
 
-trait ProcessLike[A <: Adapter[_, _]] extends Actor with ZioSupport {
+trait ProcessLike[A <: Adapter] extends Actor with ZioSupport {
   type RegName  = ProcessLike.RegName
   type NodeName = ProcessLike.NodeName
 
@@ -224,7 +224,7 @@ In clouseau builds we would be running old tests
 In ziose builds we would be running new ones
 
  */
-class Process(implicit val adapter: Adapter[_, _]) extends ProcessLike[Adapter[_, _]] with ZioSupport {
+class Process(implicit val adapter: Adapter) extends ProcessLike[Adapter] with ZioSupport {
   val runtime = adapter.runtime
   val name    = adapter.name
   val self    = adapter.self
@@ -375,7 +375,7 @@ class DestSend(to: (Symbol, Symbol), from: Pid, proc: Process) {
   )
 }
 
-class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter[_, _])
+class Service[A <: Product](ctx: ServiceContext[A])(implicit adapter: Adapter)
     extends Process()(adapter)
     with ZioSupport {
   def metricsRegistry = adapter.node.metricsRegistry
@@ -555,20 +555,20 @@ object Service extends ZioSupport {
   type RegName  = Symbol
   type NodeName = Symbol
 
-  private def toAddress(pid: Pid)(implicit adapter: Adapter[_, _]): Address = {
+  private def toAddress(pid: Pid)(implicit adapter: Adapter): Address = {
     Address.fromPid(pid.fromScala, adapter.workerId, adapter.workerNodeName)
   }
 
-  private def toAddress(name: RegName)(implicit adapter: Adapter[_, _]): Address = {
+  private def toAddress(name: RegName)(implicit adapter: Adapter): Address = {
     Address.fromName(EAtom(name), adapter.workerId, adapter.workerNodeName)
   }
 
-  private def toAddress(dest: (RegName, NodeName))(implicit adapter: Adapter[_, _]): Address = {
+  private def toAddress(dest: (RegName, NodeName))(implicit adapter: Adapter): Address = {
     val (name, node) = dest
     Address.fromRemoteName(EAtom(name), EAtom(node), adapter.workerId, adapter.workerNodeName)
   }
 
-  private def replyFromCall(result: Exit[Node.Error, MessageEnvelope.Response])(implicit adapter: Adapter[_, _]) = {
+  private def replyFromCall(result: Exit[Node.Error, MessageEnvelope.Response])(implicit adapter: Adapter) = {
     result match {
       case Exit.Success(res) =>
         (res.reason, res.payload) match {
@@ -586,37 +586,37 @@ object Service extends ZioSupport {
     }
   }
 
-  def call(to: Address, msg: Any)(implicit adapter: Adapter[_, _]): Any = {
+  def call(to: Address, msg: Any)(implicit adapter: Adapter): Any = {
     val rt: Runtime[Node] =
       adapter.runtime.asInstanceOf[Runtime[Node]]
     val result: Exit[Node.Error, MessageEnvelope.Response] =
       callZIO(to, msg).unsafeRunWith(rt)
     replyFromCall(result)
   }
-  def call(to: Address, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
+  def call(to: Address, msg: Any, timeout: Long)(implicit adapter: Adapter): Any = {
     val rt: Runtime[Node] =
       adapter.runtime.asInstanceOf[Runtime[Node]]
     val result: Exit[Node.Error, MessageEnvelope.Response] =
       callZIO(to, msg, Some(Duration.fromMillis(timeout))).unsafeRunWith(rt)
     replyFromCall(result)
   }
-  def call(to: Pid, msg: Any)(implicit adapter: Adapter[_, _]): Any                = call(toAddress(to), msg)
-  def call(to: Pid, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = call(toAddress(to), msg, timeout)
-  def call(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]): Any             = call(toAddress(to), msg)
-  def call(to: Symbol, msg: Any, timeout: Long)(implicit adapter: Adapter[_, _]): Any = {
+  def call(to: Pid, msg: Any)(implicit adapter: Adapter): Any                   = call(toAddress(to), msg)
+  def call(to: Pid, msg: Any, timeout: Long)(implicit adapter: Adapter): Any    = call(toAddress(to), msg, timeout)
+  def call(to: Symbol, msg: Any)(implicit adapter: Adapter): Any                = call(toAddress(to), msg)
+  def call(to: Symbol, msg: Any, timeout: Long)(implicit adapter: Adapter): Any = {
     call(toAddress(to), msg, timeout)
   }
-  def call(to: (ProcessLike.RegName, ProcessLike.NodeName), msg: Any)(implicit adapter: Adapter[_, _]): Any = {
+  def call(to: (ProcessLike.RegName, ProcessLike.NodeName), msg: Any)(implicit adapter: Adapter): Any = {
     call(toAddress(to), msg)
   }
   def call(to: (ProcessLike.RegName, ProcessLike.NodeName), msg: Any, timeout: Long)(implicit
-    adapter: Adapter[_, _]
+    adapter: Adapter
   ): Any = {
     call(toAddress(to), msg, timeout)
   }
 
   def callZIO(to: Address, msg: Any, timeout: Option[Duration] = None)(implicit
-    adapter: Adapter[_, _]
+    adapter: Adapter
   ): ZIO[Node, Node.Error, MessageEnvelope.Response] = {
     for {
       node <- ZIO.service[Node]
@@ -633,18 +633,18 @@ object Service extends ZioSupport {
     } yield result
   }
 
-  def cast(to: Address, msg: Any)(implicit adapter: Adapter[_, _]): Unit = {
+  def cast(to: Address, msg: Any)(implicit adapter: Adapter): Unit = {
     val rt = adapter.runtime.asInstanceOf[Runtime[Node]]
     castZIO(to, msg).unsafeRunWith(rt)
   }
-  def cast(to: Pid, msg: Any)(implicit adapter: Adapter[_, _]): Unit    = cast(toAddress(to), msg)
-  def cast(to: Symbol, msg: Any)(implicit adapter: Adapter[_, _]): Unit = cast(toAddress(to), msg)
-  def cast(to: (ProcessLike.RegName, ProcessLike.NodeName), msg: Any)(implicit adapter: Adapter[_, _]): Unit = {
+  def cast(to: Pid, msg: Any)(implicit adapter: Adapter): Unit    = cast(toAddress(to), msg)
+  def cast(to: Symbol, msg: Any)(implicit adapter: Adapter): Unit = cast(toAddress(to), msg)
+  def cast(to: (ProcessLike.RegName, ProcessLike.NodeName), msg: Any)(implicit adapter: Adapter): Unit = {
     cast(toAddress(to), msg)
   }
 
   def castZIO(to: Address, msg: Any)(implicit
-    adapter: Adapter[_, _]
+    adapter: Adapter
   ): ZIO[Node, Node.Error, Unit] = {
     for {
       node <- ZIO.service[Node]
@@ -661,19 +661,19 @@ object Service extends ZioSupport {
     } yield result
   }
 
-  def ping(to: Address)(implicit adapter: Adapter[_, _]): Boolean = {
+  def ping(to: Address)(implicit adapter: Adapter): Boolean = {
     call(to, Symbol("ping"), PING_TIMEOUT_IN_MSEC) == Symbol("pong")
   }
-  def ping(to: Pid)(implicit adapter: Adapter[_, _]): Boolean = {
+  def ping(to: Pid)(implicit adapter: Adapter): Boolean = {
     call(to, Symbol("ping"), PING_TIMEOUT_IN_MSEC) == Symbol("pong")
   }
-  def ping(to: Pid, timeout: Long)(implicit adapter: Adapter[_, _]): Boolean = {
+  def ping(to: Pid, timeout: Long)(implicit adapter: Adapter): Boolean = {
     call(to, Symbol("ping"), timeout) == Symbol("pong")
   }
-  def ping(to: Symbol)(implicit adapter: Adapter[_, _]): Boolean = {
+  def ping(to: Symbol)(implicit adapter: Adapter): Boolean = {
     call(to, Symbol("ping"), PING_TIMEOUT_IN_MSEC) == Symbol("pong")
   }
-  def ping(to: Symbol, timeout: Long)(implicit adapter: Adapter[_, _]): Boolean = {
+  def ping(to: Symbol, timeout: Long)(implicit adapter: Adapter): Boolean = {
     call(to, Symbol("ping"), timeout) == Symbol("pong")
   }
 

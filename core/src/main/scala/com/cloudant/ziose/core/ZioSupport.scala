@@ -2,10 +2,6 @@ package com.cloudant.ziose.core
 
 import zio.{Exit, IO, Runtime, Unsafe, ZIO}
 
-trait Adapter[C, F] {
-  def runtime: Runtime[Any]
-}
-
 trait ZioSupport {
   implicit final class ZioOps[E <: Throwable, A](self: IO[E, A]) {
     def unsafeRun: Exit[E, A] =
